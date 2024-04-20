@@ -81,8 +81,16 @@ namespace PleaseWork
             float passVal, accVal, techVal;
             (passVal, accVal, techVal) = BLCalc.GetPp(context, acc, accRating, passRating, techRating);
             float pp = BLCalc.Inflate(passVal + techVal + accVal);
-            pp = (float)Math.Floor(pp * 100.0f) / 100.0f;
-            display.text = PluginConfig.Instance.splitPPVals ? $"{passVal} Pass PP\n{accVal} Acc PP\n{techVal} Tech PP\n{pp} PP" : $"{pp} PP";
+            pp = (float)Math.Round(pp,2);
+            if (PluginConfig.Instance.splitPPVals)
+            {
+                passVal = (float)Math.Round(passVal, 2);
+                accVal = (float)Math.Round(accVal, 2);
+                techVal = (float)Math.Round(techVal, 2);
+                display.text = $"{passVal} Pass PP\n{accVal} Acc PP\n{techVal} Tech PP\n{pp} PP";
+            }
+            else 
+                display.text = $"{pp} PP";
         }
     }
 }
