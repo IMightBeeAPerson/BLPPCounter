@@ -1,0 +1,32 @@
+﻿{
+  "$schema": "https://raw.githubusercontent.com/bsmg/BSIPA-MetadataFileSchema/master/Schema.json",
+  "id": "PleaseWork",
+  "name": "PleaseWork",
+  "author": "Person",
+  "version": "0.0.1",
+  "description": "Adds a BeatLeader pp counter.",
+  "gameVersion": "1.29.0",
+  "dependsOn": {
+    "BSIPA": "^4.2.0",
+    "SiraUtil": "^3.0.5",
+    "Counters+": "^2.3.3",
+    "BeatSaberMarkupLanguage": "^1.6.3"
+  }, 
+  "features": {
+    "CountersPlus.CustomCounter": {
+      "Name": "PleaseWork",
+      "Description": "It counts things",
+      "CounterLocation": "PleaseWork.TheCounter",
+      "ConfigDefaults": {
+        "Enabled": true,
+        "Position": "AboveCombo",
+        "Distance": 0
+      },
+      "BSML": {
+        "Resource": "PleaseWork.Settings.settings.bsml",
+        "Host": "PleaseWork.Settings.SettingsHandler",
+        "Icon": "PleaseWork.Images.icon.png"
+      }
+    }
+  }   
+}
