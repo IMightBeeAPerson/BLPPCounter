@@ -134,7 +134,7 @@
   <ItemGroup>
     <None Include="Directory.Build.props" Condition="Exists('Directory.Build.props')" />
     <None Include="PleaseWork.csproj.user" Condition="Exists('PleaseWork.csproj.user')" />
-    <None Include="Settings\settings.bsml" />
+    <EmbeddedResource Include="Settings\settings.bsml" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BeatSaberModdingTools.Tasks">

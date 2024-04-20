@@ -14,7 +14,7 @@
   }, 
   "features": {
     "CountersPlus.CustomCounter": {
-      "Name": "PleaseWork",
+      "Name": "BL PP Counter",
       "Description": "It counts things",
       "CounterLocation": "PleaseWork.TheCounter",
       "ConfigDefaults": {
