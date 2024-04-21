@@ -87,7 +87,7 @@ namespace PleaseWork
                 default: this.context = LeaderboardContexts.None; break;
             }
             string[] prefix = new string[] { "p", "a", "t" };
-            string mod = mods.songSpeedMul > 1.0 ? mods.songSpeedMul > 1.2 ? "sf" : "fs" : mods.songSpeedMul != 1.0 ? "ss" : "";
+            string mod = mods.songSpeedMul > 1.0 ? mods.songSpeedMul >= 1.5 ? "sf" : "fs" : mods.songSpeedMul != 1.0 ? "ss" : "";
             for (int i = 0; i < prefix.Length; i++)
                 if (mod.Length > 0)
                     prefix[i] = mod + prefix[i].ToUpper();
