@@ -7,6 +7,7 @@ namespace PleaseWork.Settings
     internal class PluginConfig
     {
         public static PluginConfig Instance { get; set; }
-        public virtual bool splitPPVals { get; set; } = false;
+        public virtual bool SplitPPVals { get; set; } = false;
+        public virtual bool ProgressPP { get; set; } = false;
     }
 }

@@ -1,3 +1,4 @@
 ﻿<vertical spacing='1' horizontal-fit='PreferredSize'>
   <checkbox-setting text='Split PP Values' apply-on-change='true' value='SplitVals' hover-hint='Split the PP values to have pass, acc, and tech PP.'/>
+  <checkbox-setting text='Progressional PP' apply-on-change='true' value='PPP' hover-hint='Will add PP per hit up to the end of the map.'/>
 </vertical>
