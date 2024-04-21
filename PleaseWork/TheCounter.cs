@@ -21,7 +21,7 @@ namespace PleaseWork
         private bool dataLoaded = false;
         private Dictionary<string, string> data;
         private LeaderboardContexts context;
-        private float passRating, accRating, techRating;
+        private float passRating, accRating, techRating, stars;
 
         public override void CounterDestroy() { }
         public override void CounterInit()
@@ -69,15 +69,17 @@ namespace PleaseWork
         private void SetupMapData()
         {
             string data;
+            string hash = beatmap.level.levelID.Split('_')[2].ToUpper() + "_" + beatmap.difficulty.Name().Replace("+", "Plus");
             try
             {
-                data = this.data[beatmap.level.levelID.Split('_')[2].ToUpper() + "_" + beatmap.difficulty.Name().Replace("+", "Plus")];
+                data = this.data[hash];
             } catch (KeyNotFoundException)
             {
                 Plugin.Log.Info($"Data length: {this.data.Count}");
-                Plugin.Log.Error("Level doesn't exist for some reason :(\nHash: " + beatmap.level.levelID.Split('_')[2].ToUpper() + "_" + beatmap.difficulty.Name().Replace("+","Plus"));
+                Plugin.Log.Error("Level doesn't exist for some reason :(\nHash: " + hash);
                 return;
             }
+            Plugin.Log.Info("Map Hash: " + hash);
             //isRanked = int.Parse(new Regex("(?<=status..).").Match(data).Captures[0].Value) == 3;
             string context = new Regex("(?<=modeName...)[A-z]+").Match(data).Captures[0].Value;
             switch (context)
@@ -86,16 +88,18 @@ namespace PleaseWork
                 case "Golf": this.context = LeaderboardContexts.Golf; break;
                 default: this.context = LeaderboardContexts.None; break;
             }
-            string[] prefix = new string[] { "p", "a", "t" };
+            string[] prefix = new string[] { "p", "a", "t", "s" };
             string mod = mods.songSpeedMul > 1.0 ? mods.songSpeedMul >= 1.5 ? "sf" : "fs" : mods.songSpeedMul != 1.0 ? "ss" : "";
             for (int i = 0; i < prefix.Length; i++)
                 if (mod.Length > 0)
                     prefix[i] = mod + prefix[i].ToUpper();
-            string pass = prefix[0] + "assRating", acc = prefix[1] + "ccRating", tech = prefix[2] + "echRating";
+            string pass = prefix[0] + "assRating", acc = prefix[1] + "ccRating", tech = prefix[2] + "echRating", star = prefix[3] + "tars";
             passRating = float.Parse(new Regex(@"(?<=" + pass + @"..)[0-9\.]+").Match(data).Captures[0].Value);
             accRating = float.Parse(new Regex(@"(?<=" + acc + @"..)[0-9\.]+").Match(data).Captures[0].Value);
             techRating = float.Parse(new Regex(@"(?<=" + tech + @"..)[0-9\.]+").Match(data).Captures[0].Value);
-            Plugin.Log.Info($"Pass Rating: {passRating}\nAcc Rating: {accRating}\nTech Rating: {techRating}");
+            stars = float.Parse(new Regex(@"(?<=" + star + @"..)[0-9\.]+").Match(data).Captures[0].Value);
+            mod = mod.ToUpper();
+            Plugin.Log.Info(mod.Length > 0 ? $"{mod} Stars: {stars}\n{mod} Pass Rating: {passRating}\n{mod} Acc Rating: {accRating}\n{mod} Tech Rating: {techRating}" : $"Stars {stars}\nPass Rating: {passRating}\nAcc Rating: {accRating}\nTech Rating: {techRating}");
             UpdateText(1);
         }
         private void UpdateText(float acc)
