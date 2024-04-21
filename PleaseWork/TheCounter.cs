@@ -7,6 +7,7 @@ using TMPro;
 using Zenject;
 using PleaseWork.CalculatorStuffs;
 using PleaseWork.Settings;
+using System.Collections.Generic;
 namespace PleaseWork
 {
 
@@ -16,9 +17,9 @@ namespace PleaseWork
         [Inject] private GameplayModifiers mods;
         [Inject] private RelativeScoreAndImmediateRankCounter rsirc;
         private static readonly string BL_CACHE_FILE = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "LeaderboardsCache");
-        //https://github.com/PulseLane/PPCounter/blob/master/PPCounter/Data/BeatLeaderData.cs#L67
         private TMP_Text display;
-        private bool isRanked;
+        private bool dataLoaded = false;
+        private Dictionary<string, string> data;
         private LeaderboardContexts context;
         private float passRating, accRating, techRating;
 
@@ -28,7 +29,12 @@ namespace PleaseWork
             display = CanvasUtility.CreateTextFromSettings(Settings);
             display.text = "Loading...";
             display.fontSize = 3;
-            InitData();
+            if (!dataLoaded)
+            {
+                data = new Dictionary<string, string>();
+                InitData();
+            }
+            SetupMapData();
         }
 
         public void OnNoteCut(NoteData data, NoteCutInfo info)
@@ -38,26 +44,41 @@ namespace PleaseWork
 
         public void OnNoteMiss(NoteData data)
         {
-            
         }
         private void InitData()
         {
-            string id = beatmap.level.levelID.Split('_')[2].ToLower();
-            string data = "";
+            dataLoaded = false;
             if (File.Exists(BL_CACHE_FILE))
             {
                 try
                 {
-                    data = File.ReadAllText(BL_CACHE_FILE);
-                    data = new Regex("(?={.LeaderboardId[^}]+"+id+")({[^{}]+}*[^{}]+)+}").Match(data).Captures[0].Value;
-                    
+                    string data = File.ReadAllText(BL_CACHE_FILE);
+                    MatchCollection matches = new Regex(@"(?={.LeaderboardId[^}]+)({[^{}]+}*[^{}]+)+}").Matches(data);
+                    foreach (Match m in matches)
+                    {
+                        this.data[new Regex(@"(?<=hash...)[A-z0-9]+").Match(m.Value).Value.ToUpper() + "_" + new Regex(@"(?<=difficultyName...)[A-z0-9]+").Match(m.Value).Value] = m.Value;
+                    }
+                    dataLoaded = true;
                 } catch (Exception e)
                 {
-                    Plugin.Log.Error("error loading bl cashe file" + e);
-                    return;
+                    Plugin.Log.Error("Error loading bl cashe file: " + e.Message);
                 }
             }
-            isRanked = int.Parse(new Regex("(?<=status..).").Match(data).Captures[0].Value) == 3;
+            
+        }
+        private void SetupMapData()
+        {
+            string data;
+            try
+            {
+                data = this.data[beatmap.level.levelID.Split('_')[2].ToUpper() + "_" + beatmap.difficulty.Name().Replace("+", "Plus")];
+            } catch (KeyNotFoundException)
+            {
+                Plugin.Log.Info($"Data length: {this.data.Count}");
+                Plugin.Log.Error("Level doesn't exist for some reason :(\nHash: " + beatmap.level.levelID.Split('_')[2].ToUpper() + "_" + beatmap.difficulty.Name().Replace("+","Plus"));
+                return;
+            }
+            //isRanked = int.Parse(new Regex("(?<=status..).").Match(data).Captures[0].Value) == 3;
             string context = new Regex("(?<=modeName...)[A-z]+").Match(data).Captures[0].Value;
             switch (context)
             {
@@ -74,6 +95,7 @@ namespace PleaseWork
             passRating = float.Parse(new Regex(@"(?<=" + pass + @"..)[0-9\.]+").Match(data).Captures[0].Value);
             accRating = float.Parse(new Regex(@"(?<=" + acc + @"..)[0-9\.]+").Match(data).Captures[0].Value);
             techRating = float.Parse(new Regex(@"(?<=" + tech + @"..)[0-9\.]+").Match(data).Captures[0].Value);
+            Plugin.Log.Info($"Pass Rating: {passRating}\nAcc Rating: {accRating}\nTech Rating: {techRating}");
             UpdateText(1);
         }
         private void UpdateText(float acc)
