@@ -113,7 +113,7 @@ namespace PleaseWork
         private bool SetupMapData()
         {
             string data = "";
-            string hash = beatmap.level.levelID.Split('_')[2].ToUpper();// + "_" + beatmap.difficulty.Name().Replace("+", "Plus");
+            string hash = beatmap.level.levelID.Split('_')[2].ToUpper();
             try
             {
                 Dictionary<string, string> hold = this.data[hash].Get(beatmap.difficulty.Name().Replace("+", "Plus"));
@@ -122,15 +122,14 @@ namespace PleaseWork
                         data = hold[s]; //dumbest way to access a value
                 else data = hold["Standard"];
             }
-            catch (Exception)
+            catch (Exception e)
             {
                 Plugin.Log.Info($"Data length: {this.data.Count}");
                 Plugin.Log.Warn("Level doesn't exist for some reason :(\nHash: " + hash);
-                //Plugin.Log.Critical(e);
+                Plugin.Log.Debug(e);
                 return false;
             }
             Plugin.Log.Info("Map Hash: " + hash);
-            //Plugin.Log.Info($"Data: {data}");
             /*if (int.Parse(new Regex("(?<=status..).").Match(data).Captures[0].Value) != 3)
                 return false;*/
             return SetupMapData(data);
@@ -185,7 +184,7 @@ namespace PleaseWork
             if (notes == 1) return 115;
             if (notes < 6) return 115 * (notes * 2 - 1);
             if (notes < 14) return 115 * ((notes - 5) * 4 + 9);
-            return 115 * (notes - 14) * 8 + 5635;
+            return 920 * (notes - 14) + 5635;
         }
         private int NotesForMaxScore(int score)
         {
