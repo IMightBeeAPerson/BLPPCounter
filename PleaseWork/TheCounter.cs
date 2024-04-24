@@ -99,7 +99,10 @@ namespace PleaseWork
             string hash = beatmap.level.levelID.Split('_')[2].ToUpper();// + "_" + beatmap.difficulty.Name().Replace("+", "Plus");
             try
             {
-                data = this.data[hash].Get("Standard", beatmap.difficulty.Name().Replace("+", "Plus"));
+                Dictionary<string, string> hold = this.data[hash].Get(beatmap.difficulty.Name().Replace("+", "Plus"));
+                if (hold.ContainsKey("Standard"))
+                    data = hold["Standard"];
+                else data = hold["OneSaber"];
             } catch (Exception e)
             {
                 Plugin.Log.Info($"Data length: {this.data.Count}");
@@ -111,6 +114,7 @@ namespace PleaseWork
             //Plugin.Log.Info($"Data: {data}");
             /*if (int.Parse(new Regex("(?<=status..).").Match(data).Captures[0].Value) != 3)
                 return false;*/
+            if (data.Length <= 0) return false;
             string mode = new Regex("(?<=modeName...)[A-z]+").Match(data).Value;
             totalNotes = NotesForMaxScore(int.Parse(new Regex(@"(?<=maxScore..)[0-9]+").Match(data).Value));
             string[] prefix = new string[] { "p", "a", "t", "s" };

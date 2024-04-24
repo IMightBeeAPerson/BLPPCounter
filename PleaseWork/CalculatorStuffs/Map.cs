@@ -35,15 +35,15 @@ namespace PleaseWork.CalculatorStuffs
         {
             return data[mode][difficulty];
         }
-        public string[] Get(string difficulty)
+        public Dictionary<string, string> Get(string difficulty)
         {
-            List<string> list = new List<string>();
+            Dictionary<string, string> outp = new Dictionary<string, string>();
             foreach(string key in data.Keys)
             {
                 if (data[key].ContainsKey(difficulty))
-                    list.Add(data[key][difficulty]);
+                    outp[key] = data[key][difficulty];
             }
-            return list.ToArray();
+            return outp;
         }
         public void Combine(Map other)
         {
