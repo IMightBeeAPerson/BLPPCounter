@@ -100,9 +100,10 @@ namespace PleaseWork
             try
             {
                 Dictionary<string, string> hold = this.data[hash].Get(beatmap.difficulty.Name().Replace("+", "Plus"));
-                if (hold.ContainsKey("Standard"))
-                    data = hold["Standard"];
-                else data = hold["OneSaber"];
+                if (hold.Keys.Count == 1)
+                    foreach (string s in hold.Keys)
+                        data = hold[s]; //dumbest way to access a value
+                else data = hold["Standard"];
             } catch (Exception e)
             {
                 Plugin.Log.Info($"Data length: {this.data.Count}");
