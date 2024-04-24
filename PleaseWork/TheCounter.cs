@@ -8,7 +8,7 @@ using Zenject;
 using PleaseWork.CalculatorStuffs;
 using PleaseWork.Settings;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
+using System.Net.Http;
 namespace PleaseWork
 {
 
@@ -18,11 +18,14 @@ namespace PleaseWork
         [Inject] private GameplayModifiers mods;
         [Inject] private RelativeScoreAndImmediateRankCounter rsirc;
         private static readonly string BL_CACHE_FILE = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "LeaderboardsCache");
+        private static readonly string BLAPI_HASH = "http://api.beatleader.xyz/leaderboards/hash/";
+        private static readonly HttpClient client = new HttpClient();
         private TMP_Text display;
         private bool dataLoaded = false, enabled;
         private Dictionary<string, Map> data;
         private float passRating, accRating, techRating, stars;
         private float totalNotes, notes;
+        
 
         public override void CounterDestroy() { }
         public override void CounterInit()
@@ -32,12 +35,12 @@ namespace PleaseWork
             if (!dataLoaded)
             {
                 data = new Dictionary<string, Map>();
+                client.Timeout = new TimeSpan(0,0,3);
                 InitData();
-                if (!dataLoaded) return;
             }
             try
             {
-                enabled = SetupMapData();
+                enabled = dataLoaded ? SetupMapData() : SetupMapData(RequestData());
                 if (enabled)
                 {
                     display = CanvasUtility.CreateTextFromSettings(Settings);
@@ -68,6 +71,19 @@ namespace PleaseWork
             if (enabled)
                 notes++;
         }
+        private string RequestData()
+        {
+            try
+            {
+                string hash = beatmap.level.levelID.Split('_')[2].ToUpper();
+                Plugin.Log.Info(BLAPI_HASH + hash);
+                return client.GetStringAsync(new Uri(BLAPI_HASH + hash)).Result;
+            } catch (HttpRequestException e)
+            {
+                Plugin.Log.Warn($"Beat Leader API request failed!\nError: {e.Message}");
+                return "";
+            }
+        }
         private void InitData()
         {
             dataLoaded = false;
@@ -85,7 +101,8 @@ namespace PleaseWork
                         else this.data[map.hash] = map;
                     }
                     dataLoaded = true;
-                } catch (Exception e)
+                }
+                catch (Exception e)
                 {
                     Plugin.Log.Warn("Error loading bl cashe file: " + e.Message);
                     //Plugin.Log.Error(e);
@@ -104,7 +121,8 @@ namespace PleaseWork
                     foreach (string s in hold.Keys)
                         data = hold[s]; //dumbest way to access a value
                 else data = hold["Standard"];
-            } catch (Exception e)
+            }
+            catch (Exception)
             {
                 Plugin.Log.Info($"Data length: {this.data.Count}");
                 Plugin.Log.Warn("Level doesn't exist for some reason :(\nHash: " + hash);
@@ -115,19 +133,23 @@ namespace PleaseWork
             //Plugin.Log.Info($"Data: {data}");
             /*if (int.Parse(new Regex("(?<=status..).").Match(data).Captures[0].Value) != 3)
                 return false;*/
+            return SetupMapData(data);
+        }
+        private bool SetupMapData(string data)
+        {
             if (data.Length <= 0) return false;
             string mode = new Regex("(?<=modeName...)[A-z]+").Match(data).Value;
             totalNotes = NotesForMaxScore(int.Parse(new Regex(@"(?<=maxScore..)[0-9]+").Match(data).Value));
             string[] prefix = new string[] { "p", "a", "t", "s" };
             string mod = mods.songSpeedMul > 1.0 ? mods.songSpeedMul >= 1.5 ? "sf" : "fs" : mods.songSpeedMul != 1.0 ? "ss" : "";
-            for (int i = 0; i < prefix.Length; i++)
-                if (mod.Length > 0)
+            if (mod.Length > 0)
+                for (int i = 0; i < prefix.Length; i++)
                     prefix[i] = mod + prefix[i].ToUpper();
             string pass = prefix[0] + "assRating", acc = prefix[1] + "ccRating", tech = prefix[2] + "echRating", star = prefix[3] + "tars";
-            passRating = float.Parse(new Regex(@"(?<=" + pass + @"..)[0-9\.]+").Match(data).Value);
-            accRating = float.Parse(new Regex(@"(?<=" + acc + @"..)[0-9\.]+").Match(data).Value);
-            techRating = float.Parse(new Regex(@"(?<=" + tech + @"..)[0-9\.]+").Match(data).Value);
-            stars = float.Parse(new Regex(@"(?<=" + star + @"..)[0-9\.]+").Match(data).Value);
+            passRating = float.Parse(new Regex($@"(?<={pass}..)[0-9\.]+").Match(data).Value);
+            accRating = float.Parse(new Regex($@"(?<={acc}..)[0-9\.]+").Match(data).Value);
+            techRating = float.Parse(new Regex($@"(?<={tech}..)[0-9\.]+").Match(data).Value);
+            stars = float.Parse(new Regex($@"(?<={star}..)[0-9\.]+").Match(data).Value);
             mod = mod.ToUpper();
             Plugin.Log.Info(mod.Length > 0 ? $"{mod} Stars: {stars}\n{mod} Pass Rating: {passRating}\n{mod} Acc Rating: {accRating}\n{mod} Tech Rating: {techRating}" : $"Stars: {stars}\nPass Rating: {passRating}\nAcc Rating: {accRating}\nTech Rating: {techRating}");
             return stars > 0;
