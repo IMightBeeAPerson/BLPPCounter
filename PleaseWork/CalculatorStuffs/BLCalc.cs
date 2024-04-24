@@ -44,14 +44,15 @@ namespace PleaseWork.CalculatorStuffs
                 (0.65, 0.296),
                 (0.6, 0.256),
                 (0.0, 0.000), };
-        public static (float, float, float) GetPp(LeaderboardContexts context, float accuracy, float accRating, float passRating, float techRating)
+        public static (float, float, float) GetPp(float accuracy, float accRating, float passRating, float techRating)
         {
             float passPP = 15.2f * (float)Math.Exp(Math.Pow(passRating, 1 / 2.62f)) - 30f;
             if (float.IsInfinity(passPP) || float.IsNaN(passPP) || float.IsNegativeInfinity(passPP) || passPP < 0)
             {
                 passPP = 0;
             }
-            float accPP = context == LeaderboardContexts.Golf ? accuracy * accRating * 42f : Curve2(accuracy) * accRating * 34f;
+            //float accPP = context == LeaderboardContexts.Golf ? accuracy * accRating * 42f : Curve2(accuracy) * accRating * 34f;
+            float accPP = Curve2(accuracy) * accRating * 34f;
             float techPP = (float)Math.Exp(1.9f * accuracy) * 1.08f * techRating;
 
             return (passPP, accPP, techPP);

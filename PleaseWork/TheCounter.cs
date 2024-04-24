@@ -8,6 +8,7 @@ using Zenject;
 using PleaseWork.CalculatorStuffs;
 using PleaseWork.Settings;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 namespace PleaseWork
 {
 
@@ -18,36 +19,54 @@ namespace PleaseWork
         [Inject] private RelativeScoreAndImmediateRankCounter rsirc;
         private static readonly string BL_CACHE_FILE = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "LeaderboardsCache");
         private TMP_Text display;
-        private bool dataLoaded = false;
-        private Dictionary<string, string> data;
-        private LeaderboardContexts context;
+        private bool dataLoaded = false, enabled;
+        private Dictionary<string, Map> data;
         private float passRating, accRating, techRating, stars;
         private float totalNotes, notes;
 
         public override void CounterDestroy() { }
         public override void CounterInit()
         {
-            display = CanvasUtility.CreateTextFromSettings(Settings);
-            display.text = "Loading...";
-            display.fontSize = 3;
             notes = 0;
+            enabled = false;
             if (!dataLoaded)
             {
-                data = new Dictionary<string, string>();
+                data = new Dictionary<string, Map>();
                 InitData();
+                if (!dataLoaded) return;
             }
-            SetupMapData();
+            try
+            {
+                enabled = SetupMapData();
+                if (enabled)
+                {
+                    display = CanvasUtility.CreateTextFromSettings(Settings);
+                    display.text = "Loading...";
+                    display.fontSize = 3;
+                    UpdateText(1);
+                } else
+                {
+                    Plugin.Log.Warn("Maps failed to load, most likely unranked.");
+                }
+            } catch (Exception ex)
+            {
+                Plugin.Log.Critical($"Map data failed to be parsed: {ex.Message}");
+                enabled = false;
+            }
         }
 
         public void OnNoteCut(NoteData data, NoteCutInfo info)
         {
-            notes++;
-            UpdateText(rsirc.relativeScore);
+            if (enabled) {
+                notes++;
+                UpdateText(rsirc.relativeScore);
+            }
         }
 
         public void OnNoteMiss(NoteData data)
         {
-            notes++;
+            if (enabled)
+                notes++;
         }
         private void InitData()
         {
@@ -60,38 +79,39 @@ namespace PleaseWork
                     MatchCollection matches = new Regex(@"(?={.LeaderboardId[^}]+)({[^{}]+}*[^{}]+)+}").Matches(data);
                     foreach (Match m in matches)
                     {
-                        this.data[new Regex(@"(?<=hash...)[A-z0-9]+").Match(m.Value).Value.ToUpper() + "_" + new Regex(@"(?<=difficultyName...)[A-z0-9]+").Match(m.Value).Value] = m.Value;
+                        Map map = new Map(new Regex(@"(?<=hash...)[A-z0-9]+").Match(m.Value).Value.ToUpper(), m.Value);
+                        if (this.data.ContainsKey(map.hash))
+                            this.data[map.hash].Combine(map);
+                        else this.data[map.hash] = map;
                     }
                     dataLoaded = true;
                 } catch (Exception e)
                 {
                     Plugin.Log.Error("Error loading bl cashe file: " + e.Message);
+                    //Plugin.Log.Error(e);
                 }
             }
             
         }
-        private void SetupMapData()
+        private bool SetupMapData()
         {
             string data;
-            string hash = beatmap.level.levelID.Split('_')[2].ToUpper() + "_" + beatmap.difficulty.Name().Replace("+", "Plus");
+            string hash = beatmap.level.levelID.Split('_')[2].ToUpper();// + "_" + beatmap.difficulty.Name().Replace("+", "Plus");
             try
             {
-                data = this.data[hash];
-            } catch (KeyNotFoundException)
+                data = this.data[hash].Get("Standard", beatmap.difficulty.Name().Replace("+", "Plus"));
+            } catch (Exception e)
             {
                 Plugin.Log.Info($"Data length: {this.data.Count}");
-                Plugin.Log.Error("Level doesn't exist for some reason :(\nHash: " + hash);
-                return;
+                Plugin.Log.Critical("Level doesn't exist for some reason :(\nHash: " + hash);
+                //Plugin.Log.Critical(e);
+                return false;
             }
             Plugin.Log.Info("Map Hash: " + hash);
-            //isRanked = int.Parse(new Regex("(?<=status..).").Match(data).Captures[0].Value) == 3;
-            string context = new Regex("(?<=modeName...)[A-z]+").Match(data).Captures[0].Value;
-            switch (context)
-            {
-                case "Standard": this.context = LeaderboardContexts.Standard; break;
-                case "Golf": this.context = LeaderboardContexts.Golf; break;
-                default: this.context = LeaderboardContexts.None; break;
-            }
+            //Plugin.Log.Info($"Data: {data}");
+            /*if (int.Parse(new Regex("(?<=status..).").Match(data).Captures[0].Value) != 3)
+                return false;*/
+            string mode = new Regex("(?<=modeName...)[A-z]+").Match(data).Value;
             totalNotes = NotesForMaxScore(int.Parse(new Regex(@"(?<=maxScore..)[0-9]+").Match(data).Value));
             string[] prefix = new string[] { "p", "a", "t", "s" };
             string mod = mods.songSpeedMul > 1.0 ? mods.songSpeedMul >= 1.5 ? "sf" : "fs" : mods.songSpeedMul != 1.0 ? "ss" : "";
@@ -104,13 +124,13 @@ namespace PleaseWork
             techRating = float.Parse(new Regex(@"(?<=" + tech + @"..)[0-9\.]+").Match(data).Value);
             stars = float.Parse(new Regex(@"(?<=" + star + @"..)[0-9\.]+").Match(data).Value);
             mod = mod.ToUpper();
-            Plugin.Log.Info(mod.Length > 0 ? $"{mod} Stars: {stars}\n{mod} Pass Rating: {passRating}\n{mod} Acc Rating: {accRating}\n{mod} Tech Rating: {techRating}" : $"Stars {stars}\nPass Rating: {passRating}\nAcc Rating: {accRating}\nTech Rating: {techRating}");
-            UpdateText(1);
+            Plugin.Log.Info(mod.Length > 0 ? $"{mod} Stars: {stars}\n{mod} Pass Rating: {passRating}\n{mod} Acc Rating: {accRating}\n{mod} Tech Rating: {techRating}" : $"Stars: {stars}\nPass Rating: {passRating}\nAcc Rating: {accRating}\nTech Rating: {techRating}");
+            return stars > 0;
         }
         private void UpdateText(float acc)
         {
             float passVal, accVal, techVal;
-            (passVal, accVal, techVal) = BLCalc.GetPp(context, acc, accRating, passRating, techRating);
+            (passVal, accVal, techVal) = BLCalc.GetPp(acc, accRating, passRating, techRating);
             float pp = BLCalc.Inflate(passVal + techVal + accVal);
             if (PluginConfig.Instance.ProgressPP)
             {
