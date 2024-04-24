@@ -95,7 +95,7 @@ namespace PleaseWork
         }
         private bool SetupMapData()
         {
-            string data;
+            string data = "";
             string hash = beatmap.level.levelID.Split('_')[2].ToUpper();// + "_" + beatmap.difficulty.Name().Replace("+", "Plus");
             try
             {
