@@ -50,7 +50,7 @@ namespace PleaseWork
                 }
             } catch (Exception ex)
             {
-                Plugin.Log.Critical($"Map data failed to be parsed: {ex.Message}");
+                Plugin.Log.Warn($"Map data failed to be parsed: {ex.Message}");
                 enabled = false;
             }
         }
@@ -87,7 +87,7 @@ namespace PleaseWork
                     dataLoaded = true;
                 } catch (Exception e)
                 {
-                    Plugin.Log.Error("Error loading bl cashe file: " + e.Message);
+                    Plugin.Log.Warn("Error loading bl cashe file: " + e.Message);
                     //Plugin.Log.Error(e);
                 }
             }
@@ -103,7 +103,7 @@ namespace PleaseWork
             } catch (Exception e)
             {
                 Plugin.Log.Info($"Data length: {this.data.Count}");
-                Plugin.Log.Critical("Level doesn't exist for some reason :(\nHash: " + hash);
+                Plugin.Log.Warn("Level doesn't exist for some reason :(\nHash: " + hash);
                 //Plugin.Log.Critical(e);
                 return false;
             }
