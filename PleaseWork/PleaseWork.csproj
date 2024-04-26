@@ -124,7 +124,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CalculatorStuffs\BLCalc.cs" />
-    <Compile Include="CalculatorStuffs\Map.cs" />
+    <Compile Include="Utils\HelpfulMath.cs" />
+    <Compile Include="Utils\HelpfulPaths.cs" />
+    <Compile Include="Utils\Map.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="Settings\PluginConfig.cs" />
     <Compile Include="PleaseWorkController.cs" />

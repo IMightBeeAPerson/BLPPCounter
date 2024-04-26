@@ -1,4 +1,8 @@
 ﻿<vertical spacing='1' horizontal-fit='PreferredSize'>
-  <checkbox-setting text='Split PP Values' apply-on-change='true' value='SplitVals' hover-hint='Split the PP values to have pass, acc, and tech PP.'/>
+  <increment-setting text="Decimal Precision" value="decimalPrecision" integer-only="true" min="0" max="4" increment="1" apply-on-change="true"/>
+  <increment-setting text="Font Size" value="fontSize" integer-only="false" min="0.5" max="5" increment="0.5" apply-on-change="true"/>
+  <checkbox-setting text='Show Labels' apply-on-change='true' value='showLbl' hover-hint='Whether or not to show label next to PP.'/>
+  <checkbox-setting text='PP if FC' apply-on-change='true' value='PPFC' hover-hint='Also show PP if you had gotten a FC.'/>
+  <checkbox-setting text='Split PP Values' apply-on-change='true' value='splitVals' hover-hint='Split the PP values to have pass, acc, and tech PP.'/>
   <checkbox-setting text='Progressional PP' apply-on-change='true' value='PPP' hover-hint='Will add PP per hit up to the end of the map.'/>
 </vertical>

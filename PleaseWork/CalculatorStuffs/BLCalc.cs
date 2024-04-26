@@ -47,6 +47,11 @@ namespace PleaseWork.CalculatorStuffs
         public static (float, float, float) GetPp(float accuracy, float accRating, float passRating, float techRating)
         {
             float passPP = 15.2f * (float)Math.Exp(Math.Pow(passRating, 1 / 2.62f)) - 30f;
+            if (float.IsNaN(accuracy) || float.IsNegativeInfinity(accuracy))
+                accuracy = 0;
+            if (float.IsInfinity(accuracy))
+                accuracy = 1;
+            accuracy = (float)Math.Max(0,Math.Min(1,accuracy));
             if (float.IsInfinity(passPP) || float.IsNaN(passPP) || float.IsNegativeInfinity(passPP) || passPP < 0)
             {
                 passPP = 0;
@@ -56,6 +61,12 @@ namespace PleaseWork.CalculatorStuffs
             float techPP = (float)Math.Exp(1.9f * accuracy) * 1.08f * techRating;
 
             return (passPP, accPP, techPP);
+        }
+        public static float GetStraightPP(float accuracy, float accRating, float passRating, float techRating)
+        {
+            float p, a, t;
+            (p,a,t) = GetPp(accuracy, accRating, passRating, techRating);
+            return Inflate(p + a + t);
         }
         public static float Inflate(float peepee)
         {

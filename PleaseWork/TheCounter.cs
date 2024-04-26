@@ -7,31 +7,45 @@ using TMPro;
 using Zenject;
 using PleaseWork.CalculatorStuffs;
 using PleaseWork.Settings;
+using PleaseWork.Utils;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Security.Policy;
+using System.Linq;
 namespace PleaseWork
 {
 
-    public class TheCounter : BasicCustomCounter, INoteEventHandler
+    public class TheCounter : BasicCustomCounter
     {
         [Inject] private IDifficultyBeatmap beatmap;
         [Inject] private GameplayModifiers mods;
+        [Inject] private PlayerDataModel pdm;
+        [Inject] private ScoreController sc;
         [Inject] private RelativeScoreAndImmediateRankCounter rsirc;
-        private static readonly string BL_CACHE_FILE = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "LeaderboardsCache");
-        private static readonly string BLAPI_HASH = "http://api.beatleader.xyz/leaderboards/hash/";
         private static readonly HttpClient client = new HttpClient();
         private TMP_Text display;
         private bool dataLoaded = false, enabled;
         private Dictionary<string, Map> data;
         private float passRating, accRating, techRating, stars;
-        private float totalNotes, notes;
-        
+        private int totalNotes, notes, badNotes;
+        private int precision, highScore, fcScore, totalHitscore;
 
-        public override void CounterDestroy() { }
+
+
+        public override void CounterDestroy() {
+            if (enabled)
+            {
+                sc.scoreDidChangeEvent -= OnScoreChange;
+                if (PluginConfig.Instance.PPFC)
+                    sc.scoringForNoteFinishedEvent -= OnNoteScored;
+            }
+        }
         public override void CounterInit()
         {
-            notes = 0;
+            highScore = pdm.playerData.GetPlayerLevelStatsData(beatmap).highScore;
+            notes = fcScore = badNotes = totalHitscore = 0;
             enabled = false;
+            precision = PluginConfig.Instance.DecimalPrecision;
             if (!dataLoaded)
             {
                 data = new Dictionary<string, Map>();
@@ -40,58 +54,74 @@ namespace PleaseWork
             }
             try
             {
-                enabled = dataLoaded ? SetupMapData() : SetupMapData(RequestData());
+                enabled = dataLoaded ? SetupMapData() : SetupMapData(RequestHashData());
                 if (enabled)
                 {
                     display = CanvasUtility.CreateTextFromSettings(Settings);
                     display.text = "Loading...";
-                    display.fontSize = 3;
+                    display.fontSize = (float)PluginConfig.Instance.FontSize;
+                    if (PluginConfig.Instance.PPFC)
+                        sc.scoringForNoteFinishedEvent += OnNoteScored;
                     UpdateText(1);
+                    sc.scoreDidChangeEvent += OnScoreChange;
                 } else
                 {
                     Plugin.Log.Warn("Maps failed to load, most likely unranked.");
                 }
-            } catch (Exception ex)
+            } catch (Exception e)
             {
-                Plugin.Log.Warn($"Map data failed to be parsed: {ex.Message}");
+                Plugin.Log.Warn($"Map data failed to be parsed: {e.Message}");
+                Plugin.Log.Debug(e);
                 enabled = false;
+                if (display != null)
+                    display.text = "";
             }
         }
 
-        public void OnNoteCut(NoteData data, NoteCutInfo info)
+        private void OnNoteScored(ScoringElement scoringElement)
         {
-            if (enabled) {
-                notes++;
-                UpdateText(rsirc.relativeScore);
+            notes++;
+            if (scoringElement is GoodCutScoringElement goodCut && goodCut.noteData.scoringType == NoteData.ScoringType.Normal)
+            {
+                fcScore += goodCut.cutScore * HelpfulMath.MultiplierForNote(notes);
+                totalHitscore += goodCut.cutScore;
             }
+            else
+            {
+                badNotes++;
+                fcScore += (int)Math.Round(totalHitscore / (double)(notes - badNotes)) * HelpfulMath.MultiplierForNote(notes);
+            }
+            
         }
-
-        public void OnNoteMiss(NoteData data)
+        private void OnScoreChange(int score, int modifiedScore)
         {
-            if (enabled)
-                notes++;
+            UpdateText(rsirc.relativeScore);
         }
-        private string RequestData()
+        private string RequestHashData()
+        {
+            string path = HelpfulPaths.BLAPI_HASH + beatmap.level.levelID.Split('_')[2].ToUpper();
+            Plugin.Log.Info(path);
+            return RequestData(path);
+        }
+        private string RequestData(string path)
         {
             try
             {
-                string hash = beatmap.level.levelID.Split('_')[2].ToUpper();
-                Plugin.Log.Info(BLAPI_HASH + hash);
-                return client.GetStringAsync(new Uri(BLAPI_HASH + hash)).Result;
+                return client.GetStringAsync(new Uri(path)).Result;
             } catch (HttpRequestException e)
             {
-                Plugin.Log.Warn($"Beat Leader API request failed!\nError: {e.Message}");
+                Plugin.Log.Warn($"Beat Leader API request failed!\nPath: {path}\nError: {e.Message}");
                 return "";
             }
         }
         private void InitData()
         {
             dataLoaded = false;
-            if (File.Exists(BL_CACHE_FILE))
+            if (File.Exists(HelpfulPaths.BL_CACHE_FILE))
             {
                 try
                 {
-                    string data = File.ReadAllText(BL_CACHE_FILE);
+                    string data = File.ReadAllText(HelpfulPaths.BL_CACHE_FILE);
                     MatchCollection matches = new Regex(@"(?={.LeaderboardId[^}]+)({[^{}]+}*[^{}]+)+}").Matches(data);
                     foreach (Match m in matches)
                     {
@@ -105,7 +135,7 @@ namespace PleaseWork
                 catch (Exception e)
                 {
                     Plugin.Log.Warn("Error loading bl cashe file: " + e.Message);
-                    //Plugin.Log.Error(e);
+                    Plugin.Log.Debug(e);
                 }
             }
             
@@ -118,27 +148,24 @@ namespace PleaseWork
             {
                 Dictionary<string, string> hold = this.data[hash].Get(beatmap.difficulty.Name().Replace("+", "Plus"));
                 if (hold.Keys.Count == 1)
-                    foreach (string s in hold.Keys)
-                        data = hold[s]; //dumbest way to access a value
+                    data = hold[hold.Keys.First()];
                 else data = hold["Standard"];
             }
             catch (Exception e)
             {
-                Plugin.Log.Info($"Data length: {this.data.Count}");
+                Plugin.Log.Debug($"Data length: {this.data.Count}");
                 Plugin.Log.Warn("Level doesn't exist for some reason :(\nHash: " + hash);
                 Plugin.Log.Debug(e);
                 return false;
             }
             Plugin.Log.Info("Map Hash: " + hash);
-            /*if (int.Parse(new Regex("(?<=status..).").Match(data).Captures[0].Value) != 3)
-                return false;*/
             return SetupMapData(data);
         }
         private bool SetupMapData(string data)
         {
             if (data.Length <= 0) return false;
             string mode = new Regex("(?<=modeName...)[A-z]+").Match(data).Value;
-            totalNotes = NotesForMaxScore(int.Parse(new Regex(@"(?<=maxScore..)[0-9]+").Match(data).Value));
+            totalNotes = HelpfulMath.NotesForMaxScore(int.Parse(new Regex(@"(?<=maxScore..)[0-9]+").Match(data).Value));
             string[] prefix = new string[] { "p", "a", "t", "s" };
             string mod = mods.songSpeedMul > 1.0 ? mods.songSpeedMul >= 1.5 ? "sf" : "fs" : mods.songSpeedMul != 1.0 ? "ss" : "";
             if (mod.Length > 0)
@@ -155,44 +182,39 @@ namespace PleaseWork
         }
         private void UpdateText(float acc)
         {
-            float passVal, accVal, techVal;
-            (passVal, accVal, techVal) = BLCalc.GetPp(acc, accRating, passRating, techRating);
-            float pp = BLCalc.Inflate(passVal + techVal + accVal);
-            if (PluginConfig.Instance.ProgressPP)
+            bool[] settings = { PluginConfig.Instance.ProgressPP, PluginConfig.Instance.SplitPPVals, PluginConfig.Instance.ShowLbl, PluginConfig.Instance.PPFC && badNotes > 0 };
+            float[] ppVals = new float[settings[3] ? 8 : 4];
+            (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
+            ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
+            if (settings[3])
             {
-                float mult = notes / totalNotes;
-                mult = Math.Min(1, mult);
-                passVal *= mult;
-                accVal *= mult;
-                techVal *= mult;
-                pp *= mult;
+                float fcAcc = fcScore / (float)HelpfulMath.MaxScoreForNotes(notes);
+                if (float.IsNaN(fcAcc)) fcAcc = 1;
+                (ppVals[4], ppVals[5], ppVals[6]) = BLCalc.GetPp(fcAcc, accRating, passRating, techRating);
+                ppVals[7] = BLCalc.Inflate(ppVals[4] + ppVals[5] + ppVals[6]);
             }
-            pp = (float)Math.Round(pp, 2);
-            if (PluginConfig.Instance.SplitPPVals)
+            if (settings[0])
             {
-                passVal = (float)Math.Round(passVal, 2);
-                accVal = (float)Math.Round(accVal, 2);
-                techVal = (float)Math.Round(techVal, 2);
-                display.text = $"{passVal} Pass PP\n{accVal} Acc PP\n{techVal} Tech PP\n{pp} PP";
+                float mult = notes / (float)totalNotes;
+                mult = Math.Min(1, mult);
+                for (int i = 0; i < ppVals.Length; i++)
+                    ppVals[i] = (float)Math.Round(ppVals[i] * mult, precision);
+            } else
+                for (int i = 0; i < ppVals.Length; i++)
+                    ppVals[i] = (float)Math.Round(ppVals[i], precision);
+            if (settings[1])
+            {
+                display.text = settings[3] ?
+                    settings[2] ? $"{ppVals[0]}/{ppVals[4]} Pass PP\n{ppVals[1]}/{ppVals[5]} Acc PP\n{ppVals[2]}/{ppVals[6]} Tech PP\n{ppVals[3]}/{ppVals[7]} PP" : 
+                    $"{ppVals[0]}/{ppVals[4]}\n{ppVals[1]}/{ppVals[5]}\n{ppVals[2]}/{ppVals[6]}\n{ppVals[3]}/{ppVals[7]}" :
+                    settings[2] ? $"{ppVals[0]} Pass PP\n{ppVals[1]} Acc PP\n{ppVals[2]} Tech PP\n{ppVals[3]} PP" : 
+                    $"{ppVals[0]}\n{ppVals[1]}\n{ppVals[2]}\n{ppVals[3]}";
             }
             else 
-                display.text = $"{pp} PP";
+                display.text = settings[3] ?
+                    settings[2] ? $"{ppVals[3]}/{ppVals[7]} PP" : $"{ppVals[3]}/{ppVals[7]}" :
+                    settings[2] ? $"{ppVals[3]} PP" : $"{ppVals[3]}";
         }
-        private int MaxScoreForNotes(int notes)
-        {
-            if (notes <= 0) return 0;
-            if (notes == 1) return 115;
-            if (notes < 6) return 115 * (notes * 2 - 1);
-            if (notes < 14) return 115 * ((notes - 5) * 4 + 9);
-            return 920 * (notes - 14) + 5635;
-        }
-        private int NotesForMaxScore(int score)
-        {
-            if (score <= 0) return 0;
-            if (score == 115) return 1;
-            if (score < 1495) return (score / 115 + 1) / 2;
-            if (score < 5635) return (score / 115 - 9) / 4 + 5;
-            return (score - 5635) / 920 + 14;
-        }
+        
     }
 }
