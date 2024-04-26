@@ -1,10 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using UnityEngine;
-using IPA.Utilities;
 
 namespace PleaseWork.CalculatorStuffs
 {
@@ -91,5 +86,46 @@ namespace PleaseWork.CalculatorStuffs
             double middle_dis = (acc - pointList2[i - 1].Item1) / (pointList2[i].Item1 - pointList2[i - 1].Item1);
             return (float)(pointList2[i - 1].Item2 + middle_dis * (pointList2[i].Item2 - pointList2[i - 1].Item2));
         }
+        #region ReplayMath
+        private const float MinBeforeCutScore = 0.0f;
+        private const float MinAfterCutScore = 0.0f;
+        private const float MaxBeforeCutScore = 70.0f;
+        private const float MaxAfterCutScore = 30.0f;
+        private const float MaxCenterDistanceCutScore = 15.0f;
+        public static int RoundToInt(float f) { return (int)Math.Round(f); }
+        public static int GetCutDistanceScore(float cutDistanceToCenter)
+        {
+            return RoundToInt(MaxCenterDistanceCutScore * (1f - Clamp01(cutDistanceToCenter / 0.3f)));
+        }
+
+        public static int GetBeforeCutScore(float beforeCutRating)
+        {
+            var rating = Clamp01(beforeCutRating);
+            return RoundToInt(LerpUnclamped(MinBeforeCutScore, MaxBeforeCutScore, rating));
+        }
+
+        public static int GetAfterCutScore(float afterCutRating)
+        {
+            var rating = Clamp01(afterCutRating);
+            return RoundToInt(LerpUnclamped(MinAfterCutScore, MaxAfterCutScore, rating));
+        }
+        public static int GetCutScore(BeatLeader.Models.Replay.NoteCutInfo info)
+        {
+            return GetBeforeCutScore(info.beforeCutRating) + GetCutDistanceScore(info.cutDistanceToCenter) + GetAfterCutScore(info.afterCutRating);
+        }
+        public static float Clamp01(float value)
+        {
+            if (value < 0F)
+                return 0F;
+            else if (value > 1F)
+                return 1F;
+            else
+                return value;
+        }
+        public static float LerpUnclamped(float a, float b, float t)
+        {
+            return a + (b - a) * t;
+        }
+        #endregion
     }
 }

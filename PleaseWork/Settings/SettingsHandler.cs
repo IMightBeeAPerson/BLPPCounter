@@ -1,4 +1,5 @@
 using BeatSaberMarkupLanguage.Attributes;
+using System.Collections.Generic;
 
 namespace PleaseWork.Settings
 {
@@ -8,64 +9,39 @@ namespace PleaseWork.Settings
         public bool SplitPPVals
         {
             get => PluginConfig.Instance.SplitPPVals;
-            set
-            {
-                PluginConfig.Instance.SplitPPVals = value;
-            }
-        }
-        [UIValue("PPP")]
-        public bool ProgressPP
-        {
-            get => PluginConfig.Instance.ProgressPP;
-            set
-            {
-                PluginConfig.Instance.ProgressPP = value;
-            }
+            set => PluginConfig.Instance.SplitPPVals = value;
         }
         [UIValue("decimalPrecision")]
         public int DecimalPrecision
         {
             get => PluginConfig.Instance.DecimalPrecision;
-            set
-            {
-                PluginConfig.Instance.DecimalPrecision = value;
-            }
+            set => PluginConfig.Instance.DecimalPrecision = value;
         }
         [UIValue("fontSize")]
         public double FontSize
         {
             get => PluginConfig.Instance.FontSize;
-            set
-            {
-                PluginConfig.Instance.FontSize = value;
-            }
+            set => PluginConfig.Instance.FontSize = value;
         }
-        /*[UIValue("relative")]
-        public bool Relative
+        [UIValue("typesOfPP")]
+        public List<object> TypesOfPP => new List<object>() { "Normal", "Progressive", "Relative" };
+        [UIValue("PPType")]
+        public string PPType
         {
-            get => PluginConfig.Instance.Relative;
-            set
-            {
-                PluginConfig.Instance.Relative = value;
-            }
-        }*/
+            get => PluginConfig.Instance.PPType;
+            set => PluginConfig.Instance.PPType = value;
+        }
         [UIValue("showLbl")]
         public bool ShowLbl
         {
             get => PluginConfig.Instance.ShowLbl;
-            set
-            {
-                PluginConfig.Instance.ShowLbl = value;
-            }
+            set => PluginConfig.Instance.ShowLbl = value;
         }
         [UIValue("PPFC")]
         public bool PPFC
         {
             get => PluginConfig.Instance.PPFC;
-            set
-            {
-                PluginConfig.Instance.PPFC = value;
-            }
+            set => PluginConfig.Instance.PPFC = value;
         }
     }
 }

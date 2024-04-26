@@ -32,5 +32,11 @@ namespace PleaseWork.Utils
             if (note < 14) return 4;
             return 8;
         }
+        public static int DecreaseMultiplier(int note)
+        {
+            if (note >= 14) return 6;
+            if (note >= 6) return 2;
+            return 0;
+        }
     }
 }

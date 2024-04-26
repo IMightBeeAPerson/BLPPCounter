@@ -121,6 +121,13 @@
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\UnityEngine.VRModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="BeatLeader" Condition="Exists('$(BeatSaberDir)\Plugins\BeatLeader.dll')">
+      <HintPath>$(BeatSaberDir)\Plugins\BeatLeader.dll</HintPath>
+    </Reference>
+    <Reference Include="BS_Utils">
+      <HintPath>$(BeatSaberDir)\Plugins\BS_Utils.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CalculatorStuffs\BLCalc.cs" />

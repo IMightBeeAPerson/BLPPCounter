@@ -3,6 +3,6 @@
   <increment-setting text="Font Size" value="fontSize" integer-only="false" min="0.5" max="5" increment="0.5" apply-on-change="true"/>
   <checkbox-setting text='Show Labels' apply-on-change='true' value='showLbl' hover-hint='Whether or not to show label next to PP.'/>
   <checkbox-setting text='PP if FC' apply-on-change='true' value='PPFC' hover-hint='Also show PP if you had gotten a FC.'/>
+  <list-setting text='PP Types' apply-on-change='true' value='PPType' options='typesOfPP' hover-hint='How the counter should count PP'/>
   <checkbox-setting text='Split PP Values' apply-on-change='true' value='splitVals' hover-hint='Split the PP values to have pass, acc, and tech PP.'/>
-  <checkbox-setting text='Progressional PP' apply-on-change='true' value='PPP' hover-hint='Will add PP per hit up to the end of the map.'/>
 </vertical>
