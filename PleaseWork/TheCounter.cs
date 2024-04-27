@@ -27,9 +27,10 @@ namespace PleaseWork
         private float passRating, accRating, techRating, stars;
         private int totalNotes, notes, badNotes;
         private int precision, fcScore, totalHitscore;
-        private string userID, mode;
+        private string userID, mode, ppMode;
         private float[] best; //pass, acc, tech, total, replay pass rating, replay acc rating, replay tech rating, current score, current combo
         private Replay bestReplay;
+        private NoteEvent[] noteArray;
 
         #region Overrides & Event Calls
 
@@ -40,10 +41,12 @@ namespace PleaseWork
                 if (PluginConfig.Instance.PPFC)
                     sc.scoringForNoteFinishedEvent -= OnNoteScored;
             }
+            PluginConfig.Instance.PPType = ppMode;
         }
         public override void CounterInit()
         {
             //highScore = pdm.playerData.GetPlayerLevelStatsData(beatmap).highScore;
+            ppMode = PluginConfig.Instance.PPType;
             notes = fcScore = badNotes = totalHitscore = 0;
             enabled = false;
             precision = PluginConfig.Instance.DecimalPrecision;
@@ -64,7 +67,8 @@ namespace PleaseWork
                     display.text = "";
                     if (PluginConfig.Instance.PPFC)
                         sc.scoringForNoteFinishedEvent += OnNoteScored;
-                    //UpdateText(1);
+                    UpdateNormal(1);
+                    best[7] = best[8] = 0;
                     sc.scoreDidChangeEvent += OnScoreChange;
                 } else
                 {
@@ -173,6 +177,7 @@ namespace PleaseWork
             Plugin.Log.Debug(data);
             string replay = new Regex(@"(?<=replay.:.)[^,]+(?=.,)").Match(data).Value;
             ReplayDecoder.TryDecodeReplay(RequestByteData(replay), out bestReplay);
+            noteArray = bestReplay.notes.ToArray();
             string hold = bestReplay.info.modifiers.ToLower();
             string mod = hold.Contains("fs") ? "fs" : hold.Contains("sf") ? "sf" : hold.Contains("ss") ? "ss" : "";
             string[] prefix = new string[] { "p", "a", "t" };
@@ -193,7 +198,16 @@ namespace PleaseWork
                 Dictionary<string, string> hold = this.data[hash].Get(beatmap.difficulty.Name().Replace("+", "Plus"));
                 mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;
                 data = hold[mode];
-                if (PluginConfig.Instance.Relative || PluginConfig.Instance.RelativeWithNormal)
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.Debug($"Data length: {this.data.Count}");
+                Plugin.Log.Warn("Level doesn't exist for some reason :(\nHash: " + hash);
+                Plugin.Log.Debug(e);
+                return false;
+            }
+            if (PluginConfig.Instance.Relative || PluginConfig.Instance.RelativeWithNormal)
+                try
                 {
                     string playerData = RequestScore(hash, beatmap.difficulty.Name().Replace("+", "Plus"));
                     if (playerData != null && playerData.Length > 0)
@@ -203,15 +217,12 @@ namespace PleaseWork
                         playerData = new Regex(@"(?<=contextExtensions..\[)[^\[\]]+").Match(playerData).Value;
                         playerData = new Regex(@"{.+?(?=..scoreImprovement)").Matches(playerData)[0].Value;
                     }
+                } catch (Exception e)
+                {
+                    Plugin.Log.Warn("There was an error loading the replay of the player, most likely they have never played the map before.");
+                    Plugin.Log.Debug(e);
+                    PluginConfig.Instance.PPType = "Normal";
                 }
-            }
-            catch (Exception e)
-            {
-                Plugin.Log.Debug($"Data length: {this.data.Count}");
-                Plugin.Log.Warn("Level doesn't exist for some reason :(\nHash: " + hash);
-                Plugin.Log.Debug(e);
-                return false;
-            }
             Plugin.Log.Info("Map Hash: " + hash);
             return SetupMapData(data);
         }
@@ -238,8 +249,7 @@ namespace PleaseWork
         #region Updates
         private void UpdateOther()
         {
-            NoteEvent note = bestReplay.notes.First();
-            bestReplay.notes.Remove(note);
+            NoteEvent note = noteArray[Math.Max(notes - 1, 0)];
             if (note.eventType == NoteEventType.good)
             {
                 best[8]++;
