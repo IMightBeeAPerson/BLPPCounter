@@ -50,7 +50,7 @@ namespace PleaseWork
             if (!dataLoaded)
             {
                 data = new Dictionary<string, Map>();
-                client.Timeout = new TimeSpan(0,0,3);
+                client.Timeout = new TimeSpan(0, 0, 3);
                 userID = BS_Utils.Gameplay.GetUserInfo.GetUserID();
                 InitData();
             }
@@ -60,8 +60,8 @@ namespace PleaseWork
                 if (enabled)
                 {
                     display = CanvasUtility.CreateTextFromSettings(Settings);
-                    display.text = "Loading...";
                     display.fontSize = (float)PluginConfig.Instance.FontSize;
+                    display.text = "";
                     if (PluginConfig.Instance.PPFC)
                         sc.scoringForNoteFinishedEvent += OnNoteScored;
                     //UpdateText(1);
@@ -93,18 +93,18 @@ namespace PleaseWork
                 badNotes++;
                 fcScore += (int)Math.Round(totalHitscore / (double)(notes - badNotes)) * HelpfulMath.MultiplierForNote(notes);
             }
-            
+
         }
         private void OnScoreChange(int score, int modifiedScore)
         {
-            UpdateText(score / (float)HelpfulMath.MaxScoreForNotes(notes));
+            UpdateNormal(score / (float)HelpfulMath.MaxScoreForNotes(notes));
 
         }
         #endregion
-            #region API Calls
+        #region API Calls
         private string RequestScore(string hash, string diff)
         {
-            return RequestData($"https://api.beatleader.xyz/score/0/{userID}/{hash}/{diff}/{mode}");
+            return RequestData($"https://api.beatleader.xyz/score/8/{userID}/{hash}/{diff}/{mode}");
         }
         private string RequestHashData()
         {
@@ -166,15 +166,16 @@ namespace PleaseWork
                     Plugin.Log.Debug(e);
                 }
             }
-            
+
         }
         private void SetupReplayData(string data)
         {
+            Plugin.Log.Debug(data);
             string replay = new Regex(@"(?<=replay.:.)[^,]+(?=.,)").Match(data).Value;
             ReplayDecoder.TryDecodeReplay(RequestByteData(replay), out bestReplay);
             string hold = bestReplay.info.modifiers.ToLower();
             string mod = hold.Contains("fs") ? "fs" : hold.Contains("sf") ? "sf" : hold.Contains("ss") ? "ss" : "";
-            string[] prefix = new string[] { "p", "a", "t"};
+            string[] prefix = new string[] { "p", "a", "t" };
             if (mod.Length > 0)
                 for (int i = 0; i < prefix.Length; i++)
                     prefix[i] = mod + prefix[i].ToUpper();
@@ -192,7 +193,7 @@ namespace PleaseWork
                 Dictionary<string, string> hold = this.data[hash].Get(beatmap.difficulty.Name().Replace("+", "Plus"));
                 mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;
                 data = hold[mode];
-                if (PluginConfig.Instance.Relative)
+                if (PluginConfig.Instance.Relative || PluginConfig.Instance.RelativeWithNormal)
                 {
                     string playerData = RequestScore(hash, beatmap.difficulty.Name().Replace("+", "Plus"));
                     if (playerData != null && playerData.Length > 0)
@@ -201,12 +202,6 @@ namespace PleaseWork
                         SetupReplayData(playerData);
                         playerData = new Regex(@"(?<=contextExtensions..\[)[^\[\]]+").Match(playerData).Value;
                         playerData = new Regex(@"{.+?(?=..scoreImprovement)").Matches(playerData)[0].Value;
-                        /*best[0] = float.Parse(new Regex(@"(?<=passPP..)[0-9.]+").Match(playerData).Value);
-                        best[1] = float.Parse(new Regex(@"(?<=accPP..)[0-9.]+").Match(playerData).Value);
-                        best[2] = float.Parse(new Regex(@"(?<=techPP..)[0-9.]+").Match(playerData).Value);
-                        best[3] = float.Parse(new Regex(@"(?<=pp..)[0-9.]+").Match(playerData).Value);
-                        best[4] = float.Parse(new Regex(@"(?<=baseScore..)[0-9.]+").Match(playerData).Value);
-                        best[5] = float.Parse(new Regex(@"(?<=accuracy..)[0-9.]+").Match(playerData).Value);*/
                     }
                 }
             }
@@ -256,61 +251,112 @@ namespace PleaseWork
 
             (best[0], best[1], best[2]) = BLCalc.GetPp(best[7] / HelpfulMath.MaxScoreForNotes(notes), best[5], best[4], best[6]);
             best[3] = BLCalc.Inflate(best[0] + best[1] + best[2]);
-            //Plugin.Log.Info(BLCalc.GetCutScore(note.noteCutInfo) + "");
-            //Plugin.Log.Info($"huh: {best[6] / HelpfulMath.MaxScoreForNotes(notes)}");
-            //Plugin.Log.Info($"pass: {best[0]}, acc: {best[1]}, tech: {best[2]}, total: {best[3]}");
         }
-        private void UpdateText(float acc)
+        private void UpdateText(float[] ppVals)
         {
-            bool[] settings = { PluginConfig.Instance.ProgressPP, PluginConfig.Instance.SplitPPVals, PluginConfig.Instance.ShowLbl, PluginConfig.Instance.PPFC && badNotes > 0, 
-            PluginConfig.Instance.Relative };
-            if (settings[4]) UpdateOther();
-            float[] ppVals = new float[settings[3] ? 8 : 4];
+            bool showLbl = PluginConfig.Instance.ShowLbl, displayFc = PluginConfig.Instance.PPFC && badNotes > 0;
+            string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
+            if (PluginConfig.Instance.SplitPPVals)
+            {
+                display.text = displayFc ?
+                    showLbl ? $"{ppVals[0]}/{ppVals[4]} Pass PP\n{ppVals[1]}/{ppVals[5]} Acc PP\n{ppVals[2]}/{ppVals[6]} Tech PP\n{ppVals[3]}/{ppVals[7]} PP" :
+                    $"{ppVals[0]}/{ppVals[4]}\n{ppVals[1]}/{ppVals[5]}\n{ppVals[2]}/{ppVals[6]}\n{ppVals[3]}/{ppVals[7]}" :
+                    showLbl ? $"{ppVals[0]} Pass PP\n{ppVals[1]} Acc PP\n{ppVals[2]} Tech PP\n{ppVals[3]} PP" :
+                    $"{ppVals[0]}\n{ppVals[1]}\n{ppVals[2]}\n{ppVals[3]}";
+            }
+            else
+                display.text = displayFc ?
+                    showLbl ? $"{ppVals[3]}/{ppVals[7]} PP" : $"{ppVals[3]}/{ppVals[7]}" :
+                    showLbl ? $"{ppVals[3]} PP" : $"{ppVals[3]}";
+        }
+        private void UpdateNormal(float acc)
+        {
+            if (PluginConfig.Instance.ProgressPP) UpdateProgressional(acc);
+            if (PluginConfig.Instance.Relative || PluginConfig.Instance.RelativeWithNormal) UpdateRelative(acc);
+            if (PluginConfig.Instance.Relative || PluginConfig.Instance.ProgressPP || PluginConfig.Instance.RelativeWithNormal) return;
+            bool displayFc = PluginConfig.Instance.PPFC && badNotes > 0;
+            float[] ppVals = new float[displayFc ? 8 : 4];
             (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
             ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
-            if (settings[4])
-            {
-                ppVals[0] -= best[1];
-                ppVals[1] -= best[0];
-                ppVals[2] -= best[2];
-                ppVals[3] -= best[3];
-                display.color = ppVals[3] > 0 ? UnityEngine.Color.green : UnityEngine.Color.red;
-            }
-            if (settings[3])
+            if (displayFc)
             {
                 float fcAcc = fcScore / (float)HelpfulMath.MaxScoreForNotes(notes);
                 if (float.IsNaN(fcAcc)) fcAcc = 1;
                 (ppVals[4], ppVals[5], ppVals[6]) = BLCalc.GetPp(fcAcc, accRating, passRating, techRating);
                 ppVals[7] = BLCalc.Inflate(ppVals[4] + ppVals[5] + ppVals[6]);
-                if (settings[4])
+            }
+            for (int i = 0; i < ppVals.Length; i++)
+                ppVals[i] = (float)Math.Round(ppVals[i], precision);
+            UpdateText(ppVals);
+        }
+        private void UpdateProgressional(float acc)
+        {
+            bool displayFc = PluginConfig.Instance.PPFC && badNotes > 0;
+            float[] ppVals = new float[displayFc ? 8 : 4];
+            (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
+            ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
+            if (displayFc)
+            {
+                float fcAcc = fcScore / (float)HelpfulMath.MaxScoreForNotes(notes);
+                if (float.IsNaN(fcAcc)) fcAcc = 1;
+                (ppVals[4], ppVals[5], ppVals[6]) = BLCalc.GetPp(fcAcc, accRating, passRating, techRating);
+                ppVals[7] = BLCalc.Inflate(ppVals[4] + ppVals[5] + ppVals[6]);
+            }
+            float mult = notes / (float)totalNotes;
+            mult = Math.Min(1, mult);
+            for (int i = 0; i < ppVals.Length; i++)
+                ppVals[i] = (float)Math.Round(ppVals[i] * mult, precision);
+            UpdateText(ppVals);
+        }
+        private void UpdateRelative(float acc)
+        {
+            bool displayFc = PluginConfig.Instance.PPFC && badNotes > 0, showLbl = PluginConfig.Instance.ShowLbl, normal = PluginConfig.Instance.RelativeWithNormal;
+            UpdateOther();
+            float[] ppVals = new float[displayFc ? 16 : 8];
+            (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
+            ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
+            for (int i = 0; i < 4; i++)
+                ppVals[i + 4] = ppVals[i] - best[i];
+            if (displayFc)
+            {
+                float fcAcc = fcScore / (float)HelpfulMath.MaxScoreForNotes(notes);
+                if (float.IsNaN(fcAcc)) fcAcc = 1;
+                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcAcc, accRating, passRating, techRating);
+                ppVals[11] = BLCalc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
+                for (int i = 8; i < 12; i++)
+                    ppVals[i + 4] = ppVals[i] - best[i - 8];
+            }
+            for (int i = 0; i < ppVals.Length; i++)
+                ppVals[i] = (float)Math.Round(ppVals[i], precision);
+            string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
+            if (PluginConfig.Instance.SplitPPVals)
+            {
+                if (displayFc)
                 {
-                    ppVals[4] -= best[1];
-                    ppVals[5] -= best[0];
-                    ppVals[6] -= best[2];
-                    ppVals[7] -= best[3];
+                    string text = "";
+                    for (int i = 0; i < 4; i++)
+                    {
+                        text += (ppVals[i + 4] > 0 ? "<color=\"green\">+" : "<color=\"red\">") + $"{ppVals[i + 4]}</color> " + (normal ? $"({ppVals[i]}) / " : "/ ");
+                        text += (ppVals[i + 12] > 0 ? "<color=\"green\">+" : "<color=\"red\">") + $"{ppVals[i + 12]}</color>" + (normal ? $" ({ppVals[i + 8]})" : "") + (showLbl ? " " + labels[i] : "") + "\n";
+                    }
+                    display.text = text;
+                }
+                else
+                {
+                    string text = "";
+                    for (int i = 0; i < 4; i++)
+                        text += (ppVals[i + 4] > 0 ? "<color=\"green\">+" : "<color=\"red\">") + $"{ppVals[i + 4]}</color>" + (normal ? $" ({ppVals[i]})" : "") + (showLbl ? " " + labels[i] : "") + "\n";
+                    display.text = text;
                 }
             }
-            if (settings[0])
+            else
             {
-                float mult = notes / (float)totalNotes;
-                mult = Math.Min(1, mult);
-                for (int i = 0; i < ppVals.Length; i++)
-                    ppVals[i] = (float)Math.Round(ppVals[i] * mult, precision);
-            } else
-                for (int i = 0; i < ppVals.Length; i++)
-                    ppVals[i] = (float)Math.Round(ppVals[i], precision);
-            if (settings[1])
-            {
-                display.text = settings[3] ?
-                    settings[2] ? $"{ppVals[0]}/{ppVals[4]} Pass PP\n{ppVals[1]}/{ppVals[5]} Acc PP\n{ppVals[2]}/{ppVals[6]} Tech PP\n{ppVals[3]}/{ppVals[7]} PP" : 
-                    $"{ppVals[0]}/{ppVals[4]}\n{ppVals[1]}/{ppVals[5]}\n{ppVals[2]}/{ppVals[6]}\n{ppVals[3]}/{ppVals[7]}" :
-                    settings[2] ? $"{ppVals[0]} Pass PP\n{ppVals[1]} Acc PP\n{ppVals[2]} Tech PP\n{ppVals[3]} PP" : 
-                    $"{ppVals[0]}\n{ppVals[1]}\n{ppVals[2]}\n{ppVals[3]}";
+                if (displayFc)
+                    display.text = (ppVals[7] > 0 ? "<color=\"green\">+" : "<color=\"red\">") + $"{ppVals[7]}</color> " + (normal ? $"({ppVals[3]}) / " : "/ ") +
+                        (ppVals[15] > 0 ? "<color=\"green\">+" : "<color=\"red\">") + $"{ppVals[15]}</color>" + (normal ? $" ({ppVals[11]})" : "") + (showLbl ? " " + labels[3] : "");
+                else
+                    display.text = (ppVals[7] > 0 ? "<color=\"green\">+" : "<color=\"red\">") + $"{ppVals[7]}</color>" + (normal ? $" ({ppVals[3]})" : "") + (showLbl ? " " + labels[3] : "");
             }
-            else 
-                display.text = settings[3] ?
-                    settings[2] ? $"{ppVals[3]}/{ppVals[7]} PP" : $"{ppVals[3]}/{ppVals[7]}" :
-                    settings[2] ? $"{ppVals[3]} PP" : $"{ppVals[3]}";
         }
         #endregion
     }
