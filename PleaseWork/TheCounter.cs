@@ -274,6 +274,7 @@ namespace PleaseWork
                 ppVals[1] -= best[0];
                 ppVals[2] -= best[2];
                 ppVals[3] -= best[3];
+                display.color = ppVals[3] > 0 ? UnityEngine.Color.green : UnityEngine.Color.red;
             }
             if (settings[3])
             {
