@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Linq;
 using BeatLeader.Models.Replay;
+using UnityEngine.UIElements;
 namespace PleaseWork
 {
 
@@ -68,7 +69,8 @@ namespace PleaseWork
                     if (PluginConfig.Instance.PPFC)
                         sc.scoringForNoteFinishedEvent += OnNoteScored;
                     UpdateNormal(1);
-                    best[7] = best[8] = 0;
+                    if (best != null && best.Length >= 9)
+                        best[7] = best[8] = 0;
                     sc.scoreDidChangeEvent += OnScoreChange;
                 } else
                 {
@@ -265,7 +267,6 @@ namespace PleaseWork
         private void UpdateText(float[] ppVals)
         {
             bool showLbl = PluginConfig.Instance.ShowLbl, displayFc = PluginConfig.Instance.PPFC && badNotes > 0;
-            string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
             if (PluginConfig.Instance.SplitPPVals)
             {
                 display.text = displayFc ?
