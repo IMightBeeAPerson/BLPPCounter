@@ -2,6 +2,7 @@
 using IPA.Config.Stores;
 using IPA.Loader;
 using PleaseWork.Settings;
+using PleaseWork.Utils;
 using System;
 using System.Linq;
 using UnityEngine;
@@ -34,14 +35,10 @@ namespace PleaseWork
 
         [OnEnable]
         public void OnEnable() {
-            /*var hold = PluginManager.EnabledPlugins;
-            foreach (var plugin in hold)
-            {
-                Log.Info(plugin.Id);
-            }*/
             BLInstalled = PluginManager.EnabledPlugins.Where(x => x.Id == "BeatLeader").Count() > 0;
             if (!BLInstalled && (PluginConfig.Instance.PPType.Equals("Relative") || PluginConfig.Instance.PPType.Equals("Relative w/ normal")))
                 PluginConfig.Instance.PPType = "Normal";
+            Targeter.GenerateClanNames();
         }
 
         [OnDisable]

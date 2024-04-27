@@ -55,7 +55,7 @@ namespace PleaseWork
             {
                 data = new Dictionary<string, Map>();
                 client.Timeout = new TimeSpan(0, 0, 3);
-                userID = BS_Utils.Gameplay.GetUserInfo.GetUserID();
+                userID = PluginConfig.Instance.Target.Equals("None") ? BS_Utils.Gameplay.GetUserInfo.GetUserID() : Targeter.GetTargetId();
                 InitData();
             }
             try
@@ -108,6 +108,7 @@ namespace PleaseWork
         }
         #endregion
         #region API Calls
+        
         private string RequestScore(string hash, string diff)
         {
             return RequestData($"https://api.beatleader.xyz/score/8/{userID}/{hash}/{diff}/{mode}");

@@ -1,4 +1,5 @@
 using BeatSaberMarkupLanguage.Attributes;
+using PleaseWork.Utils;
 using System.Collections.Generic;
 
 namespace PleaseWork.Settings
@@ -43,5 +44,13 @@ namespace PleaseWork.Settings
             get => PluginConfig.Instance.PPFC;
             set => PluginConfig.Instance.PPFC = value;
         }
+        [UIValue("Target")]
+        public string Target
+        {
+            get => PluginConfig.Instance.Target;
+            set => PluginConfig.Instance.Target = value;
+        }
+        [UIValue("toTarget")]
+        public List<object> ToTarget => Targeter.clanNames;
     }
 }

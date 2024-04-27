@@ -16,5 +16,6 @@ namespace PleaseWork.Settings
         public virtual bool RelativeWithNormal { get => PPType.Equals("Relative w/ normal"); }
         public virtual bool ShowLbl { get; set; } = true;
         public virtual bool PPFC { get; set; } = false;
+        public virtual string Target { get; set; } = "None";
     }
 }

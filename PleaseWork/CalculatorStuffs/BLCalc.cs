@@ -6,6 +6,7 @@ namespace PleaseWork.CalculatorStuffs
     /* This is all ripped from the beatleader github and changed to work with my stuffs.*/
     public static class BLCalc
     {
+        #region PP Math
         static List<(double, double)> pointList2 = new List<(double, double)> {
                 (1.0, 7.424),
                 (0.999, 6.241),
@@ -86,6 +87,7 @@ namespace PleaseWork.CalculatorStuffs
             double middle_dis = (acc - pointList2[i - 1].Item1) / (pointList2[i].Item1 - pointList2[i - 1].Item1);
             return (float)(pointList2[i - 1].Item2 + middle_dis * (pointList2[i].Item2 - pointList2[i - 1].Item2));
         }
+        #endregion
         #region ReplayMath
         private const float MinBeforeCutScore = 0.0f;
         private const float MinAfterCutScore = 0.0f;
