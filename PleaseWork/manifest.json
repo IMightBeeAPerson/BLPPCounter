@@ -3,7 +3,7 @@
   "id": "PleaseWork",
   "name": "PleaseWork",
   "author": "Person",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Adds a BeatLeader pp counter.",
   "gameVersion": "1.29.0",
   "dependsOn": {
