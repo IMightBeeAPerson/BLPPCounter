@@ -17,5 +17,6 @@ namespace PleaseWork.Settings
         public virtual bool ShowLbl { get; set; } = true;
         public virtual bool PPFC { get; set; } = false;
         public virtual string Target { get; set; } = "None";
+        public virtual bool ShowEnemy { get; set; } = true;
     }
 }

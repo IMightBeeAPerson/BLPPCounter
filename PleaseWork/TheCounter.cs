@@ -280,6 +280,9 @@ namespace PleaseWork
                 display.text = displayFc ?
                     showLbl ? $"{ppVals[3]}/{ppVals[7]} PP" : $"{ppVals[3]}/{ppVals[7]}" :
                     showLbl ? $"{ppVals[3]} PP" : $"{ppVals[3]}";
+            string target = PluginConfig.Instance.Target;
+            if (!target.Equals("None"))
+                display.text += $"\nTargeting <color=\"red\">{target}</color>";
         }
         private void UpdateNormal(float acc)
         {
@@ -341,6 +344,7 @@ namespace PleaseWork
             for (int i = 0; i < ppVals.Length; i++)
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
             string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
+            string target = PluginConfig.Instance.Target;
             if (PluginConfig.Instance.SplitPPVals)
             {
                 if (displayFc)
@@ -360,6 +364,8 @@ namespace PleaseWork
                         text += (ppVals[i + 4] > 0 ? "<color=\"green\">+" : ppVals[i + 4] == 0 ? "<color=\"yellow\">" : "<color=\"red\">") + $"{ppVals[i + 4]}</color>" + (normal ? $" ({ppVals[i]})" : "") + (showLbl ? " " + labels[i] : "") + "\n";
                     display.text = text;
                 }
+                if (!target.Equals("None"))
+                    display.text += $"Targeting <color=\"red\">{target}</color>";
             }
             else
             {
@@ -368,7 +374,11 @@ namespace PleaseWork
                         (ppVals[15] > 0 ? "<color=\"green\">+" : ppVals[15] == 0 ? "<color=\"yellow\">" : "<color=\"red\">") + $"{ppVals[15]}</color>" + (normal ? $" ({ppVals[11]})" : "") + (showLbl ? " " + labels[3] : "");
                 else
                     display.text = (ppVals[7] > 0 ? "<color=\"green\">+" : ppVals[7] == 0 ? "<color=\"yellow\">" : "<color=\"red\">") + $"{ppVals[7]}</color>" + (normal ? $" ({ppVals[3]})" : "") + (showLbl ? " " + labels[3] : "");
+                if (!target.Equals("None"))
+                    display.text += $"\nTargeting <color=\"red\">{target}</color>";
             }
+            
+            
         }
         #endregion
     }

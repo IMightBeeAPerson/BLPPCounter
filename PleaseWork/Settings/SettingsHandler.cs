@@ -52,5 +52,11 @@ namespace PleaseWork.Settings
         }
         [UIValue("toTarget")]
         public List<object> ToTarget => Targeter.clanNames;
+        [UIValue("ShowEnemy")]
+        public bool ShowEnemy
+        {
+            get => PluginConfig.Instance.ShowEnemy;
+            set => PluginConfig.Instance.ShowEnemy = value;
+        }
     }
 }

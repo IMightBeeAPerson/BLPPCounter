@@ -6,4 +6,5 @@
   <checkbox-setting text='Split PP Values' apply-on-change='true' value='splitVals' hover-hint='Split the PP values to have pass, acc, and tech PP.'/>
   <list-setting text='PP Types' apply-on-change='true' value='PPType' options='typesOfPP' hover-hint='How the counter should count PP'/>
   <dropdown-list-setting apply-on-change='true' value='Target' options='toTarget' hover-hint='A player to compare against while playing'/>
+  <checkbox-setting text='Show Enemy' apply-on-change='true' value='ShowEnemy' hover-hint='Show who you are targeting (if you have one selected)'/>
 </vertical>
