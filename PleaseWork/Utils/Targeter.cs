@@ -13,6 +13,7 @@ namespace PleaseWork.Utils
         private static readonly HttpClient client = new HttpClient();
         public static List<object> clanNames;
         public static Dictionary<string, string> nameToId;
+        public static string playerID;
 
         public static string GetTargetId()
         {
@@ -35,6 +36,7 @@ namespace PleaseWork.Utils
         {
             try
             {
+                Targeter.playerID = playerID;
                 string playerData = client.GetStringAsync($"https://api.beatleader.xyz/player/{playerID}").Result;
                 string clan = new Regex(@"(?<=clanOrder...)[A-z]+").Match(playerData).Value.ToLower();
                 return client.GetStringAsync($"https://api.beatleader.xyz/clan/{clan}?count=100").Result;

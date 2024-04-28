@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace PleaseWork.CalculatorStuffs
 {
     /* This is all ripped from the beatleader github and changed to work with my stuffs.*/
     public static class BLCalc
     {
-        #region PP Math
-        static List<(double, double)> pointList2 = new List<(double, double)> {
+        
+        private static List<(double, double)> pointList2 = new List<(double, double)> {
                 (1.0, 7.424),
                 (0.999, 6.241),
                 (0.9975, 5.158),
@@ -40,6 +41,8 @@ namespace PleaseWork.CalculatorStuffs
                 (0.65, 0.296),
                 (0.6, 0.256),
                 (0.0, 0.000), };
+        private static readonly float CLANWAR_WEIGHT_COEFFICIENT = 0.8f; 
+        #region PP Math
         public static (float, float, float) GetPp(float accuracy, float accRating, float passRating, float techRating)
         {
             float passPP = 15.2f * (float)Math.Exp(Math.Pow(passRating, 1 / 2.62f)) - 30f;
@@ -58,15 +61,39 @@ namespace PleaseWork.CalculatorStuffs
 
             return (passPP, accPP, techPP);
         }
-        public static float GetStraightPP(float accuracy, float accRating, float passRating, float techRating)
+        public static float GetPpSum(float accuracy, float accRating, float passRating, float techRating)
         {
-            float p, a, t;
-            (p,a,t) = GetPp(accuracy, accRating, passRating, techRating);
-            return Inflate(p + a + t);
+            float a, b, c;
+            (a,b,c) = GetPp(accuracy, accRating, passRating, techRating);
+            return a + b + c;
+        }
+        public static float GetAcc(float accRating, float passRating, float techRating, float inflatedPp)
+        {
+            float pp = Deflate(inflatedPp);
+            //gonna guess and check cuz it's too much work to reverse engineer the math
+            float theAcc = 0.0f;
+            float mult = 10.0f;
+            for (; mult >= 0.0001f; mult /= 10.0f)
+            {
+                for (int i = 9; i >= 0; i--)
+                {
+                    float currentVal = GetPpSum((theAcc + mult * i) / 100.0f, accRating, passRating, techRating);
+                    if (pp >= currentVal) {
+                        theAcc += mult * i;
+                        break;
+                    }
+                }
+            }
+            Plugin.Log.Info("THE ACC: " + theAcc);
+            return theAcc / 100.0f;
         }
         public static float Inflate(float peepee)
         {
             return (650f * (float)Math.Pow(peepee, 1.3f)) / (float)Math.Pow(650f, 1.3f);
+        }
+        public static float Deflate(float pp)
+        {
+            return (float)Math.Pow(pp * (float)Math.Pow(650f, 1.3f) / 650f, 1.0f / 1.3f);
         }
         public static float Curve2(float acc)
         {
@@ -88,7 +115,7 @@ namespace PleaseWork.CalculatorStuffs
             return (float)(pointList2[i - 1].Item2 + middle_dis * (pointList2[i].Item2 - pointList2[i - 1].Item2));
         }
         #endregion
-        #region ReplayMath
+        #region Replay Math
         private const float MinBeforeCutScore = 0.0f;
         private const float MinAfterCutScore = 0.0f;
         private const float MaxBeforeCutScore = 70.0f;
@@ -127,6 +154,43 @@ namespace PleaseWork.CalculatorStuffs
         public static float LerpUnclamped(float a, float b, float t)
         {
             return a + (b - a) * t;
+        }
+        #endregion
+        #region Clan Math
+        private static float TotalPP(float coefficient, float[] ppVals, int startIndex)
+        {
+            if (ppVals.Length == 0) return 0.0f;
+            float currentWeight = (float)Math.Pow(coefficient, startIndex);
+            return ppVals.Aggregate(0.0f, (a, b) => {  var n = a + currentWeight * b; currentWeight *= coefficient; return n; });
+        }
+        private static float CalcFinalPP(float coefficient, float[] bottomPp, int index, float expected)
+        {
+            float oldPp = TotalPP(coefficient, bottomPp, index);
+            float newPp = TotalPP(coefficient, bottomPp, index + 1);
+            return (expected + oldPp - newPp) / (float)Math.Pow(coefficient, index);
+        }
+        public static float GetNeededPP(float[] clanPpVals, float ppDiff)
+        {
+            float coefficient = CLANWAR_WEIGHT_COEFFICIENT;
+            for (int i = clanPpVals.Length - 1; i >= 0; i--)
+            {
+                float[] bottomData = clanPpVals.Skip(i).ToArray();
+                float bottomPp = TotalPP(coefficient, bottomData, i);
+                bottomData = bottomData.Prepend(clanPpVals[i]).ToArray();
+                float modifiedBottomPp = TotalPP(coefficient, bottomData, i);
+                float diff = modifiedBottomPp - bottomPp;
+                if (diff > ppDiff) return CalcFinalPP(coefficient, clanPpVals.Skip(i + 1).ToArray(), i + 1, ppDiff);
+            }
+            return CalcFinalPP(coefficient, clanPpVals, 0, ppDiff);
+        }
+        public static float GetNeededPlay(List<float> clanPpVals, float otherClan, float playerPp)
+        {
+            float[] clone = clanPpVals.ToArray();
+            clanPpVals.Remove(playerPp);
+            float ourClan = TotalPP(CLANWAR_WEIGHT_COEFFICIENT, clanPpVals.ToArray(), 0);
+            if (otherClan - TotalPP(CLANWAR_WEIGHT_COEFFICIENT, clone, 0) <= 0) return 0.0f;
+            float result = GetNeededPP(clanPpVals.ToArray(), otherClan - ourClan);
+            return result;
         }
         #endregion
     }

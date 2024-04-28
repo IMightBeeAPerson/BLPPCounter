@@ -25,7 +25,9 @@ namespace PleaseWork.Settings
             set => PluginConfig.Instance.FontSize = value;
         }
         [UIValue("typesOfPP")]
-        public List<object> TypesOfPP => Plugin.BLInstalled ? new List<object>() { "Normal", "Progressive", "Relative", "Relative w/ normal" } : new List<object>() { "Normal", "Progressive" };
+        public List<object> TypesOfPP => Plugin.BLInstalled ?
+            new List<object>() { "Normal", "Progressive", "Relative", "Relative w/ normal", "Clan PP", "Clan w/ normal" } :
+            new List<object>() { "Normal", "Progressive" };
         [UIValue("PPType")]
         public string PPType
         {

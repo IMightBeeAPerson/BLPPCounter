@@ -131,6 +131,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CalculatorStuffs\BLCalc.cs" />
+    <Compile Include="Counters\ClanCounter.cs" />
+    <Compile Include="Counters\IMyCounters.cs" />
+    <Compile Include="Counters\NormalCounter.cs" />
+    <Compile Include="Counters\ProgressCounter.cs" />
+    <Compile Include="Counters\RelativeCounter.cs" />
     <Compile Include="Utils\HelpfulMath.cs" />
     <Compile Include="Utils\HelpfulPaths.cs" />
     <Compile Include="Utils\Map.cs" />
@@ -155,6 +160,9 @@
       <Version>2.0.0-beta1</Version>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="System.Text.Json">
+      <Version>8.0.3</Version>
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
