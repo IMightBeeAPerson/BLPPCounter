@@ -9,31 +9,34 @@ namespace PleaseWork.Utils
 {
     public struct MapSelection
     {
-        public Map map;
-        public string diff;
-        public string mode;
-        public float passRating, accRating, techRating;
+        public Map Map { get; private set; }
+        public string Difficulty { get; private set; }
+        public string Mode { get; private set; }
+        public float PassRating { get; private set; }
+        public float AccRating { get; private set; }
+        public float TechRating { get; private set; }
+        public string MapData { get => Map.Get(Mode, Difficulty); }
 
         public MapSelection(Map map = default, string diff = default, string mode = default, float passRating = default, float accRating = default, float techRating = default)
         {
-            this.map = map;
-            this.diff = diff;
-            this.mode = mode;
-            this.passRating = passRating;
-            this.accRating = accRating;
-            this.techRating = techRating;
+            Map = map;
+            Difficulty = diff;
+            Mode = mode;
+            PassRating = passRating;
+            AccRating = accRating;
+            TechRating = techRating;
         }
 
         public (bool, bool) GetDifference(MapSelection other)
         {
-            bool ratingDiff = !Mathf.Approximately(passRating, other.passRating) || !Mathf.Approximately(accRating, other.accRating) || !Mathf.Approximately(techRating, other.techRating);
-            bool diffDiff = !diff.Equals(other.diff) || !mode.Equals(other.mode);
+            bool ratingDiff = !Mathf.Approximately(PassRating, other.PassRating) || !Mathf.Approximately(AccRating, other.AccRating) || !Mathf.Approximately(TechRating, other.TechRating);
+            bool diffDiff = !Difficulty.Equals(other.Difficulty) || !Mode.Equals(other.Mode);
             return (ratingDiff, diffDiff);
         }
         public override string ToString()
         {
-            string mapHash = map == null ? "null" : map.hash;
-            return $"Map: {mapHash}\nDifficulty: {diff}\nMode: {mode}\nPass Rating: {passRating}\nAcc Rating: {accRating}\nTech Rating: {techRating}";
+            string mapHash = Map == null ? "null" : Map.hash;
+            return $"Map: {mapHash}\nDifficulty: {Difficulty}\nMode: {Mode}\nPass Rating: {PassRating}\nAcc Rating: {AccRating}\nTech Rating: {TechRating}";
         }
     }
 }

@@ -33,12 +33,9 @@ namespace PleaseWork
         private TMP_Text display;
         private bool enabled;
         private float passRating, accRating, techRating, stars;
-        private int totalNotes, notes, badNotes;
+        private int notes, badNotes;
         private int fcScore, totalHitscore;
         private string mode, ppMode;
-        private string tempData;
-        
-        
 
         #region Overrides & Event Calls
 
@@ -81,15 +78,13 @@ namespace PleaseWork
                     }
                     string hash = beatmap.level.levelID.Split('_')[2];
                     bool counterChange = theCounter != null && !theCounter.Name.Equals(PluginConfig.Instance.PPType.Split(' ')[0]);
-                    if (counterChange || lastMap.Equals(new MapSelection()) || hash != lastMap.map.hash || PluginConfig.Instance.PPType.Equals("Progressive"))
+                    if (counterChange || lastMap.Equals(new MapSelection()) || hash != lastMap.Map.hash || PluginConfig.Instance.PPType.Equals("Progressive"))
                     {
                         lastMap = new MapSelection(data[hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating);
                         if (!InitCounter()) throw new Exception("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
-                        theCounter.SetupData(userID, hash, lastMap.diff, mode, tempData);
                     }
                     else
                         APIAvoidanceMode();
-                    tempData = "";
                     theCounter.UpdateCounter(1, 0, 0, 0);
                 } else
                     Plugin.Log.Warn("Maps failed to load, most likely unranked.");
@@ -151,14 +146,14 @@ namespace PleaseWork
             {
                 case "Relative":
                 case "Relative w/ normal":
-                    theCounter = new RelativeCounter(display, accRating, passRating, techRating); break;
+                    theCounter = new RelativeCounter(display, lastMap); break;
                 case "Progressive":
-                    theCounter = new ProgressCounter(display, accRating, passRating, techRating, totalNotes); break;
+                    theCounter = new ProgressCounter(display, lastMap); break;
                 case "Normal":
-                    theCounter = new NormalCounter(display, accRating, passRating, techRating); break;
+                    theCounter = new NormalCounter(display, lastMap); break;
                 case "Clan PP":
                 case "Clan w/ normal":
-                    theCounter = new ClanCounter(display, accRating, passRating, techRating); break;
+                    theCounter = new ClanCounter(display, lastMap); break;
                 default: return false;
             }
             return true;
@@ -166,10 +161,10 @@ namespace PleaseWork
         private void APIAvoidanceMode()
         {
             Plugin.Log.Info("API Avoidance mode is functioning (probably)!");
-            MapSelection thisMap = new MapSelection(data[lastMap.map.hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating);
+            MapSelection thisMap = new MapSelection(data[lastMap.Map.hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating);
             bool ratingDiff, diffDiff;
             (ratingDiff, diffDiff) = thisMap.GetDifference(lastMap);
-            if (diffDiff) theCounter.ReinitCounter(display, thisMap.map.hash, thisMap.diff, thisMap.mode, thisMap.map.Get(thisMap.mode, thisMap.diff));
+            if (diffDiff) theCounter.ReinitCounter(display, thisMap);
             else if (ratingDiff) theCounter.ReinitCounter(display, passRating, accRating, techRating);
             if (!ratingDiff && !diffDiff) theCounter.ReinitCounter(display);
         }
@@ -216,16 +211,12 @@ namespace PleaseWork
                 Plugin.Log.Debug(e);
                 return false;
             }
-            //if (PluginConfig.Instance.Relative || PluginConfig.Instance.RelativeWithNormal)
-                
             Plugin.Log.Info("Map Hash: " + hash);
             return SetupMapData(data);
         }
         private bool SetupMapData(string data)
         {
             if (data.Length <= 0) return false;
-            tempData = data;
-            totalNotes = HelpfulMath.NotesForMaxScore(int.Parse(new Regex(@"(?<=maxScore..)[0-9]+").Match(data).Value));
             string[] prefix = new string[] { "p", "a", "t", "s" };
             string mod = mods.songSpeedMul > 1.0 ? mods.songSpeedMul >= 1.5 ? "sf" : "fs" : mods.songSpeedMul != 1.0 ? "ss" : "";
             if (mod.Length > 0)

@@ -6,25 +6,25 @@ namespace PleaseWork.Settings
 {
     class SettingsHandler
     {
-        [UIValue("splitVals")]
+        [UIValue("SplitVals")]
         public bool SplitPPVals
         {
             get => PluginConfig.Instance.SplitPPVals;
             set => PluginConfig.Instance.SplitPPVals = value;
         }
-        [UIValue("decimalPrecision")]
+        [UIValue("DecimalPrecision")]
         public int DecimalPrecision
         {
             get => PluginConfig.Instance.DecimalPrecision;
             set => PluginConfig.Instance.DecimalPrecision = value;
         }
-        [UIValue("fontSize")]
+        [UIValue("FontSize")]
         public double FontSize
         {
             get => PluginConfig.Instance.FontSize;
             set => PluginConfig.Instance.FontSize = value;
         }
-        [UIValue("typesOfPP")]
+        [UIValue("TypesOfPP")]
         public List<object> TypesOfPP => Plugin.BLInstalled ?
             new List<object>() { "Normal", "Progressive", "Relative", "Relative w/ normal", "Clan PP", "Clan w/ normal" } :
             new List<object>() { "Normal", "Progressive" };
@@ -34,7 +34,7 @@ namespace PleaseWork.Settings
             get => PluginConfig.Instance.PPType;
             set => PluginConfig.Instance.PPType = value;
         }
-        [UIValue("showLbl")]
+        [UIValue("ShowLbl")]
         public bool ShowLbl
         {
             get => PluginConfig.Instance.ShowLbl;
@@ -59,6 +59,18 @@ namespace PleaseWork.Settings
         {
             get => PluginConfig.Instance.ShowEnemy;
             set => PluginConfig.Instance.ShowEnemy = value;
+        }
+        [UIValue("LocalReplay")]
+        public bool LocalReplay
+        {
+            get => PluginConfig.Instance.LocalReplay;
+            set => PluginConfig.Instance.LocalReplay = value;
+        }
+        [UIValue("MapCashe")]
+        public int MapCashe
+        {
+            get => PluginConfig.Instance.MapCashe;
+            set => PluginConfig.Instance.MapCashe = value;
         }
     }
 }

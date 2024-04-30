@@ -17,5 +17,7 @@ namespace PleaseWork.Settings
         public virtual bool PPFC { get; set; } = false;
         public virtual string Target { get; set; } = "None";
         public virtual bool ShowEnemy { get; set; } = true;
+        public virtual bool LocalReplay { get; set; } = false;
+        public virtual int MapCashe { get; set; } = 10;
     }
 }

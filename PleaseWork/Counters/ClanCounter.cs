@@ -4,13 +4,9 @@ using PleaseWork.Settings;
 using PleaseWork.Utils;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Net.Http;
-using System.Security.Policy;
 using System.Text.RegularExpressions;
 using TMPro;
-using static AlphabetScrollInfo;
-using static UnityEngine.GraphicsBuffer;
 
 namespace PleaseWork.Counters
 {
@@ -18,6 +14,7 @@ namespace PleaseWork.Counters
     {
         private static readonly HttpClient client = new HttpClient();
         private static int playerClanId = -1;
+        private static List<KeyValuePair<MapSelection, float>> mapCashe = new List<KeyValuePair<MapSelection, float>>();
 
         public string Name { get => "Clan"; }
 
@@ -37,15 +34,18 @@ namespace PleaseWork.Counters
             mapCaptured = false;
             precision = PluginConfig.Instance.DecimalPrecision;
         }
-        public void SetupData(string id, string hash, string diff, string mode, string mapData)
+        public ClanCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(TheCounter.userID, map); }
+        public void SetupData(string id, MapSelection map)
         {
             if (playerClanId < 0) playerClanId = ParseId(RequestData($"https://api.beatleader.xyz/player/{id}"));
             neededPPs = new float[6];
-            if (new Regex(@"(?<=status..)[0-9]").Match(mapData).Value.Equals("3"))
+            string mapData = map.MapData;
+            nmPassRating = float.Parse(new Regex(@"(?<=passRating..)[0-9\.]+").Match(mapData).Value);
+            nmAccRating = float.Parse(new Regex(@"(?<=accRating..)[0-9\.]+").Match(mapData).Value);
+            nmTechRating = float.Parse(new Regex(@"(?<=techRating..)[0-9\.]+").Match(mapData).Value);
+            neededPPs[3] = GetCashedPP(map);
+            if (neededPPs[3] <= 0)
             {
-                nmPassRating = float.Parse(new Regex(@"(?<=passRating..)[0-9\.]+").Match(mapData).Value);
-                nmAccRating = float.Parse(new Regex(@"(?<=accRating..)[0-9\.]+").Match(mapData).Value);
-                nmTechRating = float.Parse(new Regex(@"(?<=techRating..)[0-9\.]+").Match(mapData).Value);
                 string mapId = new Regex(@"(?<=LeaderboardId...)[A-z0-9]+").Match(mapData).Value;
                 string clanData = RequestData($"{HelpfulPaths.BLAPI_CLAN}{mapId}?page=1&count=1");
                 int clanId = -1;
@@ -66,21 +66,22 @@ namespace PleaseWork.Counters
                         }
                         else
                             actualPpVals.Add(float.Parse(ppVals[i].Value));
-                    
+
                     neededPPs[3] = BLCalc.GetNeededPlay(actualPpVals, pp, toRemove);
                 }
                 else neededPPs[3] = 0.0f;
-            }
-            else neededPPs[3] = 0.0f;
-            if (neededPPs[3] <= 0.0f)
-            {
-                mapCaptured = true;
-                backup = new NormalCounter(display, accRating, passRating, techRating);
-                return;
+                if (neededPPs[3] <= 0.0f)
+                {
+                    mapCaptured = true;
+                    backup = new NormalCounter(display, accRating, passRating, techRating);
+                    return;
+                }
+                mapCashe.Add(new KeyValuePair<MapSelection, float>(map, neededPPs[3]));
             }
             neededPPs[4] = BLCalc.GetAcc(accRating, passRating, techRating, neededPPs[3]);
             (neededPPs[0], neededPPs[1], neededPPs[2]) = BLCalc.GetPp(neededPPs[4], nmAccRating, nmPassRating, nmTechRating);
             neededPPs[5] = (float)Math.Round(neededPPs[4] * 100.0f, 2);
+            if (mapCashe.Count > PluginConfig.Instance.MapCashe) mapCashe.RemoveAt(0);
         }
         public void ReinitCounter(TMP_Text display) { this.display = display; if (mapCaptured) backup.ReinitCounter(display); }
         public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating) { 
@@ -97,8 +98,8 @@ namespace PleaseWork.Counters
             (neededPPs[0], neededPPs[1], neededPPs[2]) = BLCalc.GetPp(neededPPs[4], nmAccRating, nmPassRating, nmTechRating);
             neededPPs[5] = (float)Math.Round(neededPPs[4] * 100.0f, 2);
         }
-        public void ReinitCounter(TMP_Text display, string hash, string diff, string mode, string mapData) 
-        { this.display = display; SetupData(TheCounter.userID, hash, diff, mode, mapData);  }
+        public void ReinitCounter(TMP_Text display, MapSelection map) 
+        { this.display = display; SetupData(TheCounter.userID, map);  }
         #endregion
         #region API Requests
         private string RequestClanLeaderboard(string id, string mapId)
@@ -142,6 +143,12 @@ namespace PleaseWork.Counters
                 }
             return -1;
         }
+        private float GetCashedPP(MapSelection map)
+        {
+            foreach (KeyValuePair<MapSelection, float> pair in mapCashe)
+                if (pair.Key.Equals(map)) return pair.Value;
+            return -1.0f;
+        } 
         #endregion
         #region Updates
         public void UpdateCounter(float acc, int notes, int badNotes, int fcScore)

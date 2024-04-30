@@ -6,8 +6,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TMPro;
+using static AlphabetScrollInfo;
 
 namespace PleaseWork.Counters
 {
@@ -19,15 +21,15 @@ namespace PleaseWork.Counters
         private float accRating, passRating, techRating;
         private int precision, totalNotes;
         #region Init
-        public ProgressCounter(TMP_Text display, float accRating, float passRating, float techRating, int totalNotes)
+        public ProgressCounter(TMP_Text display, float accRating, float passRating, float techRating)
         {
             this.accRating = accRating;
             this.passRating = passRating;
             this.techRating = techRating;
             this.display = display;
-            this.totalNotes = totalNotes;
             precision = PluginConfig.Instance.DecimalPrecision;
         }
+        public ProgressCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(TheCounter.userID, map); }
         #endregion
         #region Overrides
         public void ReinitCounter(TMP_Text display) { this.display = display; }
@@ -41,10 +43,11 @@ namespace PleaseWork.Counters
             precision = PluginConfig.Instance.DecimalPrecision;
         }
 
-        public void ReinitCounter(TMP_Text display, string hash, string diff, string mode, string mapData) { this.display = display; }
-        public void SetupData(string id, string hash, string diff, string mode, string mapData)
+        public void ReinitCounter(TMP_Text display, MapSelection map) 
+        { this.display = display; totalNotes = HelpfulMath.NotesForMaxScore(int.Parse(new Regex(@"(?<=maxScore..)[0-9]+").Match(map.MapData).Value)); }
+        public void SetupData(string id, MapSelection map)
         {
-            
+            totalNotes = HelpfulMath.NotesForMaxScore(int.Parse(new Regex(@"(?<=maxScore..)[0-9]+").Match(map.MapData).Value));
         }
         #endregion
         #region Updates

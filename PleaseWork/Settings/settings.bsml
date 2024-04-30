@@ -1,10 +1,21 @@
-﻿<vertical spacing='1' horizontal-fit='PreferredSize'>
-  <increment-setting text="Decimal Precision" value="decimalPrecision" integer-only="true" min="0" max="4" increment="1" apply-on-change="true"/>
-  <increment-setting text="Font Size" value="fontSize" integer-only="false" min="0.5" max="5" increment="0.5" apply-on-change="true"/>
-  <checkbox-setting text='Show Labels' apply-on-change='true' value='showLbl' hover-hint='Whether or not to show label next to PP.'/>
-  <checkbox-setting text='PP if FC' apply-on-change='true' value='PPFC' hover-hint='Also show PP if you had gotten a FC.'/>
-  <checkbox-setting text='Split PP Values' apply-on-change='true' value='splitVals' hover-hint='Split the PP values to have pass, acc, and tech PP.'/>
-  <list-setting text='PP Types' apply-on-change='true' value='PPType' options='typesOfPP' hover-hint='How the counter should count PP'/>
-  <dropdown-list-setting apply-on-change='true' value='Target' options='toTarget' hover-hint='A player to compare against while playing'/>
-  <checkbox-setting text='Show Enemy' apply-on-change='true' value='ShowEnemy' hover-hint='Show who you are targeting (if you have one selected)'/>
+﻿<vertical spacing='5' horizontal-fit='PreferredSize'>
+  <text text='General Settings'/>
+  <vertical spacing='1'>
+    <increment-setting text='Decimal Precision' value='DecimalPrecision' integer-only='true' min='0' max='4' increment='1' apply-on-change='true'/>
+    <increment-setting text='Font Size' value='FontSize' integer-only='false' min='0.5' max='5' increment='0.5' apply-on-change='true'/>
+    <checkbox-setting text='Show Labels' apply-on-change='true' value='ShowLbl' hover-hint='Whether or not to show label next to PP'/>
+    <checkbox-setting text='PP if FC' apply-on-change='true' value='PPFC' hover-hint='Also show PP if you had gotten a FC'/>
+    <checkbox-setting text='Split PP Values' apply-on-change='true' value='SplitVals' hover-hint='Split the PP values to have pass, acc, and tech PP'/>
+    <list-setting text='PP Types' apply-on-change='true' value='PPType' options='TypesOfPP' hover-hint='How the counter should count PP'/>
+  </vertical>
+  <text text='Relative PP Settings'/>
+  <vertical spacing='1'>
+    <checkbox-setting text='Local Replays' apply-on-change='true' value='LocalReplay' hover-hint='Check for any local replays before loading from website' active='false'/>
+    <dropdown-list-setting text='Target' apply-on-change='true' value='Target' options='toTarget' hover-hint='A player to compare against while playing'/>
+    <checkbox-setting text='Show Enemy' apply-on-change='true' value='ShowEnemy' hover-hint='Show who you are targeting (if you have one selected)'/>
+  </vertical>
+  <text text='Clan PP Settings'/>
+  <vertical spacing='1'>
+    <increment-setting text='Map Cashe' value='MapCashe' integer-only='true' min='0' max='50' increment='5' apply-on-change='true'/>
+  </vertical>
 </vertical>

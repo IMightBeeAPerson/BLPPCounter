@@ -18,7 +18,6 @@ namespace PleaseWork.Counters
     public class RelativeCounter: IMyCounters
     {
         private static readonly HttpClient client = new HttpClient();
-
         public string Name { get => "Relative"; }
 
         private TMP_Text display;
@@ -36,6 +35,7 @@ namespace PleaseWork.Counters
             this.display = display;
             precision = PluginConfig.Instance.DecimalPrecision;
         }
+        public RelativeCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(TheCounter.userID, map); }
         private void SetupReplayData(string data)
         {
             Plugin.Log.Debug(data);
@@ -55,11 +55,11 @@ namespace PleaseWork.Counters
         }
         #endregion
         #region Overrides
-        public void SetupData(string id, string hash, string diff, string mode, string mapData)
+        public void SetupData(string id, MapSelection map)
         {
             try
             {
-                string playerData = RequestScore(id, hash, diff, mode);
+                string playerData = RequestScore(id, map.Map.hash, map.Difficulty, map.Mode);
                 if (playerData != null && playerData.Length > 0)
                 {
                     best = new float[9];
@@ -93,8 +93,8 @@ namespace PleaseWork.Counters
             if (best != null && best.Length >= 9)
                 best[7] = best[8] = 0;
         }
-        public void ReinitCounter(TMP_Text display, string hash, string diff, string mode, string mapData)
-        { this.display = display; SetupData(TheCounter.userID, hash, diff, mode, mapData); }
+        public void ReinitCounter(TMP_Text display, MapSelection map)
+        { this.display = display; SetupData(TheCounter.userID, map); }
         #endregion
 
         #region API Calls
