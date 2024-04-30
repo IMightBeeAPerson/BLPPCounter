@@ -15,6 +15,7 @@ using UnityEngine.UIElements;
 using System.Runtime.CompilerServices;
 using PleaseWork.Counters;
 using System.Threading.Tasks;
+using System.Security.Policy;
 namespace PleaseWork
 {
 
@@ -26,21 +27,24 @@ namespace PleaseWork
         private static readonly HttpClient client = new HttpClient();
         private static Dictionary<string, Map> data;
         private static bool dataLoaded = false;
+        private static MapSelection lastMap;
+        private static IMyCounters theCounter;
+        public static string userID { get; private set; }
         private TMP_Text display;
         private bool enabled;
         private float passRating, accRating, techRating, stars;
         private int totalNotes, notes, badNotes;
         private int fcScore, totalHitscore;
-        private string userID, mode, ppMode;
+        private string mode, ppMode;
         private string tempData;
-        private IMyCounters theCounter;
+        
+        
 
         #region Overrides & Event Calls
 
         public override void CounterDestroy() {
             if (enabled)
             {
-                theCounter = null;
                 sc.scoreDidChangeEvent -= OnScoreChange;
                 if (PluginConfig.Instance.PPFC)
                     sc.scoringForNoteFinishedEvent -= OnNoteScored;
@@ -49,7 +53,6 @@ namespace PleaseWork
         }
         public override void CounterInit()
         {
-            //highScore = pdm.playerData.GetPlayerLevelStatsData(beatmap).highScore;
             ppMode = PluginConfig.Instance.PPType;
             notes = fcScore = badNotes = totalHitscore = 0;
             enabled = false;
@@ -71,16 +74,25 @@ namespace PleaseWork
                     if (PluginConfig.Instance.PPFC)
                         sc.scoringForNoteFinishedEvent += OnNoteScored;
                     sc.scoreDidChangeEvent += OnScoreChange;
-                    if (!InitCounter()) throw new Exception("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
-                    if (userID == null || userID.Length <= 0) userID = PluginConfig.Instance.Target.Equals("None") ? Targeter.playerID : Targeter.GetTargetId();
-                    Plugin.Log.Debug(userID);
-                    theCounter.SetupData(userID, beatmap.level.levelID.Split('_')[2], beatmap.difficulty.Name().Replace("+", "Plus"), mode, tempData);
+                    if (userID == null || userID.Length <= 0)
+                    {
+                        userID = PluginConfig.Instance.Target.Equals("None") ? Targeter.playerID : Targeter.GetTargetId();
+                        Plugin.Log.Debug(userID);
+                    }
+                    string hash = beatmap.level.levelID.Split('_')[2];
+                    bool counterChange = theCounter != null && !theCounter.Name.Equals(PluginConfig.Instance.PPType.Split(' ')[0]);
+                    if (counterChange || lastMap.Equals(new MapSelection()) || hash != lastMap.map.hash || PluginConfig.Instance.PPType.Equals("Progressive"))
+                    {
+                        lastMap = new MapSelection(data[hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating);
+                        if (!InitCounter()) throw new Exception("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
+                        theCounter.SetupData(userID, hash, lastMap.diff, mode, tempData);
+                    }
+                    else
+                        APIAvoidanceMode();
                     tempData = "";
                     theCounter.UpdateCounter(1, 0, 0, 0);
                 } else
-                {
                     Plugin.Log.Warn("Maps failed to load, most likely unranked.");
-                }
             } catch (Exception e)
             {
                 Plugin.Log.Warn($"Map data failed to be parsed: {e.Message}");
@@ -150,6 +162,16 @@ namespace PleaseWork
                 default: return false;
             }
             return true;
+        }
+        private void APIAvoidanceMode()
+        {
+            Plugin.Log.Info("API Avoidance mode is functioning (probably)!");
+            MapSelection thisMap = new MapSelection(data[lastMap.map.hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating);
+            bool ratingDiff, diffDiff;
+            (ratingDiff, diffDiff) = thisMap.GetDifference(lastMap);
+            if (diffDiff) theCounter.ReinitCounter(display, thisMap.map.hash, thisMap.diff, thisMap.mode, thisMap.map.Get(thisMap.mode, thisMap.diff));
+            else if (ratingDiff) theCounter.ReinitCounter(display, passRating, accRating, techRating);
+            if (!ratingDiff && !diffDiff) theCounter.ReinitCounter(display);
         }
         private void InitData()
         {

@@ -13,6 +13,8 @@ namespace PleaseWork.Counters
 {
     public class ProgressCounter: IMyCounters
     {
+        public string Name { get => "Progressive"; }
+
         private TMP_Text display;
         private float accRating, passRating, techRating;
         private int precision, totalNotes;
@@ -26,7 +28,20 @@ namespace PleaseWork.Counters
             this.totalNotes = totalNotes;
             precision = PluginConfig.Instance.DecimalPrecision;
         }
+        #endregion
+        #region Overrides
+        public void ReinitCounter(TMP_Text display) { this.display = display; }
 
+        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating)
+        {
+            this.display = display;
+            this.passRating = passRating;
+            this.accRating = accRating;
+            this.techRating = techRating;
+            precision = PluginConfig.Instance.DecimalPrecision;
+        }
+
+        public void ReinitCounter(TMP_Text display, string hash, string diff, string mode, string mapData) { this.display = display; }
         public void SetupData(string id, string hash, string diff, string mode, string mapData)
         {
             

@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
+using System.Security.Policy;
 using System.Text.RegularExpressions;
 using TMPro;
 using static AlphabetScrollInfo;
@@ -16,6 +17,10 @@ namespace PleaseWork.Counters
     public class ClanCounter: IMyCounters
     {
         private static readonly HttpClient client = new HttpClient();
+        private static int playerClanId = -1;
+
+        public string Name { get => "Clan"; }
+
         private TMP_Text display;
         private float accRating, passRating, techRating, nmAccRating, nmPassRating, nmTechRating;
         private float[] neededPPs;
@@ -34,45 +39,73 @@ namespace PleaseWork.Counters
         }
         public void SetupData(string id, string hash, string diff, string mode, string mapData)
         {
-            nmPassRating = float.Parse(new Regex(@"(?<=passRating..)[0-9\.]+").Match(mapData).Value);
-            nmAccRating = float.Parse(new Regex(@"(?<=accRating..)[0-9\.]+").Match(mapData).Value);
-            nmTechRating = float.Parse(new Regex(@"(?<=techRating..)[0-9\.]+").Match(mapData).Value);
-            string mapId = new Regex(@"(?<=LeaderboardId...)[A-z0-9]+").Match(mapData).Value;
-            string clanData = RequestData($"{HelpfulPaths.BLAPI_CLAN}{mapId}?page=1&count=1");
-            if (clanData.Length <= 0) return;
-            float pp = float.Parse(new Regex(@"(?<=:1,.pp..)[0-9.]+").Match(clanData).Value);
-            clanData = new Regex(@"(?<=associatedScores.:\[)(?:[^\[\]]+(?:\[[^\[\]]+.)?)+").Match(RequestClanLeaderboard(id, mapId)).Value;
-            MatchCollection ppVals = new Regex(@"(?<!(false|true)..pp..)(?<=pp..)[0-9.]+").Matches(clanData);
-            MatchCollection ids = new Regex(@"(?<=id...)[0-9]+(?=.,.name)").Matches(clanData);
-            List<float> actualPpVals = new List<float>();
-            float toRemove = 0.0f;
-            for (int i = 0;i<ppVals.Count;i++)
-                if (ids[i].Value == id)
+            if (playerClanId < 0) playerClanId = ParseId(RequestData($"https://api.beatleader.xyz/player/{id}"));
+            neededPPs = new float[6];
+            if (new Regex(@"(?<=status..)[0-9]").Match(mapData).Value.Equals("3"))
+            {
+                nmPassRating = float.Parse(new Regex(@"(?<=passRating..)[0-9\.]+").Match(mapData).Value);
+                nmAccRating = float.Parse(new Regex(@"(?<=accRating..)[0-9\.]+").Match(mapData).Value);
+                nmTechRating = float.Parse(new Regex(@"(?<=techRating..)[0-9\.]+").Match(mapData).Value);
+                string mapId = new Regex(@"(?<=LeaderboardId...)[A-z0-9]+").Match(mapData).Value;
+                string clanData = RequestData($"{HelpfulPaths.BLAPI_CLAN}{mapId}?page=1&count=1");
+                int clanId = -1;
+                if (clanData.Length > 0) int.TryParse(new Regex(@"(?<=clan..{.id..)[0-9]+").Matches(clanData)[0].Value, out clanId);
+                if (clanId > 0 && clanId != playerClanId)
                 {
-                    toRemove = float.Parse(ppVals[i].Value);
-                    actualPpVals.Add(toRemove);
-                } else
-                    actualPpVals.Add(float.Parse(ppVals[i].Value));
-            neededPPs = new float[5];
-            neededPPs[3] = BLCalc.GetNeededPlay(actualPpVals, pp, toRemove);
+                    float pp = float.Parse(new Regex(@"(?<=:1,.pp..)[0-9.]+").Match(clanData).Value);
+                    clanData = new Regex(@"(?<=associatedScores.:\[)(?:[^\[\]]+(?:\[[^\[\]]+.)?)+").Match(RequestClanLeaderboard(id, mapId)).Value;
+                    MatchCollection ppVals = new Regex(@"(?<!(false|true)..pp..)(?<=pp..)[0-9.]+").Matches(clanData);
+                    MatchCollection ids = new Regex(@"(?<=id...)[0-9]+(?=.,.name)").Matches(clanData);
+                    List<float> actualPpVals = new List<float>();
+                    float toRemove = 0.0f;
+                    for (int i = 0; i < ppVals.Count; i++)
+                        if (ids[i].Value == id)
+                        {
+                            toRemove = float.Parse(ppVals[i].Value);
+                            actualPpVals.Add(toRemove);
+                        }
+                        else
+                            actualPpVals.Add(float.Parse(ppVals[i].Value));
+                    
+                    neededPPs[3] = BLCalc.GetNeededPlay(actualPpVals, pp, toRemove);
+                }
+                else neededPPs[3] = 0.0f;
+            }
+            else neededPPs[3] = 0.0f;
             if (neededPPs[3] <= 0.0f)
             {
                 mapCaptured = true;
                 backup = new NormalCounter(display, accRating, passRating, techRating);
-                backup.SetupData(id, hash, diff, mode, mapData);
                 return;
             }
             neededPPs[4] = BLCalc.GetAcc(accRating, passRating, techRating, neededPPs[3]);
             (neededPPs[0], neededPPs[1], neededPPs[2]) = BLCalc.GetPp(neededPPs[4], nmAccRating, nmPassRating, nmTechRating);
+            neededPPs[5] = (float)Math.Round(neededPPs[4] * 100.0f, 2);
         }
+        public void ReinitCounter(TMP_Text display) { this.display = display; if (mapCaptured) backup.ReinitCounter(display); }
+        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating) { 
+            this.display = display;
+            this.passRating = passRating;
+            this.accRating = accRating;
+            this.techRating = techRating;
+            precision = PluginConfig.Instance.DecimalPrecision;
+            if (mapCaptured) {
+                backup.ReinitCounter(display, passRating, accRating, techRating);
+                return;
+            }
+            neededPPs[4] = BLCalc.GetAcc(accRating, passRating, techRating, neededPPs[3]);
+            (neededPPs[0], neededPPs[1], neededPPs[2]) = BLCalc.GetPp(neededPPs[4], nmAccRating, nmPassRating, nmTechRating);
+            neededPPs[5] = (float)Math.Round(neededPPs[4] * 100.0f, 2);
+        }
+        public void ReinitCounter(TMP_Text display, string hash, string diff, string mode, string mapData) 
+        { this.display = display; SetupData(TheCounter.userID, hash, diff, mode, mapData);  }
         #endregion
         #region API Requests
         private string RequestClanLeaderboard(string id, string mapId)
         {
             try
             {
-                string playerData = client.GetStringAsync($"https://api.beatleader.xyz/player/{id}").Result;
-                int clanId = ParseId(playerData);
+                int clanId = playerClanId > 0 ? playerClanId : ParseId(client.GetStringAsync($"https://api.beatleader.xyz/player/{id}").Result);
                 return client.GetStringAsync($"https://api.beatleader.xyz/leaderboard/clanRankings/{mapId}/clan/{clanId}?count=100&page=1").Result;
             }
             catch (Exception e)
@@ -82,7 +115,7 @@ namespace PleaseWork.Counters
                 return "";
             }
         }
-        private string RequestData(string path)
+        private static string RequestData(string path)
         {
             try
             {
@@ -97,7 +130,7 @@ namespace PleaseWork.Counters
         }
         #endregion
         #region Helper Functions
-        private int ParseId(string playerData)
+        private static int ParseId(string playerData)
         {
             string clan = new Regex(@"(?<=clanOrder...)[A-z]+").Match(playerData).Value.ToLower();
             MatchCollection clanIds = new Regex(@"{[^}]+}").Matches(new Regex(@"(?<=clans..\[)[^\]]+").Match(playerData).Value);
@@ -164,8 +197,9 @@ namespace PleaseWork.Counters
                         (ppVals[15] > 0 ? "<color=\"green\">+" : ppVals[15] == 0 ? "<color=\"yellow\">" : "<color=\"red\">") + $"{ppVals[15]}</color>" + (normal ? $" ({ppVals[11]})" : "") + (showLbl ? " " + labels[3] : "");
                 else
                     display.text = (ppVals[7] > 0 ? "<color=\"green\">+" : ppVals[7] == 0 ? "<color=\"yellow\">" : "<color=\"red\">") + $"{ppVals[7]}</color>" + (normal ? $" ({ppVals[3]})" : "") + (showLbl ? " " + labels[3] : "");
+                display.text += "\n";
             }
-            display.text += "Aiming for " + (neededPPs[4] > acc ? "<color=\"red\">" : "<color=\"green\">") + $"{neededPPs[4] * 100.0f}%</color>";
+            display.text += "Aiming for " + (neededPPs[4] > acc ? "<color=\"red\">" : "<color=\"green\">") + $"{neededPPs[5]}%</color>";
         }
     }
     #endregion

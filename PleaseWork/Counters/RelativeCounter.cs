@@ -18,6 +18,9 @@ namespace PleaseWork.Counters
     public class RelativeCounter: IMyCounters
     {
         private static readonly HttpClient client = new HttpClient();
+
+        public string Name { get => "Relative"; }
+
         private TMP_Text display;
         private float accRating, passRating, techRating;
         private float[] best; //pass, acc, tech, total, replay pass rating, replay acc rating, replay tech rating, current score, current combo
@@ -50,6 +53,8 @@ namespace PleaseWork.Counters
             best[5] = float.Parse(new Regex($@"(?<={acc}..)[0-9\.]+").Match(data).Value);
             best[6] = float.Parse(new Regex($@"(?<={tech}..)[0-9\.]+").Match(data).Value);
         }
+        #endregion
+        #region Overrides
         public void SetupData(string id, string hash, string diff, string mode, string mapData)
         {
             try
@@ -72,8 +77,26 @@ namespace PleaseWork.Counters
             if (best != null && best.Length >= 9)
                 best[7] = best[8] = 0;
         }
+        public void ReinitCounter(TMP_Text display)
+        {
+            this.display = display;
+            if (best != null && best.Length >= 9)
+                best[7] = best[8] = 0;
+        }
+        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating)
+        {
+            this.display = display;
+            this.passRating = passRating;
+            this.accRating = accRating;
+            this.techRating = techRating;
+            precision = PluginConfig.Instance.DecimalPrecision;
+            if (best != null && best.Length >= 9)
+                best[7] = best[8] = 0;
+        }
+        public void ReinitCounter(TMP_Text display, string hash, string diff, string mode, string mapData)
+        { this.display = display; SetupData(TheCounter.userID, hash, diff, mode, mapData); }
         #endregion
-        
+
         #region API Calls
         private byte[] RequestByteData(string path)
         {

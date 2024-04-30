@@ -13,6 +13,8 @@ namespace PleaseWork.Counters
 {
     internal class NormalCounter: IMyCounters
     {
+        public string Name { get => "Normal"; }
+
         private TMP_Text display;
         private float accRating, passRating, techRating;
         private int precision;
@@ -27,10 +29,20 @@ namespace PleaseWork.Counters
             precision = PluginConfig.Instance.DecimalPrecision;
         }
 
-        public void SetupData(string id, string hash, string diff, string mode, string mapData)
+        public void ReinitCounter(TMP_Text display) { this.display = display; }
+
+        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating) 
         {
-            
+            this.display = display;
+            this.passRating = passRating;
+            this.accRating = accRating;
+            this.techRating = techRating;
+            precision = PluginConfig.Instance.DecimalPrecision;
         }
+
+        public void ReinitCounter(TMP_Text display, string hash, string diff, string mode, string mapData) { this.display = display; }
+
+        public void SetupData(string id, string hash, string diff, string mode, string mapData) { }
         #endregion
 
 
