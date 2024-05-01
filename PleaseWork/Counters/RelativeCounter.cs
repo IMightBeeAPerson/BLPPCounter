@@ -35,7 +35,7 @@ namespace PleaseWork.Counters
             this.display = display;
             precision = PluginConfig.Instance.DecimalPrecision;
         }
-        public RelativeCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(TheCounter.userID, map); }
+        public RelativeCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(TheCounter.UserID, map); }
         private void SetupReplayData(string data)
         {
             Plugin.Log.Debug(data);
@@ -94,7 +94,7 @@ namespace PleaseWork.Counters
                 best[7] = best[8] = 0;
         }
         public void ReinitCounter(TMP_Text display, MapSelection map)
-        { this.display = display; SetupData(TheCounter.userID, map); }
+        { this.display = display; SetupData(TheCounter.UserID, map); }
         #endregion
 
         #region API Calls
@@ -149,7 +149,7 @@ namespace PleaseWork.Counters
             (best[0], best[1], best[2]) = BLCalc.GetPp(best[7] / HelpfulMath.MaxScoreForNotes(notes), best[5], best[4], best[6]);
             best[3] = BLCalc.Inflate(best[0] + best[1] + best[2]);
         }
-        public void UpdateCounter(float acc, int notes, int badNotes, int fcScore)
+        public void UpdateCounter(float acc, int notes, int badNotes, float fcPercent)
         {
             bool displayFc = PluginConfig.Instance.PPFC && badNotes > 0, showLbl = PluginConfig.Instance.ShowLbl, normal = PluginConfig.Instance.RelativeWithNormal;
             UpdateBest(notes);
@@ -160,9 +160,7 @@ namespace PleaseWork.Counters
                 ppVals[i + 4] = ppVals[i] - best[i];
             if (displayFc)
             {
-                float fcAcc = fcScore / (float)HelpfulMath.MaxScoreForNotes(notes);
-                if (float.IsNaN(fcAcc)) fcAcc = 1;
-                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcAcc, accRating, passRating, techRating);
+                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPercent, accRating, passRating, techRating);
                 ppVals[11] = BLCalc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
                 for (int i = 8; i < 12; i++)
                     ppVals[i + 4] = ppVals[i] - best[i - 8];

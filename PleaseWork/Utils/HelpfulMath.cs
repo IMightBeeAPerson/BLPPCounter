@@ -24,18 +24,18 @@ namespace PleaseWork.Utils
             if (score < 5635) return (score / 115 - 9) / 4 + 5;
             return (score - 5635) / 920 + 14;
         }
-        public static int MultiplierForNote(int note)
+        public static int MultiplierForNote(int notes)
         {
-            if (note >= 14) return 8;
-            if (note < 2) return 1;
-            if (note < 6) return 2;
-            if (note < 14) return 4;
+            if (notes >= 14) return 8;
+            if (notes < 2) return 1;
+            if (notes < 6) return 2;
+            if (notes < 14) return 4;
             return 8;
         }
-        public static int DecreaseMultiplier(int note)
+        public static int DecreaseMultiplier(int notes)
         {
-            if (note >= 14) return 6;
-            if (note >= 6) return 2;
+            if (notes >= 14) return 6;
+            if (notes >= 6) return 2;
             return 0;
         }
     }

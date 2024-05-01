@@ -34,7 +34,7 @@ namespace PleaseWork.Counters
             mapCaptured = false;
             precision = PluginConfig.Instance.DecimalPrecision;
         }
-        public ClanCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(TheCounter.userID, map); }
+        public ClanCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(TheCounter.UserID, map); }
         public void SetupData(string id, MapSelection map)
         {
             if (playerClanId < 0) playerClanId = ParseId(RequestData($"https://api.beatleader.xyz/player/{id}"));
@@ -99,7 +99,7 @@ namespace PleaseWork.Counters
             neededPPs[5] = (float)Math.Round(neededPPs[4] * 100.0f, 2);
         }
         public void ReinitCounter(TMP_Text display, MapSelection map) 
-        { this.display = display; SetupData(TheCounter.userID, map);  }
+        { this.display = display; SetupData(TheCounter.UserID, map);  }
         #endregion
         #region API Requests
         private string RequestClanLeaderboard(string id, string mapId)
@@ -151,11 +151,11 @@ namespace PleaseWork.Counters
         } 
         #endregion
         #region Updates
-        public void UpdateCounter(float acc, int notes, int badNotes, int fcScore)
+        public void UpdateCounter(float acc, int notes, int badNotes, float fcPercent)
         {
             if (mapCaptured)
             {
-                backup.UpdateCounter(acc, notes, badNotes, fcScore);
+                backup.UpdateCounter(acc, notes, badNotes, fcPercent);
                 display.text += "\n<color=\"green\">Map Was Captured!</color>";
                 return;
             }
@@ -167,9 +167,7 @@ namespace PleaseWork.Counters
                 ppVals[i + 4] = ppVals[i] - neededPPs[i];
             if (displayFc)
             {
-                float fcAcc = fcScore / (float)HelpfulMath.MaxScoreForNotes(notes);
-                if (float.IsNaN(fcAcc)) fcAcc = 1;
-                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcAcc, accRating, passRating, techRating);
+                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPercent, accRating, passRating, techRating);
                 ppVals[11] = BLCalc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
                 for (int i = 8; i < 12; i++)
                     ppVals[i + 4] = ppVals[i] - neededPPs[i - 8];

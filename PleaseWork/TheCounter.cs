@@ -29,12 +29,13 @@ namespace PleaseWork
         private static bool dataLoaded = false;
         private static MapSelection lastMap;
         private static IMyCounters theCounter;
-        public static string userID { get; private set; }
+        public static string UserID { get; private set; }
         private TMP_Text display;
         private bool enabled;
         private float passRating, accRating, techRating, stars;
-        private int notes, badNotes;
-        private int fcScore, totalHitscore;
+        private int notes, badNotes, comboNotes;
+        private int fcTotalHitscore, fcMaxHitscore;
+        private double totalHitscore, maxHitscore;
         private string mode, ppMode;
 
         #region Overrides & Event Calls
@@ -51,13 +52,14 @@ namespace PleaseWork
         public override void CounterInit()
         {
             ppMode = PluginConfig.Instance.PPType;
-            notes = fcScore = badNotes = totalHitscore = 0;
+            notes = badNotes = fcMaxHitscore = comboNotes = fcTotalHitscore = 0;
+            totalHitscore = maxHitscore = 0.0;
             enabled = false;
             if (!dataLoaded)
             {
                 data = new Dictionary<string, Map>();
                 client.Timeout = new TimeSpan(0, 0, 3);
-                userID = PluginConfig.Instance.Target.Equals("None") ? Targeter.playerID : Targeter.GetTargetId();
+                UserID = PluginConfig.Instance.Target.Equals("None") ? Targeter.playerID : Targeter.GetTargetId();
                 InitData();
             }
             try
@@ -71,10 +73,10 @@ namespace PleaseWork
                     if (PluginConfig.Instance.PPFC)
                         sc.scoringForNoteFinishedEvent += OnNoteScored;
                     sc.scoreDidChangeEvent += OnScoreChange;
-                    if (userID == null || userID.Length <= 0)
+                    if (UserID == null || UserID.Length <= 0)
                     {
-                        userID = PluginConfig.Instance.Target.Equals("None") ? Targeter.playerID : Targeter.GetTargetId();
-                        Plugin.Log.Debug(userID);
+                        UserID = PluginConfig.Instance.Target.Equals("None") ? Targeter.playerID : Targeter.GetTargetId();
+                        Plugin.Log.Debug(UserID);
                     }
                     string hash = beatmap.level.levelID.Split('_')[2];
                     bool counterChange = theCounter != null && !theCounter.Name.Equals(PluginConfig.Instance.PPType.Split(' ')[0]);
@@ -100,23 +102,32 @@ namespace PleaseWork
 
         private void OnNoteScored(ScoringElement scoringElement)
         {
-            notes++;
-            if (scoringElement is GoodCutScoringElement goodCut && goodCut.noteData.scoringType == NoteData.ScoringType.Normal)
+            NoteData.ScoringType st = scoringElement.noteData.scoringType;
+            bool isSliderTail = st == NoteData.ScoringType.SliderTail || st == NoteData.ScoringType.BurstSliderElement;
+            if (isSliderTail)
             {
-                fcScore += goodCut.cutScore * HelpfulMath.MultiplierForNote(notes);
-                totalHitscore += goodCut.cutScore;
+                if (scoringElement.cutScore == 0) comboNotes = HelpfulMath.DecreaseMultiplier(comboNotes);
+                return;
+            }
+            if (st <= 0) return;
+            notes++; comboNotes++;
+            maxHitscore += notes < 14 ? scoringElement.maxPossibleCutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0) : scoringElement.maxPossibleCutScore;
+            if (scoringElement.cutScore > 0)
+            {
+                totalHitscore += scoringElement.cutScore * (HelpfulMath.MultiplierForNote(comboNotes) / 8.0);
+                fcTotalHitscore += scoringElement.cutScore;
+                fcMaxHitscore += scoringElement.maxPossibleCutScore;
             }
             else
             {
+                comboNotes = HelpfulMath.DecreaseMultiplier(comboNotes);
                 badNotes++;
-                fcScore += (int)Math.Round(totalHitscore / (double)(notes - badNotes)) * HelpfulMath.MultiplierForNote(notes);
             }
 
         }
         private void OnScoreChange(int score, int modifiedScore)
         {
-            theCounter.UpdateCounter(score / (float)HelpfulMath.MaxScoreForNotes(notes), notes, badNotes, fcScore);
-
+            theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, badNotes, fcTotalHitscore / (float)fcMaxHitscore);
         }
         #endregion
         #region API Calls

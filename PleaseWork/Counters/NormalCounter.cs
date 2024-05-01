@@ -28,7 +28,7 @@ namespace PleaseWork.Counters
             this.display = display;
             precision = PluginConfig.Instance.DecimalPrecision;
         }
-        public NormalCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(TheCounter.userID, map); }
+        public NormalCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(TheCounter.UserID, map); }
 
         public void ReinitCounter(TMP_Text display) { this.display = display; }
 
@@ -47,7 +47,7 @@ namespace PleaseWork.Counters
 
 
         #region Updates
-        public void UpdateCounter(float acc, int notes, int badNotes, int fcScore)
+        public void UpdateCounter(float acc, int notes, int badNotes, float fcPercent)
         {
             bool displayFc = PluginConfig.Instance.PPFC && badNotes > 0;
             float[] ppVals = new float[displayFc ? 8 : 4];
@@ -55,9 +55,7 @@ namespace PleaseWork.Counters
             ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
             if (displayFc)
             {
-                float fcAcc = fcScore / (float)HelpfulMath.MaxScoreForNotes(notes);
-                if (float.IsNaN(fcAcc)) fcAcc = 1;
-                (ppVals[4], ppVals[5], ppVals[6]) = BLCalc.GetPp(fcAcc, accRating, passRating, techRating);
+                (ppVals[4], ppVals[5], ppVals[6]) = BLCalc.GetPp(fcPercent, accRating, passRating, techRating);
                 ppVals[7] = BLCalc.Inflate(ppVals[4] + ppVals[5] + ppVals[6]);
             }
             for (int i = 0; i < ppVals.Length; i++)
