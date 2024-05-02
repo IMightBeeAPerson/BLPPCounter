@@ -29,7 +29,7 @@ namespace PleaseWork.Counters
             this.display = display;
             precision = PluginConfig.Instance.DecimalPrecision;
         }
-        public ProgressCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(TheCounter.UserID, map); }
+        public ProgressCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(map); }
         #endregion
         #region Overrides
         public void ReinitCounter(TMP_Text display) { this.display = display; }
@@ -45,7 +45,7 @@ namespace PleaseWork.Counters
 
         public void ReinitCounter(TMP_Text display, MapSelection map) 
         { this.display = display; totalNotes = HelpfulMath.NotesForMaxScore(int.Parse(new Regex(@"(?<=maxScore..)[0-9]+").Match(map.MapData).Value)); }
-        public void SetupData(string id, MapSelection map)
+        public void SetupData(MapSelection map)
         {
             totalNotes = HelpfulMath.NotesForMaxScore(int.Parse(new Regex(@"(?<=maxScore..)[0-9]+").Match(map.MapData).Value));
         }

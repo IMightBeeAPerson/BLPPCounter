@@ -1,4 +1,5 @@
 ﻿using BeatLeader.Models;
+using IPA.Config.Data;
 using PleaseWork.CalculatorStuffs;
 using PleaseWork.Settings;
 using PleaseWork.Utils;
@@ -16,7 +17,7 @@ namespace PleaseWork.Counters
     {
         private static readonly HttpClient client = new HttpClient();
         private static int playerClanId = -1;
-        private static List<KeyValuePair<MapSelection, float[]>> mapCashe = new List<KeyValuePair<MapSelection, float[]>>();
+        private static readonly List<KeyValuePair<MapSelection, float[]>> mapCashe = new List<KeyValuePair<MapSelection, float[]>>();
         private static PluginConfig pc;
 
         public string Name { get => "Clan"; }
@@ -38,59 +39,67 @@ namespace PleaseWork.Counters
             mapCaptured = uncapturable = false;
             precision = pc.DecimalPrecision;
         }
-        public ClanCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(TheCounter.UserID, map); }
-        public void SetupData(string id, MapSelection map)
+        public ClanCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(map); }
+        public void SetupData(MapSelection map)
         {
-            if (playerClanId < 0) playerClanId = ParseId(RequestData($"https://api.beatleader.xyz/player/{id}"));
-            neededPPs = new float[6];
             string mapData = map.MapData;
             nmPassRating = float.Parse(new Regex(@"(?<=passRating..)[0-9\.]+").Match(mapData).Value);
             nmAccRating = float.Parse(new Regex(@"(?<=accRating..)[0-9\.]+").Match(mapData).Value);
             nmTechRating = float.Parse(new Regex(@"(?<=techRating..)[0-9\.]+").Match(mapData).Value);
+            neededPPs = new float[6];
             neededPPs[3] = GetCashedPP(map);
             if (neededPPs[3] <= 0)
             {
-                string mapId = new Regex(@"(?<=LeaderboardId...)[A-z0-9]+").Match(mapData).Value;
-                string clanData = RequestData($"{HelpfulPaths.BLAPI_CLAN}{mapId}?page=1&count=1");
-                int clanId = -1;
-                if (clanData.Length > 0) int.TryParse(new Regex(@"(?<=clan..{.id..)[0-9]+").Matches(clanData)[0].Value, out clanId);
-                if (clanId > 0 && clanId != playerClanId)
-                {
-                    float pp = float.Parse(new Regex(@"(?<=:1,.pp..)[0-9.]+").Match(clanData).Value);
-                    clanData = new Regex(@"(?<=associatedScores.:\[)(?:[^\[\]]+(?:\[[^\[\]]+.)?)+").Match(RequestClanLeaderboard(id, mapId)).Value;
-                    MatchCollection ppVals = new Regex(@"(?<!(false|true)..pp..)(?<=pp..)[0-9.]+").Matches(clanData);
-                    MatchCollection ids = new Regex(@"(?<=id...)[0-9]+(?=.,.name)").Matches(clanData);
-                    List<float> actualPpVals = new List<float>();
-                    float toRemove = 0.0f;
-                    for (int i = 0; i < ppVals.Count; i++)
-                        if (ids[i].Value == id)
-                        {
-                            toRemove = float.Parse(ppVals[i].Value);
-                            actualPpVals.Add(toRemove);
-                        }
-                        else
-                            actualPpVals.Add(float.Parse(ppVals[i].Value));
-                    List<float> clone = new List<float>(actualPpVals);
-                    clone.Remove(toRemove);
-                    clanPPs = clone.ToArray();
-                    Array.Sort(clanPPs, (a, b) => (int)Math.Round(b - a));
-                    neededPPs[3] = BLCalc.GetNeededPlay(actualPpVals, pp, toRemove);
-                }
-                else neededPPs[3] = 0.0f;
-                if (neededPPs[3] <= 0.0f)
-                {
-                    mapCaptured = true;
-                    backup = new NormalCounter(display, accRating, passRating, techRating);
-                    return;
-                }
-                if (pc.MapCashe > 0) mapCashe.Add(new KeyValuePair<MapSelection, float[]>(map, clanPPs.Prepend(neededPPs[3]).ToArray()));
+                float[] ppVals = LoadNeededPp(mapData);
+                if (mapCaptured) return;
+                if (pc.MapCashe > 0) mapCashe.Add(new KeyValuePair<MapSelection, float[]>(map, ppVals));
             }
             neededPPs[4] = BLCalc.GetAcc(accRating, passRating, techRating, neededPPs[3]);
             (neededPPs[0], neededPPs[1], neededPPs[2]) = BLCalc.GetPp(neededPPs[4], nmAccRating, nmPassRating, nmTechRating);
             neededPPs[5] = (float)Math.Round(neededPPs[4] * 100.0f, 2);
-            while (mapCashe.Count > pc.MapCashe) mapCashe.RemoveAt(0);
+            //while (mapCashe.Count > pc.MapCashe) mapCashe.RemoveAt(0);
             uncapturable = pc.CeilEnabled && neededPPs[5] >= pc.ClanPercentCeil;
             //Plugin.Log.Info($"Uncapturable: {uncapturable}\nEnabled: {pc.CeilEnabled}\tAcc Needed: {neededPPs[4]}\tCeiling: {pc.ClanPercentCeil}");
+        }
+        public float[] LoadNeededPp(string mapData)
+        {
+            string id = Targeter.TargetID;
+            neededPPs = new float[6];
+            if (playerClanId < 0) playerClanId = ParseId(RequestData($"https://api.beatleader.xyz/player/{id}"));
+            string mapId = new Regex(@"(?<=LeaderboardId...)[A-z0-9]+").Match(mapData).Value;
+            string clanData = RequestData($"{HelpfulPaths.BLAPI_CLAN}{mapId}?page=1&count=1");
+            int clanId = -1;
+            if (clanData.Length > 0) int.TryParse(new Regex(@"(?<=clan..{.id..)[0-9]+").Matches(clanData)[0].Value, out clanId);
+            if (clanId > 0 && clanId != playerClanId)
+            {
+                float pp = float.Parse(new Regex(@"(?<=:1,.pp..)[0-9.]+").Match(clanData).Value);
+                clanData = new Regex(@"(?<=associatedScores.:\[)(?:[^\[\]]+(?:\[[^\[\]]+.)?)+").Match(RequestClanLeaderboard(id, mapId)).Value;
+                MatchCollection ppVals = new Regex(@"(?<!(false|true)..pp..)(?<=pp..)[0-9.]+").Matches(clanData);
+                MatchCollection ids = new Regex(@"(?<=id...)[0-9]+(?=.,.name)").Matches(clanData);
+                List<float> actualPpVals = new List<float>();
+                float toRemove = 0.0f;
+                for (int i = 0; i < ppVals.Count; i++)
+                    if (ids[i].Value == id)
+                    {
+                        toRemove = float.Parse(ppVals[i].Value);
+                        actualPpVals.Add(toRemove);
+                    }
+                    else
+                        actualPpVals.Add(float.Parse(ppVals[i].Value));
+                List<float> clone = new List<float>(actualPpVals);
+                clone.Remove(toRemove);
+                clanPPs = clone.ToArray();
+                Array.Sort(clanPPs, (a, b) => (int)Math.Round(b - a));
+                neededPPs[3] = BLCalc.GetNeededPlay(actualPpVals, pp, toRemove);
+            }
+            else neededPPs[3] = 0.0f;
+            if (neededPPs[3] <= 0.0f && !mapCaptured)
+            {
+                mapCaptured = true;
+                backup = new NormalCounter(display, accRating, passRating, techRating);
+                return null;
+            }
+            return clanPPs.Prepend(neededPPs[3]).ToArray();
         }
         public void ReinitCounter(TMP_Text display) { this.display = display; if (mapCaptured) backup.ReinitCounter(display); }
         public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating) { 
@@ -108,7 +117,7 @@ namespace PleaseWork.Counters
             neededPPs[5] = (float)Math.Round(neededPPs[4] * 100.0f, 2);
         }
         public void ReinitCounter(TMP_Text display, MapSelection map) 
-        { this.display = display; SetupData(TheCounter.UserID, map);  }
+        { this.display = display; SetupData(map);  }
         #endregion
         #region API Requests
         private string RequestClanLeaderboard(string id, string mapId)
@@ -158,10 +167,12 @@ namespace PleaseWork.Counters
             foreach (KeyValuePair<MapSelection, float[]> pair in mapCashe)
                 if (pair.Key.Equals(map)) {
                     clanPPs = pair.Value.Skip(1).ToArray();
+                    Plugin.Log.Info($"PP: {pair.Value[0]}");
                     return pair.Value[0];
                 }
             return -1.0f;
         } 
+        public static void AddToCashe(MapSelection map, float[] vals) => mapCashe.Add(new KeyValuePair<MapSelection, float[]>(map, vals));
         #endregion
         #region Updates
         public void UpdateCounter(float acc, int notes, int badNotes, float fcPercent)

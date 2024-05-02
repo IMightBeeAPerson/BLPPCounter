@@ -28,7 +28,7 @@ namespace PleaseWork.Counters
             this.display = display;
             precision = PluginConfig.Instance.DecimalPrecision;
         }
-        public NormalCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(TheCounter.UserID, map); }
+        public NormalCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(map); }
 
         public void ReinitCounter(TMP_Text display) { this.display = display; }
 
@@ -42,7 +42,7 @@ namespace PleaseWork.Counters
         }
 
         public void ReinitCounter(TMP_Text display, MapSelection map) { this.display = display; }
-        public void SetupData(string id, MapSelection map) { }
+        public void SetupData(MapSelection map) { }
         #endregion
 
 

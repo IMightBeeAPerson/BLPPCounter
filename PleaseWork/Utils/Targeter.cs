@@ -14,11 +14,8 @@ namespace PleaseWork.Utils
         public static List<object> clanNames;
         public static Dictionary<string, string> nameToId;
         public static string playerID;
+        public static string TargetID => Settings.PluginConfig.Instance.Target.Equals("None") ? playerID : nameToId[Settings.PluginConfig.Instance.Target];
 
-        public static string GetTargetId()
-        {
-            return nameToId[Settings.PluginConfig.Instance.Target];
-        }
         public static async void GenerateClanNames()
         {
             string clanStuff = RequestClan((await BS_Utils.Gameplay.GetUserInfo.GetUserAsync()).platformUserId);

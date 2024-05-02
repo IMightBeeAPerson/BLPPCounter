@@ -35,7 +35,7 @@ namespace PleaseWork.Counters
             this.display = display;
             precision = PluginConfig.Instance.DecimalPrecision;
         }
-        public RelativeCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(TheCounter.UserID, map); }
+        public RelativeCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(map); }
         private void SetupReplayData(string data)
         {
             Plugin.Log.Debug(data);
@@ -55,11 +55,11 @@ namespace PleaseWork.Counters
         }
         #endregion
         #region Overrides
-        public void SetupData(string id, MapSelection map)
+        public void SetupData(MapSelection map)
         {
             try
             {
-                string playerData = RequestScore(id, map.Map.hash, map.Difficulty, map.Mode);
+                string playerData = RequestScore(Targeter.TargetID, map.Map.hash, map.Difficulty, map.Mode);
                 if (playerData != null && playerData.Length > 0)
                 {
                     best = new float[9];
@@ -94,7 +94,7 @@ namespace PleaseWork.Counters
                 best[7] = best[8] = 0;
         }
         public void ReinitCounter(TMP_Text display, MapSelection map)
-        { this.display = display; SetupData(TheCounter.UserID, map); }
+        { this.display = display; SetupData(map); }
         #endregion
 
         #region API Calls

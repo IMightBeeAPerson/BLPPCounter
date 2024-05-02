@@ -62,7 +62,19 @@ namespace PleaseWork.Utils
             m1.Combine(m2);
             return m1;
         }
-
+        public override string ToString()
+        {
+            string outp = $"Hash: {hash}\n";
+            foreach (string mode in data.Keys)
+            {
+                outp += $"----{mode}:\n";
+                foreach (string diff in data[mode].Keys)
+                {
+                    outp += $"--------{diff}: [Insert Data Here]\n";
+                }
+            }
+            return outp;
+        }
         public override int GetHashCode()
         {
             return int.Parse(hash, System.Globalization.NumberStyles.HexNumber);

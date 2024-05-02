@@ -1,7 +1,10 @@
 using BeatSaberMarkupLanguage.Attributes;
 using PleaseWork.Counters;
 using PleaseWork.Utils;
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace PleaseWork.Settings
 {
@@ -74,7 +77,38 @@ namespace PleaseWork.Settings
             set => PluginConfig.Instance.MapCashe = value;
         }
         [UIAction("ClearCashe")]
-        void ClearCashe() => ClanCounter.ClearCashe();
+        public void ClearCashe() { ClanCounter.ClearCashe(); TheCounter.ClearCounter(); }
+        [UIValue("PlNames")]
+        public List<object> PlNames => new List<object>(PlaylistLoader.Instance.GetNames);
+        [UIValue("ChosenPlaylist")]
+        public string ChosenPlaylist
+        {
+            get => PluginConfig.Instance.ChosenPlaylist;
+            set => PluginConfig.Instance.ChosenPlaylist = value;
+        }
+        [UIAction("LoadPlaylist")]
+        public void LoadPlaylist() {
+            Plugin.Log.Info("Button works");
+            ClanCounter cc = new ClanCounter(null, 0f, 0f, 0f);
+            /*foreach (string s in PlaylistLoader.Instance.Playlists.Keys) Plugin.Log.Info(s);
+            Plugin.Log.Info(ChosenPlaylist);*/
+            MapSelection[] maps = PlaylistLoader.Instance.Playlists[ChosenPlaylist];
+            foreach (MapSelection map in maps)
+            {
+                float[] pp = null;
+                //Plugin.Log.Info("" + map + "\n" + map.Map);
+                int status;
+                try { status = int.Parse(new Regex(@"(?<=status..)\d").Match(map.MapData).Value); } catch { continue; }
+                if (status != 3) { Plugin.Log.Info($"Status: {status}"); continue; }
+                try { pp = cc.LoadNeededPp(map.MapData); } catch (Exception e) { Plugin.Log.Info($"Error loading map {map.Map.hash}: {e.Message}"); Plugin.Log.Debug(e); }
+                if (pp != null)
+                {
+                    ClanCounter.AddToCashe(map, pp);
+                    Plugin.Log.Info($"map {map.Map.hash} loaded!");
+                }
+            }
+            Plugin.Log.Info("Loading completed!");
+        }
         [UIValue("ClanPercentCeil")]
         public double ClanPercentCeil
         {

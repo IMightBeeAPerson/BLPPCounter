@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEngine;
+using static AlphabetScrollInfo;
 
 namespace PleaseWork.Utils
 {
@@ -27,6 +29,12 @@ namespace PleaseWork.Utils
             TechRating = techRating;
         }
 
+        public void FixRates(float passRating = default, float accRating = default, float techRating = default)
+        {
+            if (passRating != default) PassRating = passRating;
+            if (accRating != default) AccRating = accRating;
+            if (techRating != default) TechRating = techRating;
+        }
         public (bool, bool) GetDifference(MapSelection other)
         {
             bool ratingDiff = !Mathf.Approximately(PassRating, other.PassRating) || !Mathf.Approximately(AccRating, other.AccRating) || !Mathf.Approximately(TechRating, other.TechRating);
@@ -38,5 +46,10 @@ namespace PleaseWork.Utils
             string mapHash = Map == null ? "null" : Map.hash;
             return $"Map: {mapHash}\nDifficulty: {Difficulty}\nMode: {Mode}\nPass Rating: {PassRating}\nAcc Rating: {AccRating}\nTech Rating: {TechRating}";
         }
+        public bool Equals(MapSelection other) {
+            if (other.Map == null || Map == null) return base.Equals(other);
+            return other.Map.hash.Equals(Map.hash) && other.Difficulty.Equals(Difficulty) && other.Mode.Equals(Mode);
+        }
+
     }
 }

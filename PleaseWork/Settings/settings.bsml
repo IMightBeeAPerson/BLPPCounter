@@ -17,7 +17,9 @@
   <text text='Clan PP Settings'/>
   <vertical spacing='1'>
     <increment-setting text='Map Cashe' value='MapCashe' integer-only='true' min='0' max='50' increment='5' apply-on-change='true'/>
-    <button text='Clear Cashe' on-click='ClearCashe' hover-hint='Clears the map cashe (use this to update a map with the latest info)'/>
+    <button text='Clear Cashe' on-click='ClearCashe' hover-hint='Clears the map cashe'/>
+    <dropdown-list-setting text='Playlists' apply-on-change='true' value='ChosenPlaylist' options='PlNames' hover-hint='A player to compare against while playing'/>
+    <button text='Load Playlist' on-click='LoadPlaylist' hover-hint='Loads the selected playlist into cashe to prevent lag'/>
     <increment-setting text='Percent Ceiling' value='ClanPercentCeil' integer-only='false' min='90' max='100' increment='0.1' apply-on-change='true'/>
     <checkbox-setting text='Enable Ceiling' apply-on-change='true' value='CeilEnabled' hover-hint='Enable the percentage ceiling'/>
   </vertical>

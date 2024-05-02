@@ -25,11 +25,10 @@ namespace PleaseWork
         [Inject] private GameplayModifiers mods;
         [Inject] private ScoreController sc;
         private static readonly HttpClient client = new HttpClient();
-        private static Dictionary<string, Map> data;
+        public static Dictionary<string, Map> Data { get; private set; }
         private static bool dataLoaded = false;
         private static MapSelection lastMap;
         private static IMyCounters theCounter;
-        public static string UserID { get; private set; }
         private TMP_Text display;
         private bool enabled;
         private float passRating, accRating, techRating, stars;
@@ -57,9 +56,8 @@ namespace PleaseWork
             enabled = false;
             if (!dataLoaded)
             {
-                data = new Dictionary<string, Map>();
+                Data = new Dictionary<string, Map>();
                 client.Timeout = new TimeSpan(0, 0, 3);
-                UserID = PluginConfig.Instance.Target.Equals("None") ? Targeter.playerID : Targeter.GetTargetId();
                 InitData();
             }
             try
@@ -73,16 +71,11 @@ namespace PleaseWork
                     if (PluginConfig.Instance.PPFC)
                         sc.scoringForNoteFinishedEvent += OnNoteScored;
                     sc.scoreDidChangeEvent += OnScoreChange;
-                    if (UserID == null || UserID.Length <= 0)
-                    {
-                        UserID = PluginConfig.Instance.Target.Equals("None") ? Targeter.playerID : Targeter.GetTargetId();
-                        Plugin.Log.Debug(UserID);
-                    }
                     string hash = beatmap.level.levelID.Split('_')[2];
                     bool counterChange = theCounter != null && !theCounter.Name.Equals(PluginConfig.Instance.PPType.Split(' ')[0]);
                     if (counterChange || lastMap.Equals(new MapSelection()) || hash != lastMap.Map.hash || PluginConfig.Instance.PPType.Equals("Progressive"))
                     {
-                        lastMap = new MapSelection(data[hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating);
+                        lastMap = new MapSelection(Data[hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating);
                         if (!InitCounter()) throw new Exception("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
                     }
                     else
@@ -150,6 +143,16 @@ namespace PleaseWork
         }
 
         #endregion
+        #region Helper Methods
+        public static void ClearCounter() => lastMap = default;
+        public static void ForceLoadMaps()
+        {
+            if (dataLoaded) return;
+            client.Timeout = new TimeSpan(0, 0, 3);
+            Data = new Dictionary<string, Map>();
+            InitData();
+        }
+        #endregion
         #region Init
         private bool InitCounter()
         {
@@ -172,14 +175,14 @@ namespace PleaseWork
         private void APIAvoidanceMode()
         {
             Plugin.Log.Info("API Avoidance mode is functioning (probably)!");
-            MapSelection thisMap = new MapSelection(data[lastMap.Map.hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating);
+            MapSelection thisMap = new MapSelection(Data[lastMap.Map.hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating);
             bool ratingDiff, diffDiff;
             (ratingDiff, diffDiff) = thisMap.GetDifference(lastMap);
             if (diffDiff) theCounter.ReinitCounter(display, thisMap);
             else if (ratingDiff) theCounter.ReinitCounter(display, passRating, accRating, techRating);
             if (!ratingDiff && !diffDiff) theCounter.ReinitCounter(display);
         }
-        private void InitData()
+        private static void InitData()
         {
             dataLoaded = false;
             if (File.Exists(HelpfulPaths.BL_CACHE_FILE))
@@ -191,9 +194,9 @@ namespace PleaseWork
                     foreach (Match m in matches)
                     {
                         Map map = new Map(new Regex(@"(?<=hash...)[A-z0-9]+").Match(m.Value).Value.ToUpper(), m.Value);
-                        if (TheCounter.data.ContainsKey(map.hash))
-                            TheCounter.data[map.hash].Combine(map);
-                        else TheCounter.data[map.hash] = map;
+                        if (Data.ContainsKey(map.hash))
+                            Data[map.hash].Combine(map);
+                        else Data[map.hash] = map;
                     }
                     dataLoaded = true;
                 }
@@ -211,13 +214,13 @@ namespace PleaseWork
             string hash = beatmap.level.levelID.Split('_')[2].ToUpper();
             try
             {
-                Dictionary<string, string> hold = TheCounter.data[hash].Get(beatmap.difficulty.Name().Replace("+", "Plus"));
+                Dictionary<string, string> hold = Data[hash].Get(beatmap.difficulty.Name().Replace("+", "Plus"));
                 mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;
                 data = hold[mode];
             }
             catch (Exception e)
             {
-                Plugin.Log.Debug($"Data length: {TheCounter.data.Count}");
+                Plugin.Log.Debug($"Data length: {Data.Count}");
                 Plugin.Log.Warn("Level doesn't exist for some reason :(\nHash: " + hash);
                 Plugin.Log.Debug(e);
                 return false;

@@ -39,6 +39,7 @@ namespace PleaseWork
             if (!BLInstalled && (PluginConfig.Instance.PPType.Equals("Relative") || PluginConfig.Instance.PPType.Equals("Relative w/ normal")))
                 PluginConfig.Instance.PPType = "Normal";
             Targeter.GenerateClanNames();
+            new PlaylistLoader();
         }
 
         [OnDisable]
