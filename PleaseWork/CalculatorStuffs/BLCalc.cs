@@ -43,6 +43,7 @@ namespace PleaseWork.CalculatorStuffs
                 (0.0, 0.000), };
         private static readonly float CLANWAR_WEIGHT_COEFFICIENT = 0.8f; 
         #region PP Math
+        /*returns pass, acc, tech pp in that order.*/
         public static (float, float, float) GetPp(float accuracy, float accRating, float passRating, float techRating)
         {
             float passPP = 15.2f * (float)Math.Exp(Math.Pow(passRating, 1 / 2.62f)) - 30f;
@@ -191,6 +192,16 @@ namespace PleaseWork.CalculatorStuffs
             if (otherClan - TotalPP(CLANWAR_WEIGHT_COEFFICIENT, clone, 0) <= 0) return 0.0f;
             float result = GetNeededPP(clanPpVals.ToArray(), otherClan - ourClan);
             return result;
+        }
+        public static float GetWeight(float pp, float[] sortedClanPps)
+        {
+            int count = 0;
+            while (sortedClanPps[count] > pp) count++;
+            return (float)Math.Pow(CLANWAR_WEIGHT_COEFFICIENT, count);
+        }
+        public static float GetWeightedPp(float pp, float[] clanPps)
+        {
+            return pp * GetWeight(pp, clanPps);
         }
         #endregion
     }

@@ -19,5 +19,7 @@ namespace PleaseWork.Settings
         public virtual bool ShowEnemy { get; set; } = true;
         public virtual bool LocalReplay { get; set; } = false;
         public virtual int MapCashe { get; set; } = 10;
+        public virtual double ClanPercentCeil { get; set; } = 99;
+        public virtual bool CeilEnabled { get; set; } = true;
     }
 }

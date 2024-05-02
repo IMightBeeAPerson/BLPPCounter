@@ -1,4 +1,5 @@
 using BeatSaberMarkupLanguage.Attributes;
+using PleaseWork.Counters;
 using PleaseWork.Utils;
 using System.Collections.Generic;
 
@@ -71,6 +72,19 @@ namespace PleaseWork.Settings
         {
             get => PluginConfig.Instance.MapCashe;
             set => PluginConfig.Instance.MapCashe = value;
+        }
+        [UIAction("ClearCashe")]
+        void ClearCashe() => ClanCounter.ClearCashe();
+        [UIValue("ClanPercentCeil")]
+        public double ClanPercentCeil
+        {
+            get => PluginConfig.Instance.ClanPercentCeil;
+            set => PluginConfig.Instance.ClanPercentCeil = value;
+        }[UIValue("CeilEnabled")]
+        public bool CeilEnabled
+        {
+            get => PluginConfig.Instance.CeilEnabled;
+            set => PluginConfig.Instance.CeilEnabled = value;
         }
     }
 }
