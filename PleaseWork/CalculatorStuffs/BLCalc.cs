@@ -195,8 +195,9 @@ namespace PleaseWork.CalculatorStuffs
         }
         public static float GetWeight(float pp, float[] sortedClanPps)
         {
+            if (sortedClanPps == null || sortedClanPps.Length == 0) return 1.0f;
             int count = 0;
-            while (sortedClanPps[count] > pp) count++;
+            while (sortedClanPps[count++] > pp && count < sortedClanPps.Length);
             return (float)Math.Pow(CLANWAR_WEIGHT_COEFFICIENT, count);
         }
         public static float GetWeightedPp(float pp, float[] clanPps)

@@ -1,9 +1,14 @@
 ﻿using IPA;
 using IPA.Config.Stores;
 using IPA.Loader;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Linq;
 using PleaseWork.Settings;
 using PleaseWork.Utils;
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEngine;
 using IPALogger = IPA.Logging.Logger;
@@ -29,7 +34,6 @@ namespace PleaseWork
             PluginConfig.Instance = config.Generated<PluginConfig>();
             Instance = this;
             Log = logger;
-            Log.Info($"{PluginConfig.Instance != null}");
             
         }
 

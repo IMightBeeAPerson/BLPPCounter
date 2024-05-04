@@ -79,7 +79,7 @@ namespace PleaseWork.Settings
         [UIAction("ClearCashe")]
         public void ClearCashe() { ClanCounter.ClearCashe(); TheCounter.ClearCounter(); }
         [UIValue("PlNames")]
-        public List<object> PlNames => new List<object>(PlaylistLoader.Instance.GetNames);
+        public List<object> PlNames => new List<object>(PlaylistLoader.Instance.Names);
         [UIValue("ChosenPlaylist")]
         public string ChosenPlaylist
         {
@@ -98,13 +98,13 @@ namespace PleaseWork.Settings
                 float[] pp = null;
                 //Plugin.Log.Info("" + map + "\n" + map.Map);
                 int status;
-                try { status = int.Parse(new Regex(@"(?<=status..)\d").Match(map.MapData).Value); } catch { continue; }
+                try { status = int.Parse(map.MapData["DifficultyInfo"]["status"].ToString()); } catch { continue; }
                 if (status != 3) { Plugin.Log.Info($"Status: {status}"); continue; }
-                try { pp = cc.LoadNeededPp(map.MapData); } catch (Exception e) { Plugin.Log.Info($"Error loading map {map.Map.hash}: {e.Message}"); Plugin.Log.Debug(e); }
+                try { pp = cc.LoadNeededPp(map.SongID); } catch (Exception e) { Plugin.Log.Info($"Error loading map {map.Map.Hash}: {e.Message}"); Plugin.Log.Debug(e); }
                 if (pp != null)
                 {
                     ClanCounter.AddToCashe(map, pp);
-                    Plugin.Log.Info($"map {map.Map.hash} loaded!");
+                    Plugin.Log.Info($"map {map.Map.Hash} loaded!");
                 }
             }
             Plugin.Log.Info("Loading completed!");

@@ -44,10 +44,14 @@ namespace PleaseWork.Counters
         }
 
         public void ReinitCounter(TMP_Text display, MapSelection map) 
-        { this.display = display; totalNotes = HelpfulMath.NotesForMaxScore(int.Parse(new Regex(@"(?<=maxScore..)[0-9]+").Match(map.MapData).Value)); }
+        { 
+            this.display = display; 
+            totalNotes = HelpfulMath.NotesForMaxScore(int.Parse(map.MapData["maxScore"].ToString()));
+            passRating = map.PassRating; accRating = map.AccRating; techRating = map.TechRating;
+        }
         public void SetupData(MapSelection map)
         {
-            totalNotes = HelpfulMath.NotesForMaxScore(int.Parse(new Regex(@"(?<=maxScore..)[0-9]+").Match(map.MapData).Value));
+            totalNotes = HelpfulMath.NotesForMaxScore(int.Parse(map.MapData["maxScore"].ToString()));
         }
         #endregion
         #region Updates

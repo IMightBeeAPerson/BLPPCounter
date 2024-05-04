@@ -1,11 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+﻿using Newtonsoft.Json.Linq;
 using UnityEngine;
-using static AlphabetScrollInfo;
 
 namespace PleaseWork.Utils
 {
@@ -17,7 +11,9 @@ namespace PleaseWork.Utils
         public float PassRating { get; private set; }
         public float AccRating { get; private set; }
         public float TechRating { get; private set; }
-        public string MapData { get => Map.Get(Mode, Difficulty); }
+        public JToken MapData { get => Map.Get(Mode, Difficulty); }
+        public string Hash { get => Map.Hash; }
+        public string SongID { get => Map.SongID; }
 
         public MapSelection(Map map = default, string diff = default, string mode = default, float passRating = default, float accRating = default, float techRating = default)
         {
@@ -43,12 +39,12 @@ namespace PleaseWork.Utils
         }
         public override string ToString()
         {
-            string mapHash = Map == null ? "null" : Map.hash;
+            string mapHash = Map == null ? "null" : Map.Hash;
             return $"Map: {mapHash}\nDifficulty: {Difficulty}\nMode: {Mode}\nPass Rating: {PassRating}\nAcc Rating: {AccRating}\nTech Rating: {TechRating}";
         }
         public bool Equals(MapSelection other) {
             if (other.Map == null || Map == null) return base.Equals(other);
-            return other.Map.hash.Equals(Map.hash) && other.Difficulty.Equals(Difficulty) && other.Mode.Equals(Mode);
+            return other.Map.Hash.Equals(Map.Hash) && other.Difficulty.Equals(Difficulty) && other.Mode.Equals(Mode);
         }
 
     }

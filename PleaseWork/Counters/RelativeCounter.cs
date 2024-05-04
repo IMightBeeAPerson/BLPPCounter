@@ -12,6 +12,7 @@ using System.Security.Policy;
 using BeatLeader.Models;
 using PleaseWork.CalculatorStuffs;
 using PleaseWork.Utils;
+using Newtonsoft.Json.Linq;
 
 namespace PleaseWork.Counters
 {
@@ -26,6 +27,8 @@ namespace PleaseWork.Counters
         private Replay bestReplay;
         private NoteEvent[] noteArray;
         private int precision;
+        private NormalCounter backup;
+        private bool failed;
         #region Init
         public RelativeCounter(TMP_Text display, float accRating, float passRating, float techRating)
         {
@@ -33,25 +36,22 @@ namespace PleaseWork.Counters
             this.passRating = passRating;
             this.techRating = techRating;
             this.display = display;
+            failed = false;
             precision = PluginConfig.Instance.DecimalPrecision;
         }
         public RelativeCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(map); }
-        private void SetupReplayData(string data)
+        private void SetupReplayData(JToken data)
         {
-            Plugin.Log.Debug(data);
-            string replay = new Regex(@"(?<=replay.:.)[^,]+(?=.,)").Match(data).Value;
+            Plugin.Log.Debug(data.ToString());
+            string replay = (string)data["replay"];
             ReplayDecoder.TryDecodeReplay(RequestByteData(replay), out bestReplay);
             noteArray = bestReplay.notes.ToArray();
             string hold = bestReplay.info.modifiers.ToLower();
-            string mod = hold.Contains("fs") ? "fs" : hold.Contains("sf") ? "sf" : hold.Contains("ss") ? "ss" : "";
-            string[] prefix = new string[] { "p", "a", "t" };
-            if (mod.Length > 0)
-                for (int i = 0; i < prefix.Length; i++)
-                    prefix[i] = mod + prefix[i].ToUpper();
-            string pass = prefix[0] + "assRating", acc = prefix[1] + "ccRating", tech = prefix[2] + "echRating";
-            best[4] = float.Parse(new Regex($@"(?<={pass}..)[0-9\.]+").Match(data).Value);
-            best[5] = float.Parse(new Regex($@"(?<={acc}..)[0-9\.]+").Match(data).Value);
-            best[6] = float.Parse(new Regex($@"(?<={tech}..)[0-9\.]+").Match(data).Value);
+            Modifier mod = hold.Contains("fs") ? Modifier.FasterSong : hold.Contains("sf") ? Modifier.SuperFastSong : hold.Contains("ss") ? Modifier.SlowerSong : Modifier.None;
+            data = data["difficulty"];
+            best[4] = HelpfulPaths.GetRating(data, PPType.Pass, mod);
+            best[5] = HelpfulPaths.GetRating(data, PPType.Acc, mod);
+            best[6] = HelpfulPaths.GetRating(data, PPType.Tech, mod);
         }
         #endregion
         #region Overrides
@@ -59,28 +59,32 @@ namespace PleaseWork.Counters
         {
             try
             {
-                string playerData = RequestScore(Targeter.TargetID, map.Map.hash, map.Difficulty, map.Mode);
-                if (playerData != null && playerData.Length > 0)
+                string check = RequestScore(Targeter.TargetID, map.Map.Hash, map.Difficulty, map.Mode);
+                if (check != default && check.Length > 0)
                 {
+                    JToken playerData = JObject.Parse(check);
                     best = new float[9];
                     SetupReplayData(playerData);
-                    playerData = new Regex(@"(?<=contextExtensions..\[)[^\[\]]+").Match(playerData).Value;
-                    playerData = new Regex(@"{.+?(?=..scoreImprovement)").Matches(playerData)[0].Value;
+                    /*playerData = new Regex(@"(?<=contextExtensions..\[)[^\[\]]+").Match(playerData).Value;
+                    playerData = new Regex(@"{.+?(?=..scoreImprovement)").Matches(playerData)[0].Value;*/
                 }
             }
             catch (Exception e)
             {
                 Plugin.Log.Warn("There was an error loading the replay of the player, most likely they have never played the map before.");
                 Plugin.Log.Debug(e);
-                PluginConfig.Instance.PPType = "Normal";
+                failed = true;
+                backup = new NormalCounter(display, map);
+                return;
             }
-            if (best != null && best.Length >= 9)
+            if (!failed && best != null && best.Length >= 9)
                 best[7] = best[8] = 0;
         }
         public void ReinitCounter(TMP_Text display)
         {
             this.display = display;
-            if (best != null && best.Length >= 9)
+            if (failed) backup.ReinitCounter(display);
+            if (!failed && best != null && best.Length >= 9)
                 best[7] = best[8] = 0;
         }
         public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating)
@@ -90,13 +94,13 @@ namespace PleaseWork.Counters
             this.accRating = accRating;
             this.techRating = techRating;
             precision = PluginConfig.Instance.DecimalPrecision;
-            if (best != null && best.Length >= 9)
+            if (failed) backup.ReinitCounter(display, passRating, accRating, techRating);
+            if (!failed && best != null && best.Length >= 9)
                 best[7] = best[8] = 0;
         }
         public void ReinitCounter(TMP_Text display, MapSelection map)
-        { this.display = display; SetupData(map); }
+        { this.display = display; passRating = map.PassRating; accRating = map.AccRating; techRating = map.TechRating; failed = false; SetupData(map); }
         #endregion
-
         #region API Calls
         private byte[] RequestByteData(string path)
         {
@@ -151,6 +155,11 @@ namespace PleaseWork.Counters
         }
         public void UpdateCounter(float acc, int notes, int badNotes, float fcPercent)
         {
+            if (failed)
+            {
+                backup.UpdateCounter(acc, notes, badNotes, fcPercent);
+                return;
+            }
             bool displayFc = PluginConfig.Instance.PPFC && badNotes > 0, showLbl = PluginConfig.Instance.ShowLbl, normal = PluginConfig.Instance.RelativeWithNormal;
             UpdateBest(notes);
             float[] ppVals = new float[displayFc ? 16 : 8];

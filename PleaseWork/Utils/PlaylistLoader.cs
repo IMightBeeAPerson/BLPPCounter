@@ -10,19 +10,26 @@ namespace PleaseWork.Utils
     public class PlaylistLoader
     {
         public static PlaylistLoader Instance { get; private set; }
-        public string[] GetNames => Playlists.Keys.ToArray();
+        public string[] Names { get; private set; }
         public Dictionary<string, MapSelection[]> Playlists { get; private set; }
-        public PlaylistLoader() { Instance = this; Playlists = new Dictionary<string, MapSelection[]>(); LoadPlaylists(); }
+        public PlaylistLoader() { 
+            Instance = this; 
+            Playlists = new Dictionary<string, MapSelection[]>();
+            LoadPlaylists();
+        }
 
         private void LoadPlaylists()
         {
-            TheCounter.ForceLoadMaps();
+            //TheCounter.ForceLoadMaps();
             string[] files = Directory.GetFiles(HelpfulPaths.PLAYLISTS);
+            List<string> names = new List<string>();
             foreach (string file in files)
+                names.Add(new string(file.Skip(file.LastIndexOf('.')+1).ToArray()));
+            /*foreach (string file in files)
             {
                 if (!File.Exists(file)) continue;
                 LoadPlaylist(file);
-            }
+            }*/
         }
         private void LoadPlaylist(string file)
         {

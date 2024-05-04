@@ -41,7 +41,7 @@ namespace PleaseWork.Counters
             precision = PluginConfig.Instance.DecimalPrecision;
         }
 
-        public void ReinitCounter(TMP_Text display, MapSelection map) { this.display = display; }
+        public void ReinitCounter(TMP_Text display, MapSelection map) { this.display = display; passRating = map.PassRating; accRating = map.AccRating; techRating = map.TechRating; }
         public void SetupData(MapSelection map) { }
         #endregion
 

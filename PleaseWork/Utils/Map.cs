@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,35 +10,38 @@ namespace PleaseWork.Utils
 {
     public class Map
     {
-        public string hash { get; private set; }
-        private Dictionary<string, Dictionary<string, string>> data;
-        public Map(string hash) {
-            this.hash = hash;
-            data = new Dictionary<string, Dictionary<string, string>>();
+        public string Hash { get; private set; }
+        public string SongID { get; private set; }
+        private Dictionary<string, Dictionary<string, JToken>> data;
+        public Map(string hash, string songId) {
+            Hash = hash;
+            SongID = songId;
+            data = new Dictionary<string, Dictionary<string, JToken>>();
         }
-        public Map(string hash, string data) {
-            this.hash = hash;
-            this.data = new Dictionary<string, Dictionary<string, string>>();
+        public Map(string hash, string songId, JToken data) {
+            Hash = hash;
+            SongID = songId;
+            this.data = new Dictionary<string, Dictionary<string, JToken>>();
             Add(data);
         }
-        public void Add(string data)
+        public void Add(JToken data)
         {
-            string mode = new Regex("(?<=modeName...)[A-z]+").Match(data).Value;
-            string difficulty = new Regex(@"(?<=difficultyName...)[A-z0-9]+").Match(data).Value;
+            string mode = data["modeName"].ToString();
+            string difficulty = data["difficultyName"].ToString();
             Add(mode, difficulty, data);
         }
-        public void Add(string mode, string difficulty, string data) {
+        public void Add(string mode, string difficulty, JToken data) {
             if (!this.data.ContainsKey(mode) || this.data[mode] == null)
-                this.data.Add(mode, new Dictionary<string, string>());
+                this.data.Add(mode, new Dictionary<string, JToken>());
             this.data[mode].Add(difficulty, data);
         }
-        public string Get(string mode, string difficulty)
+        public JToken Get(string mode, string difficulty)
         {
             return data[mode][difficulty];
         }
-        public Dictionary<string, string> Get(string difficulty)
+        public Dictionary<string, JToken> Get(string difficulty)
         {
-            Dictionary<string, string> outp = new Dictionary<string, string>();
+            Dictionary<string, JToken> outp = new Dictionary<string, JToken>();
             foreach(string key in data.Keys)
             {
                 if (data[key].ContainsKey(difficulty))
@@ -64,7 +68,7 @@ namespace PleaseWork.Utils
         }
         public override string ToString()
         {
-            string outp = $"Hash: {hash}\n";
+            string outp = $"Hash: {Hash}\n";
             foreach (string mode in data.Keys)
             {
                 outp += $"----{mode}:\n";
@@ -77,7 +81,7 @@ namespace PleaseWork.Utils
         }
         public override int GetHashCode()
         {
-            return int.Parse(hash, System.Globalization.NumberStyles.HexNumber);
+            return int.Parse(Hash, System.Globalization.NumberStyles.HexNumber);
         }
     }
 }
