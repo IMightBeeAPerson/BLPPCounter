@@ -26,7 +26,7 @@
       "BSML": {
         "Resource": "PleaseWork.Settings.settings.bsml",
         "Host": "PleaseWork.Settings.SettingsHandler",
-        "Icon": "PleaseWork.Images.icon.png"
+        "Icon": "PleaseWork.Images.pp.png"
       }
     }
   }   

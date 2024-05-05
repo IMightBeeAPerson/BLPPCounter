@@ -1,8 +1,9 @@
 ﻿using Newtonsoft.Json.Linq;
 using System;
 using System.IO;
+using PleaseWork.Utils;
 
-namespace PleaseWork.Utils
+namespace PleaseWork.Helpfuls
 {
     public static class HelpfulPaths
     {

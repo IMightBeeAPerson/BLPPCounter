@@ -1,17 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using TMPro;
 using BeatLeader.Models.Replay;
-using System.Text.RegularExpressions;
 using System.Net.Http;
 using PleaseWork.Settings;
-using System.Security.Policy;
-using BeatLeader.Models;
 using PleaseWork.CalculatorStuffs;
 using PleaseWork.Utils;
+using PleaseWork.Helpfuls;
 using Newtonsoft.Json.Linq;
 
 namespace PleaseWork.Counters

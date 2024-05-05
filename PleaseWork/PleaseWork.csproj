@@ -142,9 +142,9 @@
     <Compile Include="Counters\NormalCounter.cs" />
     <Compile Include="Counters\ProgressCounter.cs" />
     <Compile Include="Counters\RelativeCounter.cs" />
-    <Compile Include="Utils\HelpfulMath.cs" />
-    <Compile Include="Utils\HelpfulMisc.cs" />
-    <Compile Include="Utils\HelpfulPaths.cs" />
+    <Compile Include="Helpfuls\HelpfulMath.cs" />
+    <Compile Include="Helpfuls\HelpfulMisc.cs" />
+    <Compile Include="Helpfuls\HelpfulPaths.cs" />
     <Compile Include="Utils\Map.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="Settings\PluginConfig.cs" />
@@ -160,6 +160,7 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="manifest.json" />
+    <EmbeddedResource Include="Images\pp.png" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Directory.Build.props" Condition="Exists('Directory.Build.props')" />
@@ -175,9 +176,6 @@
     <PackageReference Include="System.Text.Json">
       <Version>8.0.3</Version>
     </PackageReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="Images\icon.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

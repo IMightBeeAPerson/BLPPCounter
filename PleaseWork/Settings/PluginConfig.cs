@@ -7,6 +7,7 @@ namespace PleaseWork.Settings
     internal class PluginConfig
     {
         public static PluginConfig Instance { get; set; }
+        public virtual string ClanTextFormat { get; set; } = "&:c&s&x&: &:p($)&: &l";//&c = color, &s = sign, &x = modified number, &p = normal pp, &l = label
         public virtual bool SplitPPVals { get; set; } = false;
         public virtual string PPType { get; set; } = "Normal";
         public virtual int DecimalPrecision { get; set; } = 2;

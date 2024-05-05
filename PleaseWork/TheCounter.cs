@@ -1,17 +1,15 @@
 using System;
-using System.Text.RegularExpressions;
 using System.IO;
 using CountersPlus.Counters.Custom;
 using TMPro;
 using Zenject;
-using Newtonsoft.Json;
 using PleaseWork.Settings;
 using PleaseWork.Utils;
+using PleaseWork.Helpfuls;
+using PleaseWork.Counters;
 using System.Collections.Generic;
 using System.Net.Http;
-using PleaseWork.Counters;
 using Newtonsoft.Json.Linq;
-using System.Linq;
 namespace PleaseWork
 {
 
@@ -25,23 +23,22 @@ namespace PleaseWork
         private static bool dataLoaded = false;
         private static MapSelection lastMap;
         private static IMyCounters theCounter;
+
         private TMP_Text display;
         private bool enabled;
         private float passRating, accRating, techRating, stars;
         private int notes, badNotes, comboNotes;
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
-        private string mode, ppMode;
+        private string mode;
 
         #region Overrides & Event Calls
 
         public override void CounterDestroy() {
             if (enabled) sc.scoringForNoteFinishedEvent -= OnNoteScored;
-            PluginConfig.Instance.PPType = ppMode;
         }
         public override void CounterInit()
         {
-            ppMode = PluginConfig.Instance.PPType;
             notes = badNotes = fcMaxHitscore = comboNotes = fcTotalHitscore = 0;
             totalHitscore = maxHitscore = 0.0;
             enabled = false;
@@ -91,12 +88,12 @@ namespace PleaseWork
         private void OnNoteScored(ScoringElement scoringElement)
         {
             NoteData.ScoringType st = scoringElement.noteData.scoringType;
-            bool isSliderTail = st == NoteData.ScoringType.SliderTail || st == NoteData.ScoringType.BurstSliderElement;
+            /*bool isSliderTail = st == NoteData.ScoringType.SliderTail || st == NoteData.ScoringType.BurstSliderElement;
             if (isSliderTail)
             {
                 if (scoringElement.cutScore == 0) comboNotes = HelpfulMath.DecreaseMultiplier(comboNotes);
                 goto Finish;
-            }
+            }//*/
             if (st <= 0) goto Finish;
             notes++; comboNotes++;
             maxHitscore += notes < 14 ? scoringElement.maxPossibleCutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0) : scoringElement.maxPossibleCutScore;

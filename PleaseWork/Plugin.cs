@@ -4,6 +4,7 @@ using IPA.Loader;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
+using PleaseWork.Counters;
 using PleaseWork.Settings;
 using PleaseWork.Utils;
 using System;
@@ -39,11 +40,13 @@ namespace PleaseWork
 
         [OnEnable]
         public void OnEnable() {
-            BLInstalled = PluginManager.EnabledPlugins.Where(x => x.Id == "BeatLeader").Count() > 0;
+            /*BLInstalled = PluginManager.EnabledPlugins.Where(x => x.Id == "BeatLeader").Count() > 0;
             if (!BLInstalled && (PluginConfig.Instance.PPType.Equals("Relative") || PluginConfig.Instance.PPType.Equals("Relative w/ normal")))
-                PluginConfig.Instance.PPType = "Normal";
+                PluginConfig.Instance.PPType = "Normal";*/
             Targeter.GenerateClanNames();
             new PlaylistLoader();
+            //var test = ClanCounter.FormatTheFormat(PluginConfig.Instance.ClanTextFormat);
+            //Log.Info(test.Invoke(true, "<color=\"yellow\">", "0", 1900.00f, "<color=\"green\">", "+314.15", 768.69f, "PP"));
         }
 
         [OnDisable]
