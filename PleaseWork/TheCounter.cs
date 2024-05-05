@@ -197,7 +197,7 @@ namespace PleaseWork
                 }
                 catch (Exception e)
                 {
-                    Plugin.Log.Warn("Error loading bl cashe file: " + e.Message);
+                    Plugin.Log.Warn("Error loading bl Cache file: " + e.Message);
                     Plugin.Log.Debug(e);
                 }
             }
@@ -207,14 +207,6 @@ namespace PleaseWork
         {
             try
             {
-                /*MatchCollection matches = new Regex("({[^{}]+}*[^{}]+)+}").Matches(new Regex("(?<=,.difficulties...)[^\]]+").Match(data).Value);
-                string hash = new Regex("(?<=hash...)[A-z0-9]+").Match(data).Value.ToUpper();
-                foreach (Match m in matches) {
-                    Map map = new Map(hash, m.Value);
-                    if (Data.ContainsKey(hash))
-                        Data[map.hash].Combine(map);
-                    else Data[map.hash] = map; 
-                }*/
                 JToken dataToken = JObject.Parse(data);
                 JEnumerable<JToken> mapTokens = dataToken["song"]["difficulties"].Children();
                 string hash = (string)dataToken["song"]["hash"];
@@ -229,20 +221,22 @@ namespace PleaseWork
             }
             catch (Exception e)
             {
-                Plugin.Log.Warn("Error adding map to cashe: " + e.Message);
+                Plugin.Log.Warn("Error adding map to cache: " + e.Message);
                 Plugin.Log.Debug(e);
             }
         }
         private bool SetupMapData()
         {
             JToken data;
+            string songId;
             string hash = beatmap.level.levelID.Split('_')[2].ToUpper();
             try
             {
-                Dictionary<string, JToken> hold = Data[hash].Get(beatmap.difficulty.Name().Replace("+", "Plus"));
+                Dictionary<string, (string, JToken)> hold = Data[hash].Get(beatmap.difficulty.Name().Replace("+", "Plus"));
                 mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;
                 if (mode == default) mode = "Standard";
-                data = hold[mode];
+                data = hold[mode].Item2;
+                songId = hold[mode].Item1;
             }
             catch (Exception e)
             {
@@ -261,17 +255,6 @@ namespace PleaseWork
             accRating = HelpfulPaths.GetRating(data, PPType.Acc, mods.songSpeedMul);
             techRating =HelpfulPaths.GetRating(data, PPType.Tech, mods.songSpeedMul);
             stars = HelpfulPaths.GetRating(data, PPType.Star, mods.songSpeedMul);
-            /*string[] prefix = new string[] { "p", "a", "t", "s" };
-            string mod = mods.songSpeedMul > 1.0 ? mods.songSpeedMul >= 1.5 ? "sf" : "fs" : mods.songSpeedMul != 1.0 ? "ss" : "";
-            if (mod.Length > 0)
-                for (int i = 0; i < prefix.Length; i++)
-                    prefix[i] = mod + prefix[i].ToUpper();
-            string pass = prefix[0] + "assRating", acc = prefix[1] + "ccRating", tech = prefix[2] + "echRating", star = prefix[3] + "tars";
-            JToken modData = prefix[0].Length == 1 ? data["DifficultyInfo"] : data["DifficultyInfo"]["modifiersRating"];
-            passRating = float.Parse(modData[pass].ToString());
-            accRating = float.Parse(modData[acc].ToString());
-            techRating = float.Parse(modData[tech].ToString());
-            stars = float.Parse(modData[star].ToString());*/
             string mod = HelpfulMisc.GetModifierShortname(HelpfulMisc.SpeedToModifier(mods.songSpeedMul)).ToUpper();
             Plugin.Log.Info(mod.Length > 0 ? $"{mod} Stars: {stars}\n{mod} Pass Rating: {passRating}\n{mod} Acc Rating: {accRating}\n{mod} Tech Rating: {techRating}" : $"Stars: {stars}\nPass Rating: {passRating}\nAcc Rating: {accRating}\nTech Rating: {techRating}");
             return stars > 0;

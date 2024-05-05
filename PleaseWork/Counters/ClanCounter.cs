@@ -18,7 +18,7 @@ namespace PleaseWork.Counters
     {
         private static readonly HttpClient client = new HttpClient();
         private static int playerClanId = -1;
-        private static readonly List<KeyValuePair<MapSelection, float[]>> mapCashe = new List<KeyValuePair<MapSelection, float[]>>();
+        private static readonly List<KeyValuePair<MapSelection, float[]>> mapCache = new List<KeyValuePair<MapSelection, float[]>>();
         private static PluginConfig pc;
 
         public string Name { get => "Clan"; }
@@ -27,7 +27,8 @@ namespace PleaseWork.Counters
         private float accRating, passRating, techRating, nmAccRating, nmPassRating, nmTechRating;
         private float[] neededPPs, clanPPs;
         private int precision;
-        private bool mapCaptured, uncapturable;
+        private string addon;
+        private bool mapCaptured, uncapturable, failed;
         #region Init
         public ClanCounter(TMP_Text display, float accRating, float passRating, float techRating)
         {
@@ -36,30 +37,37 @@ namespace PleaseWork.Counters
             this.techRating = techRating;
             this.display = display;
             pc = PluginConfig.Instance;
-            mapCaptured = uncapturable = false;
+            mapCaptured = uncapturable = failed = false;
             precision = pc.DecimalPrecision;
         }
         public ClanCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(map); }
         public void SetupData(MapSelection map)
         {
-            JToken mapData = map.MapData;
+            JToken mapData = map.MapData.Item2;
+            string songId = map.MapData.Item1;
             nmPassRating = HelpfulPaths.GetRating(mapData, PPType.Pass);
             nmAccRating = HelpfulPaths.GetRating(mapData, PPType.Acc);
             nmTechRating = HelpfulPaths.GetRating(mapData, PPType.Tech);
             neededPPs = new float[6];
-            neededPPs[3] = GetCashedPP(map);
+            neededPPs[3] = GetCachedPP(map);
             if (neededPPs[3] <= 0)
             {
-                float[] ppVals = LoadNeededPp(map.SongID);
+                float[] ppVals = LoadNeededPp(songId);
                 if (mapCaptured) return;
-                if (pc.MapCashe > 0) mapCashe.Add(new KeyValuePair<MapSelection, float[]>(map, ppVals));
+                if (ppVals == null) { failed = true; return; }
+                if (pc.MapCache > 0) mapCache.Add(new KeyValuePair<MapSelection, float[]>(map, ppVals));
             }
             neededPPs[4] = BLCalc.GetAcc(accRating, passRating, techRating, neededPPs[3]);
             (neededPPs[0], neededPPs[1], neededPPs[2]) = BLCalc.GetPp(neededPPs[4], nmAccRating, nmPassRating, nmTechRating);
             neededPPs[5] = (float)Math.Round(neededPPs[4] * 100.0f, 2);
-            while (mapCashe.Count > pc.MapCashe) mapCashe.RemoveAt(0);
+            while (mapCache.Count > pc.MapCache) mapCache.RemoveAt(0);
             uncapturable = pc.CeilEnabled && neededPPs[5] >= pc.ClanPercentCeil;
-            //Plugin.Log.Info($"Uncapturable: {uncapturable}\nEnabled: {pc.CeilEnabled}\tAcc Needed: {neededPPs[4]}\tCeiling: {pc.ClanPercentCeil}");
+            switch (pc.CaptureType)
+            {
+                case "Percentage": addon = $"{neededPPs[5]}%</color>"; break;
+                case "PP": addon = $"{Math.Round(neededPPs[3], precision)} pp</color>"; break;
+                case "Both": addon = $"{neededPPs[5]}% ({Math.Round(neededPPs[3], precision)} pp)</color>"; break;
+            }
         }
         public float[] LoadNeededPp(string mapId)
         {
@@ -71,7 +79,7 @@ namespace PleaseWork.Counters
             if (check.Length <= 0) return null;
             JToken clanData = JToken.Parse(check)["clanRanking"].Children().First();
             int clanId = -1;
-            if (clanData.Count() > 0) clanId = (int)clanData["clan"]["id"];
+            if (clanData.Count() > 0) clanId = (int)clanData["clan"]["id"]; else return null;
             mapCaptured = clanId <= 0 || clanId == playerClanId;
             float pp = (float)clanData["pp"];
             JEnumerable<JToken> scores = JToken.Parse(RequestClanLeaderboard(id, mapId))["associatedScores"].Children();
@@ -136,27 +144,18 @@ namespace PleaseWork.Counters
         #region Helper Functions
         private static int ParseId(JToken playerData)
         {
-            /*string clan = new Regex(@"(?<=clanOrder...)[A-z]+").Match(playerData).Value.ToLower();
-            MatchCollection clanIds = new Regex(@"{[^}]+}").Matches(new Regex(@"(?<=clans..\[)[^\]]+").Match(playerData).Value);
-            Regex checker = new Regex($@"[0-9]+(?=..tag...{clan.ToUpper()})");
-                foreach (Match clanId in clanIds)
-                {
-                    Match m = checker.Match(clanId.Value);
-                    if (m.Success) return int.Parse(m.Value);
-                }//*/
             JEnumerable<JToken> clans = playerData["clans"].Children();
             if (clans.Count() <= 1) return clans.Count() == 1 ? (int)clans.First()["id"] : -1;
             string clan = playerData["clanOrder"].ToString().Split(',')[0];
-            Plugin.Log.Info($"{clan}");
             foreach (JToken token in clans)
                 if (token["tag"].ToString().Equals(clan))
                     return (int)token["id"];
             return -1;
         }
-        public static void ClearCashe() => mapCashe.Clear();
-        private float GetCashedPP(MapSelection map)
+        public static void ClearCache() => mapCache.Clear();
+        private float GetCachedPP(MapSelection map)
         {
-            foreach (KeyValuePair<MapSelection, float[]> pair in mapCashe)
+            foreach (KeyValuePair<MapSelection, float[]> pair in mapCache)
                 if (pair.Key.Equals(map)) {
                     clanPPs = pair.Value.Skip(1).ToArray();
                     Plugin.Log.Info($"PP: {pair.Value[0]}");
@@ -164,12 +163,12 @@ namespace PleaseWork.Counters
                 }
             return -1.0f;
         } 
-        public static void AddToCashe(MapSelection map, float[] vals) => mapCashe.Add(new KeyValuePair<MapSelection, float[]>(map, vals));
+        public static void AddToCache(MapSelection map, float[] vals) => mapCache.Add(new KeyValuePair<MapSelection, float[]>(map, vals));
         #endregion
         #region Updates
         public void UpdateCounter(float acc, int notes, int badNotes, float fcPercent)
         {
-            if (uncapturable || mapCaptured)
+            if (uncapturable || mapCaptured || failed)
             {
                 UpdateWeightedCounter(acc, badNotes, fcPercent);
                 return;
@@ -219,7 +218,7 @@ namespace PleaseWork.Counters
                     display.text = (ppVals[7] > 0 ? "<color=\"green\">+" : ppVals[7] == 0 ? "<color=\"yellow\">" : "<color=\"red\">") + $"{ppVals[7]}</color>" + (normal ? $" ({ppVals[3]})" : "") + (showLbl ? " " + labels[3] : "");
                 display.text += "\n";
             }
-            display.text += "Aiming for " + (neededPPs[4] > acc ? "<color=\"red\">" : "<color=\"green\">") + $"{neededPPs[5]}%</color>";
+            display.text += "Aiming for " + (neededPPs[4] > acc ? "<color=\"red\">" : "<color=\"green\">") + addon;
         }
         private void UpdateWeightedCounter(float acc, int badNotes, float fcPercent)
         {
@@ -268,7 +267,8 @@ namespace PleaseWork.Counters
                     display.text = $"{ppVals[7]}" + (normal ? $" ({ppVals[3]})" : "") + (showLbl ? " " + labels[3] : "");
                 display.text += "\n";
             }
-            display.text += mapCaptured ? "<color=\"green\">Map Was Captured!</color>" : "<color=\"red\">Map Uncapturable</color>";
+            if (!failed) display.text += mapCaptured ? "<color=\"green\">Map Was Captured!</color>" : "<color=\"red\">Map Uncapturable</color>"; 
+            else display.text += "<color=\"red\">Loading Failed</color>";
         }
     }
     #endregion

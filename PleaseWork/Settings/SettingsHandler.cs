@@ -70,14 +70,22 @@ namespace PleaseWork.Settings
             get => PluginConfig.Instance.LocalReplay;
             set => PluginConfig.Instance.LocalReplay = value;
         }
-        [UIValue("MapCashe")]
-        public int MapCashe
+        [UIValue("CaptureTypes")]
+        public List<object> CaptureTypes = new List<object>() { "None", "Percentage", "PP", "Both" };
+        [UIValue("CaptureType")]
+        public string CaptureType
         {
-            get => PluginConfig.Instance.MapCashe;
-            set => PluginConfig.Instance.MapCashe = value;
+            get => PluginConfig.Instance.CaptureType;
+            set => PluginConfig.Instance.CaptureType = value;
         }
-        [UIAction("ClearCashe")]
-        public void ClearCashe() { ClanCounter.ClearCashe(); TheCounter.ClearCounter(); }
+        [UIValue("MapCache")]
+        public int MapCache
+        {
+            get => PluginConfig.Instance.MapCache;
+            set => PluginConfig.Instance.MapCache = value;
+        }
+        [UIAction("ClearCache")]
+        public void ClearCache() { ClanCounter.ClearCache(); TheCounter.ClearCounter(); }
         [UIValue("PlNames")]
         public List<object> PlNames => new List<object>(PlaylistLoader.Instance.Names);
         [UIValue("ChosenPlaylist")]
@@ -98,12 +106,12 @@ namespace PleaseWork.Settings
                 float[] pp = null;
                 //Plugin.Log.Info("" + map + "\n" + map.Map);
                 int status;
-                try { status = int.Parse(map.MapData["DifficultyInfo"]["status"].ToString()); } catch { continue; }
+                try { status = (int)map.MapData.Item2["status"]; } catch { continue; }
                 if (status != 3) { Plugin.Log.Info($"Status: {status}"); continue; }
-                try { pp = cc.LoadNeededPp(map.SongID); } catch (Exception e) { Plugin.Log.Info($"Error loading map {map.Map.Hash}: {e.Message}"); Plugin.Log.Debug(e); }
+                try { pp = cc.LoadNeededPp(map.MapData.Item1); } catch (Exception e) { Plugin.Log.Info($"Error loading map {map.Map.Hash}: {e.Message}"); Plugin.Log.Debug(e); }
                 if (pp != null)
                 {
-                    ClanCounter.AddToCashe(map, pp);
+                    ClanCounter.AddToCache(map, pp);
                     Plugin.Log.Info($"map {map.Map.Hash} loaded!");
                 }
             }

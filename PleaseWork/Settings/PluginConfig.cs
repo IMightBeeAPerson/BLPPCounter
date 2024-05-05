@@ -18,7 +18,8 @@ namespace PleaseWork.Settings
         public virtual string Target { get; set; } = "None";
         public virtual bool ShowEnemy { get; set; } = true;
         public virtual bool LocalReplay { get; set; } = false;
-        public virtual int MapCashe { get; set; } = 10;
+        public virtual string CaptureType { get; set; } = "Percentage";
+        public virtual int MapCache { get; set; } = 10;
         public virtual double ClanPercentCeil { get; set; } = 99;
         public virtual bool CeilEnabled { get; set; } = true;
         public virtual string ChosenPlaylist { get; set; } = "";

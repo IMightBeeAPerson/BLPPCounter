@@ -16,11 +16,12 @@
   </vertical>
   <text text='Clan PP Settings'/>
   <vertical spacing='1'>
-    <increment-setting text='Map Cashe' value='MapCashe' integer-only='true' min='0' max='50' increment='5' apply-on-change='true'/>
-    <button text='Clear Cashe' on-click='ClearCashe' hover-hint='Clears the map cashe'/>
+    <list-setting text='Needed Amount' apply-on-change='true' value='CaptureType' options='CaptureTypes' hover-hint='How to display what you need to capture the map'/>
+    <increment-setting text='Map Cache' value='MapCache' integer-only='true' min='0' max='50' increment='5' apply-on-change='true'/>
+    <button text='Clear Cache' on-click='ClearCache' hover-hint='Clears the map cache'/>
     <increment-setting text='Percent Ceiling' value='ClanPercentCeil' integer-only='false' min='90' max='100' increment='0.1' apply-on-change='true'/>
     <checkbox-setting text='Enable Ceiling' apply-on-change='true' value='CeilEnabled' hover-hint='Enable the percentage ceiling'/>
     <dropdown-list-setting text='Playlists' apply-on-change='true' value='ChosenPlaylist' options='PlNames' hover-hint='A playlist to load' active='false'/>
-    <button text='Load Playlist' on-click='LoadPlaylist' hover-hint='Loads the selected playlist into cashe to prevent lag' active='false'/>
+    <button text='Load Playlist' on-click='LoadPlaylist' hover-hint='Loads the selected playlist into cache to prevent lag' active='false'/>
   </vertical>
 </vertical>

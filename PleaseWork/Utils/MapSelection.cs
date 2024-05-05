@@ -11,9 +11,8 @@ namespace PleaseWork.Utils
         public float PassRating { get; private set; }
         public float AccRating { get; private set; }
         public float TechRating { get; private set; }
-        public JToken MapData { get => Map.Get(Mode, Difficulty); }
+        public (string, JToken) MapData { get => Map.Get(Mode, Difficulty); }
         public string Hash { get => Map.Hash; }
-        public string SongID { get => Map.SongID; }
 
         public MapSelection(Map map = default, string diff = default, string mode = default, float passRating = default, float accRating = default, float techRating = default)
         {

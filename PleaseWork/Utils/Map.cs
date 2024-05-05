@@ -1,47 +1,39 @@
 ﻿using Newtonsoft.Json.Linq;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace PleaseWork.Utils
 {
     public class Map
     {
         public string Hash { get; private set; }
-        public string SongID { get; private set; }
-        private Dictionary<string, Dictionary<string, JToken>> data;
-        public Map(string hash, string songId) {
+        private Dictionary<string, Dictionary<string, (string, JToken)>> data;
+        public Map(string hash) {
             Hash = hash;
-            SongID = songId;
-            data = new Dictionary<string, Dictionary<string, JToken>>();
+            data = new Dictionary<string, Dictionary<string, (string, JToken)>>();
         }
         public Map(string hash, string songId, JToken data) {
             Hash = hash;
-            SongID = songId;
-            this.data = new Dictionary<string, Dictionary<string, JToken>>();
-            Add(data);
+            this.data = new Dictionary<string, Dictionary<string, (string, JToken)>>();
+            Add(songId, data);
         }
-        public void Add(JToken data)
+        public void Add(string songId, JToken data)
         {
             string mode = data["modeName"].ToString();
             string difficulty = data["difficultyName"].ToString();
-            Add(mode, difficulty, data);
+            Add(mode, difficulty, songId, data);
         }
-        public void Add(string mode, string difficulty, JToken data) {
+        public void Add(string mode, string difficulty, string songId, JToken data) {
             if (!this.data.ContainsKey(mode) || this.data[mode] == null)
-                this.data.Add(mode, new Dictionary<string, JToken>());
-            this.data[mode].Add(difficulty, data);
+                this.data.Add(mode, new Dictionary<string, (string, JToken)>());
+            this.data[mode].Add(difficulty, (songId, data));
         }
-        public JToken Get(string mode, string difficulty)
+        public (string, JToken) Get(string mode, string difficulty)
         {
             return data[mode][difficulty];
         }
-        public Dictionary<string, JToken> Get(string difficulty)
+        public Dictionary<string, (string, JToken)> Get(string difficulty)
         {
-            Dictionary<string, JToken> outp = new Dictionary<string, JToken>();
+            Dictionary<string, (string, JToken)> outp = new Dictionary<string, (string, JToken)>();
             foreach(string key in data.Keys)
             {
                 if (data[key].ContainsKey(difficulty))
@@ -74,7 +66,7 @@ namespace PleaseWork.Utils
                 outp += $"----{mode}:\n";
                 foreach (string diff in data[mode].Keys)
                 {
-                    outp += $"--------{diff}: [Insert Data Here]\n";
+                    outp += $"--------{diff}: {data[mode][diff].Item1}\n";
                 }
             }
             return outp;
