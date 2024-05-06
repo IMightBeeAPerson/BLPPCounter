@@ -23,8 +23,9 @@ namespace PleaseWork
         private static bool dataLoaded = false;
         private static MapSelection lastMap;
         private static IMyCounters theCounter;
+        private static Func<bool, float, float, string, string> displayFormatter = FormatTheFormat(PluginConfig.Instance.DefaultTextFormat);
 
-        private TMP_Text display;
+        private TMP_Text display;        
         private bool enabled;
         private float passRating, accRating, techRating, stars;
         private int notes, badNotes, comboNotes;
@@ -142,6 +143,10 @@ namespace PleaseWork
             client.Timeout = new TimeSpan(0, 0, 3);
             Data = new Dictionary<string, Map>();
             InitData();
+        }
+        public static Func<bool, float, float, string, string> FormatTheFormat(string format) {
+            var simple = HelpfulMisc.GetBasicTokenParser(format, tokens => {}, (tokens, tokensCopy, vals) => { if (!(bool)vals['q'] && tokens.ContainsKey('1')) tokensCopy['1'] = ("", tokens['1'].Item2); });
+            return (fc, pp, fcpp, label) => simple.Invoke(new Dictionary<char, object>() { { 'q', fc }, {'x', pp }, {'l', label }, { 'y', fcpp } });
         }
         #endregion
         #region Init
@@ -261,19 +266,15 @@ namespace PleaseWork
         
         public static void UpdateText(bool displayFc, TMP_Text display, float[] ppVals)
         {
-            bool showLbl = PluginConfig.Instance.ShowLbl;
-            if (PluginConfig.Instance.SplitPPVals)
-            {
-                display.text = displayFc ?
-                    showLbl ? $"{ppVals[0]}/{ppVals[4]} Pass PP\n{ppVals[1]}/{ppVals[5]} Acc PP\n{ppVals[2]}/{ppVals[6]} Tech PP\n{ppVals[3]}/{ppVals[7]} PP" :
-                    $"{ppVals[0]}/{ppVals[4]}\n{ppVals[1]}/{ppVals[5]}\n{ppVals[2]}/{ppVals[6]}\n{ppVals[3]}/{ppVals[7]}" :
-                    showLbl ? $"{ppVals[0]} Pass PP\n{ppVals[1]} Acc PP\n{ppVals[2]} Tech PP\n{ppVals[3]} PP" :
-                    $"{ppVals[0]}\n{ppVals[1]}\n{ppVals[2]}\n{ppVals[3]}";
-            }
-            else
-                display.text = displayFc ?
-                    showLbl ? $"{ppVals[3]}/{ppVals[7]} PP" : $"{ppVals[3]}/{ppVals[7]}" :
-                    showLbl ? $"{ppVals[3]} PP" : $"{ppVals[3]}";
+            //if (ppVals.Length != 8) ppVals = new float[8];
+            string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
+            if (PluginConfig.Instance.SplitPPVals) {
+                string outp = "";
+                for (int i=0;i<4;i++)
+                    outp += displayFormatter.Invoke(displayFc, ppVals[i], ppVals[i+4], labels[i]);
+                display.text = outp;
+            } else
+                display.text = displayFormatter.Invoke(displayFc, ppVals[3], ppVals[7], labels[3]);
             string target = PluginConfig.Instance.Target;
             if (!target.Equals("None"))
                 display.text += $"\nTargeting <color=\"red\">{target}</color>";

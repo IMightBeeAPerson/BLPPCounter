@@ -7,8 +7,9 @@ namespace PleaseWork.Settings
     internal class PluginConfig
     {
         public static PluginConfig Instance { get; set; }
-        public virtual string ClanTextFormat { get; set; } = "&:p$ &:[&:c&x&:]&1 / &:o$ &:[&:f&y&:] &1&l";
-        public virtual string RelativeTextFormat { get; set; } = "&:c&x&:&:p ($)&:&1 || &:f&y&:&:o ($)&:&1 &l";
+        public virtual string DefaultTextFormat { get; set; } = "&x&1 / &y&1 &l";
+        public virtual string ClanTextFormat { get; set; } = "[p$ ]&[[c&x]&]&1 / [o$ ]&[[f&y]&] &1&l";
+        public virtual string RelativeTextFormat { get; set; } = "[c&x][p ($)]&1 || [f&y][o ($)]&1 &l";
         public virtual bool SplitPPVals { get; set; } = false;
         public virtual string PPType { get; set; } = "Normal";
         public virtual int DecimalPrecision { get; set; } = 2;

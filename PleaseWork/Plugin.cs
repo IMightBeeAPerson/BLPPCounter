@@ -42,8 +42,8 @@ namespace PleaseWork
         public void OnEnable() {
             Targeter.GenerateClanNames();
             new PlaylistLoader();
-            //var test = ClanCounter.FormatTheFormat(PluginConfig.Instance.ClanTextFormat);
-            //Log.Info(test.Invoke(true, "<color=\"yellow\">", "0", 1900.00f, "<color=\"green\">", "+314.15", 768.69f, "PP"));
+            /*var test = ClanCounter.FormatTheFormat(PluginConfig.Instance.ClanTextFormat);
+            Log.Info(test.Invoke(true, "<color=\"yellow\">", "0", 1900.00f, "<color=\"green\">", "+314.15", 768.69f, "PP"));//*/
         }
 
         [OnDisable]

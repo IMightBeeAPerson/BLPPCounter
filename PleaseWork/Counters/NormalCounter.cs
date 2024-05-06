@@ -50,7 +50,7 @@ namespace PleaseWork.Counters
         public void UpdateCounter(float acc, int notes, int badNotes, float fcPercent)
         {
             bool displayFc = PluginConfig.Instance.PPFC && badNotes > 0;
-            float[] ppVals = new float[displayFc ? 8 : 4];
+            float[] ppVals = new float[8];
             (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
             ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
             if (displayFc)
