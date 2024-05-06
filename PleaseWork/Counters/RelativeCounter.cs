@@ -7,6 +7,7 @@ using PleaseWork.CalculatorStuffs;
 using PleaseWork.Utils;
 using PleaseWork.Helpfuls;
 using Newtonsoft.Json.Linq;
+using System.Collections.Generic;
 
 namespace PleaseWork.Counters
 {
@@ -14,6 +15,7 @@ namespace PleaseWork.Counters
     {
         private static readonly HttpClient client = new HttpClient();
         public string Name { get => "Relative"; }
+        private static Func<bool, string, string, float, string, string, float, string, string> displayFormatter;
 
         private TMP_Text display;
         private float accRating, passRating, techRating;
@@ -32,6 +34,7 @@ namespace PleaseWork.Counters
             this.display = display;
             failed = false;
             precision = PluginConfig.Instance.DecimalPrecision;
+            if (displayFormatter == null) displayFormatter = FormatTheFormat(PluginConfig.Instance.RelativeTextFormat);
         }
         public RelativeCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(map); }
         private void SetupReplayData(JToken data)
@@ -129,6 +132,31 @@ namespace PleaseWork.Counters
             }
         }
         #endregion
+        #region Helper Functions
+        public static Func<bool, string, string, float, string, string, float, string, string> FormatTheFormat(string format) //&:c&x&:&:p ($)&:&1 || &:f&y&:&:o ($)&:&1 &l
+        {
+            var simple = HelpfulMisc.GetBasicTokenParser(format,
+                tokens =>
+                {
+                    if (!PluginConfig.Instance.ShowLbl) tokens['l'] = ("", tokens['l'].Item2);
+                    if (!PluginConfig.Instance.RelativeWithNormal) { tokens['p'] = ("", tokens['p'].Item2); tokens['o'] = ("", tokens['o'].Item2); }
+                },
+                (tokens, tokensCopy, vals) =>
+                {
+                    tokensCopy['c'] = ($"{vals['c']}{tokens['c'].Item1}</color>", tokens['c'].Item2);
+                    tokensCopy['f'] = ($"{vals['f']}{tokens['f'].Item1}</color>", tokens['f'].Item2);
+                    if (!(bool)vals['q'] && tokens.ContainsKey('1')) tokensCopy['1'] = ("", tokens['1'].Item2);
+                });
+            return (fc, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label) =>
+            {
+                Dictionary<char, object> vals = new Dictionary<char, object>()
+                {
+                    { 'q', fc }, { 'c', color }, {'x',  modPp }, {'p', regPp }, {'l', label }, { 'f', fcCol }, { 'y', fcModPp }, { 'o', fcRegPp }
+                };
+                return simple.Invoke(vals);
+            };
+        }
+        #endregion
         #region Updates
         private void UpdateBest(int notes)
         {
@@ -156,7 +184,7 @@ namespace PleaseWork.Counters
             }
             bool displayFc = PluginConfig.Instance.PPFC && badNotes > 0, showLbl = PluginConfig.Instance.ShowLbl, normal = PluginConfig.Instance.RelativeWithNormal;
             UpdateBest(notes);
-            float[] ppVals = new float[displayFc ? 16 : 8];
+            float[] ppVals = new float[16];
             (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
             ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
             for (int i = 0; i < 4; i++)
@@ -172,7 +200,7 @@ namespace PleaseWork.Counters
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
             string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
             string target = PluginConfig.Instance.ShowEnemy ? PluginConfig.Instance.Target : "None";
-            if (PluginConfig.Instance.SplitPPVals)
+            /*if (PluginConfig.Instance.SplitPPVals)
             {
                 if (displayFc)
                 {
@@ -203,7 +231,20 @@ namespace PleaseWork.Counters
                     display.text = (ppVals[7] > 0 ? "<color=\"green\">+" : ppVals[7] == 0 ? "<color=\"yellow\">" : "<color=\"red\">") + $"{ppVals[7]}</color>" + (normal ? $" ({ppVals[3]})" : "") + (showLbl ? " " + labels[3] : "");
                 if (!target.Equals("None"))
                     display.text += $"\nTargeting <color=\"red\">{target}</color>";
+            }*/
+            if (PluginConfig.Instance.SplitPPVals)
+            {
+                string text = "";
+                for (int i = 0; i < 4; i++)
+                    text += displayFormatter.Invoke(displayFc, HelpfulMisc.NumberToColor(ppVals[i + 4]), $"{ppVals[i + 4]}", ppVals[i],
+                        HelpfulMisc.NumberToColor(ppVals[i + 12]), $"{ppVals[i + 12]}", ppVals[i + 8], labels[i]) + "\n";
+                display.text = text;
             }
+            else
+                display.text = displayFormatter.Invoke(displayFc, HelpfulMisc.NumberToColor(ppVals[7]), $"{ppVals[7]}", ppVals[3],
+                    HelpfulMisc.NumberToColor(ppVals[15]), $"{ppVals[15]}", ppVals[11], labels[3]) + "\n";
+            if (!target.Equals("None"))
+                display.text += $"\nTargeting <color=\"red\">{target}</color>";
 
         }
         #endregion

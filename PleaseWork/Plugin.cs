@@ -21,7 +21,7 @@ namespace PleaseWork
     {
         internal static Plugin Instance { get; private set; }
         internal static IPALogger Log { get; private set; }
-        internal static bool BLInstalled { get; private set; }
+        internal static bool BLInstalled => true;
         internal static string Name => "PPCounter";
 
         [Init]
@@ -40,9 +40,6 @@ namespace PleaseWork
 
         [OnEnable]
         public void OnEnable() {
-            /*BLInstalled = PluginManager.EnabledPlugins.Where(x => x.Id == "BeatLeader").Count() > 0;
-            if (!BLInstalled && (PluginConfig.Instance.PPType.Equals("Relative") || PluginConfig.Instance.PPType.Equals("Relative w/ normal")))
-                PluginConfig.Instance.PPType = "Normal";*/
             Targeter.GenerateClanNames();
             new PlaylistLoader();
             //var test = ClanCounter.FormatTheFormat(PluginConfig.Instance.ClanTextFormat);
