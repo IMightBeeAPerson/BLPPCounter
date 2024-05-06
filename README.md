@@ -32,7 +32,7 @@ This includes any counter that is too simple to have their own display method, a
 | ------ | ----------- |
 | 1 | This capture will enable and disable based off if the player is FC'ing the map or not |
 #### Clan and Relative Counter
-These both have the same syntax, therefore will share the same table.
+These both have the same syntax, and therefore will share the same table.
 | Letter | Description |
 | ------ | ----------- |
 | p | The unmodified PP number |
