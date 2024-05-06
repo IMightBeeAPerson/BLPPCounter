@@ -23,7 +23,7 @@ namespace PleaseWork
         private static bool dataLoaded = false;
         private static MapSelection lastMap;
         private static IMyCounters theCounter;
-        private static Func<bool, float, float, string, string> displayFormatter = FormatTheFormat(PluginConfig.Instance.DefaultTextFormat);
+        private static Func<bool, float, float, string, string> displayFormatter;
 
         private TMP_Text display;        
         private bool enabled;
@@ -35,6 +35,7 @@ namespace PleaseWork
 
         #region Overrides & Event Calls
 
+        static TheCounter() { FormatTheFormat(PluginConfig.Instance.DefaultTextFormat); }
         public override void CounterDestroy() {
             if (enabled) sc.scoringForNoteFinishedEvent -= OnNoteScored;
         }
@@ -144,9 +145,9 @@ namespace PleaseWork
             Data = new Dictionary<string, Map>();
             InitData();
         }
-        public static Func<bool, float, float, string, string> FormatTheFormat(string format) {
-            var simple = HelpfulMisc.GetBasicTokenParser(format, tokens => {}, (tokens, tokensCopy, vals) => { if (!(bool)vals['q'] && tokens.ContainsKey('1')) tokensCopy['1'] = ("", tokens['1'].Item2); });
-            return (fc, pp, fcpp, label) => simple.Invoke(new Dictionary<char, object>() { { 'q', fc }, {'x', pp }, {'l', label }, { 'y', fcpp } });
+        public static void FormatTheFormat(string format) {
+            var simple = HelpfulFormatter.GetBasicTokenParser(format, tokens => {}, (tokens, tokensCopy, vals) => { if (!(bool)vals['q'] && tokens.ContainsKey('1')) tokensCopy['1'] = ("", tokens['1'].Item2); });
+            displayFormatter = (fc, pp, fcpp, label) => simple.Invoke(new Dictionary<char, object>() { { 'q', fc }, {'x', pp }, {'l', label }, { 'y', fcpp } });
         }
         #endregion
         #region Init

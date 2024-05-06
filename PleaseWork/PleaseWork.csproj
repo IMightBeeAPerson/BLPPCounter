@@ -145,6 +145,7 @@
     <Compile Include="Helpfuls\HelpfulMath.cs" />
     <Compile Include="Helpfuls\HelpfulMisc.cs" />
     <Compile Include="Helpfuls\HelpfulPaths.cs" />
+    <Compile Include="Helpfuls\HelpfulFormatter.cs" />
     <Compile Include="Utils\Map.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="Settings\PluginConfig.cs" />

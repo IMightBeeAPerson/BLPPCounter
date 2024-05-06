@@ -8,8 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using TMPro;
-using BeatSaberMarkupLanguage.Components.Settings;
-using BeatSaberMarkupLanguage;
 using UnityEngine;
 
 namespace PleaseWork.Counters
@@ -20,7 +18,9 @@ namespace PleaseWork.Counters
         private static int playerClanId = -1;
         private static readonly List<KeyValuePair<MapSelection, float[]>> mapCache = new List<KeyValuePair<MapSelection, float[]>>();
         private static PluginConfig pc;
-        private static Func<bool, string, string, float, string, string, float, string, string> displayFormatter;
+        private static Func<bool, string, string, float, string, string, float, string, string> displayClan;
+        private static Func<bool, string, float, string, float, string, string> displayWeighted;
+        private static Func<float, float, float, float, float, string> customMessage;
 
         public string Name { get => "Clan"; }
 
@@ -28,7 +28,7 @@ namespace PleaseWork.Counters
         private float accRating, passRating, techRating, nmAccRating, nmPassRating, nmTechRating;
         private float[] neededPPs, clanPPs;
         private int precision;
-        private string addon;
+        private string addon, custom;
         private bool mapCaptured, uncapturable, failed;
         #region Init
         public ClanCounter(TMP_Text display, float accRating, float passRating, float techRating)
@@ -40,7 +40,7 @@ namespace PleaseWork.Counters
             pc = PluginConfig.Instance;
             mapCaptured = uncapturable = failed = false;
             precision = pc.DecimalPrecision;
-            if (displayFormatter == null) displayFormatter = FormatTheFormat(pc.ClanTextFormat);
+            FormatTheFormat();
         }
         public ClanCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(map); }
         public void SetupData(MapSelection map)
@@ -62,13 +62,15 @@ namespace PleaseWork.Counters
             neededPPs[4] = BLCalc.GetAcc(accRating, passRating, techRating, neededPPs[3]);
             (neededPPs[0], neededPPs[1], neededPPs[2]) = BLCalc.GetPp(neededPPs[4], nmAccRating, nmPassRating, nmTechRating);
             neededPPs[5] = (float)Math.Round(neededPPs[4] * 100.0f, 2);
+            custom = customMessage.Invoke(neededPPs[5], neededPPs[0], neededPPs[1], neededPPs[2], (float)Math.Round(neededPPs[3],precision));// acc passpp accpp techpp totalpp
             while (mapCache.Count > pc.MapCache) mapCache.RemoveAt(0);
             uncapturable = pc.CeilEnabled && neededPPs[5] >= pc.ClanPercentCeil;
             switch (pc.CaptureType)
             {
                 case "Percentage": addon = $"{neededPPs[5]}%</color>"; break;
                 case "PP": addon = $"{Math.Round(neededPPs[3], precision)} PP</color>"; break;
-                case "Both": addon = $"{neededPPs[5]}% ({Math.Round(neededPPs[3], precision)} PP)</color>"; break;
+                case "Both": addon = $"{neededPPs[5]}% ({Math.Round(neededPPs[3], precision)} PP)</color>"; break; 
+                case "Custom": addon = ""; break;
             }
             
         }
@@ -166,9 +168,16 @@ namespace PleaseWork.Counters
                 }
             return -1.0f;
         } 
-        public static Func<bool, string, string, float, string, string, float, string, string> FormatTheFormat(string format) //&:p$ &:[&:c&x&:]&1 / &:o$ &:[&:f&y&:] &1&l
+        public static void FormatTheFormat()
         {
-            var simple = HelpfulMisc.GetBasicTokenParser(format,
+            FormatClan(PluginConfig.Instance.ClanTextFormat);
+            FormatWeighted(PluginConfig.Instance.WeightedTextFormat);
+            FormatCustom(PluginConfig.Instance.CustomClanMessage);
+        }
+        private static void FormatClan(string format)
+        {
+            if (displayClan != null) return;
+            var simple = HelpfulFormatter.GetBasicTokenParser(format,
                 tokens =>
                 {
                     if (!PluginConfig.Instance.ShowLbl) tokens['l'] = ("", tokens['l'].Item2);
@@ -180,7 +189,7 @@ namespace PleaseWork.Counters
                     tokensCopy['f'] = ($"{vals['f']}{tokens['f'].Item1}</color>", tokens['f'].Item2);
                     if (!(bool)vals['q'] && tokens.ContainsKey('1')) tokensCopy['1'] = ("", tokens['1'].Item2);
                 });
-            return (fc, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label) =>
+            displayClan = (fc, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label) =>
             {
                 Dictionary<char, object> vals = new Dictionary<char, object>()
                 {
@@ -188,6 +197,26 @@ namespace PleaseWork.Counters
                 };
                 return simple.Invoke(vals);
             };
+        }
+        private static void FormatWeighted(string format)
+        {
+            if (displayWeighted != null) return;
+            var simple = HelpfulFormatter.GetBasicTokenParser(format,
+                tokens =>
+                {
+                    if (!PluginConfig.Instance.ShowLbl) tokens['l'] = ("", tokens['l'].Item2);
+                    if (!PluginConfig.Instance.ClanWithNormal) { tokens['p'] = ("", tokens['p'].Item2); tokens['o'] = ("", tokens['o'].Item2); }
+                },
+                (tokens, tokensCopy, vals) => { if (!(bool)vals['q'] && tokens.ContainsKey('1')) tokensCopy['1'] = ("", tokens['1'].Item2); });
+            displayWeighted = (fc, modPp, regPp, fcModPp, fcRegPp, label) =>
+                simple.Invoke(new Dictionary<char, object>() {{ 'q', fc }, {'x',  modPp }, {'p', regPp }, {'l', label }, { 'y', fcModPp }, { 'o', fcRegPp }});
+        }
+        private static void FormatCustom(string format)
+        {
+            if (customMessage != null) return;
+            var simple = HelpfulFormatter.GetBasicTokenParser(format, tokens => { }, (tokens, tokensCopy, vals) => { });
+            customMessage = (acc, passpp, accpp, techpp, pp) => 
+                simple.Invoke(new Dictionary<char, object>() { { 'c', acc }, { 't', techpp }, { 'a', accpp }, { 's', passpp }, { 'p', pp } });
         }
         public static void AddToCache(MapSelection map, float[] vals) => mapCache.Add(new KeyValuePair<MapSelection, float[]>(map, vals));
         
@@ -216,23 +245,24 @@ namespace PleaseWork.Counters
             for (int i = 0; i < ppVals.Length; i++)
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
             string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
-            if (pc.SplitPPVals)
+            if (PluginConfig.Instance.SplitPPVals)
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
-                    text += displayFormatter.Invoke(displayFc, HelpfulMisc.NumberToColor(ppVals[i + 4]), $"{ppVals[i + 4]}", ppVals[i],
-                        HelpfulMisc.NumberToColor(ppVals[i + 12]), $"{ppVals[i+12]}", ppVals[i+8], labels[i]) + "\n";
+                    text += displayClan.Invoke(displayFc, HelpfulFormatter.NumberToColor(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
+                        HelpfulFormatter.NumberToColor(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], labels[i]) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayFormatter.Invoke(displayFc, HelpfulMisc.NumberToColor(ppVals[7]), $"{ppVals[7]}", ppVals[3],
-                    HelpfulMisc.NumberToColor(ppVals[15]), $"{ppVals[15]}", ppVals[11], labels[3]) + "\n";
-            display.text += (neededPPs[4] > acc ? "Aiming for <color=\"red\">" : "Aiming for <color=\"green\">") + addon;
+                display.text = displayClan.Invoke(displayFc, HelpfulFormatter.NumberToColor(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
+                    HelpfulFormatter.NumberToColor(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3]) + "\n";
+            if (addon.Length != 0) display.text += (neededPPs[4] > acc ? "Aiming for <color=\"red\">" : "Aiming for <color=\"green\">") + addon;
+            else display.text += custom;
         }
         private void UpdateWeightedCounter(float acc, int badNotes, float fcPercent)
         {
             bool displayFc = pc.PPFC && badNotes > 0, showLbl = pc.ShowLbl, normal = pc.ClanWithNormal;
-            float[] ppVals = new float[displayFc ? 16 : 8]; //default pass, acc, tech, total pp for 0-3, modified for 4-7. Same thing but for fc with 8-15.
+            float[] ppVals = new float[16]; //default pass, acc, tech, total pp for 0-3, modified for 4-7. Same thing but for fc with 8-15.
             (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
             ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
             float weight = BLCalc.GetWeight(ppVals[3], clanPPs);
@@ -248,35 +278,18 @@ namespace PleaseWork.Counters
             for (int i = 0; i < ppVals.Length; i++)
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
             string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " Weighted PP" };
-            if (pc.SplitPPVals)
+            if (PluginConfig.Instance.SplitPPVals)
             {
-                if (displayFc)
-                {
-                    string text = "";
-                    for (int i = 0; i < 4; i++)
-                    {
-                        text += $"{ppVals[i + 4]} " + (normal ? $"({ppVals[i]}) / " : "/ ");
-                        text += $"{ppVals[i + 12]}" + (normal ? $" ({ppVals[i + 8]})" : "") + (showLbl ? " " + labels[i] : "") + "\n";
-                    }
-                    display.text = text;
-                }
-                else
-                {
-                    string text = "";
-                    for (int i = 0; i < 4; i++)
-                        text += $"{ppVals[i + 4]}" + (normal ? $" ({ppVals[i]})" : "") + (showLbl ? " " + labels[i] : "") + "\n";
-                    display.text = text;
-                }
+                string text = "";
+                for (int i = 0; i < 4; i++)
+                    text += displayWeighted.Invoke(displayFc, $"{ppVals[i + 4]}", ppVals[i],
+                        $"{ppVals[i + 12]}", ppVals[i + 8], labels[i]) + "\n";
+                display.text = text;
             }
             else
-            {
-                if (displayFc)
-                    display.text = $"{ppVals[7]} " + (normal ? $"({ppVals[3]}) / " : "/ ") + $"{ppVals[15]}" + (normal ? $" ({ppVals[11]})" : "") + (showLbl ? " " + labels[3] : "");
-                else
-                    display.text = $"{ppVals[7]}" + (normal ? $" ({ppVals[3]})" : "") + (showLbl ? " " + labels[3] : "");
-                display.text += "\n";
-            }
-            if (!failed) display.text += mapCaptured ? "<color=\"green\">Map Was Captured!</color>" : "<color=\"red\">Map Uncapturable</color>"; 
+                display.text = displayWeighted.Invoke(displayFc, $"{ppVals[7]}", ppVals[3],
+                    $"{ppVals[15]}", ppVals[11], labels[3]) + "\n";
+            if (!failed) display.text += mapCaptured ? pc.MapCapturedMessage : pc.MapUncapturableMessage;
             else display.text += "<color=\"red\">Loading Failed</color>";
         }
     }

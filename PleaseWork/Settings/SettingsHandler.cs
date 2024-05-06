@@ -71,7 +71,7 @@ namespace PleaseWork.Settings
             set => PluginConfig.Instance.LocalReplay = value;
         }
         [UIValue("CaptureTypes")]
-        public List<object> CaptureTypes = new List<object>() { "None", "Percentage", "PP", "Both" };
+        public List<object> CaptureTypes = new List<object>() { "None", "Percentage", "PP", "Both", "Custom" };
         [UIValue("CaptureType")]
         public string CaptureType
         {

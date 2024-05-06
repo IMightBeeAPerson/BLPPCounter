@@ -34,7 +34,7 @@ namespace PleaseWork.Counters
             this.display = display;
             failed = false;
             precision = PluginConfig.Instance.DecimalPrecision;
-            if (displayFormatter == null) displayFormatter = FormatTheFormat(PluginConfig.Instance.RelativeTextFormat);
+            if (displayFormatter == null) FormatTheFormat(PluginConfig.Instance.RelativeTextFormat);
         }
         public RelativeCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(map); }
         private void SetupReplayData(JToken data)
@@ -133,9 +133,9 @@ namespace PleaseWork.Counters
         }
         #endregion
         #region Helper Functions
-        public static Func<bool, string, string, float, string, string, float, string, string> FormatTheFormat(string format) //&:c&x&:&:p ($)&:&1 || &:f&y&:&:o ($)&:&1 &l
+        public static void FormatTheFormat(string format)
         {
-            var simple = HelpfulMisc.GetBasicTokenParser(format,
+            var simple = HelpfulFormatter.GetBasicTokenParser(format,
                 tokens =>
                 {
                     if (!PluginConfig.Instance.ShowLbl) tokens['l'] = ("", tokens['l'].Item2);
@@ -147,7 +147,7 @@ namespace PleaseWork.Counters
                     tokensCopy['f'] = ($"{vals['f']}{tokens['f'].Item1}</color>", tokens['f'].Item2);
                     if (!(bool)vals['q'] && tokens.ContainsKey('1')) tokensCopy['1'] = ("", tokens['1'].Item2);
                 });
-            return (fc, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label) =>
+            displayFormatter = (fc, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label) =>
             {
                 Dictionary<char, object> vals = new Dictionary<char, object>()
                 {
@@ -236,13 +236,13 @@ namespace PleaseWork.Counters
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
-                    text += displayFormatter.Invoke(displayFc, HelpfulMisc.NumberToColor(ppVals[i + 4]), $"{ppVals[i + 4]}", ppVals[i],
-                        HelpfulMisc.NumberToColor(ppVals[i + 12]), $"{ppVals[i + 12]}", ppVals[i + 8], labels[i]) + "\n";
+                    text += displayFormatter.Invoke(displayFc, HelpfulFormatter.NumberToColor(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
+                        HelpfulFormatter.NumberToColor(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], labels[i]) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayFormatter.Invoke(displayFc, HelpfulMisc.NumberToColor(ppVals[7]), $"{ppVals[7]}", ppVals[3],
-                    HelpfulMisc.NumberToColor(ppVals[15]), $"{ppVals[15]}", ppVals[11], labels[3]) + "\n";
+                display.text = displayFormatter.Invoke(displayFc, HelpfulFormatter.NumberToColor(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
+                    HelpfulFormatter.NumberToColor(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3]) + "\n";
             if (!target.Equals("None"))
                 display.text += $"\nTargeting <color=\"red\">{target}</color>";
 
