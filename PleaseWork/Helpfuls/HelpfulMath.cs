@@ -1,4 +1,6 @@
-﻿namespace PleaseWork.Helpfuls
+﻿using System;
+
+namespace PleaseWork.Helpfuls
 {
     public static class HelpfulMath
     {
@@ -31,6 +33,12 @@
             if (notes >= 14) return 6;
             if (notes >= 6) return 2;
             return 0;
+        }
+        public static string ToHexString(float f)
+        {
+            var bytes = BitConverter.GetBytes(f);
+            var i = BitConverter.ToInt32(bytes, 0);
+            return "0x" + i.ToString("X8");
         }
     }
 }

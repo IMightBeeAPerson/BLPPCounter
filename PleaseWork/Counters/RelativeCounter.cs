@@ -138,14 +138,14 @@ namespace PleaseWork.Counters
             var simple = HelpfulFormatter.GetBasicTokenParser(format,
                 tokens =>
                 {
-                    if (!PluginConfig.Instance.ShowLbl) tokens['l'] = ("", tokens['l'].Item2);
-                    if (!PluginConfig.Instance.RelativeWithNormal) { tokens['p'] = ("", tokens['p'].Item2); tokens['o'] = ("", tokens['o'].Item2); }
+                    if (!PluginConfig.Instance.ShowLbl) HelpfulFormatter.SetText(tokens, 'l');
+                    if (!PluginConfig.Instance.ClanWithNormal) { HelpfulFormatter.SetText(tokens, 'p'); HelpfulFormatter.SetText(tokens, 'o'); }
                 },
-                (tokens, tokensCopy, vals) =>
+                (tokens, tokensCopy, priority, vals) =>
                 {
-                    tokensCopy['c'] = ($"{vals['c']}{tokens['c'].Item1}</color>", tokens['c'].Item2);
-                    tokensCopy['f'] = ($"{vals['f']}{tokens['f'].Item1}</color>", tokens['f'].Item2);
-                    if (!(bool)vals['q'] && tokens.ContainsKey('1')) tokensCopy['1'] = ("", tokens['1'].Item2);
+                    HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{vals['c']}", "</color>");
+                    HelpfulFormatter.SurroundText(tokensCopy, 'f', $"{vals['f']}", "</color>");
+                    if (!(bool)vals['q']) HelpfulFormatter.SetText(tokensCopy, '1');
                 });
             displayFormatter = (fc, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label) =>
             {

@@ -146,7 +146,8 @@ namespace PleaseWork
             InitData();
         }
         public static void FormatTheFormat(string format) {
-            var simple = HelpfulFormatter.GetBasicTokenParser(format, tokens => {}, (tokens, tokensCopy, vals) => { if (!(bool)vals['q'] && tokens.ContainsKey('1')) tokensCopy['1'] = ("", tokens['1'].Item2); });
+            var simple = HelpfulFormatter.GetBasicTokenParser(format, tokens => {}, 
+                (tokens, tokensCopy, priority, vals) => { if (!(bool)vals['q']) HelpfulFormatter.SetText(tokensCopy, '1'); });
             displayFormatter = (fc, pp, fcpp, label) => simple.Invoke(new Dictionary<char, object>() { { 'q', fc }, {'x', pp }, {'l', label }, { 'y', fcpp } });
         }
         #endregion
