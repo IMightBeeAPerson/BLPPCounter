@@ -35,7 +35,7 @@ namespace PleaseWork
 
         #region Overrides & Event Calls
 
-        static TheCounter() { FormatTheFormat(PluginConfig.Instance.DefaultTextFormat); }
+        static TheCounter() { FormatTheFormat(PluginConfig.Instance.FormatSettings.DefaultTextFormat); }
         public override void CounterDestroy() {
             if (enabled) sc.scoringForNoteFinishedEvent -= OnNoteScored;
         }

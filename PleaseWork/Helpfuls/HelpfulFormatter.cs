@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PleaseWork.Settings;
+using System;
 using System.Collections.Generic;
 
 namespace PleaseWork.Helpfuls
@@ -6,12 +7,11 @@ namespace PleaseWork.Helpfuls
     public static class HelpfulFormatter
     {
         public static readonly int FORMAT_SPLIT = 100;
-        public static readonly char DISPLAY_ESCAPE_CHAR = '&';
-        public static readonly char DISPLAY_BRACKET_OPEN = '[';
-        public static readonly char DISPLAY_INSERT_SELF = '$';
-        public static readonly char DISPLAY_BRACKET_CLOSE = ']';
-
-        public static readonly string NUMBER_TOSTRING_FORMAT = "▲#;▼#;0";
+        public static char DISPLAY_ESCAPE_CHAR => PluginConfig.Instance.TokenSettings.EscapeCharacter;
+        public static char DISPLAY_BRACKET_OPEN => PluginConfig.Instance.TokenSettings.GroupBracketOpen;
+        public static char DISPLAY_INSERT_SELF => PluginConfig.Instance.TokenSettings.GroupInsertSelf;
+        public static char DISPLAY_BRACKET_CLOSE => PluginConfig.Instance.TokenSettings.GroupBracketClose;
+        public static string NUMBER_TOSTRING_FORMAT => PluginConfig.Instance.FormatSettings.NumberFormat;
 
         public static (string, Dictionary<char, (string, int)>) ParseCounterFormat(string format)
         {

@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 using PleaseWork.Counters;
+using PleaseWork.Helpfuls;
 using PleaseWork.Settings;
 using PleaseWork.Utils;
 using System;
@@ -48,5 +49,14 @@ namespace PleaseWork
 
         [OnDisable]
         public void OnDisable() { }
+
+        private void LoadData()
+        {
+            string dir = HelpfulPaths.THE_FOLDER;
+            if (!Directory.Exists(dir)) {
+                Log.Info("Folder for this mod doesn't exist! Creating new one...");
+                Directory.CreateDirectory(dir);
+            }
+        }
     }
 }

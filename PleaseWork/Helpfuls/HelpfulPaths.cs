@@ -9,6 +9,7 @@ namespace PleaseWork.Helpfuls
     {
         #region File Paths
         public static readonly string PLAYLISTS = Path.Combine(Environment.CurrentDirectory, "Playlists");
+        public static readonly string THE_FOLDER = Path.Combine(Environment.CurrentDirectory, "UserData", "PleaseWork");
         public static readonly string BL_CACHE_FILE = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "LeaderboardsCache");
         public static readonly string BL_REPLAY_FOLDER = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "Replays");
         #endregion

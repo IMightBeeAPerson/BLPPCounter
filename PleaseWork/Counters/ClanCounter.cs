@@ -170,9 +170,9 @@ namespace PleaseWork.Counters
         } 
         public static void FormatTheFormat()
         {
-            FormatClan(PluginConfig.Instance.ClanTextFormat);
-            FormatWeighted(PluginConfig.Instance.WeightedTextFormat);
-            FormatCustom(PluginConfig.Instance.CustomClanMessage);
+            FormatClan(PluginConfig.Instance.FormatSettings.ClanTextFormat);
+            FormatWeighted(PluginConfig.Instance.FormatSettings.WeightedTextFormat);
+            FormatCustom(PluginConfig.Instance.MessageSettings.CustomClanMessage);
         }
         private static void FormatClan(string format)
         {
@@ -289,7 +289,7 @@ namespace PleaseWork.Counters
             else
                 display.text = displayWeighted.Invoke(displayFc, $"{ppVals[7]}", ppVals[3],
                     $"{ppVals[15]}", ppVals[11], labels[3]) + "\n";
-            if (!failed) display.text += mapCaptured ? pc.MapCapturedMessage : pc.MapUncapturableMessage;
+            if (!failed) display.text += mapCaptured ? pc.MessageSettings.MapCapturedMessage : pc.MessageSettings.MapUncapturableMessage;
             else display.text += "<color=\"red\">Loading Failed</color>";
         }
     }

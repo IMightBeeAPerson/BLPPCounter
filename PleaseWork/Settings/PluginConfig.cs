@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using IPA.Config.Stores;
+using PleaseWork.Settings.FormatSettings;
 
 [assembly: InternalsVisibleTo(GeneratedStore.AssemblyVisibilityTarget)]
 namespace PleaseWork.Settings
@@ -7,13 +8,9 @@ namespace PleaseWork.Settings
     internal class PluginConfig
     {
         public static PluginConfig Instance { get; set; }
-        public virtual string CustomClanMessage { get; set; } = "Get <color=\"yellow\">&c</color>% for <color=\"yellow\">&p</color> PP!";
-        public virtual string MapCapturedMessage { get; set; } = "<color=\"green\">Map Was Captured!</color>";
-        public virtual string MapUncapturableMessage { get; set; } = "<color=\"red\">Map Uncapturable</color>";
-        public virtual string DefaultTextFormat { get; set; } = "&x&1 / &y&1 &l";
-        public virtual string ClanTextFormat { get; set; } = "[p$ ]&[[c&x]&]&1 / [o$ ]&[[f&y]&] &1&l";
-        public virtual string WeightedTextFormat { get; set; } = "&x[p ($)]&1 / &y[o ($)]&1 &l";
-        public virtual string RelativeTextFormat { get; set; } = "[c&x][p ($)]&1 || [f&y][o ($)]&1 &l";
+        public virtual TokenFormatSettings TokenSettings { get; set; } = new TokenFormatSettings();
+        public virtual MessageSettings MessageSettings { get; set; } = new MessageSettings();
+        public virtual TextFormatSettings FormatSettings { get; set; } = new TextFormatSettings();
         public virtual bool SplitPPVals { get; set; } = false;
         public virtual string PPType { get; set; } = "Normal";
         public virtual int DecimalPrecision { get; set; } = 2;

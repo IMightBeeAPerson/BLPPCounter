@@ -34,7 +34,7 @@ namespace PleaseWork.Counters
             this.display = display;
             failed = false;
             precision = PluginConfig.Instance.DecimalPrecision;
-            if (displayFormatter == null) FormatTheFormat(PluginConfig.Instance.RelativeTextFormat);
+            if (displayFormatter == null) FormatTheFormat(PluginConfig.Instance.FormatSettings.RelativeTextFormat);
         }
         public RelativeCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(map); }
         private void SetupReplayData(JToken data)
