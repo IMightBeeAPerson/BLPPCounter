@@ -7,7 +7,8 @@ In the config for this counter, you will find the text format strings. These are
 ```json
 "DefaultTextFormat": "&x&1 / &y&1 &l",
 "ClanTextFormat": "[p$ ]&[[c&x]&]&1 / [o$ ]&[[f&y]&] &1&l",
-"RelativeTextFormat": "[c&x][p ($)]&1 || [f&y][o ($)]&1 &l",
+"WeightedTextFormat": "&x[p ($)]&1 / &y[o ($)]&1 &l",
+"RelativeTextFormat": "[c&x][p ($)]&1 || [f&y][o ($)]&1 &l"
 ```
 Lemme break it down and explain it so that you can understand it and customize it yourself. This works by displaying everything as normal text except for the special characters, which will be replaced with values from the counter. 
 Here's a quick explaination of important characters.
@@ -31,6 +32,7 @@ This includes any counter that is too simple to have their own display method, a
 | Number | Description |
 | ------ | ----------- |
 | 1 | This capture will enable and disable based off if the player is FC'ing the map or not |
+
 #### Clan and Relative Counter
 These both have the same syntax, and therefore will share the same table.
 | Letter | Description |
@@ -46,3 +48,35 @@ These both have the same syntax, and therefore will share the same table.
 | Number | Description |
 | ------ | ----------- |
 | 1 | This capture will enable and disable based off if the player is FC'ing the map or not |
+
+#### Weighted Counter
+This is a special counter that will appear when the clan counter fails because the map is already captured, the map is too hard to capture, or the API requests return bad information that causes an error.
+| Letter | Description |
+| ------ | ----------- |
+| p | The unmodified PP number |
+| x | The modified PP number (plus/minus value) |
+| o | The unmodified PP number if the map was FC'ed |
+| y | The modified PP number if the map was FC'ed |
+| l | The label (ex: PP, Tech PP, etc) |
+
+| Number | Description |
+| ------ | ----------- |
+| 1 | This capture will enable and disable based off if the player is FC'ing the map or not |
+
+### Message Specific Syntax
+Messages are things that appear in the counter when something to change the counter from normal happens. Sometimes these take in values, sometimes they do not.
+
+#### Normal Messages
+These are messages with no values, and therefore will not be parsed and are completely normal text.
+- Map Captured Message
+- Map Uncapturable Message
+
+#### Clan Message
+This message is supposed to inform the player what percent or accuracy is needed to capture the map.
+| Letter | Description |
+| ------ | ----------- |
+| a | The accuracy needed to capture the map |
+| p | The total PP number needed to capture the map |
+| x | The tech PP needed |
+| y | The accuracy PP needed |
+| z | The pass PP needed |
