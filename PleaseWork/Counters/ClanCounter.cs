@@ -18,9 +18,9 @@ namespace PleaseWork.Counters
         private static int playerClanId = -1;
         private static readonly List<KeyValuePair<MapSelection, float[]>> mapCache = new List<KeyValuePair<MapSelection, float[]>>();
         private static PluginConfig pc;
-        public static Func<bool, string, string, float, string, string, float, string, string> displayClan;
+        public static Func<bool, Func<string>, string, float, Func<string>, string, float, string, string> displayClan;
         private static Func<bool, string, float, string, float, string, string> displayWeighted;
-        private static Func<string, float, float, float, float, float, string> customMessage;
+        private static Func<Func<string>, float, float, float, float, float, string> customMessage;
 
         public string Name { get => "Clan"; }
 
@@ -184,8 +184,8 @@ namespace PleaseWork.Counters
                 },
                 (tokens, tokensCopy, priority, vals) =>
                 {
-                    HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{vals['c']}", "</color>");
-                    HelpfulFormatter.SurroundText(tokensCopy, 'f', $"{vals['f']}", "</color>");
+                    if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<string>)vals['c']).Invoke()}", "</color>");
+                    if (vals.ContainsKey('f')) HelpfulFormatter.SurroundText(tokensCopy, 'f', $"{((Func<string>)vals['f']).Invoke()}", "</color>");
                     if (!(bool)vals['q']) HelpfulFormatter.SetText(tokensCopy, '1');
                 });
             displayClan = (fc, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label) =>
@@ -214,7 +214,8 @@ namespace PleaseWork.Counters
         {
             if (customMessage != null) return;
             var simple = HelpfulFormatter.GetBasicTokenParser(format, tokens => { }, 
-                (tokens, tokensCopy, priority, vals) => { HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{vals['c']}", "</color>"); });
+                (tokens, tokensCopy, priority, vals) => 
+                { if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<string>)vals['c']).Invoke()}", "</color>"); });
             customMessage = (color, acc, passpp, accpp, techpp, pp) => 
                 simple.Invoke(new Dictionary<char, object>() { { 'c', color }, { 'a', acc }, { 'x', techpp }, { 'y', accpp }, { 'z', passpp }, { 'p', pp } });
         }
@@ -250,15 +251,15 @@ namespace PleaseWork.Counters
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
-                    text += displayClan.Invoke(displayFc, HelpfulFormatter.NumberToGradient(GRAD_VARIANCE, ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
-                        HelpfulFormatter.NumberToGradient(GRAD_VARIANCE, ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], labels[i]) + "\n";
+                    text += displayClan.Invoke(displayFc, () => HelpfulFormatter.NumberToGradient(GRAD_VARIANCE, ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
+                        () => HelpfulFormatter.NumberToGradient(GRAD_VARIANCE, ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], labels[i]) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayClan.Invoke(displayFc, HelpfulFormatter.NumberToGradient(GRAD_VARIANCE, ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
-                    HelpfulFormatter.NumberToGradient(GRAD_VARIANCE, ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3]) + "\n";
+                display.text = displayClan.Invoke(displayFc, () => HelpfulFormatter.NumberToGradient(GRAD_VARIANCE, ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
+                    () => HelpfulFormatter.NumberToGradient(GRAD_VARIANCE, ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3]) + "\n";
             if (addon.Length != 0) display.text += (neededPPs[4] > acc ? "Aiming for <color=\"red\">" : "Aiming for <color=\"green\">") + addon;
-            else display.text += customMessage.Invoke(HelpfulFormatter.NumberToGradient(GRAD_VARIANCE, ppVals[3] - neededPPs[3]),
+            else display.text += customMessage.Invoke(() => HelpfulFormatter.NumberToGradient(GRAD_VARIANCE, ppVals[3] - neededPPs[3]),
                 neededPPs[5], neededPPs[0], neededPPs[1], neededPPs[2], (float)Math.Round(neededPPs[3], precision));
         }
         private void UpdateWeightedCounter(float acc, int badNotes, float fcPercent)

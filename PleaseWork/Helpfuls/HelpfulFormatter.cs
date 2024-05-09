@@ -8,10 +8,12 @@ namespace PleaseWork.Helpfuls
     public static class HelpfulFormatter
     {
         public static readonly int FORMAT_SPLIT = 100;
-        public static char DISPLAY_ESCAPE_CHAR => PluginConfig.Instance.TokenSettings.EscapeCharacter;
-        public static char DISPLAY_BRACKET_OPEN => PluginConfig.Instance.TokenSettings.GroupBracketOpen;
-        public static char DISPLAY_INSERT_SELF => PluginConfig.Instance.TokenSettings.GroupInsertSelf;
-        public static char DISPLAY_BRACKET_CLOSE => PluginConfig.Instance.TokenSettings.GroupBracketClose;
+        public static char ESCAPE_CHAR => PluginConfig.Instance.TokenSettings.EscapeCharacter;
+        public static char GROUP_OPEN => PluginConfig.Instance.TokenSettings.GroupBracketOpen;
+        public static char INSERT_SELF => PluginConfig.Instance.TokenSettings.GroupInsertSelf;
+        public static char GROUP_CLOSE => PluginConfig.Instance.TokenSettings.GroupBracketClose;
+        public static char CAPTURE_OPEN => PluginConfig.Instance.TokenSettings.CaptureBracketOpen;
+        public static char CAPTURE_CLOSE => PluginConfig.Instance.TokenSettings.CaptureBracketClose;
         public static string NUMBER_TOSTRING_FORMAT => PluginConfig.Instance.FormatSettings.NumberFormat;
 
         public static (string, Dictionary<(char, int), string>, Dictionary<int, char>) ParseCounterFormat(string format)
@@ -26,24 +28,24 @@ namespace PleaseWork.Helpfuls
             char num = (char)0;
             for (int i = 0; i < format.Length; i++)//[p$ ]&[[c&x]&]&1 / [o$ ]&[[f&y]&] &1&l
             {
-                if (!IsSpecialChar(format[i]) || (format[i] == DISPLAY_ESCAPE_CHAR && IsSpecialChar(format[i + 1])))
+                if (!IsSpecialChar(format[i]) || (format[i] == ESCAPE_CHAR && IsSpecialChar(format[i + 1])))
                 {
-                    if (format[i] == DISPLAY_ESCAPE_CHAR) i++;
+                    if (format[i] == ESCAPE_CHAR) i++;
                     if (capture)
                     { captureStr += format[i]; continue; }
                     else
                     { formatted += format[i]; continue; }
                 }
                 if (!capture) formatted += $"{{{forRepIndex++}}}";
-                if (format[i] == DISPLAY_BRACKET_OPEN)
+                if (format[i] == GROUP_OPEN)
                 {
                     string bracket = "";
                     char symbol = format[++i];
                     int index = repIndex++, sIndex = sortIndex++;
-                    while (format[++i] != DISPLAY_BRACKET_CLOSE && i < format.Length)
+                    while (format[++i] != GROUP_CLOSE && i < format.Length)
                     {
-                        if (format[i] == DISPLAY_INSERT_SELF) { bracket += $"{{{index}}}"; continue; }
-                        if (format[i] == DISPLAY_ESCAPE_CHAR)
+                        if (format[i] == INSERT_SELF) { bracket += $"{{{index}}}"; continue; }
+                        if (format[i] == ESCAPE_CHAR)
                         {
                             tokens[(format[++i], FORMAT_SPLIT + sortIndex)] = $"{{{repIndex}}}";
                             priority[FORMAT_SPLIT + sortIndex++] = format[i];
@@ -56,7 +58,7 @@ namespace PleaseWork.Helpfuls
                     if (repIndex == index) repIndex++;
                     if (capture)
                     {
-                        captureStr += $"{DISPLAY_ESCAPE_CHAR}{symbol}";
+                        captureStr += $"{ESCAPE_CHAR}{symbol}";
                         sIndex += FORMAT_SPLIT;
                     }
                     priority[sIndex] = symbol;
@@ -64,14 +66,14 @@ namespace PleaseWork.Helpfuls
 
                     continue;
                 }
-                if (char.IsDigit(format[++i]))
+                if (format[i] == CAPTURE_OPEN || format[i] == CAPTURE_CLOSE)
                 {
                     if (!capture)
                     {
                         capture = true;
                         captureStr = "";
                         ssIndex = sortIndex++;
-                        num = format[i];
+                        num = format[++i];
                         continue;
                     }
                     else
@@ -83,9 +85,10 @@ namespace PleaseWork.Helpfuls
                     }
                 }
                 int tempIndex = sortIndex++;
+                i++;
                 if (capture)
                 {
-                    captureStr += $"{DISPLAY_ESCAPE_CHAR}{format[i]}";
+                    captureStr += $"{ESCAPE_CHAR}{format[i]}";
                     tempIndex += FORMAT_SPLIT;
                 }
                 tokens[(format[i], tempIndex)] = $"{{{repIndex++}}}";
@@ -126,7 +129,7 @@ namespace PleaseWork.Helpfuls
                     int priorityCount = val.Item2;
                     if (toParse.Length == 0) continue;
                     for (int j = 0; j < toParse.Length; j++)
-                        if (toParse[j] == DISPLAY_ESCAPE_CHAR)
+                        if (toParse[j] == ESCAPE_CHAR)
                             newVal += tokensCopy[(toParse[++j], ++priorityCount + FORMAT_SPLIT)];
                         else newVal += toParse[j];
                     tokensCopy[val] = newVal;
@@ -136,7 +139,12 @@ namespace PleaseWork.Helpfuls
                 foreach ((char, int) val in first) firstArr[i++] = tokensCopy[val];
                 object[] secondArr = new object[second.Count];
                 i = 0;
-                foreach ((char, int) val in second) secondArr[i++] = vals[val.Item1];
+                foreach ((char, int) val in second)
+                {
+                    if (vals[val.Item1] is Func<string> func) secondArr[i] = func.Invoke(); 
+                    else secondArr[i] = vals[val.Item1];
+                    i++;
+                }
                 return string.Format(string.Format(formatted, firstArr), secondArr);
             };
         }
@@ -152,13 +160,23 @@ namespace PleaseWork.Helpfuls
             foreach (var item in tokens.Keys) if (item.Item1 == c) toModify.Add((c, item.Item2, preText + tokens[item] + postText));
             foreach (var item in toModify) tokens[(item.Item1, item.Item2)] = item.Item3;
         }
-        public static bool IsSpecialChar(char c) => c == DISPLAY_ESCAPE_CHAR || c == DISPLAY_BRACKET_OPEN || c == DISPLAY_BRACKET_CLOSE;
+        public static bool IsSpecialChar(char c) => c == ESCAPE_CHAR || c == GROUP_OPEN || c == GROUP_CLOSE || c == CAPTURE_OPEN || c == CAPTURE_CLOSE;
         public static string NumberToColor(float num) => num > 0 ? "<color=\"green\">" : num == 0 ? "<color=\"yellow\">" : "<color=\"red\">";
+        public static string EscapeNeededChars(string str)
+        {
+            string outp = "";
+            foreach (char c in str)
+            {
+                if (IsSpecialChar(c)) outp += ESCAPE_CHAR;
+                outp += c;
+            }
+            return outp;
+        }
         public static string NumberToGradient(float variance, float num)
         {
             bool neg = num < 0;
             num = Mathf.Min(variance, Mathf.Abs(num));
-            int toConvert = (int)Math.Abs(Math.Round((1.0f - num / variance) * 255.0f));
+            int toConvert = (int)Math.Abs(Math.Round((neg ? 1.0f - num / variance : num / variance) * 255.0f));
             toConvert = Math.Max(toConvert, 128);
             return neg ? $"<color=#{toConvert:X2}0000>" :
                 $"<color=#00{toConvert:X2}00>";
