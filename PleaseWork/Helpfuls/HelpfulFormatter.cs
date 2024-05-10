@@ -41,6 +41,8 @@ namespace PleaseWork.Helpfuls
                 {
                     string bracket = "";
                     char symbol = format[++i];
+                    if (!char.IsLetter(symbol)) 
+                        throw new FormatException($"Invalid group format, must define what letter group corresponds to.\nSyntax: {GROUP_OPEN}<letter> ... {GROUP_CLOSE}");
                     int index = repIndex++, sIndex = sortIndex++;
                     while (format[++i] != GROUP_CLOSE && i < format.Length)
                     {
@@ -54,6 +56,8 @@ namespace PleaseWork.Helpfuls
                         }
                         else bracket += format[i];
                     }
+                    if (i == format.Length)
+                        throw new FormatException($"Invalid group format, must close group bracket.\nSyntax: {GROUP_OPEN}<letter> ... {GROUP_CLOSE}");
                     if (sortIndex == sIndex) sortIndex++;
                     if (repIndex == index) repIndex++;
                     if (capture)
@@ -74,6 +78,8 @@ namespace PleaseWork.Helpfuls
                         captureStr = "";
                         ssIndex = sortIndex++;
                         num = format[++i];
+                        if (!char.IsDigit(num))
+                            throw new FormatException($"Invalid capture format, must have number after open bracket.\nSyntax: {CAPTURE_OPEN}<number> ... {CAPTURE_CLOSE}");
                         continue;
                     }
                     else
@@ -91,9 +97,13 @@ namespace PleaseWork.Helpfuls
                     captureStr += $"{ESCAPE_CHAR}{format[i]}";
                     tempIndex += FORMAT_SPLIT;
                 }
+                if (!char.IsLetter(format[i]))
+                    throw new FormatException($"Invalid escape format, escape character must be followed by a special character or a letter.\nSyntax: {ESCAPE_CHAR}<letter> OR {ESCAPE_CHAR}<special character>");
                 tokens[(format[i], tempIndex)] = $"{{{repIndex++}}}";
                 priority[tempIndex] = format[i];
             }
+            if (capture)
+                throw new FormatException($"Invalid capture format, must close capture bracket.\nSyntax: {CAPTURE_OPEN}<number> ... {CAPTURE_CLOSE}");
             return (formatted, tokens, priority);
         }
         public static Func<Dictionary<char, object>, string> GetBasicTokenParser(string format,
@@ -139,12 +149,7 @@ namespace PleaseWork.Helpfuls
                 foreach ((char, int) val in first) firstArr[i++] = tokensCopy[val];
                 object[] secondArr = new object[second.Count];
                 i = 0;
-                foreach ((char, int) val in second)
-                {
-                    if (vals[val.Item1] is Func<string> func) secondArr[i] = func.Invoke(); 
-                    else secondArr[i] = vals[val.Item1];
-                    i++;
-                }
+                foreach ((char, int) val in second) secondArr[i++] = vals[val.Item1];
                 return string.Format(string.Format(formatted, firstArr), secondArr);
             };
         }
