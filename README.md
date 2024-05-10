@@ -16,9 +16,10 @@ Here's a quick explaination of important characters.
 - If there is a letter (a-z) after the escape character, then this represents a value that will be replaced when the counter is active. What specifically will be explained below in the next section.
 - The '[' and ']' characters will create a group. Each group has a value (aka letter) it is assigned to, and will be stored with this value. 
   What this does is tie a string of character to a value, and everything inside will be disabled and enabled with the character. To input the value inside the group, simply put a '$', which will be replaced with the value.
-- If there is a number after an escape character, this will create a capture. There is no value attached to this, and you close the capture the same way you open, with escape character and number. 
+- To create a capture, you use a very similar syntax to a group, just with different kind of brackets, '<' and '>'. A capture doesn't have any value attached to it, so instead of using a letter as an identifier, you use a number.
   The main use of this is for counters to enable and disable parts of the counter dynamically. For example, when you miss, the display need to show a new section, and it will use captures to do so.
 
+**Note:** The special characters used in these explainations are the default characters, however they can be changed in settings if you don't like how they feel or look.
 ### Counter Specific Syntax 
 The different counter types have different letters to mean different things, instead of making you sift through the code or figure it out, here's a list :)
 #### Default Counter (Progressive and Normal)
