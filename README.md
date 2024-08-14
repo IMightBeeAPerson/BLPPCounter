@@ -63,6 +63,7 @@ This is a special counter that will appear when the clan counter fails because t
 | Number | Description |
 | ------ | ----------- |
 | 1 | This capture will enable and disable based off if the player is FC'ing the map or not |
+| 2 | This capture is will enable/disable based off if you enable showing your placement in settings |
 
 ### Message Specific Syntax
 Messages are things that appear in the counter when something to change the counter from normal happens. Sometimes these take in values, sometimes they do not.
@@ -81,3 +82,10 @@ This message is supposed to inform the player what percent or accuracy is needed
 | x | The tech PP needed |
 | y | The accuracy PP needed |
 | z | The pass PP needed |
+
+#### Targeting Message
+This message is for whenever you are targeting someone. Currently it can show a few stats of the person you are targeting, but I'll most likely add more at a later date.
+| Letter | Description |
+| ------ | ----------- |
+| t | The name of the person being targeted |
+| m | The mods used by the person you are targeting |
