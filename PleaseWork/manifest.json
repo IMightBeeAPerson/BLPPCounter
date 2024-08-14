@@ -1,7 +1,7 @@
 ﻿{
   "$schema": "https://raw.githubusercontent.com/bsmg/BSIPA-MetadataFileSchema/master/Schema.json",
-  "id": "PleaseWork",
-  "name": "PleaseWork",
+  "id": "BL_PP_Counter",
+  "name": "BL PP Counter",
   "author": "Person",
   "version": "0.2.5",
   "description": "Adds a BeatLeader pp counter.",
@@ -12,7 +12,7 @@
     "Counters+": "^2.3.3",
     "BeatSaberMarkupLanguage": "^1.6.3",
     "BeatLeader": "^0.9.0"
-  }, 
+  },
   "features": {
     "CountersPlus.CustomCounter": {
       "Name": "BL PP Counter",
@@ -29,5 +29,5 @@
         "Icon": "PleaseWork.Images.pp.png"
       }
     }
-  }   
+  }
 }

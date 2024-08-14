@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using BeatSaberMarkupLanguage.Attributes;
 using IPA.Config.Stores;
 using PleaseWork.Settings.FormatSettings;
 
@@ -13,8 +14,11 @@ namespace PleaseWork.Settings
         public virtual TextFormatSettings FormatSettings { get; set; } = new TextFormatSettings();
         public virtual bool SplitPPVals { get; set; } = false;
         public virtual string PPType { get; set; } = "Normal";
+        public virtual bool Debug { get; set; } = false;
         public virtual int DecimalPrecision { get; set; } = 2;
         public virtual double FontSize { get; set; } = 3;
+        public virtual bool UseGrad { get; set; } = true;
+        public virtual int GradVal { get; set; } = 100;
         public virtual bool ClanWithNormal { get => PPType.Equals("Clan w/ normal"); }
         public virtual bool RelativeWithNormal { get => PPType.Equals("Relative w/ normal"); }
         public virtual bool ShowLbl { get; set; } = true;

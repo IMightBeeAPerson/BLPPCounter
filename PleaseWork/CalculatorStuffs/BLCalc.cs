@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PleaseWork.Settings;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -193,13 +194,16 @@ namespace PleaseWork.CalculatorStuffs
             float result = GetNeededPP(clanPpVals.ToArray(), otherClan - ourClan);
             return result;
         }
-        public static float GetWeight(float pp, float[] sortedClanPps)
+        public static float GetWeight(float pp, float[] sortedClanPps, out int rank)
         {
+            rank = 0;
             if (sortedClanPps == null || sortedClanPps.Length == 0) return 1.0f;
             int count = 0;
             while (sortedClanPps[count++] > pp && count < sortedClanPps.Length);
-            return (float)Math.Pow(CLANWAR_WEIGHT_COEFFICIENT, count);
+            rank = count;
+            return (float)Math.Pow(CLANWAR_WEIGHT_COEFFICIENT, count - 1);
         }
+        public static float GetWeight(float pp, float[] sortedClanPps) => GetWeight(pp, sortedClanPps, out _);
         public static float GetWeightedPp(float pp, float[] clanPps)
         {
             return pp * GetWeight(pp, clanPps);

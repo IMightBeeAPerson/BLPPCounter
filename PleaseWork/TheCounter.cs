@@ -20,6 +20,7 @@ namespace PleaseWork
         [Inject] private ScoreController sc;
         private static readonly HttpClient client = new HttpClient();
         public static Dictionary<string, Map> Data { get; private set; }
+        public static Func<string, string, string> TargetFormatter;
         private static bool dataLoaded = false;
         private static MapSelection lastMap;
         private static IMyCounters theCounter;
@@ -35,7 +36,11 @@ namespace PleaseWork
 
         #region Overrides & Event Calls
 
-        static TheCounter() { FormatTheFormat(PluginConfig.Instance.FormatSettings.DefaultTextFormat); }
+        static TheCounter() 
+        { 
+            FormatTheFormat(PluginConfig.Instance.FormatSettings.DefaultTextFormat);
+            FormatTarget(PluginConfig.Instance.MessageSettings.TargetingMessage);
+        }
         public override void CounterDestroy() {
             if (enabled) sc.scoringForNoteFinishedEvent -= OnNoteScored;
         }
@@ -145,10 +150,15 @@ namespace PleaseWork
             Data = new Dictionary<string, Map>();
             InitData();
         }
-        public static void FormatTheFormat(string format) {
+        private static void FormatTheFormat(string format) {
             var simple = HelpfulFormatter.GetBasicTokenParser(format, tokens => {}, 
                 (tokens, tokensCopy, priority, vals) => { if (!(bool)vals['q']) HelpfulFormatter.SetText(tokensCopy, '1'); });
             displayFormatter = (fc, pp, fcpp, label) => simple.Invoke(new Dictionary<char, object>() { { 'q', fc }, {'x', pp }, {'l', label }, { 'y', fcpp } });
+        }
+        private static void FormatTarget(string format)
+        {
+            char hold = PluginConfig.Instance.TokenSettings.EscapeCharacter;
+            TargetFormatter = (name, mods) => format.Replace(hold + "t", name).Replace(hold + "m", mods);
         }
         #endregion
         #region Init
@@ -174,12 +184,15 @@ namespace PleaseWork
         {
             Plugin.Log.Info("API Avoidance mode is functioning (probably)!");
             MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating);
+            if (PluginConfig.Instance.Debug) 
+                Plugin.Log.Info($"Last Map\n-------------------\n{lastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
             bool ratingDiff, diffDiff;
             (ratingDiff, diffDiff) = thisMap.GetDifference(lastMap);
             Plugin.Log.Info($"Rating: {ratingDiff}\tDifficulty: {diffDiff}");
             if (diffDiff) theCounter.ReinitCounter(display, thisMap);
             else if (ratingDiff) theCounter.ReinitCounter(display, passRating, accRating, techRating);
-            if (!ratingDiff && !diffDiff) theCounter.ReinitCounter(display);
+            else theCounter.ReinitCounter(display);
+            lastMap = thisMap;
         }
         private static void InitData()
         {
@@ -257,7 +270,7 @@ namespace PleaseWork
             if (data == null || data.ToString().Length <= 0) return false;
             passRating = HelpfulPaths.GetRating(data, PPType.Pass, mods.songSpeedMul);
             accRating = HelpfulPaths.GetRating(data, PPType.Acc, mods.songSpeedMul);
-            techRating =HelpfulPaths.GetRating(data, PPType.Tech, mods.songSpeedMul);
+            techRating = HelpfulPaths.GetRating(data, PPType.Tech, mods.songSpeedMul);
             stars = HelpfulPaths.GetRating(data, PPType.Star, mods.songSpeedMul);
             string mod = HelpfulMisc.GetModifierShortname(HelpfulMisc.SpeedToModifier(mods.songSpeedMul)).ToUpper();
             Plugin.Log.Info(mod.Length > 0 ? $"{mod} Stars: {stars}\n{mod} Pass Rating: {passRating}\n{mod} Acc Rating: {accRating}\n{mod} Tech Rating: {techRating}" : $"Stars: {stars}\nPass Rating: {passRating}\nAcc Rating: {accRating}\nTech Rating: {techRating}");
@@ -273,13 +286,13 @@ namespace PleaseWork
             if (PluginConfig.Instance.SplitPPVals) {
                 string outp = "";
                 for (int i=0;i<4;i++)
-                    outp += displayFormatter.Invoke(displayFc, ppVals[i], ppVals[i+4], labels[i]);
+                    outp += displayFormatter.Invoke(displayFc, ppVals[i], ppVals[i+4], labels[i]) + "\n";
                 display.text = outp;
             } else
                 display.text = displayFormatter.Invoke(displayFc, ppVals[3], ppVals[7], labels[3]);
-            string target = PluginConfig.Instance.Target;
+            /*string target = PluginConfig.Instance.Target;
             if (!target.Equals("None"))
-                display.text += $"\nTargeting <color=\"red\">{target}</color>";
+                display.text += $"\nTargeting <color=\"red\">{target}</color>";*/
         }
         #endregion
     }

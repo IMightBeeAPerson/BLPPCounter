@@ -1,20 +1,31 @@
 ﻿using PleaseWork.Settings;
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using UnityEngine;
 
 namespace PleaseWork.Helpfuls
 {
     public static class HelpfulFormatter
     {
+        private static PluginConfig PC => PluginConfig.Instance;
+
         public static readonly int FORMAT_SPLIT = 100;
-        public static char ESCAPE_CHAR => PluginConfig.Instance.TokenSettings.EscapeCharacter;
-        public static char GROUP_OPEN => PluginConfig.Instance.TokenSettings.GroupBracketOpen;
-        public static char INSERT_SELF => PluginConfig.Instance.TokenSettings.GroupInsertSelf;
-        public static char GROUP_CLOSE => PluginConfig.Instance.TokenSettings.GroupBracketClose;
-        public static char CAPTURE_OPEN => PluginConfig.Instance.TokenSettings.CaptureBracketOpen;
-        public static char CAPTURE_CLOSE => PluginConfig.Instance.TokenSettings.CaptureBracketClose;
-        public static string NUMBER_TOSTRING_FORMAT => PluginConfig.Instance.FormatSettings.NumberFormat;
+        public static int GRAD_VARIANCE => PC.GradVal;
+        public static char ESCAPE_CHAR => PC.TokenSettings.EscapeCharacter;
+        public static char GROUP_OPEN => PC.TokenSettings.GroupBracketOpen;
+        public static char INSERT_SELF => PC.TokenSettings.GroupInsertSelf;
+        public static char GROUP_CLOSE => PC.TokenSettings.GroupBracketClose;
+        public static char CAPTURE_OPEN => PC.TokenSettings.CaptureBracketOpen;
+        public static char CAPTURE_CLOSE => PC.TokenSettings.CaptureBracketClose;
+        public static readonly string NUMBER_TOSTRING_FORMAT;
+
+        static HelpfulFormatter()
+        {
+            var hold = "";
+            for (int i = 0; i < PC.DecimalPrecision; i++) hold += "#";
+            NUMBER_TOSTRING_FORMAT = PC.DecimalPrecision > 0 ? PC.FormatSettings.NumberFormat.Replace("#","#." + hold) : PC.FormatSettings.NumberFormat;
+        }
 
         public static (string, Dictionary<(char, int), string>, Dictionary<int, char>) ParseCounterFormat(string format)
         {
@@ -26,7 +37,7 @@ namespace PleaseWork.Helpfuls
             string captureStr = "";
             int ssIndex = -1;
             char num = (char)0;
-            for (int i = 0; i < format.Length; i++)//[p$ ]&[[c&x]&]&1 / [o$ ]&[[f&y]&] &1&l
+            for (int i = 0; i < format.Length; i++)//[p$ ]&[[c&x]&]<1 / [o$ ]&[[f&y]&] >&l
             {
                 if (!IsSpecialChar(format[i]) || (format[i] == ESCAPE_CHAR && IsSpecialChar(format[i + 1])))
                 {
@@ -186,5 +197,38 @@ namespace PleaseWork.Helpfuls
             return neg ? $"<color=#{toConvert:X2}0000>" :
                 $"<color=#00{toConvert:X2}00>";
         }
+        public static string NumberToGradient(float num) => NumberToGradient(GRAD_VARIANCE, num);
+        public static string GetWeightedRankColor(int rank)
+        {
+            int c = -1;
+            var arr = PluginConfig.Instance.FormatSettings.WeightedRankColors.ToArray();
+            while (arr[++c].Rank < rank && c + 1 < arr.Length) ;
+            return "<color=#" + arr[c].Color + ">";
+        }/*[
+		{
+			"Rank": 1,
+			"Color": "FFD700"
+		},
+		{
+			"Rank": 2,
+			"Color": "C0C0C0"
+		},
+		{
+			"Rank": 3,
+			"Color": "CD7F32"
+		},
+		{
+			"Rank": 10,
+			"Color": "A020F0"
+		},
+		{
+			"Rank": 15,
+			"Color": "AAAA00"
+		},
+		{
+			"Rank": 20,
+			"Color": "999999"
+		}
+	]*/
     }
 }

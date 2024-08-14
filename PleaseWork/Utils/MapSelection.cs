@@ -45,6 +45,6 @@ namespace PleaseWork.Utils
             if (other.Map == null || Map == null) return base.Equals(other);
             return other.Map.Hash.Equals(Map.Hash) && other.Difficulty.Equals(Difficulty) && other.Mode.Equals(Mode);
         }
-
+        public override bool Equals(object obj) => obj is MapSelection selection && Equals(selection);
     }
 }

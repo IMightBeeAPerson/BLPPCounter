@@ -3,11 +3,11 @@ using PleaseWork.Counters;
 using PleaseWork.Utils;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace PleaseWork.Settings
 {
+    /*<dropdown-list-setting text='Playlists' apply-on-change='true' value='ChosenPlaylist' options='PlNames' hover-hint='A playlist to load' active='false'/>
+    <button text='Load Playlist' on-click='LoadPlaylist' hover-hint='Loads the selected playlist into cache to prevent lag' active='false'/>*/
     class SettingsHandler
     {
         [UIValue("SplitVals")]
@@ -49,6 +49,24 @@ namespace PleaseWork.Settings
         {
             get => PluginConfig.Instance.PPFC;
             set => PluginConfig.Instance.PPFC = value;
+        }
+        [UIValue("Debug")]
+        public bool Debug
+        {
+            get => PluginConfig.Instance.Debug;
+            set => PluginConfig.Instance.Debug = value;
+        }
+        [UIValue("UseGrad")]
+        public bool UseGrad
+        {
+            get => PluginConfig.Instance.UseGrad;
+            set => PluginConfig.Instance.UseGrad = value;
+        }
+        [UIValue("GradVal")]
+        public int GradVal
+        {
+            get => PluginConfig.Instance.GradVal;
+            set => PluginConfig.Instance.GradVal = value;
         }
         [UIValue("Target")]
         public string Target
@@ -108,7 +126,7 @@ namespace PleaseWork.Settings
                 int status;
                 try { status = (int)map.MapData.Item2["status"]; } catch { continue; }
                 if (status != 3) { Plugin.Log.Info($"Status: {status}"); continue; }
-                try { pp = cc.LoadNeededPp(map.MapData.Item1); } catch (Exception e) { Plugin.Log.Info($"Error loading map {map.Map.Hash}: {e.Message}"); Plugin.Log.Debug(e); }
+                try { pp = cc.LoadNeededPp(map.MapData.Item1, out _); } catch (Exception e) { Plugin.Log.Info($"Error loading map {map.Map.Hash}: {e.Message}"); Plugin.Log.Debug(e); }
                 if (pp != null)
                 {
                     ClanCounter.AddToCache(map, pp);

@@ -9,7 +9,7 @@
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>PleaseWork</RootNamespace>
-    <AssemblyName>PleaseWork</AssemblyName>
+    <AssemblyName>BL PP Counter</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <DebugSymbols>true</DebugSymbols>
@@ -149,6 +149,7 @@
     <Compile Include="Settings\FormatSettings\MessageSettings.cs" />
     <Compile Include="Settings\FormatSettings\TextFormatSettings.cs" />
     <Compile Include="Settings\FormatSettings\TokenFormatSettings.cs" />
+    <Compile Include="Utils\ColorMatch.cs" />
     <Compile Include="Utils\Map.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="Settings\PluginConfig.cs" />
@@ -176,9 +177,6 @@
       <Version>2.0.0-beta1</Version>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="System.Text.Json">
-      <Version>8.0.3</Version>
     </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

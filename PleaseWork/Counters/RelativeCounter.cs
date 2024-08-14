@@ -21,6 +21,7 @@ namespace PleaseWork.Counters
         private float accRating, passRating, techRating;
         private float[] best; //pass, acc, tech, total, replay pass rating, replay acc rating, replay tech rating, current score, current combo
         private Replay bestReplay;
+        private string replayMods;
         private NoteEvent[] noteArray;
         private int precision;
         private NormalCounter backup;
@@ -43,8 +44,9 @@ namespace PleaseWork.Counters
             string replay = (string)data["replay"];
             ReplayDecoder.TryDecodeReplay(RequestByteData(replay), out bestReplay);
             noteArray = bestReplay.notes.ToArray();
-            string hold = bestReplay.info.modifiers.ToLower();
-            Modifier mod = hold.Contains("fs") ? Modifier.FasterSong : hold.Contains("sf") ? Modifier.SuperFastSong : hold.Contains("ss") ? Modifier.SlowerSong : Modifier.None;
+            replayMods = bestReplay.info.modifiers.ToLower();
+            Modifier mod = replayMods.Contains("fs") ? Modifier.FasterSong : replayMods.Contains("sf") ? Modifier.SuperFastSong : replayMods.Contains("ss") ? Modifier.SlowerSong : Modifier.None;
+            replayMods = replayMods.ToUpper();
             data = data["difficulty"];
             best[4] = HelpfulPaths.GetRating(data, PPType.Pass, mod);
             best[5] = HelpfulPaths.GetRating(data, PPType.Acc, mod);
@@ -139,7 +141,7 @@ namespace PleaseWork.Counters
                 tokens =>
                 {
                     if (!PluginConfig.Instance.ShowLbl) HelpfulFormatter.SetText(tokens, 'l');
-                    if (!PluginConfig.Instance.ClanWithNormal) { HelpfulFormatter.SetText(tokens, 'p'); HelpfulFormatter.SetText(tokens, 'o'); }
+                    if (!PluginConfig.Instance.RelativeWithNormal) { HelpfulFormatter.SetText(tokens, 'p'); HelpfulFormatter.SetText(tokens, 'o'); }
                 },
                 (tokens, tokensCopy, priority, vals) =>
                 {
@@ -182,7 +184,7 @@ namespace PleaseWork.Counters
                 backup.UpdateCounter(acc, notes, badNotes, fcPercent);
                 return;
             }
-            bool displayFc = PluginConfig.Instance.PPFC && badNotes > 0, showLbl = PluginConfig.Instance.ShowLbl, normal = PluginConfig.Instance.RelativeWithNormal;
+            bool displayFc = PluginConfig.Instance.PPFC && badNotes > 0, showLbl = PluginConfig.Instance.ShowLbl;
             UpdateBest(notes);
             float[] ppVals = new float[16];
             (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
@@ -200,51 +202,20 @@ namespace PleaseWork.Counters
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
             string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
             string target = PluginConfig.Instance.ShowEnemy ? PluginConfig.Instance.Target : "None";
-            /*if (PluginConfig.Instance.SplitPPVals)
-            {
-                if (displayFc)
-                {
-                    string text = "";
-                    for (int i = 0; i < 4; i++)
-                    {
-                        text += (ppVals[i + 4] > 0 ? "<color=\"green\">+" : ppVals[i + 4] == 0 ? "<color=\"yellow\">" : "<color=\"red\">") + $"{ppVals[i + 4]}</color> " + (normal ? $"({ppVals[i]}) / " : "/ ");
-                        text += (ppVals[i + 12] > 0 ? "<color=\"green\">+" : ppVals[i + 12] == 0 ? "<color=\"yellow\">" : "<color=\"red\">") + $"{ppVals[i + 12]}</color>" + (normal ? $" ({ppVals[i + 8]})" : "") + (showLbl ? " " + labels[i] : "") + "\n";
-                    }
-                    display.text = text;
-                }
-                else
-                {
-                    string text = "";
-                    for (int i = 0; i < 4; i++)
-                        text += (ppVals[i + 4] > 0 ? "<color=\"green\">+" : ppVals[i + 4] == 0 ? "<color=\"yellow\">" : "<color=\"red\">") + $"{ppVals[i + 4]}</color>" + (normal ? $" ({ppVals[i]})" : "") + (showLbl ? " " + labels[i] : "") + "\n";
-                    display.text = text;
-                }
-                if (!target.Equals("None"))
-                    display.text += $"Targeting <color=\"red\">{target}</color>";
-            }
-            else
-            {
-                if (displayFc)
-                    display.text = (ppVals[7] > 0 ? "<color=\"green\">+" : ppVals[7] == 0 ? "<color=\"yellow\">" : "<color=\"red\">") + $"{ppVals[7]}</color> " + (normal ? $"({ppVals[3]}) / " : "/ ") +
-                        (ppVals[15] > 0 ? "<color=\"green\">+" : ppVals[15] == 0 ? "<color=\"yellow\">" : "<color=\"red\">") + $"{ppVals[15]}</color>" + (normal ? $" ({ppVals[11]})" : "") + (showLbl ? " " + labels[3] : "");
-                else
-                    display.text = (ppVals[7] > 0 ? "<color=\"green\">+" : ppVals[7] == 0 ? "<color=\"yellow\">" : "<color=\"red\">") + $"{ppVals[7]}</color>" + (normal ? $" ({ppVals[3]})" : "") + (showLbl ? " " + labels[3] : "");
-                if (!target.Equals("None"))
-                    display.text += $"\nTargeting <color=\"red\">{target}</color>";
-            }*/
+            Func<float, string> color = num => PluginConfig.Instance.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
             if (PluginConfig.Instance.SplitPPVals)
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
-                    text += displayFormatter.Invoke(displayFc, HelpfulFormatter.NumberToColor(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
-                        HelpfulFormatter.NumberToColor(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], labels[i]) + "\n";
+                    text += displayFormatter.Invoke(displayFc, color.Invoke(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
+                        color.Invoke(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], labels[i]) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayFormatter.Invoke(displayFc, HelpfulFormatter.NumberToColor(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
-                    HelpfulFormatter.NumberToColor(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3]) + "\n";
+                display.text = displayFormatter.Invoke(displayFc, color.Invoke(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
+                    color.Invoke(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3]) + "\n";
             if (!target.Equals("None"))
-                display.text += $"\nTargeting <color=\"red\">{target}</color>";
+                display.text += TheCounter.TargetFormatter.Invoke(target, replayMods);
 
         }
         #endregion

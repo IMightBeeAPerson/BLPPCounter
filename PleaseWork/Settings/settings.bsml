@@ -6,7 +6,10 @@
     <checkbox-setting text='Show Labels' apply-on-change='true' value='ShowLbl' hover-hint='Whether or not to show label next to PP'/>
     <checkbox-setting text='PP if FC' apply-on-change='true' value='PPFC' hover-hint='Also show PP if you had gotten a FC'/>
     <checkbox-setting text='Split PP Values' apply-on-change='true' value='SplitVals' hover-hint='Split the PP values to have pass, acc, and tech PP'/>
+    <checkbox-setting text='Debug Mode' apply-on-change='true' value='Debug' hover-hint='Print more data to the log for debugging code later'/>
+    <checkbox-setting text='Use Gradient' apply-on-change='true' value='UseGrad' hover-hint='Instead of solid green/red, use a gradient based off of the value'/>
     <list-setting text='PP Types' apply-on-change='true' value='PPType' options='TypesOfPP' hover-hint='How the counter should count PP'/>
+    <increment-setting text='Gradient Threshold' value='GradVal' integer-only='true' min='50' max='300' increment='10' apply-on-change='true'/>
   </vertical>
   <text text='Relative PP Settings'/>
   <vertical spacing='1'>
@@ -21,7 +24,5 @@
     <button text='Clear Cache' on-click='ClearCache' hover-hint='Clears the map cache'/>
     <increment-setting text='Percent Ceiling' value='ClanPercentCeil' integer-only='false' min='90' max='100' increment='0.1' apply-on-change='true'/>
     <checkbox-setting text='Enable Ceiling' apply-on-change='true' value='CeilEnabled' hover-hint='Enable the percentage ceiling'/>
-    <dropdown-list-setting text='Playlists' apply-on-change='true' value='ChosenPlaylist' options='PlNames' hover-hint='A playlist to load' active='false'/>
-    <button text='Load Playlist' on-click='LoadPlaylist' hover-hint='Loads the selected playlist into cache to prevent lag' active='false'/>
   </vertical>
 </vertical>
