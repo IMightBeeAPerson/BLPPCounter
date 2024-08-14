@@ -30,6 +30,7 @@ namespace PleaseWork.Settings
         public virtual int MapCache { get; set; } = 10;
         public virtual double ClanPercentCeil { get; set; } = 99;
         public virtual bool CeilEnabled { get; set; } = true;
+        public virtual bool ShowRank { get; set; } = true;
         public virtual string ChosenPlaylist { get; set; } = "";
     }
 }

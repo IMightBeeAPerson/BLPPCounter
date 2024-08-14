@@ -140,11 +140,18 @@ namespace PleaseWork.Settings
         {
             get => PluginConfig.Instance.ClanPercentCeil;
             set => PluginConfig.Instance.ClanPercentCeil = value;
-        }[UIValue("CeilEnabled")]
+        }
+        [UIValue("CeilEnabled")]
         public bool CeilEnabled
         {
             get => PluginConfig.Instance.CeilEnabled;
             set => PluginConfig.Instance.CeilEnabled = value;
+        }
+        [UIValue("ShowRank")]
+        public bool ShowRank
+        {
+            get => PluginConfig.Instance.ShowRank;
+            set => PluginConfig.Instance.ShowRank = value;
         }
     }
 }

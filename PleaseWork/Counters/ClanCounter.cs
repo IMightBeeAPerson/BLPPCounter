@@ -29,6 +29,7 @@ namespace PleaseWork.Counters
         private float[] neededPPs, clanPPs;
         private int precision, setupStatus;
         private string addon, message;
+        private bool showRank;
         #region Init
         public ClanCounter(TMP_Text display, float accRating, float passRating, float techRating)
         {
@@ -71,7 +72,7 @@ namespace PleaseWork.Counters
             while (mapCache.Count > pc.MapCache) mapCache.RemoveAt(0);
             if (pc.CeilEnabled && neededPPs[5] >= pc.ClanPercentCeil) setupStatus = 4;
             UpdateAddon();
-            theEnd:
+        theEnd:
             switch (setupStatus)
             {
                 case 1: message = pc.MessageSettings.MapUnrankedMessage; break;
@@ -79,6 +80,7 @@ namespace PleaseWork.Counters
                 case 3: message = pc.MessageSettings.LoadFailedMessage; break;
                 case 4: message = pc.MessageSettings.MapUncapturableMessage; break;
             }
+            showRank = pc.ShowRank && setupStatus != 1 && setupStatus != 3;
         }
         public float[] LoadNeededPp(string mapId, out bool mapCaptured)
         {
@@ -309,12 +311,12 @@ namespace PleaseWork.Counters
             {
                 string text = "", color = HelpfulFormatter.GetWeightedRankColor(rank);
                 for (int i = 0; i < 4; i++)
-                    text += displayWeighted.Invoke(displayFc, i == 3, () => color, $"{rank}", $"{ppVals[i + 4]}", ppVals[i],
+                    text += displayWeighted.Invoke(displayFc, showRank && i == 3, () => color, $"{rank}", $"{ppVals[i + 4]}", ppVals[i],
                         $"{ppVals[i + 12]}", ppVals[i + 8], labels[i]) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayWeighted.Invoke(displayFc, true, () => HelpfulFormatter.GetWeightedRankColor(rank), $"{rank}", $"{ppVals[7]}", ppVals[3],
+                display.text = displayWeighted.Invoke(displayFc, showRank, () => HelpfulFormatter.GetWeightedRankColor(rank), $"{rank}", $"{ppVals[7]}", ppVals[3],
                     $"{ppVals[15]}", ppVals[11], labels[3]) + "\n";
             display.text += message;
         }
