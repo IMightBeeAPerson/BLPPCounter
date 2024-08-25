@@ -71,7 +71,7 @@ namespace PleaseWork.Counters
             catch (Exception e)
             {
                 Plugin.Log.Warn("There was an error loading the replay of the player, most likely they have never played the map before.");
-                Plugin.Log.Debug(e);
+                if (PluginConfig.Instance.Debug) Plugin.Log.Debug(e);
                 failed = true;
                 backup = new NormalCounter(display, map);
                 return;
@@ -202,18 +202,18 @@ namespace PleaseWork.Counters
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
             string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
             string target = PluginConfig.Instance.ShowEnemy ? PluginConfig.Instance.Target : "None";
-            Func<float, string> color = num => PluginConfig.Instance.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
+            string color(float num) => PluginConfig.Instance.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
             if (PluginConfig.Instance.SplitPPVals)
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
-                    text += displayFormatter.Invoke(displayFc, color.Invoke(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
-                        color.Invoke(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], labels[i]) + "\n";
+                    text += displayFormatter.Invoke(displayFc, color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
+                        color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], labels[i]) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayFormatter.Invoke(displayFc, color.Invoke(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
-                    color.Invoke(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3]) + "\n";
+                display.text = displayFormatter.Invoke(displayFc, color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
+                    color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3]) + "\n";
             if (!target.Equals("None"))
                 display.text += TheCounter.TargetFormatter.Invoke(target, replayMods);
 

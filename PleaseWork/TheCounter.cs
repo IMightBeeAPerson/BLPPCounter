@@ -15,7 +15,9 @@ namespace PleaseWork
 
     public class TheCounter : BasicCustomCounter
     {
-        [Inject] private IDifficultyBeatmap beatmap;
+        [Inject] private BeatmapLevel beatmap;
+        [Inject] private BeatmapKey beatmapDiff;//*/
+        //[Inject] private IDifficultyBeatmap beatmap;
         [Inject] private GameplayModifiers mods;
         [Inject] private ScoreController sc;
         private static readonly HttpClient client = new HttpClient();
@@ -33,6 +35,7 @@ namespace PleaseWork
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
         private string mode;
+        private (int, float) currentMult;
 
         #region Overrides & Event Calls
 
@@ -42,7 +45,11 @@ namespace PleaseWork
             FormatTarget(PluginConfig.Instance.MessageSettings.TargetingMessage);
         }
         public override void CounterDestroy() {
-            if (enabled) sc.scoringForNoteFinishedEvent -= OnNoteScored;
+            if (enabled)
+            {
+                sc.scoringForNoteFinishedEvent -= OnNoteScored;
+                sc.multiplierDidChangeEvent -= MultiplierChanged;
+            }
         }
         public override void CounterInit()
         {
@@ -65,12 +72,16 @@ namespace PleaseWork
                     display.fontSize = (float)PluginConfig.Instance.FontSize;
                     display.text = "";
                     sc.scoringForNoteFinishedEvent += OnNoteScored;
+                    sc.multiplierDidChangeEvent += MultiplierChanged;
+                    currentMult = (1, 0);
                     loadedEvents = true;
-                    string hash = beatmap.level.levelID.Split('_')[2];
+                    //string hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
+                    string hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
                     bool counterChange = theCounter != null && !theCounter.Name.Equals(PluginConfig.Instance.PPType.Split(' ')[0]);
                     if (counterChange || lastMap.Equals(new MapSelection()) || hash != lastMap.Hash || PluginConfig.Instance.PPType.Equals("Progressive"))
                     {
-                        lastMap = new MapSelection(Data[hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating);
+                        //lastMap = new MapSelection(Data[hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.34.2 and below
+                        lastMap = new MapSelection(Data[hash], beatmapDiff.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.37.0 and above
                         if (!InitCounter()) throw new Exception("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
                     }
                     else
@@ -88,12 +99,14 @@ namespace PleaseWork
                 if (!loadedEvents)
                 {
                     sc.scoringForNoteFinishedEvent -= OnNoteScored;
+                    sc.multiplierDidChangeEvent -= MultiplierChanged;
                 }
             }
         }
 
         private void OnNoteScored(ScoringElement scoringElement)
         {
+            if (scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb) return;
             NoteData.ScoringType st = scoringElement.noteData.scoringType;
             /*bool isSliderTail = st == NoteData.ScoringType.SliderTail || st == NoteData.ScoringType.BurstSliderElement;
             if (isSliderTail)
@@ -101,22 +114,24 @@ namespace PleaseWork
                 if (scoringElement.cutScore == 0) comboNotes = HelpfulMath.DecreaseMultiplier(comboNotes);
                 goto Finish;
             }//*/
-            if (st <= 0) goto Finish;
-            notes++; comboNotes++;
+            if (st == NoteData.ScoringType.Ignore) goto Finish; //if scoring type is Ignore, skip this function
+            notes++;
+            if (st != NoteData.ScoringType.NoScore) comboNotes++;
             maxHitscore += notes < 14 ? scoringElement.maxPossibleCutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0) : scoringElement.maxPossibleCutScore;
             if (scoringElement.cutScore > 0)
             {
                 totalHitscore += scoringElement.cutScore * (HelpfulMath.MultiplierForNote(comboNotes) / 8.0);
                 fcTotalHitscore += scoringElement.cutScore;
                 fcMaxHitscore += scoringElement.maxPossibleCutScore;
-            }
-            else
-            {
-                comboNotes = HelpfulMath.DecreaseMultiplier(comboNotes);
-                badNotes++;
-            }
+            } else badNotes++;
             Finish:
             theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, badNotes, fcTotalHitscore / (float)fcMaxHitscore);
+        }
+        private void MultiplierChanged(int newMult, float percentFilled)
+        {
+            if (newMult < currentMult.Item1 || (newMult == currentMult.Item1 && percentFilled < currentMult.Item2)) 
+                comboNotes = HelpfulMath.DecreaseMultiplier(comboNotes);
+            currentMult = (newMult, percentFilled);
         }
         #endregion
         #region API Calls
@@ -124,7 +139,8 @@ namespace PleaseWork
         
         private string RequestHashData()
         {
-            string path = HelpfulPaths.BLAPI_HASH + beatmap.level.levelID.Split('_')[2].ToUpper();
+            string path = HelpfulPaths.BLAPI_HASH + beatmap.levelID.Split('_')[2].ToUpper(); // 1.37.0 and above
+            //string path = HelpfulPaths.BLAPI_HASH + beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
             Plugin.Log.Info(path);
             try
             {
@@ -183,7 +199,8 @@ namespace PleaseWork
         private void APIAvoidanceMode()
         {
             Plugin.Log.Info("API Avoidance mode is functioning (probably)!");
-            MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating);
+            //MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.34.2 and below
+            MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmapDiff.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.37.0 and above
             if (PluginConfig.Instance.Debug) 
                 Plugin.Log.Info($"Last Map\n-------------------\n{lastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
             bool ratingDiff, diffDiff;
@@ -246,11 +263,14 @@ namespace PleaseWork
         {
             JToken data;
             string songId;
-            string hash = beatmap.level.levelID.Split('_')[2].ToUpper();
+            string hash = beatmap.levelID.Split('_')[2].ToUpper(); // 1.37.0 and above
+            //string hash = beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
             try
             {
-                Dictionary<string, (string, JToken)> hold = Data[hash].Get(beatmap.difficulty.Name().Replace("+", "Plus"));
-                mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;
+                /*Dictionary<string, (string, JToken)> hold = Data[hash].Get(beatmap.difficulty.Name().Replace("+", "Plus"));
+                mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;// 1.34.2 and below */
+                Dictionary<string, (string, JToken)> hold = Data[hash].Get(beatmapDiff.difficulty.Name().Replace("+", "Plus")); 
+                mode = beatmapDiff.beatmapCharacteristic.serializedName;// 1.37.0 and above */
                 if (mode == default) mode = "Standard";
                 data = hold[mode].Item2;
                 songId = hold[mode].Item1;

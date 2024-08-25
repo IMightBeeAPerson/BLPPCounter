@@ -1,6 +1,8 @@
-﻿using PleaseWork.Settings;
+﻿using ModestTree;
+using PleaseWork.Settings;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEngine;
 
@@ -151,7 +153,12 @@ namespace PleaseWork.Helpfuls
                     if (toParse.Length == 0) continue;
                     for (int j = 0; j < toParse.Length; j++)
                         if (toParse[j] == ESCAPE_CHAR)
-                            newVal += tokensCopy[(toParse[++j], ++priorityCount + FORMAT_SPLIT)];
+                        {
+                            string toTry = null;
+                            char temp = toParse[++j];
+                            while (toTry == null) tokensCopy.TryGetValue((temp, ++priorityCount + FORMAT_SPLIT), out toTry);
+                            newVal += toTry;
+                        }
                         else newVal += toParse[j];
                     tokensCopy[val] = newVal;
                 }
@@ -192,6 +199,7 @@ namespace PleaseWork.Helpfuls
         {
             bool neg = num < 0;
             num = Mathf.Min(variance, Mathf.Abs(num));
+            if (num == 0) return "<color=#FFFF00>";
             int toConvert = (int)Math.Abs(Math.Round((neg ? 1.0f - num / variance : num / variance) * 255.0f));
             toConvert = Math.Max(toConvert, 128);
             return neg ? $"<color=#{toConvert:X2}0000>" :
