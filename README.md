@@ -72,6 +72,8 @@ Messages are things that appear in the counter when something to change the coun
 These are messages with no values, and therefore will not be parsed and are completely normal text.
 - Map Captured Message
 - Map Uncapturable Message
+- Map Unranked Message
+- Map Load Failed Message
 
 #### Clan Message
 This message is supposed to inform the player what percent or accuracy is needed to capture the map.
