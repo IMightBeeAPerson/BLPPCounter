@@ -284,6 +284,7 @@ namespace PleaseWork.Counters
             else
                 display.text = displayClan.Invoke(displayFc, () => color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
                     () => color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3]) + "\n";
+            if (pc.ShowEnemy && pc.Target != "None") display.text += $"Targeting <color=\"red\">{pc.Target}</color>\n";
             if (addon.Length != 0) display.text += (neededPPs[4] > acc ? "Aiming for <color=\"red\">" : "Aiming for <color=\"green\">") + addon;
             else display.text += customMessage.Invoke(() => color(ppVals[3] - neededPPs[3]),
                 neededPPs[5], neededPPs[0], neededPPs[1], neededPPs[2], (float)Math.Round(neededPPs[3], precision));
