@@ -8,6 +8,9 @@ using PleaseWork.Utils;
 using PleaseWork.Helpfuls;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Profiling;
+using System.Windows.Markup;
 
 namespace PleaseWork.Counters
 {
@@ -15,10 +18,12 @@ namespace PleaseWork.Counters
     {
         private static readonly HttpClient client = new HttpClient();
         public string Name { get => "Relative"; }
-        private static Func<bool, string, string, float, string, string, float, string, string> displayFormatter;
+        public bool Usable { get => displayIniter != null && displayFormatter != null && TheCounter.TargetUsable && TheCounter.PercentNeededUsable; }
+        private static Func<bool, bool, float, string, string, float, string, string, float, string, string> displayFormatter;
+        private static Func<Func<Dictionary<char, object>, string>> displayIniter;
 
         private TMP_Text display;
-        private float accRating, passRating, techRating;
+        private float accRating, passRating, techRating, accToBeat;
         private float[] best; //pass, acc, tech, total, replay pass rating, replay acc rating, replay tech rating, current score, current combo
         private Replay bestReplay;
         private string replayMods;
@@ -35,12 +40,13 @@ namespace PleaseWork.Counters
             this.display = display;
             failed = false;
             precision = PluginConfig.Instance.DecimalPrecision;
-            if (displayFormatter == null) FormatTheFormat(PluginConfig.Instance.FormatSettings.RelativeTextFormat);
+            if (displayIniter == null && TheCounter.TargetUsable) FormatTheFormat(PluginConfig.Instance.FormatSettings.RelativeTextFormat);
+            if (displayFormatter == null && displayIniter != null) UpdateFormat();
         }
         public RelativeCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(map); }
         private void SetupReplayData(JToken data)
         {
-            Plugin.Log.Debug(data.ToString());
+            //Plugin.Log.Debug(data.ToString());
             string replay = (string)data["replay"];
             ReplayDecoder.TryDecodeReplay(RequestByteData(replay), out bestReplay);
             noteArray = bestReplay.notes.ToArray();
@@ -64,6 +70,7 @@ namespace PleaseWork.Counters
                     JToken playerData = JObject.Parse(check);
                     best = new float[9];
                     SetupReplayData(playerData);
+                    accToBeat = (float)Math.Round(CalculatorStuffs.BLCalc.GetAcc(accRating, passRating, techRating, (float)playerData["pp"]) * 100.0f, PluginConfig.Instance.DecimalPrecision);
                     /*playerData = new Regex(@"(?<=contextExtensions..\[)[^\[\]]+").Match(playerData).Value;
                     playerData = new Regex(@"{.+?(?=..scoreImprovement)").Matches(playerData)[0].Value;*/
                 }
@@ -76,8 +83,11 @@ namespace PleaseWork.Counters
                 backup = new NormalCounter(display, map);
                 return;
             }
-            if (!failed && best != null && best.Length >= 9)
-                best[7] = best[8] = 0;
+            if (!failed)
+            {
+                if (best != null && best.Length >= 9)
+                    best[7] = best[8] = 0;
+            }
         }
         public void ReinitCounter(TMP_Text display)
         {
@@ -94,11 +104,12 @@ namespace PleaseWork.Counters
             this.techRating = techRating;
             precision = PluginConfig.Instance.DecimalPrecision;
             if (failed) backup.ReinitCounter(display, passRating, accRating, techRating);
-            if (!failed && best != null && best.Length >= 9)
+            else if (best != null && best.Length >= 9)
                 best[7] = best[8] = 0;
         }
         public void ReinitCounter(TMP_Text display, MapSelection map)
         { this.display = display; passRating = map.PassRating; accRating = map.AccRating; techRating = map.TechRating; failed = false; SetupData(map); }
+        public void UpdateFormat() => InitFormat();
         #endregion
         #region API Calls
         private byte[] RequestByteData(string path)
@@ -117,7 +128,7 @@ namespace PleaseWork.Counters
             }
         }
         private string RequestScore(string id, string hash, string diff, string mode)
-        {
+        {//https://api.beatleader.xyz/score/8/76561198306905129/98470c673d1702c5030487085120ad6f24828d6c/Expert/Standard
             return RequestData($"https://api.beatleader.xyz/score/8/{id}/{hash}/{diff}/{mode}");
         }
         private string RequestData(string path)
@@ -137,23 +148,33 @@ namespace PleaseWork.Counters
         #region Helper Functions
         public static void FormatTheFormat(string format)
         {
-            var simple = HelpfulFormatter.GetBasicTokenParser(format,
+            displayIniter = HelpfulFormatter.GetBasicTokenParser(format,
                 tokens =>
                 {
-                    if (!PluginConfig.Instance.ShowLbl) HelpfulFormatter.SetText(tokens, 'l');
-                    if (!PluginConfig.Instance.RelativeWithNormal) { HelpfulFormatter.SetText(tokens, 'p'); HelpfulFormatter.SetText(tokens, 'o'); }
+                    var pc = PluginConfig.Instance;
+                    if (!pc.ShowLbl) HelpfulFormatter.SetText(tokens, 'l');
+                    if (!pc.RelativeWithNormal) { HelpfulFormatter.SetText(tokens, 'p'); HelpfulFormatter.SetText(tokens, 'o'); }
+                    if (!pc.Target.Equals("None"))
+                        if (!pc.ShowEnemy) HelpfulFormatter.SetText(tokens, 't');
+                        else HelpfulFormatter.SetText(tokens, 't', HelpfulFormatter.EscapeNeededChars(TheCounter.TargetFormatter.Invoke(pc.Target, "")));
                 },
                 (tokens, tokensCopy, priority, vals) =>
                 {
                     HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{vals['c']}", "</color>");
                     HelpfulFormatter.SurroundText(tokensCopy, 'f', $"{vals['f']}", "</color>");
-                    if (!(bool)vals['q']) HelpfulFormatter.SetText(tokensCopy, '1');
-                });
-            displayFormatter = (fc, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label) =>
+                    if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1');
+                    if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
+                });//this is one line of code lol
+        }
+        public static void InitFormat()
+        {
+            var simple = displayIniter.Invoke();
+            displayFormatter = (fc, totPp, accToBeat, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label) =>
             {
                 Dictionary<char, object> vals = new Dictionary<char, object>()
                 {
-                    { 'q', fc }, { 'c', color }, {'x',  modPp }, {'p', regPp }, {'l', label }, { 'f', fcCol }, { 'y', fcModPp }, { 'o', fcRegPp }
+                    { (char)1, fc }, {(char)2, totPp }, {'a', accToBeat }, { 'c', color }, {'x',  modPp }, {'p', regPp },
+                    {'l', label }, { 'f', fcCol }, { 'y', fcModPp }, { 'o', fcRegPp }
                 };
                 return simple.Invoke(vals);
             };
@@ -177,14 +198,14 @@ namespace PleaseWork.Counters
             (best[0], best[1], best[2]) = BLCalc.GetPp(best[7] / HelpfulMath.MaxScoreForNotes(notes), best[5], best[4], best[6]);
             best[3] = BLCalc.Inflate(best[0] + best[1] + best[2]);
         }
-        public void UpdateCounter(float acc, int notes, int badNotes, float fcPercent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
         {
             if (failed)
             {
-                backup.UpdateCounter(acc, notes, badNotes, fcPercent);
+                backup.UpdateCounter(acc, notes, mistakes, fcPercent);
                 return;
             }
-            bool displayFc = PluginConfig.Instance.PPFC && badNotes > 0, showLbl = PluginConfig.Instance.ShowLbl;
+            bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0, showLbl = PluginConfig.Instance.ShowLbl;
             UpdateBest(notes);
             float[] ppVals = new float[16];
             (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
@@ -207,12 +228,12 @@ namespace PleaseWork.Counters
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
-                    text += displayFormatter.Invoke(displayFc, color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
+                    text += displayFormatter.Invoke(displayFc, i == 3, accToBeat, color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
                         color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], labels[i]) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayFormatter.Invoke(displayFc, color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
+                display.text = displayFormatter.Invoke(displayFc, true, accToBeat, color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
                     color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3]) + "\n";
             if (!target.Equals("None"))
                 display.text += TheCounter.TargetFormatter.Invoke(target, replayMods);

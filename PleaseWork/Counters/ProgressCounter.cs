@@ -10,6 +10,7 @@ namespace PleaseWork.Counters
     public class ProgressCounter: IMyCounters
     {
         public string Name { get => "Progressive"; }
+        public bool Usable { get => TheCounter.FormatUsable; }
 
         private TMP_Text display;
         private float accRating, passRating, techRating;
@@ -47,11 +48,12 @@ namespace PleaseWork.Counters
         {
             totalNotes = HelpfulMath.NotesForMaxScore(int.Parse(map.MapData.Item2["maxScore"].ToString()));
         }
+        public void UpdateFormat() { }
         #endregion
         #region Updates
-        public void UpdateCounter(float acc, int notes, int badNotes, float fcPercent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
         {
-            bool displayFc = PluginConfig.Instance.PPFC && badNotes > 0;
+            bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0;
             float[] ppVals = new float[8];
             (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
             ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
@@ -64,7 +66,7 @@ namespace PleaseWork.Counters
             mult = Math.Min(1, mult);
             for (int i = 0; i < ppVals.Length; i++)
                 ppVals[i] = (float)Math.Round(ppVals[i] * mult, precision);
-            TheCounter.UpdateText(displayFc, display, ppVals);
+            TheCounter.UpdateText(displayFc, display, ppVals, mistakes);
         }
         #endregion
     }

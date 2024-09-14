@@ -22,27 +22,37 @@ namespace PleaseWork
         [Inject] private ScoreController sc;
         private static readonly HttpClient client = new HttpClient();
         public static Dictionary<string, Map> Data { get; private set; }
-        public static Func<string, string, string> TargetFormatter;
         private static bool dataLoaded = false;
         private static MapSelection lastMap;
         private static IMyCounters theCounter;
-        private static Func<bool, float, float, string, string> displayFormatter;
+        private static Func<bool, bool, float, float, int, string, string> displayFormatter;
+        public static Func<string, string, string> TargetFormatter;
+        public static Func<Func<string>, float, float, float, float, float, string> PercentNeededFormatter;
+        private static Func<Func<Dictionary<char, object>, string>> displayIniter, targetIniter, percentNeededIniter;
 
         private TMP_Text display;        
-        private bool enabled;
+        private bool enabled, updateFormat;
         private float passRating, accRating, techRating, stars;
-        private int notes, badNotes, comboNotes;
+        private int notes, comboNotes, mistakes;
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
         private string mode, lastTarget;
         private (int, float) currentMult;
 
+        public static bool FormatUsable { get => displayFormatter != null && displayIniter != null; }
+        public static bool TargetUsable { get => TargetFormatter != null && targetIniter != null; }
+        public static bool PercentNeededUsable { get => PercentNeededFormatter != null && percentNeededIniter != null; }
+
         #region Overrides & Event Calls
 
         static TheCounter() 
-        { 
-            FormatTheFormat(PluginConfig.Instance.FormatSettings.DefaultTextFormat);
-            FormatTarget(PluginConfig.Instance.MessageSettings.TargetingMessage);
+        {
+            bool success = FormatTheFormat(PluginConfig.Instance.FormatSettings.DefaultTextFormat);
+            if (success) InitFormat();
+            success = FormatTarget(PluginConfig.Instance.MessageSettings.TargetingMessage);
+            if (success) InitTarget();
+            success = FormatPercentNeeded(PluginConfig.Instance.MessageSettings.PercentNeededMessage);
+            if (success) InitPercentNeeded();
         }
         public override void CounterDestroy() {
             if (enabled)
@@ -53,7 +63,7 @@ namespace PleaseWork
         }
         public override void CounterInit()
         {
-            notes = badNotes = fcMaxHitscore = comboNotes = fcTotalHitscore = 0;
+            notes = fcMaxHitscore = comboNotes = fcTotalHitscore = mistakes = 0;
             totalHitscore = maxHitscore = 0.0;
             enabled = false;
             if (!dataLoaded)
@@ -62,6 +72,8 @@ namespace PleaseWork
                 client.Timeout = new TimeSpan(0, 0, 3);
                 lastTarget = "None";
                 InitData();
+                updateFormat = false;
+                PleaseWork.Settings.SettingsHandler.SettingsUpdated += UpdateFormat;
             }
             bool loadedEvents = false;
             try
@@ -79,26 +91,38 @@ namespace PleaseWork
                     string hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
                     //string hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
                     bool counterChange = theCounter != null && !theCounter.Name.Equals(PluginConfig.Instance.PPType.Split(' ')[0]);
+                    if (!counterChange && theCounter != null && !theCounter.Usable) throw new Exception("The counter is not usable! Probably some formatting issue :(");
                     if (counterChange || lastMap.Equals(new MapSelection()) || hash != lastMap.Hash || PluginConfig.Instance.PPType.Equals("Progressive") || lastTarget != PluginConfig.Instance.Target)
                     {
-                        lastMap = new MapSelection(Data[hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.34.2 and below
+
+                        Data.TryGetValue(hash, out Map m);
+                        if (m == null) 
+                        {
+                            Plugin.Log.Warn("Map not in cache, attempting API call to get map data...");
+                            RequestHashData();
+                            m = Data[hash];
+                        }
+                        lastMap = new MapSelection(m, beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.34.2 and below
                         //lastMap = new MapSelection(Data[hash], beatmapDiff.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.37.0 and above
                         if (!InitCounter()) throw new Exception("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
                     }
                     else
                         APIAvoidanceMode();
+                    if (!theCounter.Usable) throw new Exception("The counter is not usable! Probably some formatting issue :(");
                     lastTarget = PluginConfig.Instance.Target;
+                    if (updateFormat) { theCounter.UpdateFormat(); updateFormat = false; }
                     theCounter.UpdateCounter(1, 0, 0, 0);
                 } else
                     Plugin.Log.Warn("Maps failed to load, most likely unranked.");
             } catch (Exception e)
             {
-                Plugin.Log.Warn($"Map data failed to be parsed: {e.Message}");
+                Plugin.Log.Warn($"The Counter failed to be initialized: {e.Message}");
+                if (e is KeyNotFoundException) Plugin.Log.Warn($"Data dictionary length: {Data.Count}");
                 Plugin.Log.Debug(e);
                 enabled = false;
                 if (display != null)
                     display.text = "";
-                if (!loadedEvents)
+                if (loadedEvents)
                 {
                     sc.scoringForNoteFinishedEvent -= OnNoteScored;
                     sc.multiplierDidChangeEvent -= MultiplierChanged;
@@ -108,7 +132,11 @@ namespace PleaseWork
 
         private void OnNoteScored(ScoringElement scoringElement)
         {
-            if (scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb) return;
+            if (scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb)
+            {
+                if (currentMult.Item1 == 1 && currentMult.Item2 == 0) MultiplierChanged(1, 0);
+                return;
+            }
             NoteData.ScoringType st = scoringElement.noteData.scoringType;
             /*bool isSliderTail = st == NoteData.ScoringType.SliderTail || st == NoteData.ScoringType.BurstSliderElement;
             if (isSliderTail)
@@ -125,16 +153,21 @@ namespace PleaseWork
                 totalHitscore += scoringElement.cutScore * (HelpfulMath.MultiplierForNote(comboNotes) / 8.0);
                 fcTotalHitscore += scoringElement.cutScore;
                 fcMaxHitscore += scoringElement.maxPossibleCutScore;
-            } else badNotes++;
+            }
+            else if (currentMult.Item1 == 1 && currentMult.Item2 == 0) MultiplierChanged(1, 0);
             Finish:
-            theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, badNotes, fcTotalHitscore / (float)fcMaxHitscore);
+            theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
         }
         private void MultiplierChanged(int newMult, float percentFilled)
         {
-            if (newMult < currentMult.Item1 || (newMult == currentMult.Item1 && percentFilled < currentMult.Item2)) 
+            if (newMult < currentMult.Item1 || (newMult == currentMult.Item1 && percentFilled < currentMult.Item2) || (newMult == 1 && percentFilled == 0.0f))
+            {
                 comboNotes = HelpfulMath.DecreaseMultiplier(comboNotes);
+                mistakes++;
+            }
             currentMult = (newMult, percentFilled);
         }
+        private void UpdateFormat() => updateFormat = true;
         #endregion
         #region API Calls
         
@@ -143,7 +176,7 @@ namespace PleaseWork
         {
             //string path = HelpfulPaths.BLAPI_HASH + beatmap.levelID.Split('_')[2].ToUpper(); // 1.37.0 and above
             string path = HelpfulPaths.BLAPI_HASH + beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
-            Plugin.Log.Info(path);
+            Plugin.Log.Debug(path);
             try
             {
                 string data = client.GetStringAsync(new Uri(path)).Result;
@@ -168,15 +201,45 @@ namespace PleaseWork
             Data = new Dictionary<string, Map>();
             InitData();
         }
-        private static void FormatTheFormat(string format) {
-            var simple = HelpfulFormatter.GetBasicTokenParser(format, tokens => {}, 
-                (tokens, tokensCopy, priority, vals) => { if (!(bool)vals['q']) HelpfulFormatter.SetText(tokensCopy, '1'); });
-            displayFormatter = (fc, pp, fcpp, label) => simple.Invoke(new Dictionary<char, object>() { { 'q', fc }, {'x', pp }, {'l', label }, { 'y', fcpp } });
+        private static bool FormatTheFormat(string format) {
+            displayIniter = HelpfulFormatter.GetBasicTokenParser(format, tokens => {}, 
+                (tokens, tokensCopy, priority, vals) => 
+                { 
+                    if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1'); 
+                    if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2'); 
+                });
+            return displayIniter != null;
         }
-        private static void FormatTarget(string format)
+        private static bool FormatTarget(string format)
         {
-            char hold = PluginConfig.Instance.TokenSettings.EscapeCharacter;
-            TargetFormatter = (name, mods) => format.Replace(hold + "t", name).Replace(hold + "m", mods);
+            targetIniter = HelpfulFormatter.GetBasicTokenParser(format, tokens => { }, (a, b, c, d) => { });
+            return targetIniter != null;
+        }
+        private static bool FormatPercentNeeded(string format)
+        {
+            percentNeededIniter = HelpfulFormatter.GetBasicTokenParser(format, tokens => {},
+                (tokens, tokensCopy, priority, vals) =>
+                {
+                    if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<string>)vals['c']).Invoke()}", "</color>");
+                });
+            return percentNeededIniter != null;
+        }
+        private static void InitFormat()
+        {
+            var simple = displayIniter.Invoke();
+            displayFormatter = (fc, totPp, pp, fcpp, mistakes, label) => simple.Invoke(new Dictionary<char, object>()
+            { { (char)1, fc }, {(char)2, totPp }, {'x', pp }, {'l', label }, { 'y', fcpp }, {'m', mistakes } });
+        }
+        private static void InitTarget()
+        {
+            var simple = targetIniter.Invoke();
+            TargetFormatter = (name, mods) => simple.Invoke(new Dictionary<char, object>() { { 't', name }, { 'm', mods } });
+        }
+        private static void InitPercentNeeded()
+        {
+            var simple = percentNeededIniter.Invoke();
+            PercentNeededFormatter = (color, acc, passpp, accpp, techpp, pp) => simple.Invoke(new Dictionary<char, object>()
+            { { 'c', color }, { 'a', acc }, { 'x', techpp }, { 'y', accpp }, { 'z', passpp }, { 'p', pp } });
         }
         #endregion
         #region Init
@@ -301,17 +364,17 @@ namespace PleaseWork
         #endregion
         #region Updates
         
-        public static void UpdateText(bool displayFc, TMP_Text display, float[] ppVals)
+        public static void UpdateText(bool displayFc, TMP_Text display, float[] ppVals, int mistakes)
         {
             //if (ppVals.Length != 8) ppVals = new float[8];
             string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
             if (PluginConfig.Instance.SplitPPVals) {
                 string outp = "";
                 for (int i=0;i<4;i++)
-                    outp += displayFormatter.Invoke(displayFc, ppVals[i], ppVals[i+4], labels[i]) + "\n";
+                    outp += displayFormatter.Invoke(displayFc, i == 3, ppVals[i], ppVals[i+4], mistakes, labels[i]) + "\n";
                 display.text = outp;
             } else
-                display.text = displayFormatter.Invoke(displayFc, ppVals[3], ppVals[7], labels[3]);
+                display.text = displayFormatter.Invoke(displayFc, true, ppVals[3], ppVals[7], mistakes, labels[3]);
             /*string target = PluginConfig.Instance.Target;
             if (!target.Equals("None"))
                 display.text += $"\nTargeting <color=\"red\">{target}</color>";*/

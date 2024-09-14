@@ -8,6 +8,7 @@ namespace PleaseWork.Settings.FormatSettings
         public virtual string MapUncapturableMessage { get; set; } = "<color=\"red\">Map Uncapturable</color>";
         public virtual string MapUnrankedMessage { get; set; } = "<color=#999999>Map is not ranked</color>";
         public virtual string LoadFailedMessage { get; set; } = "<color=\"red\">Load Failed</color>";
-        public virtual string TargetingMessage { get; set; } = "Targeting <color=\"red\">&t</color>";
+        public virtual string TargetingMessage { get; set; } = "Targeting *c,red*&t*";
+        public virtual string PercentNeededMessage { get; set; } = "Aiming for [c&a%]";
     }
 }

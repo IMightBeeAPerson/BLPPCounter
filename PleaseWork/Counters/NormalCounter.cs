@@ -14,7 +14,7 @@ namespace PleaseWork.Counters
     internal class NormalCounter: IMyCounters
     {
         public string Name { get => "Normal"; }
-
+        public bool Usable { get => TheCounter.FormatUsable; }
         private TMP_Text display;
         private float accRating, passRating, techRating;
         private int precision;
@@ -43,13 +43,14 @@ namespace PleaseWork.Counters
 
         public void ReinitCounter(TMP_Text display, MapSelection map) { this.display = display; passRating = map.PassRating; accRating = map.AccRating; techRating = map.TechRating; }
         public void SetupData(MapSelection map) { }
+        public void UpdateFormat() { }
         #endregion
 
 
         #region Updates
-        public void UpdateCounter(float acc, int notes, int badNotes, float fcPercent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
         {
-            bool displayFc = PluginConfig.Instance.PPFC && badNotes > 0;
+            bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0;
             float[] ppVals = new float[8];
             (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
             ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
@@ -60,7 +61,7 @@ namespace PleaseWork.Counters
             }
             for (int i = 0; i < ppVals.Length; i++)
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
-            TheCounter.UpdateText(displayFc, display, ppVals);
+            TheCounter.UpdateText(displayFc, display, ppVals, mistakes);
         }
         #endregion
     }

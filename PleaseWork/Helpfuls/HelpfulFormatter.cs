@@ -15,11 +15,14 @@ namespace PleaseWork.Helpfuls
         public static readonly int FORMAT_SPLIT = 100;
         public static int GRAD_VARIANCE => PC.GradVal;
         public static char ESCAPE_CHAR => PC.TokenSettings.EscapeCharacter;
+        public static char RICH_SHORT => PC.TokenSettings.RichTextShorthand;
+        public static char DELIMITER => PC.TokenSettings.Delimiter;
         public static char GROUP_OPEN => PC.TokenSettings.GroupBracketOpen;
         public static char INSERT_SELF => PC.TokenSettings.GroupInsertSelf;
         public static char GROUP_CLOSE => PC.TokenSettings.GroupBracketClose;
         public static char CAPTURE_OPEN => PC.TokenSettings.CaptureBracketOpen;
         public static char CAPTURE_CLOSE => PC.TokenSettings.CaptureBracketClose;
+        public static Dictionary<string, string> RICH_SHORTHANDS => PC.TokenSettings.RichShorthands;
         public static readonly string NUMBER_TOSTRING_FORMAT;
 
         static HelpfulFormatter()
@@ -36,7 +39,7 @@ namespace PleaseWork.Helpfuls
             string formatted = "";
             int repIndex = 0, forRepIndex = 0, sortIndex = 0;
             bool capture = false;
-            string captureStr = "";
+            string captureStr = "", richVal = "";
             int ssIndex = -1;
             char num = (char)0;
             for (int i = 0; i < format.Length; i++)//[p$ ]&[[c&x]&]<1 / [o$ ]&[[f&y]&] >&l
@@ -49,6 +52,12 @@ namespace PleaseWork.Helpfuls
                     else
                     { formatted += format[i]; continue; }
                 }
+                if (format[i] == RICH_SHORT)
+                {
+                    string toSet = ReplaceShorthand(format, richVal, i, out i, out richVal);
+                    if (capture) captureStr += toSet; else formatted += toSet;
+                    continue;
+                }
                 if (!capture) formatted += $"{{{forRepIndex++}}}";
                 if (format[i] == GROUP_OPEN)
                 {
@@ -60,11 +69,15 @@ namespace PleaseWork.Helpfuls
                     while (format[++i] != GROUP_CLOSE && i < format.Length)
                     {
                         if (format[i] == INSERT_SELF) { bracket += $"{{{index}}}"; continue; }
+                        if (format[i] == RICH_SHORT) { bracket += ReplaceShorthand(format, richVal, i, out i, out richVal); continue; }
                         if (format[i] == ESCAPE_CHAR)
                         {
-                            tokens[(format[++i], FORMAT_SPLIT + sortIndex)] = $"{{{repIndex}}}";
-                            priority[FORMAT_SPLIT + sortIndex++] = format[i];
-                            bracket += $"{{{repIndex++}}}";
+                            if (!IsSpecialChar(format[i + 1]))
+                            {
+                                tokens[(format[++i], FORMAT_SPLIT + sortIndex)] = $"{{{repIndex}}}";
+                                priority[FORMAT_SPLIT + sortIndex++] = format[i];
+                                bracket += $"{{{repIndex++}}}";
+                            } else bracket += format[++i];
                             continue;
                         }
                         else bracket += format[i];
@@ -119,56 +132,88 @@ namespace PleaseWork.Helpfuls
                 throw new FormatException($"Invalid capture format, must close capture bracket.\nSyntax: {CAPTURE_OPEN}<number> ... {CAPTURE_CLOSE}");
             return (formatted, tokens, priority);
         }
-        public static Func<Dictionary<char, object>, string> GetBasicTokenParser(string format,
+        private static string ReplaceShorthand(string format, string richVal, int i, out int newCount, out string newRichVal)
+        {
+            if (!richVal.IsEmpty())
+            {
+                newRichVal = "";
+                newCount = i;
+                return richVal;
+            }
+            string keyword = "", value = "";
+            while (++i < format.Length && format[i] != DELIMITER) keyword += format[i];
+            if (i >= format.Length) throw new FormatException($"Invalid rich text shorthand, must put the delimiter ({DELIMITER}) between the keyword and value.");
+            keyword = ConvertRichShorthand(keyword);
+            newRichVal = $"</{keyword}>";
+            while (++i < format.Length && format[i] != RICH_SHORT) value += format[i];
+            if (i >= format.Length) throw new FormatException($"Invalid rich text shorthand, must put the rich shorthand symbol ({RICH_SHORT}) between the value and the contents.");
+            if (value.Contains(' ')) value = $"\"{value}\"";
+            newCount = i;
+            return $"<{keyword}={value}>";
+        }
+        public static Func<Func<Dictionary<char, object>, string>> GetBasicTokenParser(
+            string format,
             Action<Dictionary<(char, int), string>> settings,
             Action<Dictionary<(char, int), string>, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<char, object>> varSettings)
         {
             Dictionary<(char, int), string> tokens;
             Dictionary<int, char> priority;
             string formatted;
-            (formatted, tokens, priority) = ParseCounterFormat(format);
+            try
+            {
+                (formatted, tokens, priority) = ParseCounterFormat(format);
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.Error("Formatting failed! " + e.Message);
+                Plugin.Log.Error("Formatting: " + format);
+                return null;
+            }
             /*Plugin.Log.Info("---------------");
             foreach (var token in tokens)
                 Plugin.Log.Info($"{token.Key} || {token.Value}");//*/
-            settings.Invoke(tokens);
-            List<(char, int)> first = new List<(char, int)>();
-            List<(char, int)> second = new List<(char, int)>();
-            List<(char, int)> captureChars = new List<(char, int)>();
-            foreach ((char, int) val in tokens.Keys)
+            return () =>
             {
-                if (char.IsDigit(val.Item1)) { captureChars.Add(val); first.Add(val); continue; }
-                if (val.Item2 < FORMAT_SPLIT) { first.Add(val); second.Add(val); }
-                else second.Add((val.Item1, val.Item2 - FORMAT_SPLIT));
-            }
-            second.Sort((a, b) => a.Item2 - b.Item2);
-            first.Sort((a, b) => a.Item2 - b.Item2);
-            return (vals) =>
-            {
-                Dictionary<(char, int), string> tokensCopy = new Dictionary<(char, int), string>(tokens);
-                varSettings.Invoke(tokens, tokensCopy, priority, vals);
-                foreach ((char, int) val in captureChars)
+                settings.Invoke(tokens);
+                List<(char, int)> first = new List<(char, int)>();
+                List<(char, int)> second = new List<(char, int)>();
+                List<(char, int)> captureChars = new List<(char, int)>();
+                foreach ((char, int) val in tokens.Keys)
                 {
-                    string newVal = "", toParse = tokensCopy[val];
-                    int priorityCount = val.Item2;
-                    if (toParse.Length == 0) continue;
-                    for (int j = 0; j < toParse.Length; j++)
-                        if (toParse[j] == ESCAPE_CHAR)
-                        {
-                            string toTry = null;
-                            char temp = toParse[++j];
-                            while (toTry == null) tokensCopy.TryGetValue((temp, ++priorityCount + FORMAT_SPLIT), out toTry);
-                            newVal += toTry;
-                        }
-                        else newVal += toParse[j];
-                    tokensCopy[val] = newVal;
+                    if (char.IsDigit(val.Item1)) { captureChars.Add(val); first.Add(val); continue; }
+                    if (val.Item2 < FORMAT_SPLIT) { first.Add(val); second.Add(val); }
+                    else second.Add((val.Item1, val.Item2 - FORMAT_SPLIT));
                 }
-                object[] firstArr = new object[first.Count];
-                int i = 0;
-                foreach ((char, int) val in first) firstArr[i++] = tokensCopy[val];
-                object[] secondArr = new object[second.Count];
-                i = 0;
-                foreach ((char, int) val in second) secondArr[i++] = vals[val.Item1];
-                return string.Format(string.Format(formatted, firstArr), secondArr);
+                second.Sort((a, b) => a.Item2 - b.Item2);
+                first.Sort((a, b) => a.Item2 - b.Item2);
+                return (vals) =>
+                {
+                    Dictionary<(char, int), string> tokensCopy = new Dictionary<(char, int), string>(tokens);
+                    varSettings.Invoke(tokens, tokensCopy, priority, vals);
+                    foreach ((char, int) val in captureChars)
+                    {
+                        string newVal = "", toParse = tokensCopy[val];
+                        int priorityCount = val.Item2;
+                        if (toParse.Length == 0) continue;
+                        for (int j = 0; j < toParse.Length; j++)
+                            if (toParse[j] == ESCAPE_CHAR)
+                            {
+                                string toTry = null;
+                                char temp = toParse[++j];
+                                while (toTry == null) tokensCopy.TryGetValue((temp, ++priorityCount + FORMAT_SPLIT), out toTry);
+                                newVal += toTry;
+                            }
+                            else newVal += toParse[j];
+                        tokensCopy[val] = newVal;
+                    }
+                    object[] firstArr = new object[first.Count];
+                    int i = 0;
+                    foreach ((char, int) val in first) firstArr[i++] = tokensCopy[val];
+                    object[] secondArr = new object[second.Count];
+                    i = 0;
+                    foreach ((char, int) val in second) secondArr[i++] = vals[val.Item1];
+                    return string.Format(string.Format(formatted, firstArr), secondArr);
+                };
             };
         }
         public static void SetText(Dictionary<(char, int), string> tokens, char c, string text = "") 
@@ -183,7 +228,7 @@ namespace PleaseWork.Helpfuls
             foreach (var item in tokens.Keys) if (item.Item1 == c) toModify.Add((c, item.Item2, preText + tokens[item] + postText));
             foreach (var item in toModify) tokens[(item.Item1, item.Item2)] = item.Item3;
         }
-        public static bool IsSpecialChar(char c) => c == ESCAPE_CHAR || c == GROUP_OPEN || c == GROUP_CLOSE || c == CAPTURE_OPEN || c == CAPTURE_CLOSE;
+        public static bool IsSpecialChar(char c) => c == ESCAPE_CHAR || c == RICH_SHORT || c == GROUP_OPEN || c == GROUP_CLOSE || c == CAPTURE_OPEN || c == CAPTURE_CLOSE;
         public static string NumberToColor(float num) => num > 0 ? "<color=\"green\">" : num == 0 ? "<color=\"yellow\">" : "<color=\"red\">";
         public static string EscapeNeededChars(string str)
         {
@@ -194,6 +239,11 @@ namespace PleaseWork.Helpfuls
                 outp += c;
             }
             return outp;
+        }
+        public static string ConvertRichShorthand(string shorthand)
+        {
+            if (RICH_SHORTHANDS.Keys.Contains(shorthand)) return RICH_SHORTHANDS[shorthand];
+            return shorthand;
         }
         public static string NumberToGradient(float variance, float num)
         {
