@@ -32,7 +32,7 @@ namespace PleaseWork.Settings
         }
         [UIValue("TypesOfPP")]
         public List<object> TypesOfPP => Plugin.BLInstalled ?
-            new List<object>() { "Normal", "Progressive", "Relative", "Relative w/ normal", "Clan PP", "Clan w/ normal" } :
+            new List<object>(TheCounter.ValidDisplayNames)  :
             new List<object>() { "Normal", "Progressive" };
         [UIValue("PPType")]
         public string PPType
@@ -52,11 +52,11 @@ namespace PleaseWork.Settings
             get => PluginConfig.Instance.PPFC;
             set { SettingsUpdated?.Invoke(); PluginConfig.Instance.PPFC = value; }
         }
-        [UIValue("Debug")]
-        public bool Debug
+        [UIValue("ExtraInfo")]
+        public bool ExtraInfo
         {
-            get => PluginConfig.Instance.Debug;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.Debug = value; }
+            get => PluginConfig.Instance.ExtraInfo;
+            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.ExtraInfo = value; }
         }
         [UIValue("UseGrad")]
         public bool UseGrad
@@ -90,13 +90,11 @@ namespace PleaseWork.Settings
             get => PluginConfig.Instance.LocalReplay;
             set { SettingsUpdated?.Invoke(); PluginConfig.Instance.LocalReplay = value; }
         }
-        [UIValue("CaptureTypes")]
-        public List<object> CaptureTypes = new List<object>() { "None", "Percentage", "PP", "Both", "Custom" };
-        [UIValue("CaptureType")]
-        public string CaptureType
+        [UIValue("ShowClanMessage")]
+        public bool ShowClanMessage
         {
-            get => PluginConfig.Instance.CaptureType;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.CaptureType = value; }
+            get => PluginConfig.Instance.ShowClanMessage;
+            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.ShowClanMessage = value; }
         }
         [UIValue("MapCache")]
         public int MapCache

@@ -2,6 +2,9 @@
 using PleaseWork.Utils;
 using System;
 using System.Collections.Generic;
+using System.CodeDom.Compiler;
+using System.CodeDom;
+using System.IO;
 namespace PleaseWork.Helpfuls
 {
     public static class HelpfulMisc
@@ -31,6 +34,16 @@ namespace PleaseWork.Helpfuls
         }
         public static string AddModifier(string name, Modifier modifier) => 
             modifier == Modifier.None ? name : GetModifierShortname(modifier) + name.Substring(0, 1).ToUpper() + name.Substring(1);
-        
+        public static string ToLiteral(string input)
+        {
+            using (var writer = new StringWriter())
+            {
+                using (var provider = CodeDomProvider.CreateProvider("CSharp"))
+                {
+                    provider.GenerateCodeFromExpression(new CodePrimitiveExpression(input), writer, null);
+                    return writer.ToString();
+                }
+            }
+        }
     }
 }

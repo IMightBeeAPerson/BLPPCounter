@@ -9,8 +9,10 @@ namespace PleaseWork.Counters
 {
     public class ProgressCounter: IMyCounters
     {
-        public string Name { get => "Progressive"; }
-        public bool Usable { get => TheCounter.FormatUsable; }
+        public static string[] DisplayNames => new string[] { "Progressive" };
+        public static int OrderNumber => 1;
+        public string Name => "Progressive";
+        public bool Usable => TheCounter.FormatUsable;
 
         private TMP_Text display;
         private float accRating, passRating, techRating;
@@ -49,6 +51,7 @@ namespace PleaseWork.Counters
             totalNotes = HelpfulMath.NotesForMaxScore(int.Parse(map.MapData.Item2["maxScore"].ToString()));
         }
         public void UpdateFormat() { }
+        public static bool InitFormat() => TheCounter.FormatUsable;
         #endregion
         #region Updates
         public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)

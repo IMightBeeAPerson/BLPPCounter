@@ -10,6 +10,8 @@ using PleaseWork.Counters;
 using System.Collections.Generic;
 using System.Net.Http;
 using Newtonsoft.Json.Linq;
+using System.Linq;
+using System.Reflection;
 namespace PleaseWork
 {
 
@@ -24,7 +26,11 @@ namespace PleaseWork
         public static Dictionary<string, Map> Data { get; private set; }
         private static bool dataLoaded = false;
         private static MapSelection lastMap;
-        private static IMyCounters theCounter;
+        public static IMyCounters theCounter { get; private set; }
+        public static Dictionary<string, Type> StaticFunctions { get; private set; }
+        public static Dictionary<string, Type> StaticProperties { get; private set; }
+        public static Type[] ValidCounters { get; private set; }
+        public static string[] ValidDisplayNames { get; private set; }
         private static Func<bool, bool, float, float, int, string, string> displayFormatter;
         public static Func<string, string, string> TargetFormatter;
         public static Func<Func<string>, float, float, float, float, float, string> PercentNeededFormatter;
@@ -45,14 +51,39 @@ namespace PleaseWork
 
         #region Overrides & Event Calls
 
-        static TheCounter() 
+        public static void InitCounterStatic() 
         {
-            bool success = FormatTheFormat(PluginConfig.Instance.FormatSettings.DefaultTextFormat);
-            if (success) InitFormat();
-            success = FormatTarget(PluginConfig.Instance.MessageSettings.TargetingMessage);
-            if (success) InitTarget();
-            success = FormatPercentNeeded(PluginConfig.Instance.MessageSettings.PercentNeededMessage);
-            if (success) InitPercentNeeded();
+            StaticFunctions = new Dictionary<string, Type>() 
+            { { "InitFormat", typeof(bool) } };
+            StaticProperties = new Dictionary<string, Type>()
+            { {"DisplayNames", typeof(string[]) }, {"OrderNumber", typeof(int) } };
+
+            if (FormatTheFormat(PluginConfig.Instance.FormatSettings.DefaultTextFormat)) InitFormat();
+            if (FormatTarget(PluginConfig.Instance.MessageSettings.TargetingMessage)) InitTarget();
+            if (FormatPercentNeeded(PluginConfig.Instance.MessageSettings.PercentNeededMessage)) InitPercentNeeded();
+            try
+            {
+                var validTypes = GetValidCounters();
+                Dictionary<string, object> methodOutp = GetMethodFromTypes("InitFormat", validTypes);
+                for (int i = validTypes.Length - 1; i >= 0; i--)
+                {
+                    if (methodOutp[validTypes[i].Name] is bool v)
+                        if (!v) validTypes[i] = null;
+                }
+                ValidCounters = validTypes.Where(a => a != null).ToArray();
+                Dictionary<string, object> propertyOutp = GetPropertyFromTypes("DisplayNames", ValidCounters);
+                Dictionary<int, string> propertyOrder = GetPropertyFromTypes("OrderNumber", ValidCounters).ToDictionary(x => (int)x.Value, x => x.Key);
+                List<string> displayNames = new List<string>();
+                for (int i = 0; i < propertyOrder.Count; i++)
+                    foreach (string name in propertyOutp[propertyOrder[i]] as string[])
+                        displayNames.Add(name);
+                ValidDisplayNames = displayNames.ToArray();
+            } catch (Exception e)
+            {
+                Plugin.Log.Error("Oh no! The static check for counters broke somehow :(");
+                Plugin.Log.Error(e.ToString());
+            }
+            
         }
         public override void CounterDestroy() {
             if (enabled)
@@ -91,7 +122,6 @@ namespace PleaseWork
                     string hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
                     //string hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
                     bool counterChange = theCounter != null && !theCounter.Name.Equals(PluginConfig.Instance.PPType.Split(' ')[0]);
-                    if (!counterChange && theCounter != null && !theCounter.Usable) throw new Exception("The counter is not usable! Probably some formatting issue :(");
                     if (counterChange || lastMap.Equals(new MapSelection()) || hash != lastMap.Hash || PluginConfig.Instance.PPType.Equals("Progressive") || lastTarget != PluginConfig.Instance.Target)
                     {
 
@@ -108,7 +138,6 @@ namespace PleaseWork
                     }
                     else
                         APIAvoidanceMode();
-                    if (!theCounter.Usable) throw new Exception("The counter is not usable! Probably some formatting issue :(");
                     lastTarget = PluginConfig.Instance.Target;
                     if (updateFormat) { theCounter.UpdateFormat(); updateFormat = false; }
                     theCounter.UpdateCounter(1, 0, 0, 0);
@@ -116,8 +145,9 @@ namespace PleaseWork
                     Plugin.Log.Warn("Maps failed to load, most likely unranked.");
             } catch (Exception e)
             {
-                Plugin.Log.Warn($"The Counter failed to be initialized: {e.Message}");
-                if (e is KeyNotFoundException) Plugin.Log.Warn($"Data dictionary length: {Data.Count}");
+                Plugin.Log.Error($"The counter failed to be initialized: {e.Message}\nSource: {e.Source}");
+                
+                if (e is KeyNotFoundException) Plugin.Log.Error($"Data dictionary length: {Data.Count}");
                 Plugin.Log.Debug(e);
                 enabled = false;
                 if (display != null)
@@ -202,7 +232,7 @@ namespace PleaseWork
             InitData();
         }
         private static bool FormatTheFormat(string format) {
-            displayIniter = HelpfulFormatter.GetBasicTokenParser(format, tokens => {}, 
+            displayIniter = HelpfulFormatter.GetBasicTokenParser(format, formattedTokens => formattedTokens.Formatted, 
                 (tokens, tokensCopy, priority, vals) => 
                 { 
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1'); 
@@ -212,12 +242,12 @@ namespace PleaseWork
         }
         private static bool FormatTarget(string format)
         {
-            targetIniter = HelpfulFormatter.GetBasicTokenParser(format, tokens => { }, (a, b, c, d) => { });
+            targetIniter = HelpfulFormatter.GetBasicTokenParser(format, formattedTokens => formattedTokens.Formatted, (a, b, c, d) => { });
             return targetIniter != null;
         }
         private static bool FormatPercentNeeded(string format)
         {
-            percentNeededIniter = HelpfulFormatter.GetBasicTokenParser(format, tokens => {},
+            percentNeededIniter = HelpfulFormatter.GetBasicTokenParser(format, formattedTokens => formattedTokens.Formatted,
                 (tokens, tokensCopy, priority, vals) =>
                 {
                     if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<string>)vals['c']).Invoke()}", "</color>");
@@ -228,7 +258,7 @@ namespace PleaseWork
         {
             var simple = displayIniter.Invoke();
             displayFormatter = (fc, totPp, pp, fcpp, mistakes, label) => simple.Invoke(new Dictionary<char, object>()
-            { { (char)1, fc }, {(char)2, totPp }, {'x', pp }, {'l', label }, { 'y', fcpp }, {'m', mistakes } });
+            { { (char)1, fc }, {(char)2, totPp }, {'x', pp }, {'l', label }, { 'y', fcpp }, {'e', mistakes } });
         }
         private static void InitTarget()
         {
@@ -240,6 +270,59 @@ namespace PleaseWork
             var simple = percentNeededIniter.Invoke();
             PercentNeededFormatter = (color, acc, passpp, accpp, techpp, pp) => simple.Invoke(new Dictionary<char, object>()
             { { 'c', color }, { 'a', acc }, { 'x', techpp }, { 'y', accpp }, { 'z', passpp }, { 'p', pp } });
+        }
+        private static Type[] GetValidCounters()
+        {
+            List<Type> counters = new List<Type>();
+            //The line below taken from: https://stackoverflow.com/questions/26733/getting-all-types-that-implement-an-interface
+            var types = System.Reflection.Assembly.GetExecutingAssembly().GetTypes().Where(mytype => mytype.GetInterfaces().Contains(typeof(IMyCounters)));
+            foreach (Type t in types)
+            {
+                var methods = t.GetMethods(BindingFlags.Public | BindingFlags.Static);
+                var Funcs = new Dictionary<string, Type>(StaticFunctions);
+                foreach (MethodInfo m in methods)
+                    if (Funcs.ContainsKey(m.Name)) 
+                        if (m.ReturnParameter.ParameterType.Equals(Funcs[m.Name]))
+                        {
+                            Funcs.Remove(m.Name);
+                            if (Funcs.Count == 0) break;
+                        } else break;
+                if (Funcs.Count != 0) continue;
+                var properties = t.GetProperties(BindingFlags.Public | BindingFlags.Static);
+                var Vars = new Dictionary<string, Type>(StaticProperties);
+                foreach (PropertyInfo p in properties)
+                    if (Vars.ContainsKey(p.Name))
+                        if (p.PropertyType == Vars[p.Name])
+                        {
+                            if (!p.CanRead) continue;
+                            Vars.Remove(p.Name);
+                            if (Vars.Count == 0) break;
+                        }
+                        else break;
+                if (Vars.Count == 0)
+                    counters.Add(t);
+            }
+            return counters.ToArray();
+        }
+        private static Dictionary<string, object> GetMethodFromTypes(string methodName, params Type[] types)
+        {
+            Dictionary<string, object> outp = new Dictionary<string, object>();
+            foreach (Type t in types)
+            {
+                var method = t.GetMethods(BindingFlags.Public | BindingFlags.Static).SkipWhile(a => !a.Name.Equals(methodName)).First();
+                outp.Add(t.Name, method.Invoke(null, null));
+            }
+            return outp;
+        }
+        private static Dictionary<string, object> GetPropertyFromTypes(string propertyName, params Type[] types)
+        {
+            Dictionary<string, object> outp = new Dictionary<string, object>();
+            foreach (Type t in types)
+            {
+                var method = t.GetProperties(BindingFlags.Public | BindingFlags.Static).SkipWhile(a => !a.Name.Equals(propertyName)).First();
+                outp.Add(t.Name, method.GetValue(null));
+            }
+            return outp;
         }
         #endregion
         #region Init
@@ -266,8 +349,7 @@ namespace PleaseWork
             Plugin.Log.Info("API Avoidance mode is functioning (probably)!");
             MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.34.2 and below
             //MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmapDiff.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.37.0 and above
-            if (PluginConfig.Instance.Debug) 
-                Plugin.Log.Info($"Last Map\n-------------------\n{lastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
+            Plugin.Log.Debug($"Last Map\n-------------------\n{lastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
             bool ratingDiff, diffDiff;
             (ratingDiff, diffDiff) = thisMap.GetDifference(lastMap);
             Plugin.Log.Info($"Rating: {ratingDiff}\tDifficulty: {diffDiff}");
@@ -366,18 +448,14 @@ namespace PleaseWork
         
         public static void UpdateText(bool displayFc, TMP_Text display, float[] ppVals, int mistakes)
         {
-            //if (ppVals.Length != 8) ppVals = new float[8];
             string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
             if (PluginConfig.Instance.SplitPPVals) {
                 string outp = "";
                 for (int i=0;i<4;i++)
-                    outp += displayFormatter.Invoke(displayFc, i == 3, ppVals[i], ppVals[i+4], mistakes, labels[i]) + "\n";
+                    outp += displayFormatter.Invoke(displayFc, PluginConfig.Instance.ExtraInfo && i == 3, ppVals[i], ppVals[i + 4], mistakes, labels[i]) + "\n";
                 display.text = outp;
             } else
-                display.text = displayFormatter.Invoke(displayFc, true, ppVals[3], ppVals[7], mistakes, labels[3]);
-            /*string target = PluginConfig.Instance.Target;
-            if (!target.Equals("None"))
-                display.text += $"\nTargeting <color=\"red\">{target}</color>";*/
+                display.text = displayFormatter.Invoke(displayFc, PluginConfig.Instance.ExtraInfo, ppVals[3], ppVals[7], mistakes, labels[3]);
         }
         #endregion
     }

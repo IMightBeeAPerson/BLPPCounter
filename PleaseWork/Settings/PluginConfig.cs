@@ -14,7 +14,7 @@ namespace PleaseWork.Settings
         public virtual TextFormatSettings FormatSettings { get; set; } = new TextFormatSettings();
         public virtual bool SplitPPVals { get; set; } = false;
         public virtual string PPType { get; set; } = "Normal";
-        public virtual bool Debug { get; set; } = false;
+        public virtual bool ExtraInfo { get; set; } = false;
         public virtual int DecimalPrecision { get; set; } = 2;
         public virtual double FontSize { get; set; } = 3;
         public virtual bool UseGrad { get; set; } = true;
@@ -25,8 +25,8 @@ namespace PleaseWork.Settings
         public virtual bool PPFC { get; set; } = false;
         public virtual string Target { get; set; } = "None";
         public virtual bool ShowEnemy { get; set; } = true;
+        public virtual bool ShowClanMessage { get; set; } = false;
         public virtual bool LocalReplay { get; set; } = false;
-        public virtual string CaptureType { get; set; } = "Percentage";
         public virtual int MapCache { get; set; } = 10;
         public virtual double ClanPercentCeil { get; set; } = 99;
         public virtual bool CeilEnabled { get; set; } = true;

@@ -13,6 +13,8 @@ namespace PleaseWork.Counters
 {
     internal class NormalCounter: IMyCounters
     {
+        public static string[] DisplayNames => new string[] { "Normal" };
+        public static int OrderNumber => 0;
         public string Name { get => "Normal"; }
         public bool Usable { get => TheCounter.FormatUsable; }
         private TMP_Text display;
@@ -44,6 +46,7 @@ namespace PleaseWork.Counters
         public void ReinitCounter(TMP_Text display, MapSelection map) { this.display = display; passRating = map.PassRating; accRating = map.AccRating; techRating = map.TechRating; }
         public void SetupData(MapSelection map) { }
         public void UpdateFormat() { }
+        public static bool InitFormat() => TheCounter.FormatUsable;
         #endregion
 
 

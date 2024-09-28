@@ -1,9 +1,10 @@
 ﻿using PleaseWork.Utils;
+using System;
 using TMPro;
 
 namespace PleaseWork.Counters
 {
-    internal interface IMyCounters
+    public interface IMyCounters
     {
         void SetupData(MapSelection map);
         void ReinitCounter(TMP_Text display); //same difficulty, modifier, and map
@@ -11,8 +12,15 @@ namespace PleaseWork.Counters
         void ReinitCounter(TMP_Text display, MapSelection map); //same map, different difficulty/mode
         void UpdateFormat();
         void UpdateCounter(float acc, int notes, int mistakes, float fcPercent);
-
         string Name { get; }
-        bool Usable { get; }
+
+        /*Static functions that must be created:
+         * public static bool InitFormat()
+         */
+
+        /*Static Fields that must be created:
+         * public static string[] DisplayNames;
+         * public static int OrderNumber
+         */
     }
 }
