@@ -180,7 +180,7 @@ namespace PleaseWork.Helpfuls
             {
                 var thing = TokenParser.UnrapTokens(tokens, false, formatted);
                 string newFormatted = settings.Invoke(thing);
-                Plugin.Log.Info(thing.ToString());
+                //Plugin.Log.Info(thing.ToString());
                 List<(char, int)> first = new List<(char, int)>();
                 List<(char, int)> second = new List<(char, int)>();
                 List<(char, int)> captureChars = new List<(char, int)>();
