@@ -28,11 +28,13 @@ This includes any counter that is too simple to have their own display method, a
 | ------ | ----------- |
 | x | The unmodified PP number |
 | y | The unmodified PP number if the map was FC'ed |
+| e | The amount of mistakes made in the map. This includes bomb and wall hits |
 | l | The label (ex: PP, Tech PP, etc) |
 
 | Number | Description |
 | ------ | ----------- |
 | 1 | This capture will enable and disable based off if the player is FC'ing the map or not |
+| 2 | This capture is linked to the 'enable messages' option and should be used for messages and other info |
 
 #### Clan and Relative Counter
 These both have the same syntax, and therefore will share the same table.
@@ -49,6 +51,7 @@ These both have the same syntax, and therefore will share the same table.
 | Number | Description |
 | ------ | ----------- |
 | 1 | This capture will enable and disable based off if the player is FC'ing the map or not |
+| 2 | This capture is linked to the 'enable messages' option and should be used for messages and other info |
 
 #### Weighted Counter
 This is a special counter that will appear when the clan counter fails because the map is already captured, the map is too hard to capture, or the API requests return bad information that causes an error.
@@ -63,13 +66,14 @@ This is a special counter that will appear when the clan counter fails because t
 | Number | Description |
 | ------ | ----------- |
 | 1 | This capture will enable and disable based off if the player is FC'ing the map or not |
-| 2 | This capture is will enable/disable based off if you enable showing your placement in settings |
+| 2 | This capture is linked to the 'enable messages' option and should be used for messages and other info |
+| 3 | This capture is will enable/disable based off if you enable showing your placement in settings |
 
 ### Message Specific Syntax
 Messages are things that appear in the counter when something to change the counter from normal happens. Sometimes these take in values, sometimes they do not.
 
 #### Normal Messages
-These are messages with no values, and therefore will not be parsed and are completely normal text.
+These are messages with no values, and therefore will not be parsed and are completely normal rich text.
 - Map Captured Message
 - Map Uncapturable Message
 - Map Unranked Message
