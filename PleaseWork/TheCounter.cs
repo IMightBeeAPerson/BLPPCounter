@@ -30,6 +30,7 @@ namespace PleaseWork
         public static Dictionary<string, Type> StaticFunctions { get; private set; }
         public static Dictionary<string, Type> StaticProperties { get; private set; }
         public static Type[] ValidCounters { get; private set; }
+        public static Dictionary<string, string> DisplayNameToCounter { get; private set; }
         public static string[] ValidDisplayNames { get; private set; }
         private static Func<bool, bool, float, float, int, string, string> displayFormatter;
         public static Func<string, string, string> TargetFormatter;
@@ -72,6 +73,11 @@ namespace PleaseWork
                 }
                 ValidCounters = validTypes.Where(a => a != null).ToArray();
                 Dictionary<string, object> propertyOutp = GetPropertyFromTypes("DisplayNames", ValidCounters);
+                DisplayNameToCounter = new Dictionary<string, string>();
+                foreach (var val in propertyOutp)
+                    if (val.Value is string[] arr)
+                        foreach (var otherVal in arr)
+                            DisplayNameToCounter.Add(otherVal, val.Key);
                 Dictionary<int, string> propertyOrder = GetPropertyFromTypes("OrderNumber", ValidCounters).ToDictionary(x => (int)x.Value, x => x.Key);
                 List<string> displayNames = new List<string>();
                 for (int i = 0; i < propertyOrder.Count; i++)
@@ -328,20 +334,9 @@ namespace PleaseWork
         #region Init
         private bool InitCounter()
         {
-            switch (PluginConfig.Instance.PPType)
-            {
-                case "Relative":
-                case "Relative w/ normal":
-                    theCounter = new RelativeCounter(display, lastMap); break;
-                case "Progressive":
-                    theCounter = new ProgressCounter(display, lastMap); break;
-                case "Normal":
-                    theCounter = new NormalCounter(display, lastMap); break;
-                case "Clan PP":
-                case "Clan w/ normal":
-                    theCounter = new ClanCounter(display, lastMap); break;
-                default: return false;
-            }
+            if (!DisplayNameToCounter.TryGetValue(PluginConfig.Instance.PPType, out string name)) return false;
+            Type counterType = ValidCounters.First(a => a.Name == name);
+            theCounter = (IMyCounters)Activator.CreateInstance(counterType, display, lastMap);
             return true;
         }
         private void APIAvoidanceMode()

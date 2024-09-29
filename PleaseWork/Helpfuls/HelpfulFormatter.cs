@@ -239,35 +239,6 @@ namespace PleaseWork.Helpfuls
             foreach (var item in tokens.Keys) if (item.Item1 == c) toModify.Add((c, item.Item2, preText + tokens[item] + postText));
             foreach (var item in toModify) tokens[(item.Item1, item.Item2)] = item.Item3;
         }
-        /*public static string TurnTokenConstant(string format, Dictionary<(char, int), string> tokens, char c)
-        {
-            int priority = -1;
-            (char, int) container = default;
-            List<(char, int)> sortedKeys = tokens.Keys.ToList();
-            sortedKeys.Sort((a, b) => a.Item2 - b.Item2);
-            foreach (var item in sortedKeys)
-            {
-                //Plugin.Log.Info(item.Item2 + ": " + item.Item1);
-                if (item.Item1 == c)
-                {
-                    priority = item.Item2;
-                    if (priority <= FORMAT_SPLIT || container != default) break;
-                }
-                else if (tokens[item].Contains($"{ESCAPE_CHAR}{c}"))
-                {
-                    container = item;
-                    if (priority != -1) break;
-                }
-            }
-            if (priority > FORMAT_SPLIT)
-            {
-                //Plugin.Log.Info($"Priority: {priority} || Container: ({container.Item1}, {container.Item2})");
-                tokens[container] = tokens[container].Replace($"{ESCAPE_CHAR}{c}", tokens[(c, priority)]);
-                tokens.Remove((c, priority));
-                return format;
-            }
-            return format;
-        }//*/
         public static bool IsSpecialChar(char c) => c == ESCAPE_CHAR || c == RICH_SHORT || c == GROUP_OPEN || c == GROUP_CLOSE || c == CAPTURE_OPEN || c == CAPTURE_CLOSE;
         public static string NumberToColor(float num) => num > 0 ? "<color=\"green\">" : num == 0 ? "<color=\"yellow\">" : "<color=\"red\">";
         public static string EscapeNeededChars(string str)
@@ -371,7 +342,6 @@ namespace PleaseWork.Helpfuls
                         if (char.IsDigit(key))
                         {
                             string newValue = Regex.Replace(tokenValues[(token, tokenPriority)], "\\{\\d\\}", value);
-                            Plugin.Log.Info(newValue);
                             tokenValues[(key, priority)] = tokenValues[(key, priority)].Replace($"{ESCAPE_CHAR}{token}", newValue);
                         } else
                             tokenValues[(key, priority)] = Regex.Replace(tokenValues[(key, priority)], "\\{\\d\\}", value);
