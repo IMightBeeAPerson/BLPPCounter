@@ -25,6 +25,9 @@ namespace PleaseWork.Helpfuls
         public static char GROUP_CLOSE => PC.TokenSettings.GroupBracketClose;
         public static char CAPTURE_OPEN => PC.TokenSettings.CaptureBracketOpen;
         public static char CAPTURE_CLOSE => PC.TokenSettings.CaptureBracketClose;
+        public static char PARAM_OPEN => PC.TokenSettings.EscapeCharParamBracketOpen;
+        public static char PARAM_CLOSE => PC.TokenSettings.EscapeCharParamBracketClose;
+        public static readonly HashSet<char> SPECIAL_CHARS;
         public static Dictionary<string, string> RICH_SHORTHANDS => PC.TokenSettings.RichShorthands;
         public static readonly string NUMBER_TOSTRING_FORMAT;
 
@@ -33,11 +36,13 @@ namespace PleaseWork.Helpfuls
             var hold = "";
             for (int i = 0; i < PC.DecimalPrecision; i++) hold += "#";
             NUMBER_TOSTRING_FORMAT = PC.DecimalPrecision > 0 ? PC.FormatSettings.NumberFormat.Replace("#","#." + hold) : PC.FormatSettings.NumberFormat;
+            SPECIAL_CHARS = new HashSet<char>() { ESCAPE_CHAR, RICH_SHORT, DELIMITER, GROUP_OPEN, GROUP_CLOSE, INSERT_SELF, CAPTURE_OPEN, CAPTURE_CLOSE };
         }
 
-        public static (string, Dictionary<(char, int), string>, Dictionary<int, char>) ParseCounterFormat(string format)
+        public static (string, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<(char, int), string[]>) ParseCounterFormat(string format)
         {
             Dictionary<(char, int), string> tokens = new Dictionary<(char, int), string>();
+            Dictionary<(char, int), string[]> extraArgs = new Dictionary<(char, int), string[]>();
             Dictionary<int, char> priority = new Dictionary<int, char>();
             string formatted = "";
             int repIndex = 0, forRepIndex = 0, sortIndex = 0;
@@ -68,6 +73,11 @@ namespace PleaseWork.Helpfuls
                     char symbol = format[++i];
                     if (!char.IsLetter(symbol)) 
                         throw new FormatException($"Invalid group format, must define what letter group corresponds to.\nSyntax: {GROUP_OPEN}<letter> ... {GROUP_CLOSE}");
+                    if (i + 1 < format.Length && format[i + 1] == PARAM_OPEN)
+                    {
+                        var vals = HandleExtraParams(format, i, sortIndex, out i);
+                        extraArgs.Add((vals.Item1, vals.Item2), vals.Item3);
+                    }
                     int index = repIndex++, sIndex = sortIndex++;
                     while (format[++i] != GROUP_CLOSE && i < format.Length)
                     {
@@ -80,6 +90,12 @@ namespace PleaseWork.Helpfuls
                                 tokens[(format[++i], FORMAT_SPLIT + sortIndex)] = $"{{{repIndex}}}";
                                 priority[FORMAT_SPLIT + sortIndex++] = format[i];
                                 bracket += $"{{{repIndex++}}}";
+                                if (i + 1 < format.Length && format[i + 1] == PARAM_OPEN)
+                                {
+                                    var vals = HandleExtraParams(format, i, sortIndex - 1 + FORMAT_SPLIT, out i);
+                                    extraArgs.Add((vals.Item1, vals.Item2), vals.Item3);
+                                }
+                                    
                             } else bracket += format[++i];
                             continue;
                         }
@@ -113,6 +129,8 @@ namespace PleaseWork.Helpfuls
                     }
                     else
                     {
+                        if (format[i] != CAPTURE_CLOSE)
+                            throw new FormatException($"Invalid capture format, you cannot nest capture statements.\nSyntax: {CAPTURE_OPEN}<number> ... {CAPTURE_CLOSE}");
                         capture = false;
                         tokens[(num, ssIndex)] = captureStr;
                         priority[ssIndex] = num;
@@ -130,10 +148,15 @@ namespace PleaseWork.Helpfuls
                     throw new FormatException($"Invalid escape format, escape character must be followed by a special character or a letter.\nSyntax: {ESCAPE_CHAR}<letter> OR {ESCAPE_CHAR}<special character>");
                 tokens[(format[i], tempIndex)] = $"{{{repIndex++}}}";
                 priority[tempIndex] = format[i];
+                if (i + 1 < format.Length && format[i+1] == PARAM_OPEN)
+                {
+                    var vals = HandleExtraParams(format, i, tempIndex, out i);
+                    extraArgs.Add((vals.Item1, vals.Item2), vals.Item3);
+                }
             }
             if (capture)
                 throw new FormatException($"Invalid capture format, must close capture bracket.\nSyntax: {CAPTURE_OPEN}<number> ... {CAPTURE_CLOSE}");
-            return (formatted, tokens, priority);
+            return (formatted, tokens, priority, extraArgs);
         }
         private static string ReplaceShorthand(string format, string richVal, int i, out int newCount, out string newRichVal)
         {
@@ -154,17 +177,50 @@ namespace PleaseWork.Helpfuls
             newCount = i;
             return $"<{keyword}={value}>";
         }
+        private static (char, int, string[]) HandleExtraParams(string format, int i, int priority, out int newCount)
+        {
+            char originChar = format[i];
+            List<string> inp = new List<string>();
+            i++;
+            while (i < format.Length && format[i] != PARAM_CLOSE)
+            {
+                string hold = "";
+                while (++i < format.Length && format[i] != DELIMITER && format[i] != PARAM_CLOSE)
+                    hold += format[i];
+                inp.Add(hold);
+            }
+            if (i >= format.Length)
+                throw new FormatException($"Invalid extra parameter format, missing closing bracket ('{PARAM_CLOSE}').\nSyntax: {ESCAPE_CHAR}{originChar}{PARAM_OPEN}<character 1>{DELIMITER},<character 2>{DELIMITER}...{PARAM_CLOSE}");
+            newCount = i;
+            return (originChar, priority, inp.ToArray());
+        }
+       
         public static Func<Func<Dictionary<char, object>, string>> GetBasicTokenParser(
             string format,
-            Func<TokenParser, string> settings,
+            Action<TokenParser> settings,
             Action<Dictionary<(char, int), string>, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<char, object>> varSettings)
+            => GetBasicTokenParser(format, settings, varSettings, null, null);
+        public static Func<Func<Dictionary<char, object>, string>> GetBasicTokenParser(
+            string format,
+            Action<TokenParser> settings,
+            Action<Dictionary<(char, int), string>, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<char, object>> varSettings,
+            Func<char, string[], bool> confirmFormat,
+            Func<char, string[], Dictionary<char, object>, string> implementArgs)
         {
             Dictionary<(char, int), string> tokens;
+            Dictionary<(char, int), string[]> extraArgs;
             Dictionary<int, char> priority;
             string formatted;
+            confirmFormat = GetParentConfirmFormat(confirmFormat);
+            implementArgs = GetParentImplementArgs(implementArgs);
             try
             {
-                (formatted, tokens, priority) = ParseCounterFormat(format);
+                (formatted, tokens, priority, extraArgs) = ParseCounterFormat(format);
+                foreach (var val in extraArgs.Keys)
+                {
+                    if (!confirmFormat.Invoke(val.Item1, extraArgs[val]))
+                        throw new FormatException($"Invalid extra parameter format, one of three things happened, too many arguments, too few arguments, or a non reference where a reference should be.\nThis is for the char '{val.Item1}'");
+                }
             }
             catch (Exception e)
             {
@@ -173,15 +229,16 @@ namespace PleaseWork.Helpfuls
                 return null;
             }
             /*Plugin.Log.Info("---------------");
-            foreach (var token in tokens)
-                Plugin.Log.Info(HelpfulMisc.ToLiteral($"{token.Key} || {token.Value}"));
-            Plugin.Log.Info("Formatted || " +  formatted);//*/
+                    foreach (var token in tokens)
+                        Plugin.Log.Info(HelpfulMisc.ToLiteral($"{token.Key} || {token.Value}"));
+                    Plugin.Log.Info("Formatted || " + formatted);//*/
             return () =>
             {
                 var thing = TokenParser.UnrapTokens(tokens, false, formatted);
-                string newFormatted = settings.Invoke(thing);
+                settings.Invoke(thing);
+                string newFormatted = thing.Formatted;
                 //Plugin.Log.Info(thing.ToString());
-                List<(char, int)> first = new List<(char, int)>();
+                List <(char, int)> first = new List<(char, int)>();
                 List<(char, int)> second = new List<(char, int)>();
                 List<(char, int)> captureChars = new List<(char, int)>();
                 foreach ((char, int) val in tokens.Keys)
@@ -196,6 +253,10 @@ namespace PleaseWork.Helpfuls
                 {
                     Dictionary<(char, int), string> tokensCopy = new Dictionary<(char, int), string>(tokens);
                     varSettings.Invoke(tokens, tokensCopy, priority, vals);
+                    foreach (var val in extraArgs.Keys)
+                    {
+                        vals.TryAdd(val.Item1, implementArgs.Invoke(val.Item1, extraArgs[val], vals));
+                    }
                     foreach ((char, int) val in captureChars)
                     {
                         string newVal = "", toParse = tokensCopy[val];
@@ -222,6 +283,34 @@ namespace PleaseWork.Helpfuls
                 };
             };
         }
+        private static Func<char, string[], bool> GetParentConfirmFormat(Func<char, string[], bool> child)
+        {
+            return (paramChar, values) =>
+            {
+                if (child != null && child.Invoke(paramChar, values)) return true;
+                switch (paramChar)
+                {
+                    case 's':
+                        return values.Length == 1 && HelpfulFormatter.IsReferenceChar(values[0]);
+                    default: return false;
+                }
+            };
+        }
+        private static Func<char, string[], Dictionary<char, object>, string> GetParentImplementArgs(Func<char, string[], Dictionary<char, object>, string> child) =>
+            (paramChar, values, vals) =>
+            {
+                if (child != null) {
+                    string outp = child.Invoke(paramChar, values, vals);
+                    if (outp.Length != 0) return outp;
+                }
+                switch (paramChar)
+                {
+                    case 's':
+                        bool isOne = decimal.Parse(vals[values[0][0]] + "") == 1;
+                        return isOne ? "" : "s";
+                    default: return "";
+                }
+            };
         public static void SetText(Dictionary<(char, int), string> tokens, char c, string text = "") 
         { 
             List<(char, int)> toModify = new List<(char, int)>();
@@ -239,7 +328,8 @@ namespace PleaseWork.Helpfuls
             foreach (var item in tokens.Keys) if (item.Item1 == c) toModify.Add((c, item.Item2, preText + tokens[item] + postText));
             foreach (var item in toModify) tokens[(item.Item1, item.Item2)] = item.Item3;
         }
-        public static bool IsSpecialChar(char c) => c == ESCAPE_CHAR || c == RICH_SHORT || c == GROUP_OPEN || c == GROUP_CLOSE || c == CAPTURE_OPEN || c == CAPTURE_CLOSE;
+        public static bool IsReferenceChar(string s) => s.Length == 1 && char.IsLetter(s[0]) && !IsSpecialChar(s[0]);
+        public static bool IsSpecialChar(char c) => SPECIAL_CHARS.Contains(c);
         public static string NumberToColor(float num) => num > 0 ? "<color=\"green\">" : num == 0 ? "<color=\"yellow\">" : "<color=\"red\">";
         public static string EscapeNeededChars(string str)
         {
@@ -341,10 +431,10 @@ namespace PleaseWork.Helpfuls
                         int tokenPriority = relations[index].Item2;
                         if (char.IsDigit(key))
                         {
-                            string newValue = Regex.Replace(tokenValues[(token, tokenPriority)], "\\{\\d\\}", value);
+                            string newValue = Regex.Replace(tokenValues[(token, tokenPriority)], "\\{\\d+\\}", value);
                             tokenValues[(key, priority)] = tokenValues[(key, priority)].Replace($"{ESCAPE_CHAR}{token}", newValue);
                         } else
-                            tokenValues[(key, priority)] = Regex.Replace(tokenValues[(key, priority)], "\\{\\d\\}", value);
+                            tokenValues[(key, priority)] = Regex.Replace(tokenValues[(key, priority)], "\\{\\d+\\}", value);
                         tokenValues.Remove((token, tokenPriority));
                         toRemove = tokenPriority;
                         break;

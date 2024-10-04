@@ -213,7 +213,6 @@ namespace PleaseWork.Counters
                         formattedTokens.MakeTokenConstant('t', TheCounter.TargetFormatter.Invoke(pc.Target, theMods));
                     }
                     else formattedTokens.SetText('t');
-                    return formattedTokens.Formatted;
                 },
                 (tokens, tokensCopy, priority, vals) =>
                 {
@@ -232,7 +231,6 @@ namespace PleaseWork.Counters
                 {
                     if (!pc.ShowLbl) formattedTokens.SetText('l');
                     if (!pc.ClanWithNormal) { formattedTokens.SetText('p'); formattedTokens.SetText('o'); }
-                    return formattedTokens.Formatted;
                 },
                 (tokens, tokensCopy, priority, vals) => {
                     if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<string>)vals['c']).Invoke()}", "</color>");
@@ -250,7 +248,6 @@ namespace PleaseWork.Counters
                     if (!pc.Target.Equals("None") && pc.ShowEnemy)
                         formattedTokens.SetText('t', pc.Target); 
                         else formattedTokens.SetText('t');
-                    return formattedTokens.Formatted;
                 },
                 (tokens, tokensCopy, priority, vals) =>
                 {

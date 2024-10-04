@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Profiling;
 using System.Windows.Markup;
+using System.Linq;
 
 namespace PleaseWork.Counters
 {
@@ -167,7 +168,6 @@ namespace PleaseWork.Counters
                             formattedTokens.MakeTokenConstant('t', TheCounter.TargetFormatter.Invoke(pc.Target, theMods));
                         }
                     else formattedTokens.SetText('t');
-                    return formattedTokens.Formatted;
                 },
                 (tokens, tokensCopy, priority, vals) =>
                 {

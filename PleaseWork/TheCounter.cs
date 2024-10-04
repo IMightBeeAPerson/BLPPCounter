@@ -238,7 +238,7 @@ namespace PleaseWork
             InitData();
         }
         private static bool FormatTheFormat(string format) {
-            displayIniter = HelpfulFormatter.GetBasicTokenParser(format, formattedTokens => formattedTokens.Formatted, 
+            displayIniter = HelpfulFormatter.GetBasicTokenParser(format, a => { }, 
                 (tokens, tokensCopy, priority, vals) => 
                 { 
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1'); 
@@ -248,12 +248,12 @@ namespace PleaseWork
         }
         private static bool FormatTarget(string format)
         {
-            targetIniter = HelpfulFormatter.GetBasicTokenParser(format, formattedTokens => formattedTokens.Formatted, (a, b, c, d) => { });
+            targetIniter = HelpfulFormatter.GetBasicTokenParser(format, a => { }, (a, b, c, d) => { });
             return targetIniter != null;
         }
         private static bool FormatPercentNeeded(string format)
         {
-            percentNeededIniter = HelpfulFormatter.GetBasicTokenParser(format, formattedTokens => formattedTokens.Formatted,
+            percentNeededIniter = HelpfulFormatter.GetBasicTokenParser(format, a => { },
                 (tokens, tokensCopy, priority, vals) =>
                 {
                     if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<string>)vals['c']).Invoke()}", "</color>");

@@ -14,6 +14,8 @@ namespace PleaseWork.Settings.FormatSettings
         public virtual char GroupBracketClose { get; set; } = ']';
         public virtual char CaptureBracketOpen { get; set; } = '<';
         public virtual char CaptureBracketClose { get; set; } = '>';
+        public virtual char EscapeCharParamBracketOpen { get; set; } = '(';
+        public virtual char EscapeCharParamBracketClose { get; set; } = ')';
         [UseConverter(typeof(DictionaryConverter<string>))]
         public virtual Dictionary<string, string> RichShorthands { get; set; } = new Dictionary<string, string>()
         {
