@@ -101,6 +101,7 @@ This message is supposed to inform the player what percent or accuracy is needed
 | x | The tech PP needed |
 | y | The accuracy PP needed |
 | z | The pass PP needed |
+| t | This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target |
 
 #### Targeting Message
 This message is for whenever you are targeting someone. Currently it can show a few stats of the person you are targeting, but I'll most likely add more at a later date.
