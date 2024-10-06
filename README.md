@@ -5,10 +5,10 @@ It's a counters+ counter. Mostly self-explainatory, just drag the file into your
 ### Overview
 In the config for this counter, you will find the text format strings. These are what format the counter to look the way it does in game. Here's some examples of these strings:
 ```json
-"DefaultTextFormat": "&x&1 / &y&1 &l",
-"ClanTextFormat": "[p$ ]&[[c&x]&]&1 / [o$ ]&[[f&y]&] &1&l",
-"WeightedTextFormat": "&x[p ($)]&1 / &y[o ($)]&1 &l",
-"RelativeTextFormat": "[c&x][p ($)]&1 || [f&y][o ($)]&1 &l"
+"DefaultTextFormat": "&x<1 / &y> &l<2[e\n*c,red*$* mistake&s(e)]>"
+"ClanTextFormat": "[p$ ]&[[c&x]&]<1 / [o$ ]&[[f&y]&] >&l<2\n&m[t\n$]>"
+"WeightedTextFormat": "&x[p ($)]<1 / &y[o ($)]><3 [c#&r]> &l<2[e\n*c,red*$* mistake&s(e)][m\n$]>"
+"RelativeTextFormat": "[c&x][p ($)]<1 || [f&y][o ($)]> &l<2\n[c&a]% to beat[t\n$]>"
 ```
 Lemme break it down and explain it so that you can understand it and customize it yourself. This works by displaying everything as normal text except for the special characters, which will be replaced with values from the counter. 
 Here's a quick explaination of important characters.
@@ -18,8 +18,14 @@ Here's a quick explaination of important characters.
   What this does is tie a string of character to a value, and everything inside will be disabled and enabled with the character. To input the value inside the group, simply put a '$', which will be replaced with the value.
 - To create a capture, you use a very similar syntax to a group, just with different kind of brackets, '<' and '>'. A capture doesn't have any value attached to it, so instead of using a letter as an identifier, you use a number.
   The main use of this is for counters to enable and disable parts of the counter dynamically. For example, when you miss, the display need to show a new section, and it will use captures to do so.
+- There is also parameters, which you can see in the WeightedTextFormat towards the end "&s(e)". This is denoted by putting parentheses, '(' and ')', around parameters directly after an escape character. What parameters will be denoted below and is specific to each letter and sometimes each counter. *Note: you do not have to escape parentheses to use them normally. You only need to escape them if it is directly after a escape character.* 
 
-**Note:** The special characters used in these explainations are the default characters, however they can be changed in settings if you don't like how they feel or look.
+**Note:** The special characters used in these explainations are the default characters, however they can be changed in settings if you don't like how they feel or look. Everything, including the brackets, can be changed to whatever you want.
+### Global escape letters
+These are letters that share the same functionality through all formatted messages and counters.
+| Letter | Parameters | Description |
+| ------ | ---------- | ----------- |
+| s | <number variable> | This takes one parameter, a number variable, and will dynamically output either a 's' or nothing ('') depending on if the number is exactly 1 or not. This is used to be grammatically correct | 
 ### Counter Specific Syntax 
 The different counter types have different letters to mean different things, instead of making you sift through the code or figure it out, here's a list :)
 #### Default Counter (Progressive and Normal)
@@ -47,6 +53,11 @@ These both have the same syntax, and therefore will share the same table.
 | y | The modified PP number if the map was FC'ed |
 | f | Must use as a group value, and will color everything inside group |
 | l | The label (ex: PP, Tech PP, etc) |
+| e | The amount of mistakes made in the map. This includes bomb and wall hits |
+| t | This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target |
+| m | This will show a message if the counter is used on a map that isn't perfectly ideal for clan counter or that clan counter can't be used on. It will say the reason for why this isn't ideal |
+
+**Note:** Only clan counter has messages (m), they do not exist on relative counter and it will throw an error if you try to use it on relative counter.
 
 | Number | Description |
 | ------ | ----------- |
@@ -62,6 +73,8 @@ This is a special counter that will appear when the clan counter fails because t
 | o | The unmodified PP number if the map was FC'ed |
 | y | The modified PP number if the map was FC'ed |
 | l | The label (ex: PP, Tech PP, etc) |
+| e | The amount of mistakes made in the map. This includes bomb and wall hits |
+| m | This will show a message if the counter is used on a map that isn't perfectly ideal for clan counter or that clan counter can't be used on. It will say the reason for why this isn't ideal |
 
 | Number | Description |
 | ------ | ----------- |
