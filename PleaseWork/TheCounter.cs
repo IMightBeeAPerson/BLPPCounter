@@ -40,7 +40,7 @@ namespace PleaseWork
         private TMP_Text display;        
         private bool enabled, updateFormat;
         private float passRating, accRating, techRating, stars;
-        private int notes, comboNotes, mistakes;
+        private int notes, comboNotes, mistakes, extraCalls;
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
         private string mode, lastTarget;
@@ -100,7 +100,7 @@ namespace PleaseWork
         }
         public override void CounterInit()
         {
-            notes = fcMaxHitscore = comboNotes = fcTotalHitscore = mistakes = 0;
+            notes = fcMaxHitscore = comboNotes = fcTotalHitscore = mistakes = extraCalls = 0;
             totalHitscore = maxHitscore = 0.0;
             enabled = false;
             if (!dataLoaded)
@@ -170,7 +170,8 @@ namespace PleaseWork
         {
             if (scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb)
             {
-                if (currentMult.Item1 == 1 && currentMult.Item2 == 0) MultiplierChanged(1, 0);
+                Plugin.Log.Info($"Score type: {scoringElement.noteData.scoringType}");
+                if (currentMult.Item1 == 1 && currentMult.Item2 == 0 && scoringElement.noteData.scoringType > 0) MultiplierChanged(1, 0);
                 return;
             }
             NoteData.ScoringType st = scoringElement.noteData.scoringType;
@@ -182,6 +183,7 @@ namespace PleaseWork
             }//*/
             if (st == NoteData.ScoringType.Ignore) goto Finish; //if scoring type is Ignore, skip this function
             notes++;
+            extraCalls = 0;
             if (st != NoteData.ScoringType.NoScore) comboNotes++;
             maxHitscore += notes < 14 ? scoringElement.maxPossibleCutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0) : scoringElement.maxPossibleCutScore;
             if (scoringElement.cutScore > 0)
@@ -196,10 +198,14 @@ namespace PleaseWork
         }
         private void MultiplierChanged(int newMult, float percentFilled)
         {
-            if (newMult < currentMult.Item1 || (newMult == currentMult.Item1 && percentFilled < currentMult.Item2) || (newMult == 1 && percentFilled == 0.0f))
+            if (newMult < currentMult.Item1 || (newMult == currentMult.Item1 && percentFilled < currentMult.Item2))
             {
                 comboNotes = HelpfulMath.DecreaseMultiplier(comboNotes);
                 mistakes++;
+            } else if (newMult == 1 && percentFilled == 0.0f)
+            {
+                mistakes++;
+                Plugin.Log.Info($"This was called when there were {notes} note(s) hit. Called {++extraCalls} time(s).");
             }
             currentMult = (newMult, percentFilled);
         }

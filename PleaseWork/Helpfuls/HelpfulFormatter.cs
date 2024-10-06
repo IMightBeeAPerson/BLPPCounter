@@ -50,9 +50,9 @@ namespace PleaseWork.Helpfuls
             string captureStr = "", richVal = "";
             int ssIndex = -1;
             char num = (char)0;
-            for (int i = 0; i < format.Length; i++)//[p$ ]&[[c&x]&]<1 / [o$ ]&[[f&y]&] >&l
+            for (int i = 0; i < format.Length; i++)//[p$ ]&[[c&x]&]<1 / [o$ ]&[[f&y]&] >&l<2\n&m[t\n$]>
             {
-                if (!IsSpecialChar(format[i]) || (format[i] == ESCAPE_CHAR && IsSpecialChar(format[i + 1])))
+                if (!IsSpecialChar(format[i]) || (format[i] == ESCAPE_CHAR && (IsSpecialChar(format[i + 1]) || format[i + 1] == PARAM_OPEN)))
                 {
                     if (format[i] == ESCAPE_CHAR) i++;
                     if (capture)
