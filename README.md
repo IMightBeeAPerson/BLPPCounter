@@ -25,7 +25,7 @@ Here's a quick explaination of important characters.
 These are letters that share the same functionality through all formatted messages and counters.
 | Letter | Parameters | Description |
 | ------ | ---------- | ----------- |
-| s | <number variable> | This takes one parameter, a number variable, and will dynamically output either a 's' or nothing ('') depending on if the number is exactly 1 or not. This is used to be grammatically correct | 
+| s | \<number variable\> | This takes one parameter, a number variable, and will dynamically output either a 's' or nothing ('') depending on if the number is exactly 1 or not. This is used to be grammatically correct | 
 ### Counter Specific Syntax 
 The different counter types have different letters to mean different things, instead of making you sift through the code or figure it out, here's a list :)
 #### Default Counter (Progressive and Normal)
