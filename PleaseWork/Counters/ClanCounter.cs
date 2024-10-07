@@ -212,7 +212,7 @@ namespace PleaseWork.Counters
                         if (TheCounter.theCounter is ClanCounter cc) theMods = cc.Mods;
                         formattedTokens.MakeTokenConstant('t', TheCounter.TargetFormatter.Invoke(pc.Target, theMods));
                     }
-                    else formattedTokens.SetText('t');
+                    else { formattedTokens.SetText('t'); formattedTokens.MakeTokenConstant('t'); }
                 },
                 (tokens, tokensCopy, priority, vals) =>
                 {

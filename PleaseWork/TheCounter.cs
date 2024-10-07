@@ -38,8 +38,9 @@ namespace PleaseWork
         public static Func<Func<string>, float, float, float, float, float, string> PercentNeededFormatter;
         private static Func<Func<Dictionary<char, object>, string>> displayIniter, targetIniter, percentNeededIniter;
 
+        private static bool updateFormat;
         private TMP_Text display;        
-        private bool enabled, updateFormat;
+        private bool enabled;
         private float passRating, accRating, techRating, stars;
         private int notes, comboNotes, mistakes;
         private int fcTotalHitscore, fcMaxHitscore;
@@ -55,6 +56,9 @@ namespace PleaseWork
 
         public static void InitCounterStatic() 
         {
+            updateFormat = false;
+            PleaseWork.Settings.SettingsHandler.SettingsUpdated += () => updateFormat = true;
+
             StaticFunctions = new Dictionary<string, Type>() 
             { { "InitFormat", typeof(bool) } };
             StaticProperties = new Dictionary<string, Type>()
@@ -111,8 +115,6 @@ namespace PleaseWork
                 client.Timeout = new TimeSpan(0, 0, 3);
                 lastTarget = "None";
                 InitData();
-                updateFormat = false;
-                PleaseWork.Settings.SettingsHandler.SettingsUpdated += UpdateFormat;
             }
             bool loadedEvents = false;
             try
@@ -216,7 +218,6 @@ namespace PleaseWork
             }
             currentMult = (newMult, percentFilled);
         }
-        private void UpdateFormat() => updateFormat = true;
         #endregion
         #region API Calls
         
@@ -348,7 +349,7 @@ namespace PleaseWork
         private bool InitCounter()
         {
             if (!DisplayNameToCounter.TryGetValue(PluginConfig.Instance.PPType, out string name)) return false;
-            Type counterType = ValidCounters.First(a => a.Name == name);
+            Type counterType = ValidCounters.First(a => a.Name.Equals(name));
             theCounter = (IMyCounters)Activator.CreateInstance(counterType, display, lastMap);
             return true;
         }

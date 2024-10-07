@@ -237,7 +237,7 @@ namespace PleaseWork.Helpfuls
                 var thing = TokenParser.UnrapTokens(tokens, true, formatted);
                 settings.Invoke(thing);
                 string newFormatted = thing.Formatted;
-                Dictionary<(char, int), string> tokensCopy1 = new Dictionary<(char, int), string>(thing.RerapTokens());
+                Dictionary<(char, int), string> tokensCopy1 = thing.GetReference();
                 //Plugin.Log.Info(thing.ToString());
                 List <(char, int)> first = new List<(char, int)>();
                 List<(char, int)> second = new List<(char, int)>();
@@ -246,9 +246,9 @@ namespace PleaseWork.Helpfuls
                 {
                     if (char.IsDigit(val.Item1)) { captureChars.Add(val); first.Add(val); continue; }
                     if (val.Item2 < FORMAT_SPLIT) { first.Add(val); second.Add(val); }
-                    else second.Add(val);
+                    else second.Add((val.Item1, val.Item2 - FORMAT_SPLIT));
                 }
-                second.Sort((a, b) => (a.Item2 > FORMAT_SPLIT ? a.Item2 - FORMAT_SPLIT : a.Item2) - (b.Item2 > FORMAT_SPLIT ? b.Item2 - FORMAT_SPLIT : b.Item2));
+                second.Sort((a, b) => a.Item2 - b.Item2);
                 first.Sort((a, b) => a.Item2 - b.Item2);
                 return (vals) =>
                 {
@@ -275,10 +275,9 @@ namespace PleaseWork.Helpfuls
                     object[] firstArr = new object[first.Count];
                     int i = 0;
                     foreach ((char, int) val in first) firstArr[i++] = tokensCopy2[val];
-                    var usedSecond = second.Where(a => tokensCopy2[a].Length > 0);
-                    object[] secondArr = new object[usedSecond.Count()];
+                    object[] secondArr = new object[second.Count];
                     i = 0;
-                    foreach ((char, int) val in usedSecond) secondArr[i++] = vals[val.Item1];
+                    foreach ((char, int) val in second) secondArr[i++] = vals[val.Item1];
                     return string.Format(string.Format(newFormatted, firstArr), secondArr);
                 };
             };

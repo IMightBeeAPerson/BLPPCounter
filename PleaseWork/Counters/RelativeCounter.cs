@@ -162,12 +162,12 @@ namespace PleaseWork.Counters
                     if (!pc.ShowLbl) formattedTokens.SetText('l');
                     if (!pc.RelativeWithNormal) { formattedTokens.SetText('p'); formattedTokens.SetText('o'); }
                     if (!pc.Target.Equals("None") && pc.ShowEnemy)
-                        {
-                            string theMods = "";
-                            if (TheCounter.theCounter is RelativeCounter rc) theMods = rc.ReplayMods;
-                            formattedTokens.MakeTokenConstant('t', TheCounter.TargetFormatter.Invoke(pc.Target, theMods));
-                        }
-                    else formattedTokens.SetText('t');
+                    {
+                        string theMods = "";
+                        if (TheCounter.theCounter is RelativeCounter rc) theMods = rc.ReplayMods;
+                        formattedTokens.MakeTokenConstant('t', TheCounter.TargetFormatter.Invoke(pc.Target, theMods));
+                    }
+                    else { formattedTokens.SetText('t'); formattedTokens.MakeTokenConstant('t'); }
                 },
                 (tokens, tokensCopy, priority, vals) =>
                 {
