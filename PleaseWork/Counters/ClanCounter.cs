@@ -33,7 +33,7 @@ namespace PleaseWork.Counters
         private int precision, setupStatus;
         private string message;
         private bool showRank;
-        #region Init
+        #region Init & Overrides
         public ClanCounter(TMP_Text display, float accRating, float passRating, float techRating)
         {
             this.accRating = accRating;
@@ -209,7 +209,7 @@ namespace PleaseWork.Counters
                     if (!pc.Target.Equals("None") && pc.ShowEnemy)
                     {
                         string theMods = "";
-                        if (TheCounter.theCounter is ClanCounter rc) theMods = rc.Mods;
+                        if (TheCounter.theCounter is ClanCounter cc) theMods = cc.Mods;
                         formattedTokens.MakeTokenConstant('t', TheCounter.TargetFormatter.Invoke(pc.Target, theMods));
                     }
                     else formattedTokens.SetText('t');

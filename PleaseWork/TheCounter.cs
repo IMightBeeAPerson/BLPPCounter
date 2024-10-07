@@ -22,6 +22,7 @@ namespace PleaseWork
         [Inject] private IDifficultyBeatmap beatmap; // 1.34.2 and below
         [Inject] private GameplayModifiers mods;
         [Inject] private ScoreController sc;
+        [Inject] private BeatmapObjectManager bomb;
         private static readonly HttpClient client = new HttpClient();
         public static Dictionary<string, Map> Data { get; private set; }
         private static bool dataLoaded = false;
@@ -40,7 +41,7 @@ namespace PleaseWork
         private TMP_Text display;        
         private bool enabled, updateFormat;
         private float passRating, accRating, techRating, stars;
-        private int notes, comboNotes, mistakes, extraCalls;
+        private int notes, comboNotes, mistakes;
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
         private string mode, lastTarget;
@@ -96,11 +97,12 @@ namespace PleaseWork
             {
                 sc.scoringForNoteFinishedEvent -= OnNoteScored;
                 sc.multiplierDidChangeEvent -= MultiplierChanged;
+                bomb.noteWasCutEvent -= OnBombHit;
             }
         }
         public override void CounterInit()
         {
-            notes = fcMaxHitscore = comboNotes = fcTotalHitscore = mistakes = extraCalls = 0;
+            notes = fcMaxHitscore = comboNotes = fcTotalHitscore = mistakes = 0;
             totalHitscore = maxHitscore = 0.0;
             enabled = false;
             if (!dataLoaded)
@@ -123,6 +125,7 @@ namespace PleaseWork
                     display.text = "";
                     sc.scoringForNoteFinishedEvent += OnNoteScored;
                     sc.multiplierDidChangeEvent += MultiplierChanged;
+                    bomb.noteWasCutEvent += OnBombHit;
                     currentMult = (1, 0);
                     loadedEvents = true;
                     string hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
@@ -162,6 +165,7 @@ namespace PleaseWork
                 {
                     sc.scoringForNoteFinishedEvent -= OnNoteScored;
                     sc.multiplierDidChangeEvent -= MultiplierChanged;
+                    bomb.noteWasCutEvent -= OnBombHit;
                 }
             }
         }
@@ -170,8 +174,6 @@ namespace PleaseWork
         {
             if (scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb)
             {
-                Plugin.Log.Info($"Score type: {scoringElement.noteData.scoringType}");
-                if (currentMult.Item1 == 1 && currentMult.Item2 == 0 && scoringElement.noteData.scoringType > 0) MultiplierChanged(1, 0);
                 return;
             }
             NoteData.ScoringType st = scoringElement.noteData.scoringType;
@@ -183,7 +185,6 @@ namespace PleaseWork
             }//*/
             if (st == NoteData.ScoringType.Ignore) goto Finish; //if scoring type is Ignore, skip this function
             notes++;
-            extraCalls = 0;
             if (st != NoteData.ScoringType.NoScore) comboNotes++;
             maxHitscore += notes < 14 ? scoringElement.maxPossibleCutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0) : scoringElement.maxPossibleCutScore;
             if (scoringElement.cutScore > 0)
@@ -196,6 +197,13 @@ namespace PleaseWork
             Finish:
             theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
         }
+        private void OnBombHit(NoteController nc, in NoteCutInfo nci)
+        {
+            if(nc.noteData.gameplayType == NoteData.GameplayType.Bomb && currentMult.Item1 == 1 && currentMult.Item2 == 0)
+            {
+                MultiplierChanged(1, 0);
+            }
+        }
         private void MultiplierChanged(int newMult, float percentFilled)
         {
             if (newMult < currentMult.Item1 || (newMult == currentMult.Item1 && percentFilled < currentMult.Item2))
@@ -205,7 +213,6 @@ namespace PleaseWork
             } else if (newMult == 1 && percentFilled == 0.0f)
             {
                 mistakes++;
-                Plugin.Log.Info($"This was called when there were {notes} note(s) hit. Called {++extraCalls} time(s).");
             }
             currentMult = (newMult, percentFilled);
         }

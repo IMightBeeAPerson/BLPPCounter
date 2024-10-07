@@ -230,36 +230,35 @@ namespace PleaseWork.Helpfuls
             }
             /*Plugin.Log.Info("---------------");
                     foreach (var token in tokens)
-                        Plugin.Log.Info(HelpfulMisc.ToLiteral($"{token.Key} || {token.Value}"));
+                        Plugin.Log.Info($"{token.Key} || " + HelpfulMisc.ToLiteral(token.Value));
                     Plugin.Log.Info("Formatted || " + formatted);//*/
             return () =>
             {
-                var thing = TokenParser.UnrapTokens(tokens, false, formatted);
+                var thing = TokenParser.UnrapTokens(tokens, true, formatted);
                 settings.Invoke(thing);
                 string newFormatted = thing.Formatted;
+                Dictionary<(char, int), string> tokensCopy1 = new Dictionary<(char, int), string>(thing.RerapTokens());
                 //Plugin.Log.Info(thing.ToString());
                 List <(char, int)> first = new List<(char, int)>();
                 List<(char, int)> second = new List<(char, int)>();
                 List<(char, int)> captureChars = new List<(char, int)>();
-                foreach ((char, int) val in tokens.Keys)
+                foreach ((char, int) val in tokensCopy1.Keys)
                 {
                     if (char.IsDigit(val.Item1)) { captureChars.Add(val); first.Add(val); continue; }
                     if (val.Item2 < FORMAT_SPLIT) { first.Add(val); second.Add(val); }
-                    else second.Add((val.Item1, val.Item2 - FORMAT_SPLIT));
+                    else second.Add(val);
                 }
-                second.Sort((a, b) => a.Item2 - b.Item2);
+                second.Sort((a, b) => (a.Item2 > FORMAT_SPLIT ? a.Item2 - FORMAT_SPLIT : a.Item2) - (b.Item2 > FORMAT_SPLIT ? b.Item2 - FORMAT_SPLIT : b.Item2));
                 first.Sort((a, b) => a.Item2 - b.Item2);
                 return (vals) =>
                 {
-                    Dictionary<(char, int), string> tokensCopy = new Dictionary<(char, int), string>(tokens);
-                    varSettings.Invoke(tokens, tokensCopy, priority, vals);
+                    Dictionary<(char, int), string> tokensCopy2 = new Dictionary<(char, int), string>(tokensCopy1);
+                    varSettings.Invoke(tokensCopy1, tokensCopy2, priority, vals);
                     foreach (var val in extraArgs.Keys)
-                    {
                         vals.TryAdd(val.Item1, implementArgs.Invoke(val.Item1, extraArgs[val], vals));
-                    }
                     foreach ((char, int) val in captureChars)
                     {
-                        string newVal = "", toParse = tokensCopy[val];
+                        string newVal = "", toParse = tokensCopy2[val];
                         int priorityCount = val.Item2;
                         if (toParse.Length == 0) continue;
                         for (int j = 0; j < toParse.Length; j++)
@@ -267,18 +266,19 @@ namespace PleaseWork.Helpfuls
                             {
                                 string toTry = null;
                                 char temp = toParse[++j];
-                                while (toTry == null) tokensCopy.TryGetValue((temp, ++priorityCount + FORMAT_SPLIT), out toTry);
+                                while (toTry == null) tokensCopy2.TryGetValue((temp, ++priorityCount + FORMAT_SPLIT), out toTry);
                                 newVal += toTry;
                             }
                             else newVal += toParse[j];
-                        tokensCopy[val] = newVal;
+                        tokensCopy2[val] = newVal;
                     }
                     object[] firstArr = new object[first.Count];
                     int i = 0;
-                    foreach ((char, int) val in first) firstArr[i++] = tokensCopy[val];
-                    object[] secondArr = new object[second.Count];
+                    foreach ((char, int) val in first) firstArr[i++] = tokensCopy2[val];
+                    var usedSecond = second.Where(a => tokensCopy2[a].Length > 0);
+                    object[] secondArr = new object[usedSecond.Count()];
                     i = 0;
-                    foreach ((char, int) val in second) secondArr[i++] = vals[val.Item1];
+                    foreach ((char, int) val in usedSecond) secondArr[i++] = vals[val.Item1];
                     return string.Format(string.Format(newFormatted, firstArr), secondArr);
                 };
             };
@@ -291,7 +291,7 @@ namespace PleaseWork.Helpfuls
                 switch (paramChar)
                 {
                     case 's':
-                        return values.Length == 1 && HelpfulFormatter.IsReferenceChar(values[0]);
+                        return values.Length == 1 && IsReferenceChar(values[0]);
                     default: return false;
                 }
             };
