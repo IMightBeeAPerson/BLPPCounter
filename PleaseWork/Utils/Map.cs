@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using JetBrains.Annotations;
+using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 
 namespace PleaseWork.Utils
@@ -6,7 +7,7 @@ namespace PleaseWork.Utils
     public class Map
     {
         public string Hash { get; private set; }
-        private Dictionary<string, Dictionary<string, (string, JToken)>> data;
+        private readonly Dictionary<string, Dictionary<string, (string, JToken)>> data;
         public Map(string hash) {
             Hash = hash;
             data = new Dictionary<string, Dictionary<string, (string, JToken)>>();
@@ -27,10 +28,7 @@ namespace PleaseWork.Utils
                 this.data.Add(mode, new Dictionary<string, (string, JToken)>());
             this.data[mode].Add(difficulty, (songId, data));
         }
-        public (string, JToken) Get(string mode, string difficulty)
-        {
-            return data[mode][difficulty];
-        }
+        public (string, JToken) Get(string mode, string difficulty) => data[mode][difficulty];
         public Dictionary<string, (string, JToken)> Get(string difficulty)
         {
             Dictionary<string, (string, JToken)> outp = new Dictionary<string, (string, JToken)>();
@@ -40,6 +38,18 @@ namespace PleaseWork.Utils
                     outp[key] = data[key][difficulty];
             }
             return outp;
+        }
+        public bool TryGet(string mode, string difficulty, out (string, JToken) value)
+        {
+            if (data.TryGetValue(mode, out var hold) && hold.TryGetValue(difficulty, out value))
+                return true;
+            value = (default, default);
+            return false;
+        }
+        public bool TryGet(string difficulty, out Dictionary<string, (string, JToken)> value) 
+        {
+            value = Get(difficulty);
+            return value != null;
         }
         public void Combine(Map other)
         {

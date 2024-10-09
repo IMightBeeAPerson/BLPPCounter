@@ -119,7 +119,14 @@ namespace PleaseWork
             bool loadedEvents = false;
             try
             {
-                enabled = dataLoaded ? SetupMapData() : SetupMapData(JToken.Parse(RequestHashData()));
+                if (!dataLoaded) RequestHashData();
+                enabled = SetupMapData();
+                if (!enabled && dataLoaded)
+                {
+                    Plugin.Log.Warn("Data load from cache failed. Attempting to load from API.");
+                    RequestHashData();
+                    enabled = SetupMapData();
+                }
                 if (enabled)
                 {
                     display = CanvasUtility.CreateTextFromSettings(Settings);
@@ -399,14 +406,14 @@ namespace PleaseWork
             {
                 JToken dataToken = JObject.Parse(data);
                 JEnumerable<JToken> mapTokens = dataToken["song"]["difficulties"].Children();
-                string hash = (string)dataToken["song"]["hash"];
-                string songId = (string)dataToken["leaderboardId"];
+                string hash = ((string)dataToken["song"]["hash"]).ToUpper();
+                string songId = (string)dataToken["song"]["id"];
                 foreach (JToken mapToken in mapTokens)
                 {
                     Map map = new Map(hash, songId, mapToken);
                     if (Data.ContainsKey(hash))
-                        Data[map.Hash].Combine(map);
-                    else Data[map.Hash] = map;
+                        Data[hash].Combine(map);
+                    else Data[hash] = map;
                 }
             }
             catch (Exception e)
@@ -423,7 +430,8 @@ namespace PleaseWork
             string hash = beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
             try
             {
-                Dictionary<string, (string, JToken)> hold = Data[hash].Get(beatmap.difficulty.Name().Replace("+", "Plus"));
+                if (!Data.TryGetValue(hash, out Map theMap)) throw new KeyNotFoundException("The map is not in the loaded cache.");
+                var hold = theMap.Get(beatmap.difficulty.Name().Replace("+", "Plus"));
                 mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;// 1.34.2 and below */
                 /*Dictionary<string, (string, JToken)> hold = Data[hash].Get(beatmapDiff.difficulty.Name().Replace("+", "Plus")); 
                 mode = beatmapDiff.beatmapCharacteristic.serializedName;// 1.37.0 and above */
