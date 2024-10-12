@@ -155,6 +155,7 @@
     <Compile Include="Settings\FormatSettings\TextFormatSettings.cs" />
     <Compile Include="Settings\FormatSettings\TokenFormatSettings.cs" />
     <Compile Include="Utils\ColorMatch.cs" />
+    <Compile Include="Utils\CustomTarget.cs" />
     <Compile Include="Utils\Map.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="Settings\PluginConfig.cs" />

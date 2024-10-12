@@ -12,23 +12,24 @@ namespace PleaseWork.Settings
     public class SettingsHandler : ConfigModel
     {
         public static event Action SettingsUpdated;
+        private static PluginConfig pc => PluginConfig.Instance;
         [UIValue("SplitVals")]
         public bool SplitPPVals
         {
-            get => PluginConfig.Instance.SplitPPVals;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.SplitPPVals = value; }
+            get => pc.SplitPPVals;
+			set { SettingsUpdated?.Invoke(); pc.SplitPPVals = value; }
         }
         [UIValue("DecimalPrecision")]
         public int DecimalPrecision
         {
-            get => PluginConfig.Instance.DecimalPrecision;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.DecimalPrecision = value; }
+            get => pc.DecimalPrecision;
+            set { SettingsUpdated?.Invoke(); pc.DecimalPrecision = value; }
         }
         [UIValue("FontSize")]
         public double FontSize
         {
-            get => PluginConfig.Instance.FontSize;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.FontSize = value; }
+            get => pc.FontSize;
+            set { SettingsUpdated?.Invoke(); pc.FontSize = value; }
         }
         [UIValue("TypesOfPP")]
         public List<object> TypesOfPP => Plugin.BLInstalled ?
@@ -37,87 +38,107 @@ namespace PleaseWork.Settings
         [UIValue("PPType")]
         public string PPType
         {
-            get => PluginConfig.Instance.PPType;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.PPType = value; }
+            get => pc.PPType;
+			set { SettingsUpdated?.Invoke(); pc.PPType = value; }
         }
         [UIValue("ShowLbl")]
         public bool ShowLbl
         {
-            get => PluginConfig.Instance.ShowLbl;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.ShowLbl = value; }
+            get => pc.ShowLbl;
+			set { SettingsUpdated?.Invoke(); pc.ShowLbl = value; }
         }
         [UIValue("PPFC")]
         public bool PPFC
         {
-            get => PluginConfig.Instance.PPFC;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.PPFC = value; }
+            get => pc.PPFC;
+			set { SettingsUpdated?.Invoke(); pc.PPFC = value; }
         }
         [UIValue("ExtraInfo")]
         public bool ExtraInfo
         {
-            get => PluginConfig.Instance.ExtraInfo;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.ExtraInfo = value; }
+            get => pc.ExtraInfo;
+			set { SettingsUpdated?.Invoke(); pc.ExtraInfo = value; }
         }
         [UIValue("UseGrad")]
         public bool UseGrad
         {
-            get => PluginConfig.Instance.UseGrad;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.UseGrad = value; }
+            get => pc.UseGrad;
+			set { SettingsUpdated?.Invoke(); pc.UseGrad = value; }
         }
         [UIValue("GradVal")]
         public int GradVal
         {
-            get => PluginConfig.Instance.GradVal;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.GradVal = value; }
+            get => pc.GradVal;
+			set { SettingsUpdated?.Invoke(); pc.GradVal = value; }
         }
         [UIValue("Target")]
         public string Target
         {
-            get => PluginConfig.Instance.Target;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.Target = value; }
+            get => pc.Target;
+			set { SettingsUpdated?.Invoke(); pc.Target = value; }
         }
         [UIValue("toTarget")]
-        public List<object> ToTarget => Targeter.clanNames;
+        public List<object> ToTarget => Targeter.theTargets;
+        [UIValue("ShowClanList")]
+        public bool ShowClanList => !pc.ShowCustomTargets;
+        [UIValue("CustomTarget")]
+        public string CustomTarget
+        {
+            get => "";
+			set { 
+                SettingsUpdated?.Invoke();
+                try
+                {
+                    var converted = Utils.CustomTarget.ConvertToId(value);
+                    pc.CustomTarget = converted.ID;
+                    pc.CustomTargets.Add(converted);
+                    Targeter.AddTarget(converted.Name, $"{converted.ID}");
+                } catch (ArgumentException e)
+                {
+                    Plugin.Log.Warn(e.Message);
+                }
+            }
+        }
         [UIValue("ShowEnemy")]
         public bool ShowEnemy
         {
-            get => PluginConfig.Instance.ShowEnemy;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.ShowEnemy = value; }
+            get => pc.ShowEnemy;
+			set { SettingsUpdated?.Invoke(); pc.ShowEnemy = value; }
         }
         [UIValue("LocalReplay")]
         public bool LocalReplay
         {
-            get => PluginConfig.Instance.LocalReplay;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.LocalReplay = value; }
+            get => pc.LocalReplay;
+			set { SettingsUpdated?.Invoke(); pc.LocalReplay = value; }
         }
         [UIValue("ShowClanMessage")]
         public bool ShowClanMessage
         {
-            get => PluginConfig.Instance.ShowClanMessage;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.ShowClanMessage = value; }
+            get => pc.ShowClanMessage;
+			set { SettingsUpdated?.Invoke(); pc.ShowClanMessage = value; }
         }
         [UIValue("MapCache")]
         public int MapCache
         {
-            get => PluginConfig.Instance.MapCache;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.MapCache = value; }
+            get => pc.MapCache;
+			set { SettingsUpdated?.Invoke(); pc.MapCache = value; }
         }
         [UIAction("ClearCache")]
         public void ClearCache() { ClanCounter.ClearCache(); TheCounter.ClearCounter(); }
-        [UIValue("PlNames")]
+        /*[UIValue("PlNames")]
         public List<object> PlNames => new List<object>(PlaylistLoader.Instance.Names);
         [UIValue("ChosenPlaylist")]
         public string ChosenPlaylist
         {
-            get => PluginConfig.Instance.ChosenPlaylist;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.ChosenPlaylist = value; }
+            get => pc.ChosenPlaylist;
+			set { SettingsUpdated?.Invoke(); pc.ChosenPlaylist = value; }
         }
         [UIAction("LoadPlaylist")]
         public void LoadPlaylist() {
             Plugin.Log.Info("Button works");
             ClanCounter cc = new ClanCounter(null, 0f, 0f, 0f);
-            /*foreach (string s in PlaylistLoader.Instance.Playlists.Keys) Plugin.Log.Info(s);
-            Plugin.Log.Info(ChosenPlaylist);*/
+            foreach (string s in PlaylistLoader.Instance.Playlists.Keys) Plugin.Log.Info(s);
+            Plugin.Log.Info(ChosenPlaylist);
             MapSelection[] maps = PlaylistLoader.Instance.Playlists[ChosenPlaylist];
             foreach (MapSelection map in maps)
             {
@@ -134,24 +155,24 @@ namespace PleaseWork.Settings
                 }
             }
             Plugin.Log.Info("Loading completed!");
-        }
+        }//*/
         [UIValue("ClanPercentCeil")]
         public double ClanPercentCeil
         {
-            get => PluginConfig.Instance.ClanPercentCeil;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.ClanPercentCeil = value; }
+            get => pc.ClanPercentCeil;
+			set { SettingsUpdated?.Invoke(); pc.ClanPercentCeil = value; }
         }
         [UIValue("CeilEnabled")]
         public bool CeilEnabled
         {
-            get => PluginConfig.Instance.CeilEnabled;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.CeilEnabled = value; }
+            get => pc.CeilEnabled;
+			set { SettingsUpdated?.Invoke(); pc.CeilEnabled = value; }
         }
         [UIValue("ShowRank")]
         public bool ShowRank
         {
-            get => PluginConfig.Instance.ShowRank;
-            set { SettingsUpdated?.Invoke(); PluginConfig.Instance.ShowRank = value; }
+            get => pc.ShowRank;
+			set { SettingsUpdated?.Invoke(); pc.ShowRank = value; }
         }
     }
 }

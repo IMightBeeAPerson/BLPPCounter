@@ -242,9 +242,25 @@ namespace PleaseWork
             }
             catch (HttpRequestException e)
             {
-                Plugin.Log.Warn($"Beat Leader API request failed!\nPath: {path}\nError: {e.Message}");
+                Plugin.Log.Warn($"Beat Leader API request for map info failed!\nPath: {path}\nError: {e.Message}");
                 Plugin.Log.Debug(e);
                 return "";
+            }
+        }
+        public static bool CallAPI(string path, out string output)
+        {
+            path = HelpfulPaths.BLAPI + path;
+            try
+            {
+                output = client.GetStringAsync(new Uri(path)).Result;
+                return true;
+            }
+            catch (HttpRequestException e)
+            {
+                Plugin.Log.Error($"Beat Leader API request failed\nPath: {path}\nError: {e.Message}");
+                Plugin.Log.Debug(e);
+                output = "";
+                return false;
             }
         }
 
@@ -431,9 +447,9 @@ namespace PleaseWork
             try
             {
                 if (!Data.TryGetValue(hash, out Map theMap)) throw new KeyNotFoundException("The map is not in the loaded cache.");
-                var hold = theMap.Get(beatmap.difficulty.Name().Replace("+", "Plus"));
+                Dictionary<string, (string, JToken)> hold = theMap.Get(beatmap.difficulty.Name().Replace("+", "Plus"));
                 mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;// 1.34.2 and below */
-                /*Dictionary<string, (string, JToken)> hold = Data[hash].Get(beatmapDiff.difficulty.Name().Replace("+", "Plus")); 
+                /*Dictionary<string, (string, JToken)> hold = theMap.Get(beatmapDiff.difficulty.Name().Replace("+", "Plus")); 
                 mode = beatmapDiff.beatmapCharacteristic.serializedName;// 1.37.0 and above */
                 if (mode == default) mode = "Standard";
                 data = hold[mode].Item2;

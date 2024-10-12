@@ -14,6 +14,7 @@ namespace PleaseWork.Helpfuls
         public static readonly string BL_REPLAY_FOLDER = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "Replays");
         #endregion
         #region API Paths
+        public static readonly string BLAPI = "https://api.beatleader.xyz/";
         public static readonly string BLAPI_HASH = "https://api.beatleader.xyz/leaderboards/hash/";
         public static readonly string BLAPI_USERID = "https://api.beatleader.xyz/user/id";
         public static readonly string BLAPI_CLAN = "https://api.beatleader.xyz/leaderboard/clanRankings/";
