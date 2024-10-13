@@ -72,9 +72,22 @@ namespace PleaseWork.Counters
                     JToken playerData = JObject.Parse(check);
                     best = new float[9];
                     SetupReplayData(playerData);
-                    accToBeat = (float)Math.Round(CalculatorStuffs.BLCalc.GetAcc(accRating, passRating, techRating, (float)playerData["pp"]) * 100.0f, pc.DecimalPrecision);
-                    /*playerData = new Regex(@"(?<=contextExtensions..\[)[^\[\]]+").Match(playerData).Value;
-                    playerData = new Regex(@"{.+?(?=..scoreImprovement)").Matches(playerData)[0].Value;*/
+                    if ((float)playerData["pp"] is float thePP && thePP > 0)
+                        accToBeat = (float)Math.Round(BLCalc.GetAcc(accRating, passRating, techRating, thePP) * 100.0f, pc.DecimalPrecision);
+                    else
+                    {
+                        string[] hold = ((string)playerData["modifiers"]).Split(',');
+                        //Ignore how janky this line is below, i'll fix later if I feel like it.
+                        string modName = hold.Length == 0 ? "" : hold.Any(a => a.Equals("SF") || a.Equals("FS") || a.Equals("SS")) ? hold.First(a => a.Equals("SF") || a.Equals("FS") || a.Equals("SS")) : "";
+                        float acc = (float)playerData["accuracy"];
+                        playerData = playerData["difficulty"];
+                        modName = modName.ToLower();
+                        float passStar = HelpfulPaths.GetRating(playerData, PPType.Pass, modName);
+                        float techStar = HelpfulPaths.GetRating(playerData, PPType.Tech, modName);
+                        float accStar = HelpfulPaths.GetRating(playerData, PPType.Acc, modName);
+                        var moreHold = BLCalc.GetPp(acc, accStar, passStar, techStar);
+                        accToBeat = (float)Math.Round(BLCalc.GetAcc(accRating, passRating, techRating, BLCalc.Inflate(moreHold.Item1 + moreHold.Item2 + moreHold.Item3)) * 100.0f, pc.DecimalPrecision);
+                    }
                 }
             }
             catch (Exception e)
@@ -161,7 +174,7 @@ namespace PleaseWork.Counters
                 {
                     if (!pc.ShowLbl) formattedTokens.SetText('l');
                     if (!pc.RelativeWithNormal) { formattedTokens.SetText('p'); formattedTokens.SetText('o'); }
-                    if (!pc.Target.Equals("None") && pc.ShowEnemy)
+                    if (!pc.Target.Equals(Targeter.NO_TARGET) && pc.ShowEnemy)
                     {
                         string theMods = "";
                         if (TheCounter.theCounter is RelativeCounter rc) theMods = rc.ReplayMods;

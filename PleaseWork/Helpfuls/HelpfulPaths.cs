@@ -27,6 +27,12 @@ namespace PleaseWork.Helpfuls
             string path = HelpfulMisc.AddModifier(HelpfulMisc.PPTypeToRating(type), mod);
             return (float)data[path];
         }
+        public static float GetRating(JToken data, PPType type, string modName)
+        {
+            if (!modName.Equals("")) data = data["modifiersRating"];
+            string path = HelpfulMisc.AddModifier(HelpfulMisc.PPTypeToRating(type), modName);
+            return (float)data[path];
+        }
         #endregion
     }
 }

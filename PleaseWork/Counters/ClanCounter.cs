@@ -206,7 +206,7 @@ namespace PleaseWork.Counters
                 {
                     if (!pc.ShowLbl) formattedTokens.SetText('l');
                     if (!pc.ClanWithNormal) { formattedTokens.SetText('p'); formattedTokens.SetText('o'); }
-                    if (!pc.Target.Equals("None") && pc.ShowEnemy)
+                    if (!pc.Target.Equals(Targeter.NO_TARGET) && pc.ShowEnemy)
                     {
                         string theMods = "";
                         if (TheCounter.theCounter is ClanCounter cc) theMods = cc.Mods;
@@ -245,7 +245,7 @@ namespace PleaseWork.Counters
             customIniter = HelpfulFormatter.GetBasicTokenParser(format,
                 formattedTokens =>
                 {
-                    if (!pc.Target.Equals("None") && pc.ShowEnemy)
+                    if (!pc.Target.Equals(Targeter.NO_TARGET) && pc.ShowEnemy)
                         formattedTokens.SetText('t', pc.Target); 
                         else formattedTokens.SetText('t');
                 },

@@ -10,12 +10,13 @@ namespace PleaseWork.Utils
 {
     public static class Targeter
     {
+        public static readonly string NO_TARGET = "None";
         private static readonly HttpClient client = new HttpClient();
         private static PluginConfig pc => PluginConfig.Instance;
         public static List<object> theTargets;
         public static Dictionary<string, string> nameToId;
         public static string playerID;
-        public static string TargetID => pc.Target.Equals("None") ? playerID : nameToId[pc.Target];
+        public static string TargetID => pc.Target.Equals(NO_TARGET) ? playerID : nameToId[pc.Target];
 
         public static async void GenerateClanNames()
         {
@@ -42,7 +43,7 @@ namespace PleaseWork.Utils
                 {
                     Plugin.Log.Warn(e.Message);
                 }
-            List<object> otherTargets = new List<object>() { "None" };
+            List<object> otherTargets = new List<object>() { NO_TARGET };
             foreach (CustomTarget ct in cts)
             {
                 otherTargets.Add(ct.Name);
@@ -55,7 +56,7 @@ namespace PleaseWork.Utils
             if (nameToId.ContainsKey(name)) return;
             nameToId[name] = id;
             theTargets[0] = name;
-            theTargets.Prepend("None");
+            theTargets.Prepend(NO_TARGET);
         }
         public static string RequestClan(string playerID)
         {

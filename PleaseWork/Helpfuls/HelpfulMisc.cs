@@ -34,6 +34,8 @@ namespace PleaseWork.Helpfuls
         }
         public static string AddModifier(string name, Modifier modifier) => 
             modifier == Modifier.None ? name : GetModifierShortname(modifier) + name.Substring(0, 1).ToUpper() + name.Substring(1);
+        public static string AddModifier(string name, string modifierName) =>
+            modifierName.Equals("") ? name : modifierName + name.Substring(0, 1).ToUpper() + name.Substring(1);
         public static string ToLiteral(string input)
         {
             using (var writer = new StringWriter())
