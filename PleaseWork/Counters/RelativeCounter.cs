@@ -246,7 +246,7 @@ namespace PleaseWork.Counters
             for (int i = 0; i < ppVals.Length; i++)
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
             string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
-            string target = pc.ShowEnemy ? pc.Target : "None";
+            string target = pc.ShowEnemy ? pc.Target : Targeter.NO_TARGET;
             string color(float num) => pc.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
             if (pc.SplitPPVals)
             {

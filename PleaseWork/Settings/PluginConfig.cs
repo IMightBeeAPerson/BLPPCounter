@@ -27,7 +27,7 @@ namespace PleaseWork.Settings
         public virtual int GradVal { get; set; } = 100;
         public virtual bool ShowLbl { get; set; } = true;
         public virtual bool PPFC { get; set; } = false;
-        public virtual string Target { get; set; } = "None";
+        public virtual string Target { get; set; } = Targeter.NO_TARGET;
         public virtual long CustomTarget { get; set; } = default;
         public virtual bool ShowCustomTargets { get; set; } = false;
         public virtual bool ShowEnemy { get; set; } = true;

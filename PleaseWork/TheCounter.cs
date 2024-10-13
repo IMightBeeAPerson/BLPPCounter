@@ -113,7 +113,7 @@ namespace PleaseWork
             {
                 Data = new Dictionary<string, Map>();
                 client.Timeout = new TimeSpan(0, 0, 3);
-                lastTarget = "None";
+                lastTarget = Targeter.NO_TARGET;
                 InitData();
             }
             bool loadedEvents = false;
