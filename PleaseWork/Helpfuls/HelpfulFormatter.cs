@@ -250,8 +250,14 @@ namespace PleaseWork.Helpfuls
                 }
                 second.Sort((a, b) => a.Item2 - b.Item2);
                 first.Sort((a, b) => a.Item2 - b.Item2);
+                /*Plugin.Log.Info(string.Join(",", first));
+                Plugin.Log.Info(string.Join(",", second));//*/
                 return (vals) =>
                 {
+                    /*Plugin.Log.Info("---------------");
+                    foreach (var token in tokensCopy1)
+                        Plugin.Log.Info($"{token.Key} || " + HelpfulMisc.ToLiteral(token.Value));
+                    Plugin.Log.Info("Formatted || " + formatted);//*/
                     Dictionary<(char, int), string> tokensCopy2 = new Dictionary<(char, int), string>(tokensCopy1);
                     varSettings.Invoke(tokensCopy1, tokensCopy2, priority, vals);
                     foreach (var val in extraArgs.Keys)
@@ -419,7 +425,7 @@ namespace PleaseWork.Helpfuls
             public bool MakeTokenConstant(char token, string value = "")
             {
                 if (Formatted == default) return false;
-                foreach (var key in topLevelTokens.Keys)
+                foreach (char key in topLevelTokens.Keys)
                 {
                     int toRemove = -1;
                     foreach (int priority in topLevelTokens[key])
@@ -431,14 +437,41 @@ namespace PleaseWork.Helpfuls
                         if (char.IsDigit(key))
                         {
                             string newValue = Regex.Replace(tokenValues[(token, tokenPriority)], "\\{\\d+\\}", value);
-                            tokenValues[(key, priority)] = tokenValues[(key, priority)].Replace($"{ESCAPE_CHAR}{token}", newValue);
-                        } else
+                            if (tokenValues[(key, priority)].Contains($"{ESCAPE_CHAR}{token}"))
+                                tokenValues[(key, priority)] = tokenValues[(key, priority)].Replace($"{ESCAPE_CHAR}{token}", newValue);
+                            else
+                            {
+                                string repStr = tokenValues[(token, tokenPriority)];
+                                index = relations.FindIndex(a => tokenValues[a].Equals(repStr));
+                                if (index == -1) throw new ArgumentException("The token given has been parsed incorrectly somehow. There is a bug in the code somewhere.");
+                                tokenValues[relations[index]] = Regex.Replace(tokenValues[relations[index]], "\\{\\d+\\}", value);
+                            }
+                        }
+                        else
                             tokenValues[(key, priority)] = Regex.Replace(tokenValues[(key, priority)], "\\{\\d+\\}", value);
                         tokenValues.Remove((token, tokenPriority));
                         toRemove = tokenPriority;
                         break;
                     }
-                    if (toRemove != -1) topLevelTokens[key].Remove(toRemove);
+                    if (toRemove != -1)
+                    {
+                        topLevelTokens[key].Remove(toRemove);
+                        int toCompare = toRemove > FORMAT_SPLIT ? toRemove - FORMAT_SPLIT : toRemove;
+                        List<(char, int, int)> toSubtract = new List<(char, int, int)>();
+                        foreach (var v in tokenValues)
+                        {
+                            var matches = Regex.Matches(v.Value, "\\{\\d+\\}");
+                            if (matches.Count == 0) continue;
+                            var num = v.Key.Item2 > FORMAT_SPLIT ? v.Key.Item2 - FORMAT_SPLIT : v.Key.Item2;
+                            if (num > toCompare)
+                                toSubtract.Add((v.Key.Item1, v.Key.Item2, int.Parse(matches[0].Value.Substring(1, matches[0].Length - 2))));
+                        }
+                        foreach (var v in toSubtract)
+                        {
+                            var val = (v.Item1, v.Item2);
+                            tokenValues[val] = Regex.Replace(tokenValues[val], "\\{\\d+\\}", $"{{{v.Item3 - 1}}}");
+                        }
+                    }
                 }
                 bottomLevelTokens.Remove(token);
                 return true;

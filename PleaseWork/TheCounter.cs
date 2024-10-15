@@ -374,6 +374,7 @@ namespace PleaseWork
             if (!DisplayNameToCounter.TryGetValue(PluginConfig.Instance.PPType, out string name)) return false;
             Type counterType = ValidCounters.First(a => a.Name.Equals(name));
             theCounter = (IMyCounters)Activator.CreateInstance(counterType, display, lastMap);
+            theCounter.UpdateFormat();
             return true;
         }
         private void APIAvoidanceMode()

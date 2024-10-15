@@ -174,10 +174,11 @@ namespace PleaseWork.Counters
                 {
                     if (!pc.ShowLbl) formattedTokens.SetText('l');
                     if (!pc.RelativeWithNormal) { formattedTokens.SetText('p'); formattedTokens.SetText('o'); }
+                    if (TheCounter.theCounter is RelativeCounter rc1) formattedTokens.MakeTokenConstant('a', rc1.accToBeat + "");
                     if (!pc.Target.Equals(Targeter.NO_TARGET) && pc.ShowEnemy)
                     {
                         string theMods = "";
-                        if (TheCounter.theCounter is RelativeCounter rc) theMods = rc.ReplayMods;
+                        if (TheCounter.theCounter is RelativeCounter rc2) theMods = rc2.ReplayMods;
                         formattedTokens.MakeTokenConstant('t', TheCounter.TargetFormatter.Invoke(pc.Target, theMods));
                     }
                     else { formattedTokens.SetText('t'); formattedTokens.MakeTokenConstant('t'); }
@@ -193,11 +194,11 @@ namespace PleaseWork.Counters
         public static void InitDefaultFormat()
         {
             var simple = displayIniter.Invoke();
-            displayFormatter = (fc, totPp, accToBeat, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label) =>
+            displayFormatter = (fc, totPp, accDiff, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label) =>
             {
                 Dictionary<char, object> vals = new Dictionary<char, object>()
                 {
-                    { (char)1, fc }, {(char)2, totPp }, {'a', accToBeat }, { 'c', color }, {'x',  modPp }, {'p', regPp },
+                    { (char)1, fc }, {(char)2, totPp }, {'d', accDiff }, { 'c', color }, {'x',  modPp }, {'p', regPp },
                     {'l', label }, { 'f', fcCol }, { 'y', fcModPp }, { 'o', fcRegPp }
                 };
                 return simple.Invoke(vals);
@@ -248,16 +249,18 @@ namespace PleaseWork.Counters
             string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
             string target = pc.ShowEnemy ? pc.Target : Targeter.NO_TARGET;
             string color(float num) => pc.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
+            float accDiff = (float)Math.Round((acc - best[7] / HelpfulMath.MaxScoreForNotes(notes)) * 100.0f, pc.DecimalPrecision);
+            if (float.IsNaN(accDiff)) accDiff = 0f;
             if (pc.SplitPPVals)
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
-                    text += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, accToBeat, color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
+                    text += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, accDiff, color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
                         color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], labels[i]) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, accToBeat, color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
+                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, accDiff, color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
                     color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3]) + "\n";
         }
         #endregion
