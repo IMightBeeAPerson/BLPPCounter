@@ -205,7 +205,7 @@ namespace PleaseWork.Helpfuls
             Action<TokenParser> settings,
             Action<Dictionary<(char, int), string>, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<char, object>> varSettings,
             Func<char, string[], bool> confirmFormat,
-            Func<char, string[], Dictionary<char, object>, string> implementArgs)
+            Func<char, string[], Dictionary<char, object>, Dictionary<(char, int), string>, string> implementArgs)
         {
             Dictionary<(char, int), string> tokens;
             Dictionary<(char, int), string[]> extraArgs;
@@ -261,7 +261,7 @@ namespace PleaseWork.Helpfuls
                     Dictionary<(char, int), string> tokensCopy2 = new Dictionary<(char, int), string>(tokensCopy1);
                     varSettings.Invoke(tokensCopy1, tokensCopy2, priority, vals);
                     foreach (var val in extraArgs.Keys)
-                        vals.TryAdd(val.Item1, implementArgs.Invoke(val.Item1, extraArgs[val], vals));
+                        vals.TryAdd(val.Item1, implementArgs.Invoke(val.Item1, extraArgs[val], vals, tokensCopy2));
                     foreach ((char, int) val in captureChars)
                     {
                         string newVal = "", toParse = tokensCopy2[val];
@@ -296,26 +296,38 @@ namespace PleaseWork.Helpfuls
                 switch (paramChar)
                 {
                     case 's':
-                        return values.Length == 1 && IsReferenceChar(values[0]);
+                    case 'h':
+                        return (values.Length == 1 && IsReferenceChar(values[0])) || (values.Length == 2 && IsReferenceChar(values[0]) && decimal.TryParse(values[1], out _));
                     default: return false;
                 }
             };
         }
-        private static Func<char, string[], Dictionary<char, object>, string> GetParentImplementArgs(Func<char, string[], Dictionary<char, object>, string> child) =>
-            (paramChar, values, vals) =>
+        private static Func<char, string[], Dictionary<char, object>, Dictionary<(char, int), string>, string> GetParentImplementArgs
+            (Func<char, string[], Dictionary<char, object>, Dictionary<(char, int), string>, string> child)
+        {
+            return (paramChar, values, vals, tokens) =>
             {
                 if (child != null) {
-                    string outp = child.Invoke(paramChar, values, vals);
+                    string outp = child.Invoke(paramChar, values, vals, tokens);
                     if (outp.Length != 0) return outp;
                 }
                 switch (paramChar)
                 {
                     case 's':
-                        bool isOne = decimal.Parse(vals[values[0][0]] + "") == 1;
-                        return isOne ? "" : "s";
+                        return decimal.Parse(vals[values[0][0]] + "") == 1 ? "" : "s";
+                    case 'h':
+                        decimal toCompare = values.Length == 2 ? decimal.Parse(values[1]) : 0;
+                        if (decimal.Parse(vals[values[0][0]] + "") <= toCompare)
+                        {
+                            List<(char, int)> arr = tokens.Keys.Where(a => a.Item1 == values[0][0]).ToList();
+                            foreach ((char, int) item in arr)
+                                tokens[item] = "";
+                        }
+                        return "";
                     default: return "";
                 }
             };
+        }
         public static void SetText(Dictionary<(char, int), string> tokens, char c, string text = "") 
         { 
             List<(char, int)> toModify = new List<(char, int)>();
