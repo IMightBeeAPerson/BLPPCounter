@@ -43,7 +43,7 @@ This includes any counter that is too simple to have their own display method, a
 | 2 | This capture is linked to the 'enable messages' option and should be used for messages and other info |
 
 #### Clan and Relative Counter
-These both have the same syntax, and therefore will share the same table.
+These both have mostly the same syntax, and therefore will share the same table. Exceptions will be below.
 | Letter | Description |
 | ------ | ----------- |
 | p | The unmodified PP number |
@@ -55,9 +55,13 @@ These both have the same syntax, and therefore will share the same table.
 | l | The label (ex: PP, Tech PP, etc) |
 | e | The amount of mistakes made in the map. This includes bomb and wall hits |
 | t | This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target |
-| m | This will show a message if the counter is used on a map that isn't perfectly ideal for clan counter or that clan counter can't be used on. It will say the reason for why this isn't ideal |
 
-**Note:** Only clan counter has messages (m), they do not exist on relative counter and it will throw an error if you try to use it on relative counter.
+Below is a table with the letters that only apply to one counter or the other.
+
+| Letter | Counter | Description |
+| ------ | ------- | ----------- |
+| m | Clan Counter | This will show a message if the counter is used on a map that isn't perfectly ideal for clan counter or that clan counter can't be used on. It will say the reason for why this isn't ideal |
+| d | Relative Counter | This will show the difference in percentage at the current moment between you and the replay you're comparing against |
 
 | Number | Description |
 | ------ | ----------- |
