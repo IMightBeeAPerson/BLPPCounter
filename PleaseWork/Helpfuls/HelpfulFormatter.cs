@@ -296,6 +296,7 @@ namespace PleaseWork.Helpfuls
                 switch (paramChar)
                 {
                     case 's':
+                        return values.Length == 1 && IsReferenceChar(values[0]);
                     case 'h':
                         return (values.Length == 1 && IsReferenceChar(values[0])) || (values.Length == 2 && IsReferenceChar(values[0]) && decimal.TryParse(values[1], out _));
                     default: return false;
