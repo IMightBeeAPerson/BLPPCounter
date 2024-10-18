@@ -18,6 +18,19 @@ namespace PleaseWork.Counters
     public class RelativeCounter: IMyCounters
     {
         private static readonly HttpClient client = new HttpClient();
+        public static Dictionary<string, char> AliasesToToken = new Dictionary<string, char>()
+        {
+            { "AccDifference", 'd' },
+            { "Color", 'c' },
+            { "PPdifference", 'x' },
+            { "ActualPP", 'p' },
+            { "Label", 'l' },
+            { "FCcolor", 'f' },
+            { "FCPPdifference", 'y' },
+            { "ActualFCPP", 'o' },
+            { "Accuracy", 'a' },
+            { "Target", 't' }
+        };
         public static string[] DisplayNames => new string[] { "Relative", "Relative w/ normal" };
         public static int OrderNumber => 2;
         public string Name => "Relative";
@@ -170,6 +183,7 @@ namespace PleaseWork.Counters
         public static void FormatTheFormat(string format)
         {
             displayIniter = HelpfulFormatter.GetBasicTokenParser(format,
+                AliasesToToken,
                 formattedTokens =>
                 {
                     if (!pc.ShowLbl) formattedTokens.SetText('l');

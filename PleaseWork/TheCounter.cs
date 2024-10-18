@@ -25,7 +25,7 @@ namespace PleaseWork
         [Inject] private BeatmapObjectManager bomb;
         private static readonly HttpClient client = new HttpClient();
         public static Dictionary<string, Map> Data { get; private set; }
-        private static bool dataLoaded = false;
+        private static bool dataLoaded = false, fullDisable = false;
         private static MapSelection lastMap;
         public static IMyCounters theCounter { get; private set; }
         public static Dictionary<string, Type> StaticFunctions { get; private set; }
@@ -62,7 +62,7 @@ namespace PleaseWork
             StaticFunctions = new Dictionary<string, Type>() 
             { { "InitFormat", typeof(bool) } };
             StaticProperties = new Dictionary<string, Type>()
-            { {"DisplayNames", typeof(string[]) }, {"OrderNumber", typeof(int) } };
+            { {"DisplayNames", typeof(string[]) }, {"OrderNumber", typeof(int) }, {"AliasesToToken", typeof(Dictionary<string, char>) } };
 
             if (FormatTheFormat(PluginConfig.Instance.FormatSettings.DefaultTextFormat)) InitFormat();
             if (FormatTarget(PluginConfig.Instance.MessageSettings.TargetingMessage)) InitTarget();
@@ -85,16 +85,30 @@ namespace PleaseWork
                             DisplayNameToCounter.Add(otherVal, val.Key);
                 Dictionary<int, string> propertyOrder = GetPropertyFromTypes("OrderNumber", ValidCounters).ToDictionary(x => (int)x.Value, x => x.Key);
                 List<string> displayNames = new List<string>();
-                for (int i = 0; i < propertyOrder.Count; i++)
+                Plugin.Log.Info("Checkpoint 1");
+                var sortedOrderNumbers = propertyOrder.Keys.OrderBy(x => x);
+                foreach (int i in sortedOrderNumbers)
                     foreach (string name in propertyOutp[propertyOrder[i]] as string[])
                         displayNames.Add(name);
+                Plugin.Log.Info("Checkpoint 2");
                 ValidDisplayNames = displayNames.ToArray();
             } catch (Exception e)
             {
                 Plugin.Log.Error("Oh no! The static check for counters broke somehow :(");
                 Plugin.Log.Error(e.ToString());
+                return;
             }
-            
+            if (ValidDisplayNames.Length > 0)
+            {
+                if (!ValidDisplayNames.Contains(PluginConfig.Instance.PPType))
+                    PluginConfig.Instance.PPType = ValidDisplayNames[0];
+            } else
+            {
+                Plugin.Log.Critical("No counter is in working order!!! Shutting down this counter as it will only cause issues.");
+                fullDisable = true;
+                ValidDisplayNames = new string[] { "There are none" };
+            }
+
         }
         public override void CounterDestroy() {
             if (enabled)
@@ -106,9 +120,10 @@ namespace PleaseWork
         }
         public override void CounterInit()
         {
+            enabled = false;
+            if (fullDisable) return;
             notes = fcMaxHitscore = comboNotes = fcTotalHitscore = mistakes = 0;
             totalHitscore = maxHitscore = 0.0;
-            enabled = false;
             if (!dataLoaded)
             {
                 Data = new Dictionary<string, Map>();
@@ -275,7 +290,7 @@ namespace PleaseWork
             InitData();
         }
         private static bool FormatTheFormat(string format) {
-            displayIniter = HelpfulFormatter.GetBasicTokenParser(format, a => { }, 
+            displayIniter = HelpfulFormatter.GetBasicTokenParser(format, null, a => { },
                 (tokens, tokensCopy, priority, vals) => 
                 { 
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1'); 
@@ -285,12 +300,12 @@ namespace PleaseWork
         }
         private static bool FormatTarget(string format)
         {
-            targetIniter = HelpfulFormatter.GetBasicTokenParser(format, a => { }, (a, b, c, d) => { });
+            targetIniter = HelpfulFormatter.GetBasicTokenParser(format, null, a => { }, (a, b, c, d) => { });
             return targetIniter != null;
         }
         private static bool FormatPercentNeeded(string format)
         {
-            percentNeededIniter = HelpfulFormatter.GetBasicTokenParser(format, a => { },
+            percentNeededIniter = HelpfulFormatter.GetBasicTokenParser(format, null, a => { },
                 (tokens, tokensCopy, priority, vals) =>
                 {
                     if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<string>)vals['c']).Invoke()}", "</color>");
@@ -344,6 +359,20 @@ namespace PleaseWork
                         else break;
                 if (Vars.Count == 0)
                     counters.Add(t);
+                else
+                {
+                    var fields = t.GetFields(BindingFlags.Public | BindingFlags.Static);
+                    foreach (FieldInfo f in fields)
+                        if (Vars.ContainsKey(f.Name))
+                            if (f.FieldType == Vars[f.Name])
+                            {
+                                Vars.Remove(f.Name);
+                                if (Vars.Count == 0) break;
+                            }
+                            else break;
+                    if (Vars.Count == 0)
+                        counters.Add(t);
+                }
             }
             return counters.ToArray();
         }

@@ -1,4 +1,5 @@
-﻿using IPA.Config.Stores.Attributes;
+﻿using IPA.Config.Stores;
+using IPA.Config.Stores.Attributes;
 using IPA.Config.Stores.Converters;
 using System.Collections.Generic;
 
@@ -16,11 +17,14 @@ namespace PleaseWork.Settings.FormatSettings
         public virtual char CaptureBracketClose { get; set; } = '>';
         public virtual char EscapeCharParamBracketOpen { get; set; } = '(';
         public virtual char EscapeCharParamBracketClose { get; set; } = ')';
+        public virtual char NicknameIndicator { get; set; } = '\'';
+
         [UseConverter(typeof(DictionaryConverter<string>))]
         public virtual Dictionary<string, string> RichShorthands { get; set; } = new Dictionary<string, string>()
         {
             {"c", "color" }
         };
-        
+        [UseConverter(typeof(DictionaryConverter<string>))]
+        public virtual Dictionary<string, string> TokenAliases { get; set; } = new Dictionary<string, string>();
     }
 }

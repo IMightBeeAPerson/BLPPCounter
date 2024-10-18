@@ -15,12 +15,13 @@ namespace PleaseWork.Counters
         string Name { get; }
 
         /*Static functions that must be created:
-         * public static bool InitFormat()
+         * public static bool InitFormat() { }
          */
 
         /*Static Fields that must be created:
          * public static string[] DisplayNames;
-         * public static int OrderNumber
+         * public static int OrderNumber;
+         * public static Dictionary<string, char> AliasesToToken;
          */
     }
 }

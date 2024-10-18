@@ -27,9 +27,11 @@ namespace PleaseWork.Helpfuls
         public static char CAPTURE_CLOSE => PC.TokenSettings.CaptureBracketClose;
         public static char PARAM_OPEN => PC.TokenSettings.EscapeCharParamBracketOpen;
         public static char PARAM_CLOSE => PC.TokenSettings.EscapeCharParamBracketClose;
+        public static char ALIAS => PC.TokenSettings.NicknameIndicator;
         public static readonly HashSet<char> SPECIAL_CHARS;
         public static Dictionary<string, string> RICH_SHORTHANDS => PC.TokenSettings.RichShorthands;
         public static readonly string NUMBER_TOSTRING_FORMAT;
+        private static readonly string RegexAliasPattern = $"({Regex.Escape(ESCAPE_CHAR+"")}|{Regex.Escape(GROUP_OPEN+"")})\\\\?{Regex.Escape("" + ALIAS)}\\S+";
 
         static HelpfulFormatter()
         {
@@ -39,7 +41,7 @@ namespace PleaseWork.Helpfuls
             SPECIAL_CHARS = new HashSet<char>() { ESCAPE_CHAR, RICH_SHORT, DELIMITER, GROUP_OPEN, GROUP_CLOSE, INSERT_SELF, CAPTURE_OPEN, CAPTURE_CLOSE };
         }
 
-        public static (string, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<(char, int), string[]>) ParseCounterFormat(string format)
+        public static (string, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<(char, int), string[]>) ParseCounterFormat(string format, Dictionary<string, char> aliasConverter)
         {
             Dictionary<(char, int), string> tokens = new Dictionary<(char, int), string>();
             Dictionary<(char, int), string[]> extraArgs = new Dictionary<(char, int), string[]>();
@@ -50,6 +52,18 @@ namespace PleaseWork.Helpfuls
             string captureStr = "", richVal = "";
             int ssIndex = -1;
             char num = (char)0;
+            if (Regex.Matches(format, RegexAliasPattern) is MatchCollection mc && mc.Count > 0)
+                if (aliasConverter == null)
+                    throw new ArgumentNullException("No alias converter given while format contains aliases! Please remove aliases from the format as there is no way to parse them.\nFormat: " + format);
+                else
+                    foreach (Match m in mc)
+                        if (aliasConverter.TryGetValue(m.Value.Substring(2), out char token))
+                            format = format.Substring(0, m.Index + 1) + $"{token}" + format.Substring(m.Index + m.Value.Length);
+                        else throw new FormatException($"Incorrect Aliasing used. The Alias name '{m.Value.Substring(2)}' does not exist for this counter." +
+                            $"\nCorrect Format: {ESCAPE_CHAR}{ALIAS}<Alias Name> OR {GROUP_OPEN}{ALIAS}<Alias Name>" +
+                            $"\nPossible alias names are listed below:\n{string.Join("\n", aliasConverter.Keys)}");
+            if (aliasConverter == null)
+                Plugin.Log.Warn("No alias converter given! Thankfully, there are no aliases present so there will not be an error.");
             for (int i = 0; i < format.Length; i++)//[p$ ]&[[c&x]&]<1 / [o$ ]&[[f&y]&] >&l<2\n&m[t\n$]>
             {
                 if (!IsSpecialChar(format[i]) || (format[i] == ESCAPE_CHAR && (IsSpecialChar(format[i + 1]) || format[i + 1] == PARAM_OPEN)))
@@ -197,11 +211,13 @@ namespace PleaseWork.Helpfuls
        
         public static Func<Func<Dictionary<char, object>, string>> GetBasicTokenParser(
             string format,
+            Dictionary<string, char> aliasConverter,
             Action<TokenParser> settings,
             Action<Dictionary<(char, int), string>, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<char, object>> varSettings)
-            => GetBasicTokenParser(format, settings, varSettings, null, null);
+            => GetBasicTokenParser(format, aliasConverter, settings, varSettings, null, null);
         public static Func<Func<Dictionary<char, object>, string>> GetBasicTokenParser(
             string format,
+            Dictionary<string, char> aliasConverter,
             Action<TokenParser> settings,
             Action<Dictionary<(char, int), string>, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<char, object>> varSettings,
             Func<char, string[], bool> confirmFormat,
@@ -215,7 +231,7 @@ namespace PleaseWork.Helpfuls
             implementArgs = GetParentImplementArgs(implementArgs);
             try
             {
-                (formatted, tokens, priority, extraArgs) = ParseCounterFormat(format);
+                (formatted, tokens, priority, extraArgs) = ParseCounterFormat(format, aliasConverter);
                 foreach (var val in extraArgs.Keys)
                 {
                     if (!confirmFormat.Invoke(val.Item1, extraArgs[val]))
@@ -225,7 +241,7 @@ namespace PleaseWork.Helpfuls
             catch (Exception e)
             {
                 Plugin.Log.Error("Formatting failed! " + e.Message);
-                Plugin.Log.Error("Formatting: " + format);
+                Plugin.Log.Error("Formatting: " + HelpfulMisc.ToLiteral(format));
                 return null;
             }
             /*Plugin.Log.Info("---------------");

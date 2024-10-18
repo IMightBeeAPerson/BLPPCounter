@@ -201,7 +201,7 @@ namespace PleaseWork.Counters
         }
         private static void FormatClan(string format)
         {
-            clanIniter = HelpfulFormatter.GetBasicTokenParser(format,
+            clanIniter = HelpfulFormatter.GetBasicTokenParser(format, null,
                 formattedTokens =>
                 {
                     if (!pc.ShowLbl) formattedTokens.SetText('l');
@@ -226,7 +226,7 @@ namespace PleaseWork.Counters
         }
         private static void FormatWeighted(string format) //settings values are: 0 = displayFC, 1 = totPP, 2 = showRank
         {
-            weightedIniter = HelpfulFormatter.GetBasicTokenParser(format,
+            weightedIniter = HelpfulFormatter.GetBasicTokenParser(format, null,
                 formattedTokens =>
                 {
                     if (!pc.ShowLbl) formattedTokens.SetText('l');
@@ -242,7 +242,7 @@ namespace PleaseWork.Counters
         }
         private static void FormatCustom(string format)
         {
-            customIniter = HelpfulFormatter.GetBasicTokenParser(format,
+            customIniter = HelpfulFormatter.GetBasicTokenParser(format, null,
                 formattedTokens =>
                 {
                     if (!pc.Target.Equals(Targeter.NO_TARGET) && pc.ShowEnemy)
