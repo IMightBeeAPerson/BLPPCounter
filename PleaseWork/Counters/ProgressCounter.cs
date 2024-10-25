@@ -9,9 +9,9 @@ namespace PleaseWork.Counters
 {
     public class ProgressCounter: IMyCounters
     {
-        public static string[] DisplayNames => new string[] { "Progressive" };
+        public static string DisplayName => "Progressive";
         public static int OrderNumber => 1;
-        public string Name => "Progressive";
+        public string Name => DisplayName;
         public bool Usable => TheCounter.FormatUsable;
 
         private TMP_Text display;

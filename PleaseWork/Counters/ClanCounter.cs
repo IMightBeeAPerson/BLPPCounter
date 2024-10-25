@@ -23,9 +23,9 @@ namespace PleaseWork.Counters
         private static Func<Func<string>, float, float, float, float, float, string> displayCustom;
         private static Func<Func<Dictionary<char, object>, string>> clanIniter, weightedIniter, customIniter;
 
-        public static string[] DisplayNames => new string[] { "Clan PP", "Clan w/ normal" };
+        public static string DisplayName => "Clan";
         public static int OrderNumber => 3;
-        public string Name => "Clan";
+        public string Name => DisplayName;
         public string Mods { get; private set; }
         private TMP_Text display;
         private float accRating, passRating, techRating, nmAccRating, nmPassRating, nmTechRating;
@@ -201,11 +201,21 @@ namespace PleaseWork.Counters
         }
         private static void FormatClan(string format)
         {
-            clanIniter = HelpfulFormatter.GetBasicTokenParser(format, null,
+            clanIniter = HelpfulFormatter.GetBasicTokenParser(format, new Dictionary<string, char>()
+                {
+                    { "PP", 'p' },
+                    { "PPdifference", 'x' },
+                    { "Color", 'c' },
+                    { "FCPP", 'o' },
+                    { "FCPPdifference", 'y' },
+                    { "FCcolor", 'f' },
+                    { "Label", 'l' },
+                    { "Mistakes", 'e' },
+                    { "Target", 't' }
+                },
                 formattedTokens =>
                 {
                     if (!pc.ShowLbl) formattedTokens.SetText('l');
-                    if (!pc.ClanWithNormal) { formattedTokens.SetText('p'); formattedTokens.SetText('o'); }
                     if (!pc.Target.Equals(Targeter.NO_TARGET) && pc.ShowEnemy)
                     {
                         string theMods = "";
@@ -226,11 +236,21 @@ namespace PleaseWork.Counters
         }
         private static void FormatWeighted(string format) //settings values are: 0 = displayFC, 1 = totPP, 2 = showRank
         {
-            weightedIniter = HelpfulFormatter.GetBasicTokenParser(format, null,
+            weightedIniter = HelpfulFormatter.GetBasicTokenParser(format, new Dictionary<string, char>()
+                {
+                    { "Mistakes", 'e' },
+                    { "RankColor", 'c' }, //To add
+                    { "Rank", 'r' }, //To add
+                    { "PPdifference", 'x' },
+                    { "PP", 'p' },
+                    { "Label", 'l' },
+                    { "FCPPdifference", 'y' },
+                    { "FCPP", 'o' },
+                    { "Message", 'm' }
+                },
                 formattedTokens =>
                 {
                     if (!pc.ShowLbl) formattedTokens.SetText('l');
-                    if (!pc.ClanWithNormal) { formattedTokens.SetText('p'); formattedTokens.SetText('o'); }
                 },
                 (tokens, tokensCopy, priority, vals) => {
                     if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<string>)vals['c']).Invoke()}", "</color>");
@@ -242,7 +262,15 @@ namespace PleaseWork.Counters
         }
         private static void FormatCustom(string format)
         {
-            customIniter = HelpfulFormatter.GetBasicTokenParser(format, null,
+            customIniter = HelpfulFormatter.GetBasicTokenParser(format, new Dictionary<string, char>()
+                {
+                    {"Color", 'c' },
+                    {"Accuracy", 'a' },
+                    {"TechPP", 'x' },
+                    {"AccPP", 'y' },
+                    {"PassPP", 'z' },
+                    {"PP", 'p' }
+                },
                 formattedTokens =>
                 {
                     if (!pc.Target.Equals(Targeter.NO_TARGET) && pc.ShowEnemy)

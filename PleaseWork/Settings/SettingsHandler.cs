@@ -4,6 +4,7 @@ using PleaseWork.Counters;
 using PleaseWork.Utils;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace PleaseWork.Settings
 {
@@ -174,5 +175,15 @@ namespace PleaseWork.Settings
             get => pc.ShowRank;
 			set { SettingsUpdated?.Invoke(); pc.ShowRank = value; }
         }
+        [UIValue("RelativeDefault")]
+        public string RelativeDefault
+        {
+            get { if (!RelativeDefaultList.Contains(pc.RelativeDefault)) if (RelativeDefaultList.Count > 0)
+                        pc.RelativeDefault = (string)RelativeDefaultList[0];
+                    else pc.RelativeDefault = Targeter.NO_TARGET; return pc.RelativeDefault; }
+            set { SettingsUpdated?.Invoke(); pc.RelativeDefault = value; }
+        }
+        [UIValue("RelativeDefaultList")]
+        public List<object> RelativeDefaultList => TypesOfPP.Where(a => a is string b && !RelativeCounter.DisplayName.Equals(b)).ToList();
     }
 }

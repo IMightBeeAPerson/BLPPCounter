@@ -26,6 +26,7 @@
   <vertical spacing='1'>
     <checkbox-setting text='Local Replays' apply-on-change='true' value='LocalReplay' hover-hint='Check for any local replays before loading from website' active='false'/>
     <checkbox-setting text='Show Rank' value='ShowRank' apply-on-change='true' hover-hint='Show what place in your clan you are with your current score'/>
+    <list-setting text='Default Counter' value='RelativeDefault' options='RelativeDefaultList' apply-on-change='true' hover-hint='What counter to go to when relative counter cannot be used' />
   </vertical>
   <text text='Target Settings'/>
   <vertical spacing='1'>

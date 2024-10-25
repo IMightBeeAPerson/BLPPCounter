@@ -13,8 +13,6 @@ namespace PleaseWork.Settings
     internal class PluginConfig
     {
         public static PluginConfig Instance { get; set; }
-        public bool ClanWithNormal => PPType.Equals("Clan w/ normal");
-        public bool RelativeWithNormal => PPType.Equals("Relative w/ normal");
         public virtual TokenFormatSettings TokenSettings { get; set; } = new TokenFormatSettings();
         public virtual MessageSettings MessageSettings { get; set; } = new MessageSettings();
         public virtual TextFormatSettings FormatSettings { get; set; } = new TextFormatSettings();
@@ -38,6 +36,7 @@ namespace PleaseWork.Settings
         public virtual bool CeilEnabled { get; set; } = true;
         public virtual bool ShowRank { get; set; } = true;
         public virtual string ChosenPlaylist { get; set; } = "";
+        public virtual string RelativeDefault { get; set; } = "Normal";
         [UseConverter(typeof(ListConverter<CustomTarget>))]
         public virtual List<CustomTarget> CustomTargets { get; set; } = new List<CustomTarget>();
     }

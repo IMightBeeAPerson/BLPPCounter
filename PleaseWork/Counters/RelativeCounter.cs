@@ -18,22 +18,9 @@ namespace PleaseWork.Counters
     public class RelativeCounter: IMyCounters
     {
         private static readonly HttpClient client = new HttpClient();
-        public static Dictionary<string, char> AliasesToToken = new Dictionary<string, char>()
-        {
-            { "AccDifference", 'd' },
-            { "Color", 'c' },
-            { "PPdifference", 'x' },
-            { "ActualPP", 'p' },
-            { "Label", 'l' },
-            { "FCcolor", 'f' },
-            { "FCPPdifference", 'y' },
-            { "ActualFCPP", 'o' },
-            { "Accuracy", 'a' },
-            { "Target", 't' }
-        };
-        public static string[] DisplayNames => new string[] { "Relative", "Relative w/ normal" };
         public static int OrderNumber => 2;
-        public string Name => "Relative";
+        public static string DisplayName => "Relative";
+        public string Name => DisplayName;
         public bool Usable => displayIniter != null && displayFormatter != null && TheCounter.TargetUsable && TheCounter.PercentNeededUsable;
         private static Func<bool, bool, float, string, string, float, string, string, float, string, string> displayFormatter;
         private static Func<Func<Dictionary<char, object>, string>> displayIniter;
@@ -46,7 +33,7 @@ namespace PleaseWork.Counters
         private Replay bestReplay;
         private NoteEvent[] noteArray;
         private int precision;
-        private NormalCounter backup;
+        private IMyCounters backup;
         private bool failed;
         #region Init
         public RelativeCounter(TMP_Text display, float accRating, float passRating, float techRating)
@@ -108,7 +95,7 @@ namespace PleaseWork.Counters
                 Plugin.Log.Warn("There was an error loading the replay of the player, most likely they have never played the map before.");
                 Plugin.Log.Debug(e);
                 failed = true;
-                backup = new NormalCounter(display, map);
+                backup = TheCounter.InitCounter(pc.RelativeDefault, display);
                 return;
             }
             if (!failed)
@@ -183,11 +170,22 @@ namespace PleaseWork.Counters
         public static void FormatTheFormat(string format)
         {
             displayIniter = HelpfulFormatter.GetBasicTokenParser(format,
-                AliasesToToken,
+                new Dictionary<string, char>()
+                {
+                    { "AccDifference", 'd' },
+                    { "Color", 'c' },
+                    { "PPdifference", 'x' },
+                    { "ActualPP", 'p' },
+                    { "Label", 'l' },
+                    { "FCcolor", 'f' },
+                    { "FCPPdifference", 'y' },
+                    { "ActualFCPP", 'o' },
+                    { "Accuracy", 'a' },
+                    { "Target", 't' }
+                },
                 formattedTokens =>
                 {
                     if (!pc.ShowLbl) formattedTokens.SetText('l');
-                    if (!pc.RelativeWithNormal) { formattedTokens.SetText('p'); formattedTokens.SetText('o'); }
                     if (TheCounter.theCounter is RelativeCounter rc1) formattedTokens.MakeTokenConstant('a', rc1.accToBeat + "");
                     if (!pc.Target.Equals(Targeter.NO_TARGET) && pc.ShowEnemy)
                     {

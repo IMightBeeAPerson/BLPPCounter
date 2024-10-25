@@ -24,9 +24,19 @@ namespace PleaseWork.Utils
                 if (TheCounter.CallAPI($"player/{id}", out string data)) return new CustomTarget(JObject.Parse(data)["name"].ToString(), id);
                 else throw new ArgumentException("The ID provided does not exist.");
             }
-            throw new ArgumentException("String given is not a number.");
+            return ConvertToIdAlias(str);
         }
-
+        private static CustomTarget ConvertToIdAlias(string str)
+        {
+            if (TheCounter.CallAPI($"player/{str.ToLower()}", out string data))
+            {
+                JObject parsedData = JObject.Parse(data);
+                if (long.TryParse(parsedData["id"].ToString(), out long id))
+                    return new CustomTarget(parsedData["name"].ToString(), id);
+                throw new ArgumentException("Id in api is incorrect. This is very sad :(");
+            }
+            throw new ArgumentException("String given is not an ID or alias.");
+        }
         public override string ToString() => $"{Name}, ID: {ID}";
     }
 }

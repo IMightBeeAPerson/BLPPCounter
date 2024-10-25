@@ -13,10 +13,10 @@ namespace PleaseWork.Counters
 {
     internal class NormalCounter: IMyCounters
     {
-        public static string[] DisplayNames => new string[] { "Normal" };
+        public static string DisplayName => "Normal";
         public static int OrderNumber => 0;
-        public string Name { get => "Normal"; }
-        public bool Usable { get => TheCounter.FormatUsable; }
+        public string Name => DisplayName;
+        public bool Usable => TheCounter.FormatUsable;
         private TMP_Text display;
         private float accRating, passRating, techRating;
         private int precision;

@@ -56,7 +56,7 @@ namespace PleaseWork.Utils
             if (nameToId.ContainsKey(name)) return;
             nameToId[name] = id;
             theTargets[0] = name;
-            theTargets.Prepend(NO_TARGET);
+            theTargets = theTargets.Prepend(NO_TARGET).ToList();
         }
         public static string RequestClan(string playerID)
         {

@@ -63,7 +63,7 @@ namespace PleaseWork.Helpfuls
                             $"\nCorrect Format: {ESCAPE_CHAR}{ALIAS}<Alias Name> OR {GROUP_OPEN}{ALIAS}<Alias Name>" +
                             $"\nPossible alias names are listed below:\n{string.Join("\n", aliasConverter.Keys)}");
             if (aliasConverter == null)
-                Plugin.Log.Warn("No alias converter given! Thankfully, there are no aliases present so there will not be an error.");
+                Plugin.Log.Debug("No alias converter given! Thankfully, there are no aliases present so there will not be an error.");
             for (int i = 0; i < format.Length; i++)//[p$ ]&[[c&x]&]<1 / [o$ ]&[[f&y]&] >&l<2\n&m[t\n$]>
             {
                 if (!IsSpecialChar(format[i]) || (format[i] == ESCAPE_CHAR && (IsSpecialChar(format[i + 1]) || format[i + 1] == PARAM_OPEN)))

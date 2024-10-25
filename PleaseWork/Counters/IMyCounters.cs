@@ -19,9 +19,7 @@ namespace PleaseWork.Counters
          */
 
         /*Static Fields that must be created:
-         * public static string[] DisplayNames;
          * public static int OrderNumber;
-         * public static Dictionary<string, char> AliasesToToken;
          */
     }
 }

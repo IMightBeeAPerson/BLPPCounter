@@ -62,7 +62,7 @@ namespace PleaseWork
             StaticFunctions = new Dictionary<string, Type>() 
             { { "InitFormat", typeof(bool) } };
             StaticProperties = new Dictionary<string, Type>()
-            { {"DisplayNames", typeof(string[]) }, {"OrderNumber", typeof(int) }, {"AliasesToToken", typeof(Dictionary<string, char>) } };
+            { {"DisplayName", typeof(string) }, {"OrderNumber", typeof(int) } };
 
             if (FormatTheFormat(PluginConfig.Instance.FormatSettings.DefaultTextFormat)) InitFormat();
             if (FormatTarget(PluginConfig.Instance.MessageSettings.TargetingMessage)) InitTarget();
@@ -77,20 +77,16 @@ namespace PleaseWork
                         if (!v) validTypes[i] = null;
                 }
                 ValidCounters = validTypes.Where(a => a != null).ToArray();
-                Dictionary<string, object> propertyOutp = GetPropertyFromTypes("DisplayNames", ValidCounters);
+                Dictionary<string, object> propertyOutp = GetPropertyFromTypes("DisplayName", ValidCounters);
                 DisplayNameToCounter = new Dictionary<string, string>();
                 foreach (var val in propertyOutp)
-                    if (val.Value is string[] arr)
-                        foreach (var otherVal in arr)
-                            DisplayNameToCounter.Add(otherVal, val.Key);
+                    if (val.Value is string name)
+                        DisplayNameToCounter.Add(name, val.Key);
                 Dictionary<int, string> propertyOrder = GetPropertyFromTypes("OrderNumber", ValidCounters).ToDictionary(x => (int)x.Value, x => x.Key);
                 List<string> displayNames = new List<string>();
-                Plugin.Log.Info("Checkpoint 1");
                 var sortedOrderNumbers = propertyOrder.Keys.OrderBy(x => x);
                 foreach (int i in sortedOrderNumbers)
-                    foreach (string name in propertyOutp[propertyOrder[i]] as string[])
-                        displayNames.Add(name);
-                Plugin.Log.Info("Checkpoint 2");
+                        displayNames.Add(propertyOutp[propertyOrder[i]] as string);
                 ValidDisplayNames = displayNames.ToArray();
             } catch (Exception e)
             {
@@ -290,7 +286,14 @@ namespace PleaseWork
             InitData();
         }
         private static bool FormatTheFormat(string format) {
-            displayIniter = HelpfulFormatter.GetBasicTokenParser(format, null, a => { },
+            displayIniter = HelpfulFormatter.GetBasicTokenParser(format, 
+                new Dictionary<string, char>() {
+                    { "PP", 'x' },
+                    { "FCPP", 'y' },
+                    { "Mistakes", 'e' },
+                    { "Label", 'l' }
+                },
+                a => { },
                 (tokens, tokensCopy, priority, vals) => 
                 { 
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1'); 
@@ -300,12 +303,28 @@ namespace PleaseWork
         }
         private static bool FormatTarget(string format)
         {
-            targetIniter = HelpfulFormatter.GetBasicTokenParser(format, null, a => { }, (a, b, c, d) => { });
+            targetIniter = HelpfulFormatter.GetBasicTokenParser(format, 
+                new Dictionary<string, char>()
+                {
+                    {"Target", 't' },
+                    {"Mods", 'm' }
+                },
+                a => { }, (a, b, c, d) => { });
             return targetIniter != null;
         }
         private static bool FormatPercentNeeded(string format)
         {
-            percentNeededIniter = HelpfulFormatter.GetBasicTokenParser(format, null, a => { },
+            percentNeededIniter = HelpfulFormatter.GetBasicTokenParser(format, 
+                new Dictionary<string, char>()
+                {
+                    {"Color", 'c' },
+                    {"Accuracy", 'a' },
+                    {"TechPP", 'x' },
+                    {"AccPP", 'y' },
+                    {"PassPP", 'z' },
+                    {"PP", 'p' }
+                }, 
+                a => { },
                 (tokens, tokensCopy, priority, vals) =>
                 {
                     if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<string>)vals['c']).Invoke()}", "</color>");
@@ -366,7 +385,8 @@ namespace PleaseWork
                         if (Vars.ContainsKey(f.Name))
                             if (f.FieldType == Vars[f.Name])
                             {
-                                Vars.Remove(f.Name);
+                                if (f.IsInitOnly) Vars.Remove(f.Name);
+                                else Plugin.Log.Warn($"For counter {t.Name}, they have the valid variable {f.Name} but need to set it to readonly.");
                                 if (Vars.Count == 0) break;
                             }
                             else break;
@@ -376,22 +396,27 @@ namespace PleaseWork
             }
             return counters.ToArray();
         }
-        private static Dictionary<string, object> GetMethodFromTypes(string methodName, params Type[] types)
+        private static Dictionary<string, object> GetMethodFromTypes(string methodName, params Type[] types) =>
+            GetMethodFromTypes(methodName, BindingFlags.Public | BindingFlags.Static, types);
+        private static Dictionary<string, object> GetMethodFromTypes(string methodName, BindingFlags flags, params Type[] types)
         {
             Dictionary<string, object> outp = new Dictionary<string, object>();
             foreach (Type t in types)
             {
-                var method = t.GetMethods(BindingFlags.Public | BindingFlags.Static).SkipWhile(a => !a.Name.Equals(methodName)).First();
+                var method = t.GetMethods(flags).SkipWhile(a => !a.Name.Equals(methodName)).First();
                 outp.Add(t.Name, method.Invoke(null, null));
             }
             return outp;
         }
-        private static Dictionary<string, object> GetPropertyFromTypes(string propertyName, params Type[] types)
+        private static Dictionary<string, object> GetPropertyFromTypes(string propertyName, params Type[] types) =>
+            GetPropertyFromTypes(propertyName, BindingFlags.Public | BindingFlags.Static, types);
+        private static Dictionary<string, object> GetPropertyFromTypes(string propertyName, BindingFlags flags, params Type[] types)
         {
+            bool hasFlags = flags != 0;
             Dictionary<string, object> outp = new Dictionary<string, object>();
             foreach (Type t in types)
             {
-                var method = t.GetProperties(BindingFlags.Public | BindingFlags.Static).SkipWhile(a => !a.Name.Equals(propertyName)).First();
+                var method = (hasFlags ? t.GetProperties(flags) : t.GetProperties()).SkipWhile(a => !a.Name.Equals(propertyName)).First();
                 outp.Add(t.Name, method.GetValue(null));
             }
             return outp;
@@ -400,11 +425,18 @@ namespace PleaseWork
         #region Init
         private bool InitCounter()
         {
-            if (!DisplayNameToCounter.TryGetValue(PluginConfig.Instance.PPType, out string name)) return false;
-            Type counterType = ValidCounters.First(a => a.Name.Equals(name));
-            theCounter = (IMyCounters)Activator.CreateInstance(counterType, display, lastMap);
-            theCounter.UpdateFormat();
+            var outpCounter = InitCounter(PluginConfig.Instance.PPType, display);
+            if (outpCounter == null) return false;
+            theCounter = outpCounter;
             return true;
+        }
+        public static IMyCounters InitCounter(string name, TMP_Text display)
+        {
+            if (!DisplayNameToCounter.TryGetValue(name, out string displayName)) return null;
+            Type counterType = ValidCounters.First(a => a.Name.Equals(displayName));
+            IMyCounters outp = (IMyCounters)Activator.CreateInstance(counterType, display, lastMap);
+            outp.UpdateFormat();
+            return outp;
         }
         private void APIAvoidanceMode()
         {
