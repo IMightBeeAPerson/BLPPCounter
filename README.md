@@ -21,22 +21,35 @@ Here's a quick explaination of important characters.
 - There is also parameters, which you can see in the WeightedTextFormat towards the end "&s(e)". This is denoted by putting parentheses, '(' and ')', around parameters directly after an escape character. What parameters will be denoted below and is specific to each letter and sometimes each counter. *Note: you do not have to escape parentheses to use them normally. You only need to escape them if it is directly after a escape character.* 
 
 **Note:** The special characters used in these explainations are the default characters, however they can be changed in settings if you don't like how they feel or look. Everything, including the brackets, can be changed to whatever you want.
+
+There is also a special escape character, the apostrophe. This allows for the use of an alias instead of just putting a one letter character to make the format string a bit more readable. Each letter also has a name assigned to it that will be shown below in the tables. These names are changeable in the config if you don't like the ones I gave. Here's an example of a format with and without the use of aliases:
+
+*Without:*
+```json
+"DefaultTextFormat": "&x<1 / &y> &l<2[e\n*c,red*$* mistake&s(e)]>"
+```
+*With:*
+```json
+"DefaultTextFormat": "&'PP'<1 / &'FCPP'> &'Label'<2['Mistakes'\n*c,red*$* mistake&'Dynamic s'('Mistakes')]>"
+```
+As you can see, it is a lot easier to tell what each value is with the use of aliases. The format for it is &'\<Alias name\>'. It is important to follow the format or the counter will throw an error and not work.
+
 ### Global escape letters
 These are letters that share the same functionality through all formatted messages and counters.
-| Letter | Parameters | Description |
-| ------ | ---------- | ----------- |
-| s | \<number variable\> | This takes one parameter, a number variable, and will dynamically output either a 's' or nothing ('') depending on if the number is exactly 1 or not. This is used to be grammatically correct |
-| h | \<number variable, *(optional)* number\> | This takes either one or two parameters. The first one is a number variable and the second one is a number (not a variable). This letter acts as a flag, and based off of what the number variable is, will hide the variable completely. If no number is given in the second parameter, then it will only show the number variable when it is greater than 0. Otherwise it will show if the variable is greater than the number given. | 
+| Letter | Alias | Parameters | Description |
+| ------ | ----- | ---------- | ----------- |
+| s | Dynamic s | \<number variable\> | This takes one parameter, a number variable, and will dynamically output either a 's' or nothing ('') depending on if the number is exactly 1 or not. This is used to be grammatically correct |
+| h | Hide | \<number variable, *(optional)* number\> | This takes either one or two parameters. The first one is a number variable and the second one is a number (not a variable). This letter acts as a flag, and based off of what the number variable is, will hide the variable completely. If no number is given in the second parameter, then it will only show the number variable when it is greater than 0. Otherwise it will show if the variable is greater than the number given. | 
 ### Counter Specific Syntax 
 The different counter types have different letters to mean different things, instead of making you sift through the code or figure it out, here's a list :)
 #### Default Counter (Progressive and Normal)
 This includes any counter that is too simple to have their own display method, and therefore just uses the one in the main counter class.
-| Letter | Description |
-| ------ | ----------- |
-| x | The unmodified PP number |
-| y | The unmodified PP number if the map was FC'ed |
-| e | The amount of mistakes made in the map. This includes bomb and wall hits |
-| l | The label (ex: PP, Tech PP, etc) |
+| Letter | Alias | Description |
+| ------ | ----- | ----------- |
+| x | PP | The unmodified PP number |
+| y | FCPP | The unmodified PP number if the map was FC'ed |
+| e | Mistakes | The amount of mistakes made in the map. This includes bomb and wall hits |
+| l | Label | The label (ex: PP, Tech PP, etc) |
 
 | Number | Description |
 | ------ | ----------- |
@@ -45,24 +58,24 @@ This includes any counter that is too simple to have their own display method, a
 
 #### Clan and Relative Counter
 These both have mostly the same syntax, and therefore will share the same table. Exceptions will be below.
-| Letter | Description |
-| ------ | ----------- |
-| p | The unmodified PP number |
-| x | The modified PP number (plus/minus value) |
-| c | Must use as a group value, and will color everything inside group |
-| o | The unmodified PP number if the map was FC'ed |
-| y | The modified PP number if the map was FC'ed |
-| f | Must use as a group value, and will color everything inside group |
-| l | The label (ex: PP, Tech PP, etc) |
-| e | The amount of mistakes made in the map. This includes bomb and wall hits |
-| t | This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target |
+| Letter | Alias | Description |
+| ------ | ----- | ----------- |
+| p | PP | The unmodified PP number |
+| x | PP Difference | The modified PP number (plus/minus value) |
+| c | Color | Must use as a group value, and will color everything inside group |
+| o | FCPP | The unmodified PP number if the map was FC'ed |
+| y | FCPP Difference | The modified PP number if the map was FC'ed |
+| f | FC Color | Must use as a group value, and will color everything inside group |
+| l | Label | The label (ex: PP, Tech PP, etc) |
+| e | Mistakes | The amount of mistakes made in the map. This includes bomb and wall hits |
+| t | Target | This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target |
 
 Below is a table with the letters that only apply to one counter or the other.
 
-| Letter | Counter | Description |
-| ------ | ------- | ----------- |
-| m | Clan Counter | This will show a message if the counter is used on a map that isn't perfectly ideal for clan counter or that clan counter can't be used on. It will say the reason for why this isn't ideal |
-| d | Relative Counter | This will show the difference in percentage at the current moment between you and the replay you're comparing against |
+| Letter | Alias | Counter | Description |
+| ------ | ----- | ------- | ----------- |
+| m | Message | Clan Counter | This will show a message if the counter is used on a map that isn't perfectly ideal for clan counter or that clan counter can't be used on. It will say the reason for why this isn't ideal |
+| d | Acc Difference | Relative Counter | This will show the difference in percentage at the current moment between you and the replay you're comparing against |
 
 | Number | Description |
 | ------ | ----------- |
@@ -71,15 +84,17 @@ Below is a table with the letters that only apply to one counter or the other.
 
 #### Weighted Counter
 This is a special counter that will appear when the clan counter fails because the map is already captured, the map is too hard to capture, or the API requests return bad information that causes an error.
-| Letter | Description |
-| ------ | ----------- |
-| p | The unmodified PP number |
-| x | The modified PP number (plus/minus value) |
-| o | The unmodified PP number if the map was FC'ed |
-| y | The modified PP number if the map was FC'ed |
-| l | The label (ex: PP, Tech PP, etc) |
-| e | The amount of mistakes made in the map. This includes bomb and wall hits |
-| m | This will show a message if the counter is used on a map that isn't perfectly ideal for clan counter or that clan counter can't be used on. It will say the reason for why this isn't ideal |
+| Letter | Alias | Description |
+| ------ | ----- | ----------- |
+| p | PP | The unmodified PP number |
+| x | PP Difference | The modified PP number (plus/minus value) |
+| o | FCPP | The unmodified PP number if the map was FC'ed |
+| y | FCPP Difference | The modified PP number if the map was FC'ed |
+| l | Label | The label (ex: PP, Tech PP, etc) |
+| e | Mistakes | The amount of mistakes made in the map. This includes bomb and wall hits |
+| m | Message | This will show a message if the counter is used on a map that isn't perfectly ideal for clan counter or that clan counter can't be used on. It will say the reason for why this isn't ideal |
+| c | Rank Color | The color based off of what rank you are out of your clan, must be used inside of a group and will color everything in the group |
+| r | Rank | The rank you are in the clan at that current moment |
 
 | Number | Description |
 | ------ | ----------- |
@@ -99,18 +114,19 @@ These are messages with no values, and therefore will not be parsed and are comp
 
 #### Clan Message
 This message is supposed to inform the player what percent or accuracy is needed to capture the map.
-| Letter | Description |
-| ------ | ----------- |
-| a | The accuracy needed to capture the map |
-| p | The total PP number needed to capture the map |
-| x | The tech PP needed |
-| y | The accuracy PP needed |
-| z | The pass PP needed |
-| t | This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target |
+| Letter | Alias | Description |
+| ------ | ----- | ----------- |
+| c | Color | Must use as a group value, and will color everything inside group |
+| a | Accuracy | The accuracy needed to capture the map |
+| p | PP | The total PP number needed to capture the map |
+| x | Tech PP | The tech PP needed |
+| y | Acc PP | The accuracy PP needed |
+| z | Pass PP | The pass PP needed |
+| t | Target | This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target |
 
 #### Targeting Message
 This message is for whenever you are targeting someone. Currently it can show a few stats of the person you are targeting, but I'll most likely add more at a later date.
-| Letter | Description |
-| ------ | ----------- |
-| t | The name of the person being targeted |
-| m | The mods used by the person you are targeting |
+| Letter | Alias | Description |
+| ------ | ----- | ----------- |
+| t | Target | The name of the person being targeted |
+| m | Mods | The mods used by the person you are targeting |
