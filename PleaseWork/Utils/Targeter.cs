@@ -1,4 +1,5 @@
 ﻿using IPA.Config.Data;
+using Newtonsoft.Json.Linq;
 using PleaseWork.Settings;
 using System;
 using System.Collections.Generic;
@@ -20,15 +21,12 @@ namespace PleaseWork.Utils
 
         public static async void GenerateClanNames()
         {
-            string clanStuff = RequestClan((await BS_Utils.Gameplay.GetUserInfo.GetUserAsync()).platformUserId);
+            JEnumerable<JToken> clanStuffs = JToken.Parse(RequestClan((await BS_Utils.Gameplay.GetUserInfo.GetUserAsync()).platformUserId))["data"].Children();
             theTargets = new List<object>();
-            MatchCollection mc = new Regex("(?<=name...)[^,]+(?=...platform)").Matches(clanStuff);
-            MatchCollection ids = new Regex("(?<=id...)[^,]+(?=...name)").Matches(clanStuff);
             nameToId = new Dictionary<string, string>();
-            for (int i = 0; i < mc.Count; i++)
-            {
-                theTargets.Add(mc[i].Value);
-                nameToId[mc[i].Value] = ids[i].Value;
+            foreach (JToken person in clanStuffs) {
+                theTargets.Add(person["name"].ToString());
+                nameToId[person["name"].ToString()] = person["id"].ToString();
             }
             var cts = pc.CustomTargets;
             if (cts.All(a => a.ID != pc.CustomTarget))
