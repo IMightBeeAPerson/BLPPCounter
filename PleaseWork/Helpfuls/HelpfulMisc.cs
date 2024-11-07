@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.CodeDom.Compiler;
 using System.CodeDom;
 using System.IO;
+using System.Text.RegularExpressions;
 namespace PleaseWork.Helpfuls
 {
     public static class HelpfulMisc
@@ -43,7 +44,8 @@ namespace PleaseWork.Helpfuls
                 using (var provider = CodeDomProvider.CreateProvider("CSharp"))
                 {
                     provider.GenerateCodeFromExpression(new CodePrimitiveExpression(input), writer, null);
-                    return writer.ToString();
+                    string outp = writer.ToString();
+                    return Regex.Replace(outp.Substring(1, outp.Length - 2), "\"\\s*\\+\\s*\"", "");
                 }
             }
         }

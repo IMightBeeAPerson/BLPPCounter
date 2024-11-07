@@ -18,7 +18,7 @@ namespace PleaseWork.Counters
         private static int playerClanId = -1;
         private static readonly List<(MapSelection, float[])> mapCache = new List<(MapSelection, float[])>(); //Map, clan pp vals, acc vals
         private static PluginConfig pc => PluginConfig.Instance;
-        private static Func<bool, bool, Func<string>, string, float, Func<string>, string, float, string, Func<string>, string> displayClan;
+        private static Func<bool, bool, int, Func<string>, string, float, Func<string>, string, float, string, Func<string>, string> displayClan;
         private static Func<int, Func<string>, string, string, float, string, float, string, string, bool[], string> displayWeighted;
         private static Func<Func<string>, float, float, float, float, float, string> displayCustom;
         private static Func<Func<Dictionary<char, object>, string>> clanIniter, weightedIniter, customIniter;
@@ -204,14 +204,15 @@ namespace PleaseWork.Counters
             clanIniter = HelpfulFormatter.GetBasicTokenParser(format, new Dictionary<string, char>()
                 {
                     { "PP", 'p' },
-                    { "PPdifference", 'x' },
+                    { "PP Difference", 'x' },
                     { "Color", 'c' },
                     { "FCPP", 'o' },
-                    { "FCPPdifference", 'y' },
-                    { "FCcolor", 'f' },
+                    { "FCPP Difference", 'y' },
+                    { "FC Color", 'f' },
                     { "Label", 'l' },
                     { "Mistakes", 'e' },
-                    { "Target", 't' }
+                    { "Target", 't' },
+                    { "Message", 'm' }
                 },
                 formattedTokens =>
                 {
@@ -239,12 +240,12 @@ namespace PleaseWork.Counters
             weightedIniter = HelpfulFormatter.GetBasicTokenParser(format, new Dictionary<string, char>()
                 {
                     { "Mistakes", 'e' },
-                    { "RankColor", 'c' }, //To add
-                    { "Rank", 'r' }, //To add
-                    { "PPdifference", 'x' },
+                    { "Rank Color", 'c' },
+                    { "Rank", 'r' },
+                    { "PP Difference", 'x' },
                     { "PP", 'p' },
                     { "Label", 'l' },
-                    { "FCPPdifference", 'y' },
+                    { "FCPP Difference", 'y' },
                     { "FCPP", 'o' },
                     { "Message", 'm' }
                 },
@@ -266,10 +267,11 @@ namespace PleaseWork.Counters
                 {
                     {"Color", 'c' },
                     {"Accuracy", 'a' },
-                    {"TechPP", 'x' },
-                    {"AccPP", 'y' },
-                    {"PassPP", 'z' },
-                    {"PP", 'p' }
+                    {"Tech PP", 'x' },
+                    {"Acc PP", 'y' },
+                    {"Pass PP", 'z' },
+                    {"PP", 'p' },
+                    { "Target", 't' }
                 },
                 formattedTokens =>
                 {
@@ -285,11 +287,11 @@ namespace PleaseWork.Counters
         private static void InitClan()
         {
             var simple = clanIniter.Invoke();
-            displayClan = (fc, totPp, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label, message) =>
+            displayClan = (fc, totPp, mistakes, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label, message) =>
             {
                 Dictionary<char, object> vals = new Dictionary<char, object>()
                 {
-                    { (char)1, fc }, {(char)2, totPp }, { 'c', color }, {'x',  modPp }, {'p', regPp }, {'l', label }, { 'f', fcCol }, { 'y', fcModPp }, { 'o', fcRegPp },
+                    { (char)1, fc }, {(char)2, totPp }, {'e', mistakes }, { 'c', color }, {'x',  modPp }, {'p', regPp }, {'l', label }, { 'f', fcCol }, { 'y', fcModPp }, { 'o', fcRegPp },
                     {'m', message }
                 };
                 return simple.Invoke(vals);
@@ -345,12 +347,12 @@ namespace PleaseWork.Counters
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
-                    text += displayClan.Invoke(displayFc, pc.ExtraInfo && i == 3, () => color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
+                    text += displayClan.Invoke(displayFc, pc.ExtraInfo && i == 3, mistakes, () => color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
                         () => color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], labels[i], message) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayClan.Invoke(displayFc, pc.ExtraInfo, () => color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
+                display.text = displayClan.Invoke(displayFc, pc.ExtraInfo, mistakes, () => color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
                     () => color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3], message) + "\n";
         }
         private void UpdateWeightedCounter(float acc, int mistakes, float fcPercent)

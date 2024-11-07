@@ -23,6 +23,7 @@ namespace PleaseWork
         [Inject] private GameplayModifiers mods;
         [Inject] private ScoreController sc;
         [Inject] private BeatmapObjectManager bomb;
+        [Inject] private PlayerHeadAndObstacleInteraction wall;
         private static readonly HttpClient client = new HttpClient();
         public static Dictionary<string, Map> Data { get; private set; }
         private static bool dataLoaded = false, fullDisable = false;
@@ -107,12 +108,7 @@ namespace PleaseWork
 
         }
         public override void CounterDestroy() {
-            if (enabled)
-            {
-                sc.scoringForNoteFinishedEvent -= OnNoteScored;
-                sc.multiplierDidChangeEvent -= MultiplierChanged;
-                bomb.noteWasCutEvent -= OnBombHit;
-            }
+            if (enabled) ChangeNotifiers(false);
         }
         public override void CounterInit()
         {
@@ -143,9 +139,7 @@ namespace PleaseWork
                     display = CanvasUtility.CreateTextFromSettings(Settings);
                     display.fontSize = (float)PluginConfig.Instance.FontSize;
                     display.text = "";
-                    sc.scoringForNoteFinishedEvent += OnNoteScored;
-                    sc.multiplierDidChangeEvent += MultiplierChanged;
-                    bomb.noteWasCutEvent += OnBombHit;
+                    ChangeNotifiers(true);
                     currentMult = (1, 0);
                     loadedEvents = true;
                     string hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
@@ -181,28 +175,15 @@ namespace PleaseWork
                 enabled = false;
                 if (display != null)
                     display.text = "";
-                if (loadedEvents)
-                {
-                    sc.scoringForNoteFinishedEvent -= OnNoteScored;
-                    sc.multiplierDidChangeEvent -= MultiplierChanged;
-                    bomb.noteWasCutEvent -= OnBombHit;
-                }
+                if (loadedEvents) ChangeNotifiers(false);
             }
         }
 
         private void OnNoteScored(ScoringElement scoringElement)
         {
             if (scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb)
-            {
                 return;
-            }
             NoteData.ScoringType st = scoringElement.noteData.scoringType;
-            /*bool isSliderTail = st == NoteData.ScoringType.SliderTail || st == NoteData.ScoringType.BurstSliderElement;
-            if (isSliderTail)
-            {
-                if (scoringElement.cutScore == 0) comboNotes = HelpfulMath.DecreaseMultiplier(comboNotes);
-                goto Finish;
-            }//*/
             if (st == NoteData.ScoringType.Ignore) goto Finish; //if scoring type is Ignore, skip this function
             notes++;
             if (st != NoteData.ScoringType.NoScore) comboNotes++;
@@ -213,28 +194,26 @@ namespace PleaseWork
                 fcTotalHitscore += scoringElement.cutScore;
                 fcMaxHitscore += scoringElement.maxPossibleCutScore;
             }
-            else if (currentMult.Item1 == 1 && currentMult.Item2 == 0) MultiplierChanged(1, 0);
+            else OnMiss();
             Finish:
             theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
         }
+
         private void OnBombHit(NoteController nc, in NoteCutInfo nci)
         {
-            if(nc.noteData.gameplayType == NoteData.GameplayType.Bomb && currentMult.Item1 == 1 && currentMult.Item2 == 0)
-            {
-                MultiplierChanged(1, 0);
-            }
+            if(nc.noteData.gameplayType == NoteData.GameplayType.Bomb)
+                OnMiss();
         }
-        private void MultiplierChanged(int newMult, float percentFilled)
+        private void OnWallHit(ObstacleController oc)
         {
-            if (newMult < currentMult.Item1 || (newMult == currentMult.Item1 && percentFilled < currentMult.Item2))
-            {
-                comboNotes = HelpfulMath.DecreaseMultiplier(comboNotes);
-                mistakes++;
-            } else if (newMult == 1 && percentFilled == 0.0f)
-            {
-                mistakes++;
-            }
-            currentMult = (newMult, percentFilled);
+            OnMiss();
+        }
+        private void OnMiss()
+        {
+            if (notes == 0) return;
+            Plugin.Log.Info("Miss");
+            comboNotes = HelpfulMath.DecreaseMultiplier(comboNotes);
+            mistakes++;
         }
         #endregion
         #region API Calls
@@ -277,6 +256,20 @@ namespace PleaseWork
 
         #endregion
         #region Helper Methods
+        private void ChangeNotifiers(bool a)
+        {
+            if (a)
+            {
+                sc.scoringForNoteFinishedEvent += OnNoteScored;
+                wall.headDidEnterObstacleEvent += OnWallHit;
+                bomb.noteWasCutEvent += OnBombHit;
+            } else
+            {
+                sc.scoringForNoteFinishedEvent -= OnNoteScored;
+                wall.headDidEnterObstacleEvent -= OnWallHit;
+                bomb.noteWasCutEvent -= OnBombHit;
+            }
+        }
         public static void ClearCounter() => lastMap = default;
         public static void ForceLoadMaps()
         {

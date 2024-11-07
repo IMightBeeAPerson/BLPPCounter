@@ -31,14 +31,27 @@ namespace PleaseWork.Helpfuls
         public static readonly HashSet<char> SPECIAL_CHARS;
         public static Dictionary<string, string> RICH_SHORTHANDS => PC.TokenSettings.RichShorthands;
         public static readonly string NUMBER_TOSTRING_FORMAT;
-        private static readonly string RegexAliasPattern = $"({Regex.Escape(ESCAPE_CHAR+"")}|{Regex.Escape(GROUP_OPEN+"")})\\\\?{Regex.Escape("" + ALIAS)}\\S+";
+        public static readonly Dictionary<string, char> GLOBAL_ALIASES;
+
+        private static readonly string RegexAliasPattern = "({0}.|{0}{2}[^{2}]+{2}){3}(.*{2}[^{2}]+{2})|([{0}{1}]{2}[^{2}]+?{2})";
+        private static readonly string RegexAliasErrorFinder = "[{0}{1}]{2}(?=[^{2}]+?(?:[{0}{1}]|(?!.)))";
+        //0 = ESCAPE_CHAR, 1 = GROUP_OPEN, 2 = ALIAS, 3 = PARAM_OPEN
 
         static HelpfulFormatter()
         {
+            RegexAliasPattern = string.Format(RegexAliasPattern, Regex.Escape(ESCAPE_CHAR+""), Regex.Escape(GROUP_OPEN+""), Regex.Escape(ALIAS+""), Regex.Escape(PARAM_OPEN+""));
+            RegexAliasErrorFinder = string.Format(RegexAliasErrorFinder, Regex.Escape(ESCAPE_CHAR+""), Regex.Escape(GROUP_OPEN+""), Regex.Escape(ALIAS+""), Regex.Escape(PARAM_OPEN+""));
+            Plugin.Log.Info(RegexAliasPattern);
+            Plugin.Log.Info(RegexAliasErrorFinder);
             var hold = "";
             for (int i = 0; i < PC.DecimalPrecision; i++) hold += "#";
             NUMBER_TOSTRING_FORMAT = PC.DecimalPrecision > 0 ? PC.FormatSettings.NumberFormat.Replace("#","#." + hold) : PC.FormatSettings.NumberFormat;
             SPECIAL_CHARS = new HashSet<char>() { ESCAPE_CHAR, RICH_SHORT, DELIMITER, GROUP_OPEN, GROUP_CLOSE, INSERT_SELF, CAPTURE_OPEN, CAPTURE_CLOSE };
+            GLOBAL_ALIASES = new Dictionary<string, char>()
+            {
+                {"Dynamic s", 's' },
+                {"Hide", 'h' }
+            };
         }
 
         public static (string, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<(char, int), string[]>) ParseCounterFormat(string format, Dictionary<string, char> aliasConverter)
@@ -46,22 +59,61 @@ namespace PleaseWork.Helpfuls
             Dictionary<(char, int), string> tokens = new Dictionary<(char, int), string>();
             Dictionary<(char, int), string[]> extraArgs = new Dictionary<(char, int), string[]>();
             Dictionary<int, char> priority = new Dictionary<int, char>();
+            foreach (var e in GLOBAL_ALIASES) aliasConverter.Add(e.Key, e.Value);
             string formatted = "";
             int repIndex = 0, forRepIndex = 0, sortIndex = 0;
             bool capture = false;
             string captureStr = "", richVal = "";
             int ssIndex = -1;
             char num = (char)0;
-            if (Regex.Matches(format, RegexAliasPattern) is MatchCollection mc && mc.Count > 0)
+            if (Regex.Matches(format, RegexAliasErrorFinder) is MatchCollection badMc && badMc.Count > 0)
+            {
+                string errorMessage = "Incorrect alias format, there is missing closing brackets in the following places:\n";
+                int surroundLength = format.Length / 5;
+                foreach (Match match in badMc)
+                {
+                    int index = match.Index + 1;
+                    errorMessage += index >= surroundLength ? format.Substring(index - surroundLength, surroundLength + 1) : index > 0 ? format.Substring(0, index) : "";
+                    errorMessage += "HERE -->";
+                    errorMessage += format.Substring(index, match.Length + surroundLength + index > format.Length ? format.Length - index : match.Length + surroundLength);
+                    if (index > surroundLength) errorMessage = "..." + errorMessage;
+                    if (match.Length + surroundLength + index <= format.Length) errorMessage += "...";
+                    errorMessage += "\n";
+                }
+                throw new FormatException(errorMessage.Trim());
+            }
+            if (Regex.Matches(format, RegexAliasPattern) is MatchCollection mc && mc.Count > 0)//|(&.|&\\?'[^']+')\((.*'[^']+')
                 if (aliasConverter == null)
                     throw new ArgumentNullException("No alias converter given while format contains aliases! Please remove aliases from the format as there is no way to parse them.\nFormat: " + format);
                 else
-                    foreach (Match m in mc)
-                        if (aliasConverter.TryGetValue(m.Value.Substring(2), out char token))
-                            format = format.Substring(0, m.Index + 1) + $"{token}" + format.Substring(m.Index + m.Value.Length);
-                        else throw new FormatException($"Incorrect Aliasing used. The Alias name '{m.Value.Substring(2)}' does not exist for this counter." +
-                            $"\nCorrect Format: {ESCAPE_CHAR}{ALIAS}<Alias Name> OR {GROUP_OPEN}{ALIAS}<Alias Name>" +
+                {
+                    List<Match> toFilter = mc.Cast<Match>().ToList();
+                    toFilter.Sort((a,b) => b.Index - a.Index);
+                    foreach (Match m in toFilter)
+                    {
+                        string matchVal = m.Value;
+                        if (matchVal.Count(a => a == ALIAS) != 2)
+                        {
+                            //Plugin.Log.Info($"Index: {m.Index} || Length: {m.Length}");
+                            //Plugin.Log.Info(string.Join(" || ", m.Groups.Cast<Group>().Select(a => a.Value)));
+                            //format = format.Remove(m.Index, m.Length + 1);
+                            //Plugin.Log.Info(HelpfulMisc.ToLiteral(format));
+                            string outp = "";
+                            foreach (string toCheck in m.Groups[2].Value.Split(DELIMITER))
+                                if (toCheck[0] == ALIAS && toCheck[toCheck.Length - 1] == ALIAS)
+                                    if (aliasConverter.TryGetValue(toCheck.Substring(1, toCheck.Length - 2), out char t1))
+                                        outp += $"{t1}{DELIMITER}";
+                                    else throw new FormatException($"Incorrect alias format, there is missing closing brackets or a wrong alias name used in a paramaterized variable.\nFailed when parsing \"{toCheck}\"");
+                            format = format.Substring(0, m.Groups[2].Index) + outp.Substring(0,outp.Length-1) + format.Substring(m.Groups[2].Index + m.Groups[2].Length);
+                            matchVal = m.Groups[1].Value;//*/
+                        }
+                        if (aliasConverter.TryGetValue(matchVal.Substring(2, matchVal.Length - 3), out char t2))
+                            format = format.Substring(0, m.Index + 1) + $"{t2}" + format.Substring(m.Index + matchVal.Length);
+                        else throw new FormatException($"Incorrect aliasing used. The alias name '{matchVal.Substring(2, matchVal.Length - 3)}' does not exist for this counter." +
+                            $"\nCorrect Format: {ESCAPE_CHAR}{ALIAS}<Alias Name>{ALIAS} OR {GROUP_OPEN}{ALIAS}<Alias Name>{ALIAS} ... {GROUP_CLOSE}" +
                             $"\nPossible alias names are listed below:\n{string.Join("\n", aliasConverter.Keys)}");
+                    }
+                }
             if (aliasConverter == null)
                 Plugin.Log.Debug("No alias converter given! Thankfully, there are no aliases present so there will not be an error.");
             for (int i = 0; i < format.Length; i++)//[p$ ]&[[c&x]&]<1 / [o$ ]&[[f&y]&] >&l<2\n&m[t\n$]>

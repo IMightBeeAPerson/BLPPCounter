@@ -22,7 +22,7 @@ namespace PleaseWork.Counters
         public static string DisplayName => "Relative";
         public string Name => DisplayName;
         public bool Usable => displayIniter != null && displayFormatter != null && TheCounter.TargetUsable && TheCounter.PercentNeededUsable;
-        private static Func<bool, bool, float, string, string, float, string, string, float, string, string> displayFormatter;
+        private static Func<bool, bool, int, float, string, string, float, string, string, float, string, string> displayFormatter;
         private static Func<Func<Dictionary<char, object>, string>> displayIniter;
         private static PluginConfig pc => PluginConfig.Instance;
         public string ReplayMods { get; private set; }
@@ -172,16 +172,17 @@ namespace PleaseWork.Counters
             displayIniter = HelpfulFormatter.GetBasicTokenParser(format,
                 new Dictionary<string, char>()
                 {
-                    { "AccDifference", 'd' },
+                    { "Acc Difference", 'd' },
                     { "Color", 'c' },
-                    { "PPdifference", 'x' },
-                    { "ActualPP", 'p' },
+                    { "PP Difference", 'x' },
+                    { "PP", 'p' },
                     { "Label", 'l' },
-                    { "FCcolor", 'f' },
-                    { "FCPPdifference", 'y' },
-                    { "ActualFCPP", 'o' },
+                    { "FC Color", 'f' },
+                    { "FCPP Difference", 'y' },
+                    { "FCPP", 'o' },
                     { "Accuracy", 'a' },
-                    { "Target", 't' }
+                    { "Target", 't' },
+                    { "Mistakes", 'e' }
                 },
                 formattedTokens =>
                 {
@@ -206,11 +207,11 @@ namespace PleaseWork.Counters
         public static void InitDefaultFormat()
         {
             var simple = displayIniter.Invoke();
-            displayFormatter = (fc, totPp, accDiff, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label) =>
+            displayFormatter = (fc, totPp, mistakes, accDiff, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label) =>
             {
                 Dictionary<char, object> vals = new Dictionary<char, object>()
                 {
-                    { (char)1, fc }, {(char)2, totPp }, {'d', accDiff }, { 'c', color }, {'x',  modPp }, {'p', regPp },
+                    { (char)1, fc }, {(char)2, totPp }, {'e', mistakes }, {'d', accDiff }, { 'c', color }, {'x',  modPp }, {'p', regPp },
                     {'l', label }, { 'f', fcCol }, { 'y', fcModPp }, { 'o', fcRegPp }
                 };
                 return simple.Invoke(vals);
@@ -267,12 +268,12 @@ namespace PleaseWork.Counters
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
-                    text += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, accDiff, color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
+                    text += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, mistakes, accDiff, color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
                         color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], labels[i]) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, accDiff, color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
+                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, mistakes, accDiff, color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
                     color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3]) + "\n";
         }
         #endregion
