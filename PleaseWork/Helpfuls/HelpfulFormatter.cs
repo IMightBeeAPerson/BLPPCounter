@@ -41,8 +41,6 @@ namespace PleaseWork.Helpfuls
         {
             RegexAliasPattern = string.Format(RegexAliasPattern, Regex.Escape(ESCAPE_CHAR+""), Regex.Escape(GROUP_OPEN+""), Regex.Escape(ALIAS+""), Regex.Escape(PARAM_OPEN+""));
             RegexAliasErrorFinder = string.Format(RegexAliasErrorFinder, Regex.Escape(ESCAPE_CHAR+""), Regex.Escape(GROUP_OPEN+""), Regex.Escape(ALIAS+""), Regex.Escape(PARAM_OPEN+""));
-            Plugin.Log.Info(RegexAliasPattern);
-            Plugin.Log.Info(RegexAliasErrorFinder);
             var hold = "";
             for (int i = 0; i < PC.DecimalPrecision; i++) hold += "#";
             NUMBER_TOSTRING_FORMAT = PC.DecimalPrecision > 0 ? PC.FormatSettings.NumberFormat.Replace("#","#." + hold) : PC.FormatSettings.NumberFormat;
@@ -82,7 +80,7 @@ namespace PleaseWork.Helpfuls
                 }
                 throw new FormatException(errorMessage.Trim());
             }
-            if (Regex.Matches(format, RegexAliasPattern) is MatchCollection mc && mc.Count > 0)//|(&.|&\\?'[^']+')\((.*'[^']+')
+            if (Regex.Matches(format, RegexAliasPattern) is MatchCollection mc && mc.Count > 0)
                 if (aliasConverter == null)
                     throw new ArgumentNullException("No alias converter given while format contains aliases! Please remove aliases from the format as there is no way to parse them.\nFormat: " + format);
                 else
@@ -94,10 +92,6 @@ namespace PleaseWork.Helpfuls
                         string matchVal = m.Value;
                         if (matchVal.Count(a => a == ALIAS) != 2)
                         {
-                            //Plugin.Log.Info($"Index: {m.Index} || Length: {m.Length}");
-                            //Plugin.Log.Info(string.Join(" || ", m.Groups.Cast<Group>().Select(a => a.Value)));
-                            //format = format.Remove(m.Index, m.Length + 1);
-                            //Plugin.Log.Info(HelpfulMisc.ToLiteral(format));
                             string outp = "";
                             foreach (string toCheck in m.Groups[2].Value.Split(DELIMITER))
                                 if (toCheck[0] == ALIAS && toCheck[toCheck.Length - 1] == ALIAS)

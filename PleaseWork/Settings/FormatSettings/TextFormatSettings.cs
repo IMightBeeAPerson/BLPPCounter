@@ -11,7 +11,7 @@ namespace PleaseWork.Settings.FormatSettings
         public virtual string DefaultTextFormat { get; set; } = "&x<1 / &y> &l<2[e\n*c,red*$* mistake&s(e)]>";
         public virtual string ClanTextFormat { get; set; } = "[p$ ]&[[c&x]&]<1 / [o$ ]&[[f&y]&] >&l<2\n&m[t\n$]>";
         public virtual string WeightedTextFormat { get; set; } = "&x[p ($)]<1 / &y[o ($)]><3 [c#&r]> &l<2[e\n*c,red*$* mistake&s(e)][m\n$]>";
-        public virtual string RelativeTextFormat { get; set; } = "[c&x][p ($)]<1 || [f&y][o ($)]> &l<2\n[c&a]% to beat[t\n$]>";
+        public virtual string RelativeTextFormat { get; set; } = "[c&x][p ($)]<1 || [f&y][o ($)]> &l<2\n[c&d]% to beat[t\n$]>";
         [UseConverter(typeof(ListConverter<ColorMatch>))]
         public virtual List<ColorMatch> WeightedRankColors { get; set; } = new List<ColorMatch>()
         {

@@ -39,9 +39,9 @@ namespace PleaseWork.Utils
             {
                 string data = File.ReadAllText(file);
                 data = new Regex("(?:(?<=:) +(?=\"))|(?: {2,})|\n|\r").Replace(data, "");
-                MatchCollection hashs = new Regex(@"(?<=hash...)[A-z0-9]+(?=...levelid)").Matches(data);
-                MatchCollection diffs = new Regex(@"(?<=difficulties.. \[{)[^}]+").Matches(data);
-                name = new Regex(@"(?<=playlistTitle...)[^,]+(?=.,)").Match(data).Value;
+                MatchCollection hashs = new Regex("(?<=hash...)[A-z0-9]+(?=...levelid)").Matches(data);
+                MatchCollection diffs = new Regex("(?<=difficulties.. \\[{)[^}]+").Matches(data);
+                name = new Regex("(?<=playlistTitle...)[^,]+(?=.,)").Match(data).Value;
                 Regex modeFinder = new Regex(@"(?<=characteristic...)[A-z]+"), diffFinder = new Regex(@"(?<=name...)[A-z]+");
                 for (int i = 0; i < diffs.Count; i++)
                 {

@@ -48,6 +48,8 @@ namespace PleaseWork.Utils
                 nameToId.Add(ct.Name, $"{ct.ID}");
             }
             theTargets = otherTargets.Union(theTargets).ToList();
+            if (!((string)theTargets[0]).Equals(NO_TARGET))
+                theTargets.Insert(0, NO_TARGET);
         }
         public static void AddTarget(string name, string id)
         {

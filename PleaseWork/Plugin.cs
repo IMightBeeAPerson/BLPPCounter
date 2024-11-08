@@ -42,7 +42,7 @@ namespace PleaseWork
         [OnEnable]
         public void OnEnable() {
             Targeter.GenerateClanNames();
-            new PlaylistLoader();
+            //new PlaylistLoader();
             TheCounter.InitCounterStatic();
             /*ClanCounter.FormatTheFormat();
             var test = ClanCounter.displayClan;
