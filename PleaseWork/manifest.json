@@ -18,6 +18,7 @@
       "Name": "BL PP Counter",
       "Description": "It counts things",
       "CounterLocation": "PleaseWork.TheCounter",
+      "MultiplayerReady": true,
       "ConfigDefaults": {
         "Enabled": true,
         "Position": "AboveCombo",

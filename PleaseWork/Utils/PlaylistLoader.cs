@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using PleaseWork.Helpfuls;
 using System.IO;
-using System.Text.RegularExpressions;
+using Newtonsoft.Json.Linq;
 
 namespace PleaseWork.Utils
 {
@@ -20,16 +20,15 @@ namespace PleaseWork.Utils
 
         private void LoadPlaylists()
         {
-            //TheCounter.ForceLoadMaps();
             string[] files = Directory.GetFiles(HelpfulPaths.PLAYLISTS);
             List<string> names = new List<string>();
             foreach (string file in files)
                 names.Add(new string(file.Skip(file.LastIndexOf('.')+1).ToArray()));
-            /*foreach (string file in files)
+            foreach (string file in files)
             {
                 if (!File.Exists(file)) continue;
                 LoadPlaylist(file);
-            }*/
+            }
         }
         private void LoadPlaylist(string file)
         {
@@ -37,23 +36,16 @@ namespace PleaseWork.Utils
             string name = "";
             try 
             {
-                string data = File.ReadAllText(file);
-                data = new Regex("(?:(?<=:) +(?=\"))|(?: {2,})|\n|\r").Replace(data, "");
-                MatchCollection hashs = new Regex("(?<=hash...)[A-z0-9]+(?=...levelid)").Matches(data);
-                MatchCollection diffs = new Regex("(?<=difficulties.. \\[{)[^}]+").Matches(data);
-                name = new Regex("(?<=playlistTitle...)[^,]+(?=.,)").Match(data).Value;
-                Regex modeFinder = new Regex(@"(?<=characteristic...)[A-z]+"), diffFinder = new Regex(@"(?<=name...)[A-z]+");
-                for (int i = 0; i < diffs.Count; i++)
-                {
-                    string hash = hashs[i].Value;
-                    string mapData = diffs[i].Value;
-                    string mode = modeFinder.Match(mapData).Value;
-                    string diff = diffFinder.Match(mapData).Value;
-                    diff = char.ToUpper(diff[0]) + diff.Substring(1);
-                    //Plugin.Log.Info($"hash: {hash}\tmode: {mode}\tdiff: {diff}");
-                    TheCounter.Data.TryGetValue(hash, out Map m);
-                    if (m != null) outp.Add(new MapSelection(m, diff, mode));
-                }
+                JToken data = JToken.Parse(File.ReadAllText(file));
+                JEnumerable<JToken> songs = data["songs"].Children();
+                name = data["playlistTitle"].ToString();
+                foreach (JToken song in songs)
+                    if (TheCounter.Data.TryGetValue(song["hash"].ToString(), out Map m)) 
+                    {
+                        JEnumerable<JToken> diffs = song["difficulties"].Children();
+                        foreach (JToken diff in diffs)
+                            outp.Add(new MapSelection(m, $"{char.ToUpper(diff["Name"].ToString()[0])}{diff["Name"].ToString().Substring(1)}", diff["characteristic"].ToString()));
+                    }
             } 
             catch (Exception e) { Plugin.Log.Info("Error loading playlists\n" + e); }
             Playlists.Add(name, outp.ToArray());
