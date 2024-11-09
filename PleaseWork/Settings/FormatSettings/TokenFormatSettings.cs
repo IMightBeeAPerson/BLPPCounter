@@ -1,6 +1,7 @@
 ﻿using IPA.Config.Stores;
 using IPA.Config.Stores.Attributes;
 using IPA.Config.Stores.Converters;
+using PleaseWork.Utils;
 using System.Collections.Generic;
 
 namespace PleaseWork.Settings.FormatSettings
@@ -24,7 +25,7 @@ namespace PleaseWork.Settings.FormatSettings
         {
             {"c", "color" }
         };
-        [UseConverter(typeof(DictionaryConverter<string>))]
-        public virtual Dictionary<string, string> TokenAliases { get; set; } = new Dictionary<string, string>();
+        [UseConverter(typeof(ListConverter<CustomAlias>))]
+        public virtual List<CustomAlias> TokenAliases { get; set; } = new List<CustomAlias>();
     }
 }

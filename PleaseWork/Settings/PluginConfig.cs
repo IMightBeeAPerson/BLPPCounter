@@ -26,8 +26,6 @@ namespace PleaseWork.Settings
         public virtual bool ShowLbl { get; set; } = true;
         public virtual bool PPFC { get; set; } = false;
         public virtual string Target { get; set; } = Targeter.NO_TARGET;
-        public virtual long CustomTarget { get; set; } = default;
-        public virtual bool ShowCustomTargets { get; set; } = false;
         public virtual bool ShowEnemy { get; set; } = true;
         public virtual bool ShowClanMessage { get; set; } = false;
         public virtual bool LocalReplay { get; set; } = false;

@@ -30,7 +30,7 @@
   </vertical>
   <text text='Target Settings'/>
   <vertical spacing='1'>
-    <string-setting text='Custom Target' value='CustomTarget' apply-on-change='true' hover-hint='Enter the user id of a person'/>
+    <string-setting text='Custom Target' value='CustomTarget' apply-on-change='true' hover-hint='Enter the user id or alias of a person'/>
     <checkbox-setting text='Show Target' apply-on-change='true' value='ShowEnemy' hover-hint='Show who you are targeting (if you have one selected)'/>
     <dropdown-list-setting text='Target' apply-on-change='true' value='Target' options='toTarget' hover-hint='A player to compare against while playing'/>
   </vertical>

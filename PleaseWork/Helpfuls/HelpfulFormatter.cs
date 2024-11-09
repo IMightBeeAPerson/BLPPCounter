@@ -1,6 +1,7 @@
 ﻿using BeatmapEditor3D;
 using ModestTree;
 using PleaseWork.Settings;
+using PleaseWork.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -33,13 +34,13 @@ namespace PleaseWork.Helpfuls
         public static readonly string NUMBER_TOSTRING_FORMAT;
         public static readonly Dictionary<string, char> GLOBAL_ALIASES;
 
-        private static readonly string RegexAliasPattern = "({0}.|{0}{2}[^{2}]+{2}){3}(.*{2}[^{2}]+{2})|([{0}{1}]{2}[^{2}]+?{2})";
+        private static readonly string RegexAliasPattern = "({0}.|{0}{2}[^{2}]+{2}){3}(.*{2}[^{2}]+{2}(?={4}))|([{0}{1}]{2}[^{2}]+?{2})";
         private static readonly string RegexAliasErrorFinder = "[{0}{1}]{2}(?=[^{2}]+?(?:[{0}{1}]|(?!.)))";
-        //0 = ESCAPE_CHAR, 1 = GROUP_OPEN, 2 = ALIAS, 3 = PARAM_OPEN
+        //0 = ESCAPE_CHAR, 1 = GROUP_OPEN, 2 = ALIAS, 3 = PARAM_OPEN, 4 = PARAM_CLOSE
 
         static HelpfulFormatter()
         {
-            RegexAliasPattern = string.Format(RegexAliasPattern, Regex.Escape(ESCAPE_CHAR+""), Regex.Escape(GROUP_OPEN+""), Regex.Escape(ALIAS+""), Regex.Escape(PARAM_OPEN+""));
+            RegexAliasPattern = string.Format(RegexAliasPattern, Regex.Escape(ESCAPE_CHAR+""), Regex.Escape(GROUP_OPEN+""), Regex.Escape(ALIAS+""), Regex.Escape(PARAM_OPEN+""), Regex.Escape(PARAM_CLOSE + ""));
             RegexAliasErrorFinder = string.Format(RegexAliasErrorFinder, Regex.Escape(ESCAPE_CHAR+""), Regex.Escape(GROUP_OPEN+""), Regex.Escape(ALIAS+""), Regex.Escape(PARAM_OPEN+""));
             var hold = "";
             for (int i = 0; i < PC.DecimalPrecision; i++) hold += "#";
@@ -52,12 +53,15 @@ namespace PleaseWork.Helpfuls
             };
         }
 
-        public static (string, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<(char, int), string[]>) ParseCounterFormat(string format, Dictionary<string, char> aliasConverter)
+        public static (string, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<(char, int), string[]>) ParseCounterFormat(string format, Dictionary<string, char> aliasConverter, string counterName)
         {
             Dictionary<(char, int), string> tokens = new Dictionary<(char, int), string>();
             Dictionary<(char, int), string[]> extraArgs = new Dictionary<(char, int), string[]>();
             Dictionary<int, char> priority = new Dictionary<int, char>();
+
             foreach (var e in GLOBAL_ALIASES) aliasConverter.Add(e.Key, e.Value);
+            CustomAlias.ApplyAliases(PluginConfig.Instance.TokenSettings.TokenAliases, aliasConverter, counterName);
+
             string formatted = "";
             int repIndex = 0, forRepIndex = 0, sortIndex = 0;
             bool capture = false;
@@ -103,9 +107,9 @@ namespace PleaseWork.Helpfuls
                         }
                         if (aliasConverter.TryGetValue(matchVal.Substring(2, matchVal.Length - 3), out char t2))
                             format = format.Substring(0, m.Index + 1) + $"{t2}" + format.Substring(m.Index + matchVal.Length);
-                        else throw new FormatException($"Incorrect aliasing used. The alias name '{matchVal.Substring(2, matchVal.Length - 3)}' does not exist for this counter." +
+                        else throw new FormatException($"Incorrect aliasing used. The alias name '{matchVal.Substring(2, matchVal.Length - 3)}' does not exist for {counterName} counter." +
                             $"\nCorrect Format: {ESCAPE_CHAR}{ALIAS}<Alias Name>{ALIAS} OR {GROUP_OPEN}{ALIAS}<Alias Name>{ALIAS} ... {GROUP_CLOSE}" +
-                            $"\nPossible alias names are listed below:\n{string.Join("\n", aliasConverter.Keys)}");
+                            $"\nPossible alias names are listed below:\n{string.Join("\n", aliasConverter).Replace("[","\"").Replace("]","").Replace(", ","\" as ")}");
                     }
                 }
             if (aliasConverter == null)
@@ -258,12 +262,14 @@ namespace PleaseWork.Helpfuls
         public static Func<Func<Dictionary<char, object>, string>> GetBasicTokenParser(
             string format,
             Dictionary<string, char> aliasConverter,
+            string counterName,
             Action<TokenParser> settings,
             Action<Dictionary<(char, int), string>, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<char, object>> varSettings)
-            => GetBasicTokenParser(format, aliasConverter, settings, varSettings, null, null);
+            => GetBasicTokenParser(format, aliasConverter, counterName, settings, varSettings, null, null);
         public static Func<Func<Dictionary<char, object>, string>> GetBasicTokenParser(
             string format,
             Dictionary<string, char> aliasConverter,
+            string counterName,
             Action<TokenParser> settings,
             Action<Dictionary<(char, int), string>, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<char, object>> varSettings,
             Func<char, string[], bool> confirmFormat,
@@ -277,7 +283,7 @@ namespace PleaseWork.Helpfuls
             implementArgs = GetParentImplementArgs(implementArgs);
             try
             {
-                (formatted, tokens, priority, extraArgs) = ParseCounterFormat(format, aliasConverter);
+                (formatted, tokens, priority, extraArgs) = ParseCounterFormat(format, aliasConverter, counterName);
                 foreach (var val in extraArgs.Keys)
                 {
                     if (!confirmFormat.Invoke(val.Item1, extraArgs[val]))

@@ -12,6 +12,7 @@ using System.Net.Http;
 using Newtonsoft.Json.Linq;
 using System.Linq;
 using System.Reflection;
+using ModestTree;
 namespace PleaseWork
 {
 
@@ -26,6 +27,7 @@ namespace PleaseWork
         [Inject] private PlayerHeadAndObstacleInteraction wall;
         private static readonly HttpClient client = new HttpClient();
         public static Dictionary<string, Map> Data { get; private set; }
+        public static string DisplayName => "Main";
         private static bool dataLoaded = false, fullDisable = false;
         private static MapSelection lastMap;
         public static IMyCounters theCounter { get; private set; }
@@ -47,7 +49,6 @@ namespace PleaseWork
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
         private string mode, lastTarget;
-        private (int, float) currentMult;
 
         public static bool FormatUsable { get => displayFormatter != null && displayIniter != null; }
         public static bool TargetUsable { get => TargetFormatter != null && targetIniter != null; }
@@ -63,11 +64,12 @@ namespace PleaseWork
             StaticFunctions = new Dictionary<string, Type>() 
             { { "InitFormat", typeof(bool) } };
             StaticProperties = new Dictionary<string, Type>()
-            { {"DisplayName", typeof(string) }, {"OrderNumber", typeof(int) } };
+            { {"DisplayName", typeof(string) }, {"OrderNumber", typeof(int) }, {"DisplayHandler", typeof(string) } };
 
             if (FormatTheFormat(PluginConfig.Instance.FormatSettings.DefaultTextFormat)) InitFormat();
             if (FormatTarget(PluginConfig.Instance.MessageSettings.TargetingMessage)) InitTarget();
             if (FormatPercentNeeded(PluginConfig.Instance.MessageSettings.PercentNeededMessage)) InitPercentNeeded();
+
             try
             {
                 var validTypes = GetValidCounters();
@@ -79,6 +81,13 @@ namespace PleaseWork
                 }
                 ValidCounters = validTypes.Where(a => a != null).ToArray();
                 Dictionary<string, object> propertyOutp = GetPropertyFromTypes("DisplayName", ValidCounters);
+                foreach (var toCheck in GetPropertyFromTypes("DisplayHandler", ValidCounters).Where(a => (a.Value as string).Equals(DisplayName)))
+                    if (!FormatTheFormat(PluginConfig.Instance.FormatSettings.DefaultTextFormat, propertyOutp[toCheck.Key] as string))
+                    {
+                        ValidCounters[ValidCounters.IndexOf(ValidCounters.First(a => a.Name.Equals(propertyOutp[toCheck.Key] as string)))] = null;
+                        propertyOutp.Remove(toCheck.Key);
+                    }
+                ValidCounters = ValidCounters.Where(a => a != null).ToArray();
                 DisplayNameToCounter = new Dictionary<string, string>();
                 foreach (var val in propertyOutp)
                     if (val.Value is string name)
@@ -140,14 +149,16 @@ namespace PleaseWork
                     display.fontSize = (float)PluginConfig.Instance.FontSize;
                     display.text = "";
                     ChangeNotifiers(true);
-                    currentMult = (1, 0);
                     loadedEvents = true;
                     //string hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
                     string hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
                     bool counterChange = theCounter != null && !theCounter.Name.Equals(PluginConfig.Instance.PPType.Split(' ')[0]);
+                    if (counterChange)
+                        if ((GetPropertyFromTypes("DisplayHandler", theCounter.GetType()).Values.First() as string).Equals(DisplayName))
+                            //Need to recall this one so that it implements the current counter's wants properly
+                            if (FormatTheFormat(PluginConfig.Instance.FormatSettings.DefaultTextFormat)) InitFormat();
                     if (counterChange || lastMap.Equals(new MapSelection()) || hash != lastMap.Hash || PluginConfig.Instance.PPType.Equals("Progressive") || lastTarget != PluginConfig.Instance.Target)
                     {
-
                         Data.TryGetValue(hash, out Map m);
                         if (m == null) 
                         {
@@ -158,6 +169,7 @@ namespace PleaseWork
                         //lastMap = new MapSelection(m, beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.34.2 and below
                         lastMap = new MapSelection(Data[hash], beatmapDiff.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.37.0 and above
                         if (!InitCounter()) throw new Exception("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
+                        
                     }
                     else
                         APIAvoidanceMode();
@@ -211,7 +223,6 @@ namespace PleaseWork
         private void OnMiss()
         {
             if (notes == 0) return;
-            Plugin.Log.Info("Miss");
             comboNotes = HelpfulMath.DecreaseMultiplier(comboNotes);
             mistakes++;
         }
@@ -278,14 +289,14 @@ namespace PleaseWork
             Data = new Dictionary<string, Map>();
             InitData();
         }
-        private static bool FormatTheFormat(string format) {
+        private static bool FormatTheFormat(string format, string counter = "") {
             displayIniter = HelpfulFormatter.GetBasicTokenParser(format, 
                 new Dictionary<string, char>() {
                     { "PP", 'x' },
                     { "FCPP", 'y' },
                     { "Mistakes", 'e' },
                     { "Label", 'l' }
-                },
+                }, counter,
                 a => { },
                 (tokens, tokensCopy, priority, vals) => 
                 { 
@@ -301,7 +312,7 @@ namespace PleaseWork
                 {
                     {"Target", 't' },
                     {"Mods", 'm' }
-                },
+                }, DisplayName,
                 a => { }, (a, b, c, d) => { });
             return targetIniter != null;
         }
@@ -316,7 +327,7 @@ namespace PleaseWork
                     {"AccPP", 'y' },
                     {"PassPP", 'z' },
                     {"PP", 'p' }
-                }, 
+                }, DisplayName,
                 a => { },
                 (tokens, tokensCopy, priority, vals) =>
                 {
@@ -344,7 +355,7 @@ namespace PleaseWork
         private static Type[] GetValidCounters()
         {
             List<Type> counters = new List<Type>();
-            //The line below taken from: https://stackoverflow.com/questions/26733/getting-all-types-that-implement-an-interface
+            //The line below adapted from: https://stackoverflow.com/questions/26733/getting-all-types-that-implement-an-interface
             var types = System.Reflection.Assembly.GetExecutingAssembly().GetTypes().Where(mytype => mytype.GetInterfaces().Contains(typeof(IMyCounters)));
             foreach (Type t in types)
             {

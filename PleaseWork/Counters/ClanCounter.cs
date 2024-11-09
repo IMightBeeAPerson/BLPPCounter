@@ -24,6 +24,7 @@ namespace PleaseWork.Counters
         private static Func<Func<Dictionary<char, object>, string>> clanIniter, weightedIniter, customIniter;
 
         public static string DisplayName => "Clan";
+        public static string DisplayHandler => DisplayName;
         public static int OrderNumber => 3;
         public string Name => DisplayName;
         public string Mods { get; private set; }
@@ -213,7 +214,7 @@ namespace PleaseWork.Counters
                     { "Mistakes", 'e' },
                     { "Target", 't' },
                     { "Message", 'm' }
-                },
+                }, DisplayName,
                 formattedTokens =>
                 {
                     if (!pc.ShowLbl) formattedTokens.SetText('l');
@@ -248,7 +249,7 @@ namespace PleaseWork.Counters
                     { "FCPP Difference", 'y' },
                     { "FCPP", 'o' },
                     { "Message", 'm' }
-                },
+                }, DisplayName,
                 formattedTokens =>
                 {
                     if (!pc.ShowLbl) formattedTokens.SetText('l');
@@ -272,7 +273,7 @@ namespace PleaseWork.Counters
                     {"Pass PP", 'z' },
                     {"PP", 'p' },
                     { "Target", 't' }
-                },
+                }, DisplayName,
                 formattedTokens =>
                 {
                     if (!pc.Target.Equals(Targeter.NO_TARGET) && pc.ShowEnemy)

@@ -29,18 +29,6 @@ namespace PleaseWork.Utils
                 nameToId[person["name"].ToString()] = person["id"].ToString();
             }
             var cts = pc.CustomTargets;
-            if (cts.All(a => a.ID != pc.CustomTarget))
-                try
-                {
-                    var converted = CustomTarget.ConvertToId($"{pc.CustomTarget}");
-                    pc.CustomTarget = converted.ID;
-                    pc.CustomTargets.Add(converted);
-                    nameToId.Add(converted.Name, $"{converted.ID}");
-                }
-                catch (ArgumentException e)
-                {
-                    Plugin.Log.Warn(e.Message);
-                }
             List<object> otherTargets = new List<object>() { NO_TARGET };
             foreach (CustomTarget ct in cts)
             {
@@ -49,7 +37,7 @@ namespace PleaseWork.Utils
             }
             theTargets = otherTargets.Union(theTargets).ToList();
             if (!((string)theTargets[0]).Equals(NO_TARGET))
-                theTargets.Insert(0, NO_TARGET);
+                theTargets.Insert(0, NO_TARGET); //I don't really understand why this is even needed but sometimes the no target option gets deleted ;-;
         }
         public static void AddTarget(string name, string id)
         {

@@ -80,8 +80,6 @@ namespace PleaseWork.Settings
         }
         [UIValue("toTarget")]
         public List<object> ToTarget => Targeter.theTargets;
-        [UIValue("ShowClanList")]
-        public bool ShowClanList => !pc.ShowCustomTargets;
         [UIValue("CustomTarget")]
         public string CustomTarget
         {
@@ -91,7 +89,6 @@ namespace PleaseWork.Settings
                 try
                 {
                     var converted = Utils.CustomTarget.ConvertToId(value);
-                    pc.CustomTarget = converted.ID;
                     pc.CustomTargets.Add(converted);
                     Targeter.AddTarget(converted.Name, $"{converted.ID}");
                 } catch (ArgumentException e)

@@ -10,9 +10,9 @@ namespace PleaseWork.Counters
     public class ProgressCounter: IMyCounters
     {
         public static string DisplayName => "Progressive";
+        public static string DisplayHandler => TheCounter.DisplayName;
         public static int OrderNumber => 1;
         public string Name => DisplayName;
-        public bool Usable => TheCounter.FormatUsable;
 
         private TMP_Text display;
         private float accRating, passRating, techRating;

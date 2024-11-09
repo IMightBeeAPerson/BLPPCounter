@@ -11,12 +11,12 @@ using TMPro;
 
 namespace PleaseWork.Counters
 {
-    internal class NormalCounter: IMyCounters
+    public class NormalCounter: IMyCounters
     {
         public static string DisplayName => "Normal";
+        public static string DisplayHandler => TheCounter.DisplayName;
         public static int OrderNumber => 0;
         public string Name => DisplayName;
-        public bool Usable => TheCounter.FormatUsable;
         private TMP_Text display;
         private float accRating, passRating, techRating;
         private int precision;

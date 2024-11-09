@@ -20,6 +20,7 @@ namespace PleaseWork.Counters
         private static readonly HttpClient client = new HttpClient();
         public static int OrderNumber => 2;
         public static string DisplayName => "Relative";
+        public static string DisplayHandler => DisplayName;
         public string Name => DisplayName;
         public bool Usable => displayIniter != null && displayFormatter != null && TheCounter.TargetUsable && TheCounter.PercentNeededUsable;
         private static Func<bool, bool, int, float, string, string, float, string, string, float, string, string> displayFormatter;
@@ -183,7 +184,7 @@ namespace PleaseWork.Counters
                     { "Accuracy", 'a' },
                     { "Target", 't' },
                     { "Mistakes", 'e' }
-                },
+                }, DisplayName,
                 formattedTokens =>
                 {
                     if (!pc.ShowLbl) formattedTokens.SetText('l');
