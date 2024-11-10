@@ -53,12 +53,12 @@ namespace PleaseWork
         private TMP_Text display;
         private bool enabled;
         private float passRating, accRating, techRating, stars;
-        private int notes, comboNotes, mistakes;
+        private int notes, comboNotes, mistakes, totalNotes;
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
         private string mode, lastTarget;
         #endregion
-        #region Overrides & Event Calls
+        #region Inits & Overrides
 
         public static void InitCounterStatic() 
         {
@@ -161,7 +161,7 @@ namespace PleaseWork
                         if ((GetPropertyFromTypes("DisplayHandler", theCounter.GetType()).Values.First() as string).Equals(DisplayName))
                             //Need to recall this one so that it implements the current counter's wants properly
                             if (FormatTheFormat(PluginConfig.Instance.FormatSettings.DefaultTextFormat)) InitFormat();
-                    if (counterChange || lastMap.Equals(new MapSelection()) || hash != lastMap.Hash || PluginConfig.Instance.PPType.Equals("Progressive") || lastTarget != PluginConfig.Instance.Target)
+                    if (counterChange || lastMap.Equals(default) || hash != lastMap.Hash || PluginConfig.Instance.PPType.Equals("Progressive") || lastTarget != PluginConfig.Instance.Target)
                     {
                         Data.TryGetValue(hash, out Map m);
                         if (m == null) 
@@ -171,7 +171,9 @@ namespace PleaseWork
                             m = Data[hash];
                         }
                         //lastMap = new MapSelection(m, beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.34.2 and below
-                        lastMap = new MapSelection(Data[hash], beatmapDiff.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.37.0 and above
+                        lastMap = new MapSelection(m, beatmapDiff.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.37.0 and above
+                        totalNotes = HelpfulMath.NotesForMaxScore((int)lastMap.MapData.Item2["maxScore"]);
+                        Plugin.Log.Info($"{totalNotes}");
                         if (!InitCounter()) throw new Exception("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
                         
                     }
@@ -194,7 +196,8 @@ namespace PleaseWork
                 if (loadedEvents) ChangeNotifiers(false);
             }
         }
-
+        #endregion
+        #region Event Calls
         private void OnNoteScored(ScoringElement scoringElement)
         {
             if (scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb)
@@ -213,6 +216,7 @@ namespace PleaseWork
             else OnMiss();
             Finish:
             theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
+            if (notes == totalNotes) ClearCounter();
         }
 
         private void OnBombHit(NoteController nc, in NoteCutInfo nci)
@@ -232,8 +236,6 @@ namespace PleaseWork
         }
         #endregion
         #region API Calls
-        
-        
         private string RequestHashData()
         {
             string path = HelpfulPaths.BLAPI_HASH + beatmap.levelID.Split('_')[2].ToUpper(); // 1.37.0 and above
@@ -268,7 +270,6 @@ namespace PleaseWork
                 return false;
             }
         }
-
         #endregion
         #region Helper Methods
         private void ChangeNotifiers(bool a)
