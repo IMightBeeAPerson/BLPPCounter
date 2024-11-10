@@ -100,6 +100,7 @@ Below is a table with the letters that only apply to one counter or the other.
 | ------ | ----- | ------- | ----------- |
 | m | Message | Clan Counter | This will show a message if the counter is used on a map that isn't perfectly ideal for clan counter or that clan counter can't be used on. It will say the reason for why this isn't ideal |
 | d | Acc Difference | Relative Counter | This will show the difference in percentage at the current moment between you and the replay you're comparing against |
+| a | Accuracy | Relative Counter | This is the accuracy needed to beat your or your target's previous score |
 
 | Number | Description |
 | ------ | ----------- |
