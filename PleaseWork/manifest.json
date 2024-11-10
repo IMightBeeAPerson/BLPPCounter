@@ -5,7 +5,7 @@
   "author": "Person",
   "version": "0.2.8",
   "description": "Adds a BeatLeader pp counter.",
-  "gameVersion": "1.38.0",
+  "gameVersion": "1.29.0",
   "dependsOn": {
     "BSIPA": "^4.2.0",
     "SiraUtil": "^3.0.5",

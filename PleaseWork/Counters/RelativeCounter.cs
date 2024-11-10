@@ -93,6 +93,11 @@ namespace PleaseWork.Counters
             }
             catch (Exception e)
             {
+                if (e is HttpRequestException && e.Message.Contains("404"))
+                {
+                    Plugin.Log.Info("Relative counter cannot be loaded due to the player never having played this map before!");
+                    return;
+                }
                 Plugin.Log.Warn("There was an error loading the replay of the player, most likely they have never played the map before.");
                 Plugin.Log.Debug(e);
                 failed = true;

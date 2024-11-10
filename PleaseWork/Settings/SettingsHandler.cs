@@ -14,7 +14,7 @@ namespace PleaseWork.Settings
     /*<checkbox-setting text='Local Replays' apply-on-change='true' value='LocalReplay' hover-hint='Check for any local replays before loading from website' active='false'/>
      <dropdown-list-setting text='Playlists' apply-on-change='true' value='ChosenPlaylist' options='PlNames' hover-hint='A playlist to load' active='false'/>
     <button text='Load Playlist' on-click='LoadPlaylist' hover-hint='Loads the selected playlist into cache to prevent lag' active='false'/>*/
-    public class SettingsHandler : ConfigModel
+    public class SettingsHandler: ConfigModel
     {
         #region Variables
         public static event Action SettingsUpdated;
@@ -154,7 +154,8 @@ namespace PleaseWork.Settings
                     //Targeter.AddTarget("This is a test", "1234");
                     customTargetText.SetText("<color=\"green\">Success!</color>");
                     customTargetInput.Text = "";
-                    targetList.Values = ToTarget;
+                    //targetList.Values = ToTarget; /* 1.37.4 and up*/
+                    targetList.values = ToTarget; /* 1.34.2 and below*/
                     targetList.UpdateChoices();
                 }
                 catch (ArgumentException e)
