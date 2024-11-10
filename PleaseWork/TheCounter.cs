@@ -18,6 +18,7 @@ namespace PleaseWork
 
     public class TheCounter : BasicCustomCounter
     {
+        #region Injects
         [Inject] private BeatmapLevel beatmap;
         [Inject] private BeatmapKey beatmapDiff;// 1.37.0 and above */
         //[Inject] private IDifficultyBeatmap beatmap; // 1.34.2 and below
@@ -25,6 +26,8 @@ namespace PleaseWork
         [Inject] private ScoreController sc;
         [Inject] private BeatmapObjectManager bomb;
         [Inject] private PlayerHeadAndObstacleInteraction wall;
+        #endregion
+        #region Static Variables
         private static readonly HttpClient client = new HttpClient();
         public static Dictionary<string, Map> Data { get; private set; }
         public static string DisplayName => "Main";
@@ -42,18 +45,19 @@ namespace PleaseWork
         private static Func<Func<Dictionary<char, object>, string>> displayIniter, targetIniter, percentNeededIniter;
 
         private static bool updateFormat;
-        private TMP_Text display;        
+        public static bool FormatUsable { get => displayFormatter != null && displayIniter != null; }
+        public static bool TargetUsable { get => TargetFormatter != null && targetIniter != null; }
+        public static bool PercentNeededUsable { get => PercentNeededFormatter != null && percentNeededIniter != null; }
+        #endregion
+        #region Variables
+        private TMP_Text display;
         private bool enabled;
         private float passRating, accRating, techRating, stars;
         private int notes, comboNotes, mistakes;
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
         private string mode, lastTarget;
-
-        public static bool FormatUsable { get => displayFormatter != null && displayIniter != null; }
-        public static bool TargetUsable { get => TargetFormatter != null && targetIniter != null; }
-        public static bool PercentNeededUsable { get => PercentNeededFormatter != null && percentNeededIniter != null; }
-
+        #endregion
         #region Overrides & Event Calls
 
         public static void InitCounterStatic() 
@@ -256,7 +260,7 @@ namespace PleaseWork
                 output = client.GetStringAsync(new Uri(path)).Result;
                 return true;
             }
-            catch (HttpRequestException e)
+            catch (Exception e)
             {
                 Plugin.Log.Error($"Beat Leader API request failed\nPath: {path}\nError: {e.Message}");
                 Plugin.Log.Debug(e);

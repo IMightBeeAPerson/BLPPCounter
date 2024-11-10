@@ -1,14 +1,11 @@
-﻿using BeatmapEditor3D;
-using ModestTree;
+﻿using ModestTree;
 using PleaseWork.Settings;
 using PleaseWork.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using UnityEngine;
-using static BeatSaberMarkupLanguage.Components.KEYBOARD;
 
 namespace PleaseWork.Helpfuls
 {
