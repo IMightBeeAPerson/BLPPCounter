@@ -77,7 +77,7 @@ namespace PleaseWork.Counters
                         accToBeat = (float)Math.Round(BLCalc.GetAcc(accRating, passRating, techRating, thePP) * 100.0f, pc.DecimalPrecision);
                     else
                     {
-                        string[] hold = ((string)playerData["modifiers"]).Split(',');
+                        string[] hold = ((string)playerData["modifiers"]).ToUpper().Split(',');
                         //Ignore how janky this line is below, i'll fix later if I feel like it.
                         string modName = hold.Length == 0 ? "" : hold.Any(a => a.Equals("SF") || a.Equals("FS") || a.Equals("SS")) ? hold.First(a => a.Equals("SF") || a.Equals("FS") || a.Equals("SS")) : "";
                         float acc = (float)playerData["accuracy"];
@@ -93,13 +93,14 @@ namespace PleaseWork.Counters
             }
             catch (Exception e)
             {
-                if (e is HttpRequestException && e.Message.Contains("404"))
+                if (e.InnerException is HttpRequestException && e.InnerException.Message.Substring(0, 3).Equals("404"))
+                    Plugin.Log.Warn("Relative counter cannot be loaded due to the player never having played this map before! (API return status 404)");
+                else
                 {
-                    Plugin.Log.Info("Relative counter cannot be loaded due to the player never having played this map before!");
-                    return;
+                    Plugin.Log.Warn("There was an error loading the replay of the player, most likely they have never played the map before.");
+                    Plugin.Log.Debug(e);
                 }
-                Plugin.Log.Warn("There was an error loading the replay of the player, most likely they have never played the map before.");
-                Plugin.Log.Debug(e);
+                Plugin.Log.Warn($"Defaulting to {pc.RelativeDefault.ToLower()} counter.");
                 failed = true;
                 backup = TheCounter.InitCounter(pc.RelativeDefault, display);
                 return;
