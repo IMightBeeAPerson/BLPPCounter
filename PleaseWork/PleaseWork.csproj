@@ -151,6 +151,7 @@
     <Compile Include="Counters\IMyCounters.cs" />
     <Compile Include="Counters\NormalCounter.cs" />
     <Compile Include="Counters\ProgressCounter.cs" />
+    <Compile Include="Counters\RankCounter.cs" />
     <Compile Include="Counters\RelativeCounter.cs" />
     <Compile Include="Helpfuls\HelpfulMath.cs" />
     <Compile Include="Helpfuls\HelpfulMisc.cs" />

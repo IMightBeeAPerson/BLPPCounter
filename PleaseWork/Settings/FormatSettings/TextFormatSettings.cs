@@ -12,6 +12,7 @@ namespace PleaseWork.Settings.FormatSettings
         public virtual string ClanTextFormat { get; set; } = "['PP'$ ]&[['Color'&'PP Difference']&]<1 / ['FCPP'$ ]&[['FC Color'&'FCPP Difference']&] >&'Label'<2\n&'Message'['Target'\n$]>";
         public virtual string WeightedTextFormat { get; set; } = "&'PP Difference'['PP' ($)]<1 / &'FCPP Difference'['FCPP' ($)]><3 ['Rank Color'#&'Rank']> &'Label'<2['Mistakes'\n*c,red*$* mistake&'Dynamic s'('Mistakes')]['Message'\n$]>";
         public virtual string RelativeTextFormat { get; set; } = "['Color'&'PP Difference']['PP' ($)]<1 || ['FC Color'&'FCPP Difference']['FCPP' ($)]> &'Label'<2\n['Color'&'Acc Difference']% to beat['Target'\n$]>";
+        public virtual string RankTextFormat { get; set; } = "&'PP'<1 / &'FCPP'> &'Label'<2\n[c#&r]\n*c,green*&d* PP to rank up!>";
         [UseConverter(typeof(ListConverter<ColorMatch>))]
         public virtual List<ColorMatch> WeightedRankColors { get; set; } = new List<ColorMatch>()
         {

@@ -3,7 +3,7 @@
   "id": "BL_PP_Counter",
   "name": "BL PP Counter",
   "author": "Person",
-  "version": "0.2.8",
+  "version": "0.3.0",
   "description": "Adds a BeatLeader pp counter.",
   "gameVersion": "1.29.0",
   "dependsOn": {

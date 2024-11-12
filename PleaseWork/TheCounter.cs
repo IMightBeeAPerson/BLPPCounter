@@ -43,6 +43,7 @@ namespace PleaseWork
         public static Func<string, string, string> TargetFormatter;
         public static Func<Func<string>, float, float, float, float, float, string> PercentNeededFormatter;
         private static Func<Func<Dictionary<char, object>, string>> displayIniter, targetIniter, percentNeededIniter;
+        public static string[] Labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
 
         private static bool updateFormat;
         public static bool FormatUsable { get => displayFormatter != null && displayIniter != null; }
@@ -550,14 +551,13 @@ namespace PleaseWork
         
         public static void UpdateText(bool displayFc, TMP_Text display, float[] ppVals, int mistakes)
         {
-            string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
             if (PluginConfig.Instance.SplitPPVals) {
                 string outp = "";
                 for (int i=0;i<4;i++)
-                    outp += displayFormatter.Invoke(displayFc, PluginConfig.Instance.ExtraInfo && i == 3, ppVals[i], ppVals[i + 4], mistakes, labels[i]) + "\n";
+                    outp += displayFormatter.Invoke(displayFc, PluginConfig.Instance.ExtraInfo && i == 3, ppVals[i], ppVals[i + 4], mistakes, Labels[i]) + "\n";
                 display.text = outp;
             } else
-                display.text = displayFormatter.Invoke(displayFc, PluginConfig.Instance.ExtraInfo, ppVals[3], ppVals[7], mistakes, labels[3]);
+                display.text = displayFormatter.Invoke(displayFc, PluginConfig.Instance.ExtraInfo, ppVals[3], ppVals[7], mistakes, Labels[3]);
         }
         #endregion
     }

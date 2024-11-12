@@ -5,8 +5,8 @@ using PleaseWork.Counters;
 using PleaseWork.Utils;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
-using System.Timers;
 using TMPro;
 
 namespace PleaseWork.Settings
@@ -18,56 +18,63 @@ namespace PleaseWork.Settings
     {
         #region Variables
         public static event Action SettingsUpdated;
+        private event PropertyChangedEventHandler PropertyChanged;
         private static PluginConfig pc => PluginConfig.Instance;
+        #endregion
+        #region Init
+        public SettingsHandler()
+        {
+            PropertyChanged += (a,b) => SettingsUpdated.Invoke();
+        }
         #endregion
         #region General Settings
         [UIValue("DecimalPrecision")]
         public int DecimalPrecision
         {
             get => pc.DecimalPrecision;
-            set { SettingsUpdated?.Invoke(); pc.DecimalPrecision = value; }
+            set => pc.DecimalPrecision = value;
         }
         [UIValue("FontSize")]
         public double FontSize
         {
             get => pc.FontSize;
-            set { SettingsUpdated?.Invoke(); pc.FontSize = value; }
+            set => pc.FontSize = value;
         }
         [UIValue("ShowLbl")]
         public bool ShowLbl
         {
             get => pc.ShowLbl;
-            set { SettingsUpdated?.Invoke(); pc.ShowLbl = value; }
+            set => pc.ShowLbl = value;
         }
         [UIValue("PPFC")]
         public bool PPFC
         {
             get => pc.PPFC;
-            set { SettingsUpdated?.Invoke(); pc.PPFC = value; }
+            set => pc.PPFC = value;
         }
         [UIValue("SplitVals")]
         public bool SplitPPVals
         {
             get => pc.SplitPPVals;
-            set { SettingsUpdated?.Invoke(); pc.SplitPPVals = value; }
+            set => pc.SplitPPVals = value;
         }
         [UIValue("ExtraInfo")]
         public bool ExtraInfo
         {
             get => pc.ExtraInfo;
-            set { SettingsUpdated?.Invoke(); pc.ExtraInfo = value; }
+            set => pc.ExtraInfo = value;
         }
         [UIValue("UseGrad")]
         public bool UseGrad
         {
             get => pc.UseGrad;
-            set { SettingsUpdated?.Invoke(); pc.UseGrad = value; }
+            set => pc.UseGrad = value;
         }
         [UIValue("GradVal")]
         public int GradVal
         {
             get => pc.GradVal;
-            set { SettingsUpdated?.Invoke(); pc.GradVal = value; }
+            set => pc.GradVal = value;
         }
         [UIValue("TypesOfPP")]
         public List<object> TypesOfPP => Plugin.BLInstalled ?
@@ -77,7 +84,7 @@ namespace PleaseWork.Settings
         public string PPType
         {
             get => pc.PPType;
-            set { SettingsUpdated?.Invoke(); pc.PPType = value; }
+            set => pc.PPType = value;
         }
         #endregion
         #region Misc Settings
@@ -89,25 +96,25 @@ namespace PleaseWork.Settings
         public bool ShowClanMessage
         {
             get => pc.ShowClanMessage;
-            set { SettingsUpdated?.Invoke(); pc.ShowClanMessage = value; }
+            set => pc.ShowClanMessage = value;
         }
         [UIValue("MapCache")]
         public int MapCache
         {
             get => pc.MapCache;
-            set { SettingsUpdated?.Invoke(); pc.MapCache = value; }
+            set => pc.MapCache = value;
         }
         [UIValue("ClanPercentCeil")]
         public double ClanPercentCeil
         {
             get => pc.ClanPercentCeil;
-            set { SettingsUpdated?.Invoke(); pc.ClanPercentCeil = value; }
+            set => pc.ClanPercentCeil = value;
         }
         [UIValue("CeilEnabled")]
         public bool CeilEnabled
         {
             get => pc.CeilEnabled;
-            set { SettingsUpdated?.Invoke(); pc.CeilEnabled = value; }
+            set => pc.CeilEnabled = value;
         }
         #endregion
         #region Relative Counter Settings
@@ -116,7 +123,7 @@ namespace PleaseWork.Settings
         public bool ShowRank
         {
             get => pc.ShowRank;
-            set { SettingsUpdated?.Invoke(); pc.ShowRank = value; }
+            set => pc.ShowRank = value;
         }
         [UIValue("RelativeDefault")]
         public string RelativeDefault
@@ -127,10 +134,30 @@ namespace PleaseWork.Settings
                         pc.RelativeDefault = (string)RelativeDefaultList[0];
                     else pc.RelativeDefault = Targeter.NO_TARGET; return pc.RelativeDefault;
             }
-            set { SettingsUpdated?.Invoke(); pc.RelativeDefault = value; }
+            set => pc.RelativeDefault = value;
         }
         [UIValue("RelativeDefaultList")]
         public List<object> RelativeDefaultList => TypesOfPP.Where(a => a is string b && !RelativeCounter.DisplayName.Equals(b)).ToList();
+        #endregion
+        #region Rank Counter Settings
+        [UIValue("MinRank")]
+        public int MinRank
+        {
+            get => pc.MinRank;
+            set => pc.MinRank = value;
+        }
+        [UIValue("MaxRank")]
+        public int MaxRank
+        {
+            get => pc.MaxRank;
+            set => pc.MaxRank = value;
+        }
+        [UIValue("AdaptableRank")]
+        public bool AdaptableRank
+        {
+            get => pc.AdaptableRank;
+            set => pc.AdaptableRank = value;
+        }
         #endregion
         #region Target Settings
         [UIComponent("TargetList")]
@@ -170,13 +197,13 @@ namespace PleaseWork.Settings
         public bool ShowEnemy
         {
             get => pc.ShowEnemy;
-            set { SettingsUpdated?.Invoke(); pc.ShowEnemy = value; }
+            set => pc.ShowEnemy = value;
         }
         [UIValue("Target")]
         public string Target
         {
             get => pc.Target;
-            set { SettingsUpdated?.Invoke(); pc.Target = value; }
+            set => pc.Target = value;
         }
         [UIValue("toTarget")]
         public List<object> ToTarget => Targeter.theTargets.Prepend(Targeter.NO_TARGET).ToList();
@@ -186,7 +213,7 @@ namespace PleaseWork.Settings
         public bool LocalReplay
         {
             get => pc.LocalReplay;
-            set { SettingsUpdated?.Invoke(); pc.LocalReplay = value; }
+            set => pc.LocalReplay = value;
         }
         [UIValue("PlNames")]
         public List<object> PlNames => new List<object>(PlaylistLoader.Instance.Names);
@@ -194,7 +221,7 @@ namespace PleaseWork.Settings
         public string ChosenPlaylist
         {
             get => pc.ChosenPlaylist;
-			set { SettingsUpdated?.Invoke(); pc.ChosenPlaylist = value; }
+			set => pc.ChosenPlaylist = value;
         }
         [UIAction("LoadPlaylist")]
         public void LoadPlaylist() {

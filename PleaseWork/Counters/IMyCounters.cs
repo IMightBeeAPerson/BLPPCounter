@@ -13,16 +13,19 @@ namespace PleaseWork.Counters
         void UpdateFormat();
         void UpdateCounter(float acc, int notes, int mistakes, float fcPercent);
         string Name { get; }
-        //Type GetType();
+
+        /*Constructors that must be created:
+         public IMyCounters(TMP_Text display, MapSelection map) { }
+         */
 
         /*Static functions that must be created:
-         * public static bool InitFormat() { }
+         public static bool InitFormat() { }
          */
 
         /*Static Fields that must be created:
-         * public static int OrderNumber;
-         * public static string DisplayName;
-         * public static string DisplayHandler;
+         public static int OrderNumber;
+         public static string DisplayName;
+         public static string DisplayHandler;
          */
     }
 }
