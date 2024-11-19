@@ -1,0 +1,5 @@
+<vertical spacing='2' vertical-fit='PreferredSize'>
+    <text text='General Settings' align='Center'/>
+	<checkbox-setting text='Simplify Menu UI' apply-on-change='true' value='SimpleUI' hover-hint='If enabled, makes the menu UI much simpler'/>
+    <text text='Settings are applied even if the cancel button is hit.' align='Center'/>
+</vertical>
