@@ -19,9 +19,9 @@ namespace PleaseWork
     public class TheCounter : BasicCustomCounter
     {
         #region Injects
-        /*[Inject] private BeatmapLevel beatmap;
+        [Inject] private BeatmapLevel beatmap;
         [Inject] private BeatmapKey beatmapDiff;// 1.37.0 and above */
-        [Inject] private IDifficultyBeatmap beatmap; // 1.34.2 and below
+        //[Inject] private IDifficultyBeatmap beatmap; // 1.34.2 and below
         [Inject] private GameplayModifiers mods;
         [Inject] private ScoreController sc;
         [Inject] private BeatmapObjectManager bomb;
@@ -155,8 +155,8 @@ namespace PleaseWork
                     display.text = "";
                     ChangeNotifiers(true);
                     loadedEvents = true;
-                    string hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
-                    //string hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
+                    //string hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
+                    string hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
                     bool counterChange = theCounter != null && !theCounter.Name.Equals(PluginConfig.Instance.PPType.Split(' ')[0]);
                     if (counterChange)
                         if ((GetPropertyFromTypes("DisplayHandler", theCounter.GetType()).Values.First() as string).Equals(DisplayName))
@@ -171,8 +171,8 @@ namespace PleaseWork
                             RequestHashData();
                             m = Data[hash];
                         }
-                        lastMap = new MapSelection(m, beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.34.2 and below
-                        //lastMap = new MapSelection(m, beatmapDiff.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.37.0 and above
+                        //lastMap = new MapSelection(m, beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.34.2 and below
+                        lastMap = new MapSelection(m, beatmapDiff.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.37.0 and above
                         totalNotes = HelpfulMath.NotesForMaxScore((int)lastMap.MapData.Item2["maxScore"]);
                         if (!InitCounter()) throw new Exception("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
                     }
@@ -237,8 +237,8 @@ namespace PleaseWork
         #region API Calls
         private string RequestHashData()
         {
-            //string path = HelpfulPaths.BLAPI_HASH + beatmap.levelID.Split('_')[2].ToUpper(); // 1.37.0 and above
-            string path = HelpfulPaths.BLAPI_HASH + beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
+            string path = HelpfulPaths.BLAPI_HASH + beatmap.levelID.Split('_')[2].ToUpper(); // 1.37.0 and above
+            //string path = HelpfulPaths.BLAPI_HASH + beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
             Plugin.Log.Debug(path);
             try
             {
@@ -449,8 +449,8 @@ namespace PleaseWork
         private void APIAvoidanceMode()
         {
             Plugin.Log.Info("API Avoidance mode is functioning (probably)!");
-            MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.34.2 and below
-            //MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmapDiff.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.37.0 and above
+            //MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.34.2 and below
+            MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmapDiff.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.37.0 and above
             Plugin.Log.Debug($"Last Map\n-------------------\n{lastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
             bool ratingDiff, diffDiff;
             (ratingDiff, diffDiff) = thisMap.GetDifference(lastMap);
@@ -512,14 +512,14 @@ namespace PleaseWork
         {
             JToken data;
             string songId;
-            //string hash = beatmap.levelID.Split('_')[2].ToUpper(); // 1.37.0 and above
-            string hash = beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
+            string hash = beatmap.levelID.Split('_')[2].ToUpper(); // 1.37.0 and above
+            //string hash = beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
             try
             {
                 if (!Data.TryGetValue(hash, out Map theMap)) throw new KeyNotFoundException("The map is not in the loaded cache.");
-                Dictionary<string, (string, JToken)> hold = theMap.Get(beatmap.difficulty.Name().Replace("+", "Plus"));
+                /*Dictionary<string, (string, JToken)> hold = theMap.Get(beatmap.difficulty.Name().Replace("+", "Plus"));
                 mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;// 1.34.2 and below */
-                /*Dictionary<string, (string, JToken)> hold = theMap.Get(beatmapDiff.difficulty.Name().Replace("+", "Plus")); 
+                Dictionary<string, (string, JToken)> hold = theMap.Get(beatmapDiff.difficulty.Name().Replace("+", "Plus")); 
                 mode = beatmapDiff.beatmapCharacteristic.serializedName;// 1.37.0 and above */
                 if (mode == default) mode = "Standard";
                 data = hold[mode].Item2;

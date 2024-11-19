@@ -5,7 +5,7 @@
   "author": "Person",
   "version": "0.3.0",
   "description": "Adds a BeatLeader pp counter.",
-  "gameVersion": "1.29.0",
+  "gameVersion": "1.39.0",
   "dependsOn": {
     "BSIPA": "^4.2.0",
     "SiraUtil": "^3.0.5",
@@ -25,7 +25,7 @@
         "Distance": 0
       },
       "BSML": {
-        "Resource": "PleaseWork.Settings.settings.bsml",
+        "Resource": "PleaseWork.Settings.BSML.Settings.bsml",
         "Host": "PleaseWork.Settings.SettingsHandler",
         "Icon": "PleaseWork.Images.pp.png"
       }

@@ -8,8 +8,9 @@ namespace PleaseWork.Helpfuls
     public static class HelpfulPaths
     {
         #region File Paths
+        public static readonly string HOST_NAME = "PleaseWork";
         public static readonly string PLAYLISTS = Path.Combine(Environment.CurrentDirectory, "Playlists");
-        public static readonly string THE_FOLDER = Path.Combine(Environment.CurrentDirectory, "UserData", "PleaseWork");
+        public static readonly string THE_FOLDER = Path.Combine(Environment.CurrentDirectory, "UserData", HOST_NAME);
         public static readonly string BL_CACHE_FILE = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "LeaderboardsCache");
         public static readonly string BL_REPLAY_FOLDER = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "Replays");
         #endregion
@@ -18,6 +19,12 @@ namespace PleaseWork.Helpfuls
         public static readonly string BLAPI_HASH = "https://api.beatleader.xyz/leaderboards/hash/";
         public static readonly string BLAPI_USERID = "https://api.beatleader.xyz/user/id";
         public static readonly string BLAPI_CLAN = "https://api.beatleader.xyz/leaderboard/clanRankings/";
+        #endregion
+        #region Resource Paths
+        public static readonly string COUNTER_BSML = HOST_NAME + ".Settings.BSML.Settings.bsml";
+        public static readonly string MENU_BSML = HOST_NAME + ".Settings.BSML.MenuSettings.bsml";
+        public static readonly string SIMPLE_MENU_BSML = HOST_NAME + ".Settings.BSML.SimpleMenuSettings.bsml";
+        public static readonly string SETTINGS_BSML = HOST_NAME + ".Settings.BSML.MainMenuSettings.bsml";
         #endregion
         #region Json Paths
         public static float GetRating(JToken data, PPType type, double speed = 1.0) => GetRating(data, type, HelpfulMisc.SpeedToModifier(speed));

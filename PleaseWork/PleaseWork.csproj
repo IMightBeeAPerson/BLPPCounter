@@ -160,6 +160,7 @@
     <Compile Include="Settings\FormatSettings\MessageSettings.cs" />
     <Compile Include="Settings\FormatSettings\TextFormatSettings.cs" />
     <Compile Include="Settings\FormatSettings\TokenFormatSettings.cs" />
+    <Compile Include="Settings\MenuSettingsHandler.cs" />
     <Compile Include="Settings\SettingsHandler.cs" />
     <Compile Include="Utils\ColorMatch.cs" />
     <Compile Include="Utils\CustomAlias.cs" />
@@ -183,7 +184,10 @@
   <ItemGroup>
     <None Include="Directory.Build.props" Condition="Exists('Directory.Build.props')" />
     <None Include="PleaseWork.csproj.user" Condition="Exists('PleaseWork.csproj.user')" />
-    <EmbeddedResource Include="Settings\settings.bsml" />
+    <EmbeddedResource Include="Settings\BSML\MenuSettings.bsml" />
+    <EmbeddedResource Include="Settings\BSML\Settings.bsml" />
+    <EmbeddedResource Include="Settings\BSML\MainMenuSettings.bsml" />
+    <EmbeddedResource Include="Settings\BSML\SimpleMenuSettings.bsml" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BeatSaberModdingTools.Tasks">

@@ -55,5 +55,8 @@ namespace PleaseWork.Settings
         //public virtual bool LocalReplay { get; set; } = false;
         //public virtual string ChosenPlaylist { get; set; } = "";
         #endregion
+        #region Menu Settings - Main
+        public virtual bool SimpleUI { get; set; } = true;
+        #endregion
     }
 }

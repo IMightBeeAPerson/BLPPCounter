@@ -8,23 +8,26 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using TMPro;
+using Zenject;
 
 namespace PleaseWork.Settings
 {
     /*<checkbox-setting text='Local Replays' apply-on-change='true' value='LocalReplay' hover-hint='Check for any local replays before loading from website' active='false'/>
      <dropdown-list-setting text='Playlists' apply-on-change='true' value='ChosenPlaylist' options='PlNames' hover-hint='A playlist to load' active='false'/>
     <button text='Load Playlist' on-click='LoadPlaylist' hover-hint='Loads the selected playlist into cache to prevent lag' active='false'/>*/
-    public class SettingsHandler: ConfigModel
+    public class SettingsHandler: ConfigModel, INotifyPropertyChanged
     {
         #region Variables
         public static event Action SettingsUpdated;
-        private event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler PropertyChanged;
         private static PluginConfig pc => PluginConfig.Instance;
+        public static SettingsHandler Instance { get; private set; } = new SettingsHandler(); //This is a bit cheaty, but shouldn't break anything since this class doesn't store variables.
         #endregion
         #region Init
         public SettingsHandler()
         {
             PropertyChanged += (a,b) => SettingsUpdated.Invoke();
+            Instance = this;
         }
         #endregion
         #region General Settings
@@ -177,12 +180,11 @@ namespace PleaseWork.Settings
                 {
                     var converted = Utils.CustomTarget.ConvertToId(value);
                     pc.CustomTargets.Add(converted);
-                    Targeter.AddTarget(converted.Name, $"{converted.ID}");//*/
-                    //Targeter.AddTarget("This is a test", "1234");
+                    Targeter.AddTarget(converted.Name, $"{converted.ID}");
                     customTargetText.SetText("<color=\"green\">Success!</color>");
                     customTargetInput.Text = "";
-                    //targetList.Values = ToTarget; /* 1.37.4 and up*/
-                    targetList.values = ToTarget; /* 1.34.2 and below*/
+                    targetList.Values = ToTarget; /* 1.37.4 and up*/
+                    //targetList.values = ToTarget; /* 1.34.2 and below*/
                     targetList.UpdateChoices();
                 }
                 catch (ArgumentException e)
