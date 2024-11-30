@@ -1,5 +1,5 @@
 ﻿using BLPPCounter.CalculatorStuffs;
-using BLPPCounter.Settings;
+using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
 using BLPPCounter.Helpfuls;
 using System;

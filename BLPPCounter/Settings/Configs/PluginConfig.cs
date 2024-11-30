@@ -3,11 +3,10 @@ using System.Runtime.CompilerServices;
 using IPA.Config.Stores;
 using IPA.Config.Stores.Attributes;
 using IPA.Config.Stores.Converters;
-using BLPPCounter.Settings.FormatSettings;
 using BLPPCounter.Utils;
 
 [assembly: InternalsVisibleTo(GeneratedStore.AssemblyVisibilityTarget)]
-namespace BLPPCounter.Settings
+namespace BLPPCounter.Settings.Configs
 {
     internal class PluginConfig
     {
@@ -57,6 +56,8 @@ namespace BLPPCounter.Settings
         #endregion
         #region Menu Settings - Main
         public virtual bool SimpleUI { get; set; } = true;
+        public virtual int SimpleMenuConfig { get; set; } = 0; //Don't worry about this, nothing janky at all going on here :)
+        public virtual int SimpleMenuConfigLength { get; set; } = 0; //Nothing janky at all
         #endregion
     }
 }

@@ -41,6 +41,7 @@
     <DisableZipRelease>True</DisableZipRelease>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="BeatSaber.Settings, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
     <Reference Include="BeatSaber.ViewSystem, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <Private>False</Private>
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\BeatSaber.ViewSystem.dll</HintPath>
@@ -70,6 +71,7 @@
     </Reference>
     <Reference Include="Zenject-Usage">
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\Zenject-usage.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="0Harmony">
       <HintPath>$(BeatSaberDir)\Libs\0Harmony.dll</HintPath>
@@ -144,6 +146,11 @@
       <HintPath>$(BeatSaberDir)\Plugins\BS_Utils.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="ZenjectExtension, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <Private>False</Private>
+      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\ZenjectExtension.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CalculatorStuffs\BLCalc.cs" />
@@ -157,17 +164,19 @@
     <Compile Include="Helpfuls\HelpfulMisc.cs" />
     <Compile Include="Helpfuls\HelpfulPaths.cs" />
     <Compile Include="Helpfuls\HelpfulFormatter.cs" />
-    <Compile Include="Settings\FormatSettings\MessageSettings.cs" />
-    <Compile Include="Settings\FormatSettings\TextFormatSettings.cs" />
-    <Compile Include="Settings\FormatSettings\TokenFormatSettings.cs" />
-    <Compile Include="Settings\MenuSettingsHandler.cs" />
-    <Compile Include="Settings\SettingsHandler.cs" />
+    <Compile Include="Settings\Configs\MessageSettings.cs" />
+    <Compile Include="Settings\Configs\PluginConfig.cs" />
+    <Compile Include="Settings\Configs\TextFormatSettings.cs" />
+    <Compile Include="Settings\Configs\TokenFormatSettings.cs" />
+    <Compile Include="Settings\SettingHandlers\MenuSettingsHandler.cs" />
+    <Compile Include="Settings\SettingHandlers\SettingsHandler.cs" />
+    <Compile Include="Settings\SettingHandlers\SimpleSettingsHandler.cs" />
+    <Compile Include="Settings\SettingHandlers\SimpleSettingsViewController.cs" />
     <Compile Include="Utils\ColorMatch.cs" />
     <Compile Include="Utils\CustomAlias.cs" />
     <Compile Include="Utils\CustomTarget.cs" />
     <Compile Include="Utils\Map.cs" />
     <Compile Include="Plugin.cs" />
-    <Compile Include="Settings\PluginConfig.cs" />
     <Compile Include="BLPPCounterController.cs" />
     <Compile Include="TheCounter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -175,6 +184,8 @@
     <Compile Include="Utils\Modifier.cs" />
     <Compile Include="Utils\PlaylistLoader.cs" />
     <Compile Include="Utils\PPType.cs" />
+    <Compile Include="Utils\SettingToggleInfo.cs" />
+    <Compile Include="Utils\SimpleMenuInfo.cs" />
     <Compile Include="Utils\Targeter.cs" />
   </ItemGroup>
   <ItemGroup>

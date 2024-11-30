@@ -49,5 +49,45 @@ namespace BLPPCounter.Helpfuls
                 }
             }
         }
+        public static short ConvertBoolsToInt16(bool[] values)
+        {
+            if (values.Length > 16) throw new ArgumentException("Cannot convert more than 16 bools to a 16 bit number.");
+            short outp = 0;
+            for (int i = 0; i < values.Length; i++)
+                outp |= (short)((values[i] ? 1 : 0) << i);
+            return outp;
+        }
+        public static int ConvertBoolsToInt32(bool[] values)
+        {
+            if (values.Length > 32) throw new ArgumentException("Cannot convert more than 16 bools to a 16 bit number.");
+            int outp = 0;
+            for (int i = 0; i < values.Length; i++)
+                outp |= (values[i] ? 1 : 0) << i;
+            return outp;
+        }
+        public static void ConvertInt16ToBools(bool[] toLoad, short toConvert)
+        {
+            int count = 0;
+            while (toConvert > 0)
+            {
+                if (toLoad.Length > count)
+                    toLoad[count++] = toConvert % 2 == 1;
+                else break;
+                toConvert >>= 1;
+                if (count == 1 && toConvert < 0) { toConvert *= -1; toConvert |= 1 << 14; } //manually shift signed bit over bc unsigned shifting isn't allowed in this version 0.0
+            }
+        }
+        public static void ConvertInt32ToBools(bool[] toLoad, int toConvert)
+        {
+            int count = 0;
+            while (toConvert > 0)
+            {
+                if (toLoad.Length > count)
+                    toLoad[count++] = toConvert % 2 == 1;
+                else break;
+                toConvert >>= 1;
+                if (count == 1 && toConvert < 0) { toConvert *= -1; toConvert |= 1 << 30; } //manually shift signed bit over bc unsigned shifting isn't allowed in this version 0.0
+            }
+        }
     }
 }

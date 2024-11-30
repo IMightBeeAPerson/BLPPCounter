@@ -3,10 +3,16 @@ using BeatSaberMarkupLanguage.Settings;
 using IPA;
 using IPA.Config.Stores;
 using BLPPCounter.Helpfuls;
-using BLPPCounter.Settings;
+using BLPPCounter.Settings.Configs;
+using BLPPCounter.Settings.SettingHandlers;
 using BLPPCounter.Utils;
-using System.IO;
 using IPALogger = IPA.Logging.Logger;
+using UnityEngine;
+using Zenject;
+using BeatSaberMarkupLanguage;
+using System.ComponentModel;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace BLPPCounter
 {
@@ -17,8 +23,7 @@ namespace BLPPCounter
         internal static IPALogger Log { get; private set; }
         internal static bool BLInstalled => true;
         internal static string Name => "PPCounter";
-        private bool tabInited = false;
-
+        public bool LoadedTab { get; private set; } = false;
         [Init]
         /// <summary>
         /// Called when the plugin is first loaded by IPA (either when the game starts or when the plugin is enabled if it starts disabled).
@@ -30,7 +35,11 @@ namespace BLPPCounter
             PluginConfig.Instance = config.Generated<PluginConfig>();
             Instance = this;
             Log = logger;
-            
+        }
+        private void AddMenuStuff()
+        {
+            BSMLSettings.Instance.AddSettingsMenu("BL PP Counter", HelpfulPaths.SETTINGS_BSML, MenuSettingsHandler.Instance);
+            if (!LoadedTab) { SimpleSettingsHandler.Instance.ChangeMenuTab(); LoadedTab = true; }
         }
 
         [OnEnable]
@@ -38,29 +47,22 @@ namespace BLPPCounter
             Targeter.GenerateClanNames();
             //new PlaylistLoader();
             TheCounter.InitCounterStatic();
-            BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing += () =>
-            {
-                ChangeMenuTab();
-                BSMLSettings.Instance.AddSettingsMenu("BL PP Counter", HelpfulPaths.SETTINGS_BSML, MenuSettingsHandler.Instance);
-            };
+            BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing += AddMenuStuff;
             /*ClanCounter.FormatTheFormat();
             var test = ClanCounter.displayClan;
             Log.Info(test.Invoke(true, () => "<color=\"yellow\">", "0", 1900.00f, () => "<color=\"green\">", "+314.15", 768.69f, "PP"));//*/
         }
-        public void ChangeMenuTab()
-        {
-            if (tabInited) GameplaySetup.Instance.RemoveTab("BL PP Counter"); else tabInited = true;
-            if (PluginConfig.Instance.SimpleUI)
-                GameplaySetup.Instance.AddTab("BL PP Counter", HelpfulPaths.SIMPLE_MENU_BSML, SettingsHandler.Instance, MenuType.All);
-            else
-                GameplaySetup.Instance.AddTab("BL PP Counter", HelpfulPaths.MENU_BSML, SettingsHandler.Instance, MenuType.All);
-        }
+
 
         [OnDisable]
         public void OnDisable() 
         { 
             GameplaySetup.Instance.RemoveTab("BL PP Counter");
             BSMLSettings.Instance.RemoveSettingsMenu(SettingsHandler.Instance); 
+            LoadedTab = false;
+            SimpleSettingsHandler.Instance.ResetLoaded();
+            MenuSettingsHandler.Instance.ResetLoaded();
+            BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing -= AddMenuStuff;
         }
 
         /*private void LoadData()

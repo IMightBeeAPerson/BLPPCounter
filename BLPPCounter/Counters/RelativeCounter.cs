@@ -2,15 +2,12 @@
 using TMPro;
 using BeatLeader.Models.Replay;
 using System.Net.Http;
-using BLPPCounter.Settings;
+using BLPPCounter.Settings.Configs;
 using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Utils;
 using BLPPCounter.Helpfuls;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.Profiling;
-using System.Windows.Markup;
 using System.Linq;
 
 namespace BLPPCounter.Counters

@@ -1,12 +1,7 @@
-﻿using BeatLeader.Models;
-using BLPPCounter.CalculatorStuffs;
-using BLPPCounter.Settings;
+﻿using BLPPCounter.CalculatorStuffs;
+using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using TMPro;
 
 namespace BLPPCounter.Counters

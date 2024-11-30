@@ -4,7 +4,7 @@ using IPA.Config.Stores.Converters;
 using BLPPCounter.Utils;
 using System.Collections.Generic;
 
-namespace BLPPCounter.Settings.FormatSettings
+namespace BLPPCounter.Settings.Configs
 {
     public class TokenFormatSettings
     {

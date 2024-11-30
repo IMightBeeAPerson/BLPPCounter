@@ -1,5 +1,5 @@
 ﻿using ModestTree;
-using BLPPCounter.Settings;
+using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
 using System;
 using System.Collections.Generic;

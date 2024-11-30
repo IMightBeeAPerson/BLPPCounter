@@ -3,7 +3,8 @@ using System.IO;
 using CountersPlus.Counters.Custom;
 using TMPro;
 using Zenject;
-using BLPPCounter.Settings;
+using BLPPCounter.Settings.Configs;
+using BLPPCounter.Settings.SettingHandlers;
 using BLPPCounter.Utils;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Counters;
@@ -64,7 +65,7 @@ namespace BLPPCounter
         public static void InitCounterStatic() 
         {
             updateFormat = false;
-            BLPPCounter.Settings.SettingsHandler.SettingsUpdated += () => updateFormat = true;
+            SettingsHandler.Instance.PropertyChanged += (a,b) => updateFormat = true;
 
             StaticFunctions = new Dictionary<string, Type>() 
             { { "InitFormat", typeof(bool) } };

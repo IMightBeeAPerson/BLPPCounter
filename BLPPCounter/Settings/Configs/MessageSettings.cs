@@ -1,5 +1,5 @@
 ﻿
-namespace BLPPCounter.Settings.FormatSettings
+namespace BLPPCounter.Settings.Configs
 {
     public class MessageSettings
     {

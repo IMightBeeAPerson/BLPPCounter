@@ -1,22 +1,16 @@
-<bg xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='https://monkeymanboy.github.io/BSML-Docs/ https://raw.githubusercontent.com/monkeymanboy/BSML-Docs/gh-pages/BSMLSchema.xsd'>>
-  <settings-container  mask-overflow='true' size-delta-x='0'>
-    <vertical pad='5' vertical-fit='PreferredSize' spacing='1'>
-        <text text='General Settings' align='Center'/>
-        <list-setting text='PP Types' apply-on-change='true' value='PPType' options='TypesOfPP' hover-hint='How the counter should count PP'/>
-        <increment-setting text='Decimal Precision' value='DecimalPrecision' integer-only='true' min='0' max='4' increment='1' apply-on-change='true'/>
-        <checkbox-setting text='Show Labels' apply-on-change='true' value='ShowLbl' hover-hint='Whether or not to show label next to PP'/>
-        <checkbox-setting text='PP if FC' apply-on-change='true' value='PPFC' hover-hint='Also show PP if you had gotten a FC'/>
-        <checkbox-setting text='Show Messages' apply-on-change='true' value='ExtraInfo' hover-hint='Show extra information and messages under the counter'/>
-        <text text='Clan Settings' align='Center'/>
-        <checkbox-setting text='Show Custom Message' value='ShowClanMessage' apply-on-change='true' hover-hint='Show custom clan message instead of the generic message'/>
-        <increment-setting text='Percent Ceiling' value='ClanPercentCeil' integer-only='false' min='90' max='100' increment='0.1' apply-on-change='true'/>
-        <checkbox-setting text='Enable Ceiling' apply-on-change='true' value='CeilEnabled' hover-hint='Enable the percentage ceiling'/>
-        <checkbox-setting text='Show Rank' value='ShowRank' apply-on-change='true' hover-hint='Show what place in your clan you are with your current score'/>
-        <text text='Relative Settings' align='Center'/>
-        <list-setting text='Default Counter' value='RelativeDefault' options='RelativeDefaultList' apply-on-change='true' hover-hint='What counter to go to when relative counter cannot be used' />
-        <text text='Target Settings' align='Center'/>
-        <checkbox-setting text='Show Target' apply-on-change='true' value='ShowEnemy' hover-hint='Show who you are targeting (if you have one selected)'/>
-        <dropdown-list-setting text='Target' id='TargetList' apply-on-change='true' value='Target' options='toTarget' hover-hint='A player to compare against while playing'/>
-    </vertical>
-  </settings-container>
+<bg xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='https://monkeymanboy.github.io/BSML-Docs/ https://raw.githubusercontent.com/monkeymanboy/BSML-Docs/gh-pages/BSMLSchema.xsd'>
+  <vertical spacing='2'>
+    <custom-list id='UIList' contents='UIElements' show-scrollbar='true' cell-size='10' pref-width='80' horizontal-fit='PreferredSize' spacing='-1'>
+      <vertical horizontal-fit='Unconstrained'>
+        <checkbox-setting text='~Text' apply-on-change='true' active='~ShowEvent0' hover-hint='~HoverHint' value='SettingValBool'/>
+        <text text='~Text' align='~Align' active='~ShowEvent1'/>
+        <increment-setting text='~Text' value='SettingValInt' integer-only='~IntegerOnly' min='~MinAmount' max='~MaxAmount' increment='~Increment' apply-on-change='true' active='~ShowEvent2'/>
+        <button text='~Text' align='~Align' on-click='OnClick' hover-hint='~HoverHint' active='~ShowEvent3'/>
+        <list-setting text='~Text' apply-on-change='true' value='SettingValString' options='Options' hover-hint='~HoverHint' active='~ShowEvent4'/>
+        <horizontal active='~ShowEvent5'>
+          <dropdown-list-setting text='~Text' apply-on-change='true' value='SettingValString' options='Options' hover-hint='~HoverHint'/>
+        </horizontal>
+      </vertical>
+    </custom-list>
+  </vertical>
 </bg>

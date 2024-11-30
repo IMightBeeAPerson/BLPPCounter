@@ -1,7 +1,5 @@
-﻿using IPA.Config.Data;
-using Newtonsoft.Json.Linq;
-using BLPPCounter.Settings;
-using System;
+﻿using Newtonsoft.Json.Linq;
+using BLPPCounter.Settings.Configs;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;

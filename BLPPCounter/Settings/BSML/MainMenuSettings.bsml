@@ -1,5 +1,23 @@
-<vertical spacing='2' vertical-fit='PreferredSize'>
-    <text text='General Settings' align='Center'/>
-	<checkbox-setting text='Simplify Menu UI' apply-on-change='true' value='SimpleUI' hover-hint='If enabled, makes the menu UI much simpler'/>
+<scrollable-settings-container>
+  <vertical spacing='1' vertical-fit='PreferredSize'>
     <text text='Settings are applied even if the cancel button is hit.' align='Center'/>
-</vertical>
+    <text text='General Settings' align='Center'/>
+    <checkbox-setting text='Simplify Menu UI' apply-on-change='true' value='SimpleUI' hover-hint='If enabled, makes the menu UI much simpler'/>
+    <settings-submenu text='Edit Simple Menu' hover-hint='Click to edit what shows on the simple menu UI' align='Center' on-click='LoadMenu'>
+      <vertical spacing='1'>
+        <page-button direction='Up' event-click='UICustomizer#PageUp'/>
+        <custom-list id='UICustomizer' contents='UISettings' cell-size='20' pref-width='100'>
+          <vertical spacing='0' bg='round-rect-panel' bg-color='#CCCCCC' horizontal-fit='Unconstrained' pad='2'>
+            <horizontal>
+              <text text='~Text' align='Left'/>
+              <text text='Enabled' align='Right'/>
+            </horizontal>
+            <checkbox-setting text='~Description' apply-on-change='true' value='Usable'/>
+            <text text='~Type' rich-text='true' align='Center'/>
+          </vertical>
+        </custom-list>
+        <page-button direction='Down' event-click='UICustomizer#PageDown'/>
+      </vertical>
+    </settings-submenu>
+  </vertical>
+</scrollable-settings-container>
