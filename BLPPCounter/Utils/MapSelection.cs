@@ -3,8 +3,10 @@ using UnityEngine;
 
 namespace BLPPCounter.Utils
 {
+#pragma warning disable CS0659
     public struct MapSelection
     {
+#pragma warning restore CS0659
         public Map Map { get; private set; }
         public string Difficulty { get; private set; }
         public string Mode { get; private set; }

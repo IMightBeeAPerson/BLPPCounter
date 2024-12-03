@@ -16,6 +16,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 {
     public class SimpleSettingsHandler
     {
+#pragma warning disable CS0649
         #region Static Variables
         public static SimpleSettingsHandler Instance { get; private set; } = new SimpleSettingsHandler();
         #endregion
@@ -40,7 +41,6 @@ namespace BLPPCounter.Settings.SettingHandlers
             List<object> outp = new List<object>();
             MatchCollection mc = Regex.Matches(Utilities.GetResourceContent(System.Reflection.Assembly.GetExecutingAssembly(), resource), regex, RegexOptions.Multiline);
             bool loadData = PluginConfig.Instance.SimpleMenuConfigLength == mc.Count;
-            Plugin.Log.Info("Load Data = " + loadData);
             if (loadData) MenuSettingsHandler.Instance.LoadMenu();
             foreach (Match match in mc)
             {
@@ -71,6 +71,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             //Plugin.Log.Info("Simple Tab Settings Loaded!");
             //Plugin.Log.Info(string.Join("\n", UIElements));
         }
+        public void ReloadTab() { UIElements.Clear(); loaded = false; LoadElements(); }
         public void ChangeMenuTab(bool removeTab = true)
         {
             if (removeTab) GameplaySetup.Instance.RemoveTab("BL PP Counter");

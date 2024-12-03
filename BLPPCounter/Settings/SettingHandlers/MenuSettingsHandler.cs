@@ -17,6 +17,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 {
     public class MenuSettingsHandler
     {
+#pragma warning disable CS0649
         #region Variables
         #region Static
         private static PluginConfig pc => PluginConfig.Instance;
@@ -62,6 +63,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             HelpfulMisc.ConvertInt32ToBools(SettingsToSave, pc.SimpleMenuConfig);
             changes = 0;
             saveButton.interactable = false;
+            SimpleSettingsHandler.Instance.ReloadTab();
         }
         [UIAction("LoadMenu")]
         public void LoadMenu()

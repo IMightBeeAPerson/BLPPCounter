@@ -26,6 +26,7 @@ namespace BLPPCounter.Settings.SettingHandlers
     <button text='Load Playlist' on-click='LoadPlaylist' hover-hint='Loads the selected playlist into cache to prevent lag' active='false'/>*/
     public class SettingsHandler: ConfigModel, INotifyPropertyChanged
     {
+#pragma warning disable CS0649
         #region Variables
         public event PropertyChangedEventHandler PropertyChanged;
         private static PluginConfig pc => PluginConfig.Instance;

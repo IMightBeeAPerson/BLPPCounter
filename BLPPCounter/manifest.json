@@ -10,7 +10,7 @@
     "BSIPA": "^4.2.0",
     "SiraUtil": "^3.0.5",
     "Counters+": "^2.3.3",
-    "BeatSaberMarkupLanguage": "^1.6.3",
+    "BeatSaberMarkupLanguage": "^1.12.3",
     "BeatLeader": "^0.9.0"
   },
   "features": {

@@ -60,13 +60,6 @@ namespace BLPPCounter
             BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing -= AddMenuStuff;
             BSMLSettings.Instance.RemoveSettingsMenu(SettingsHandler.Instance);
         }
-        /*private void LoadData()
-        {
-            string dir = HelpfulPaths.THE_FOLDER;
-            if (!Directory.Exists(dir)) {
-                Log.Info("Folder for this mod doesn't exist! Creating new one...");
-                Directory.CreateDirectory(dir);
-            }
-        }*/
+
     }
 }

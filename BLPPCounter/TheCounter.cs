@@ -20,6 +20,7 @@ namespace BLPPCounter
     public class TheCounter : BasicCustomCounter
     {
         #region Injects
+#pragma warning disable CS0649, IDE0044
         [Inject] private BeatmapLevel beatmap;
         [Inject] private BeatmapKey beatmapDiff;// 1.37.0 and above */
         //[Inject] private IDifficultyBeatmap beatmap; // 1.34.2 and below
@@ -27,6 +28,7 @@ namespace BLPPCounter
         [Inject] private ScoreController sc;
         [Inject] private BeatmapObjectManager bomb;
         [Inject] private PlayerHeadAndObstacleInteraction wall;
+#pragma warning restore CS0649
         #endregion
         #region Static Variables
         private static readonly HttpClient client = new HttpClient();
@@ -241,7 +243,6 @@ namespace BLPPCounter
         {
             string path = HelpfulPaths.BLAPI_HASH + beatmap.levelID.Split('_')[2].ToUpper(); // 1.37.0 and above
             //string path = HelpfulPaths.BLAPI_HASH + beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
-            Plugin.Log.Debug(path);
             try
             {
                 string data = client.GetStringAsync(new Uri(path)).Result;
