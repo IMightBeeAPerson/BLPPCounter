@@ -65,6 +65,7 @@ namespace BLPPCounter
         public static void InitCounterStatic() 
         {
             updateFormat = false;
+            SettingsHandler.NewInstance += (handler) => handler.PropertyChanged += (a,b) => updateFormat = true;
             SettingsHandler.Instance.PropertyChanged += (a,b) => updateFormat = true;
 
             StaticFunctions = new Dictionary<string, Type>() 

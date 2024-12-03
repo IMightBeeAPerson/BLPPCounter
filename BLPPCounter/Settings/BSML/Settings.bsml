@@ -36,6 +36,6 @@
     <string-setting text='Custom Target' id='CustomTargetInput' value='CustomTarget' apply-on-change='true' hover-hint='Enter the user id or alias of a person'/>
     <text text='' align='Right' id='CustomTargetMessage'/>
     <checkbox-setting text='Show Target' apply-on-change='true' value='ShowEnemy' hover-hint='Show who you are targeting (if you have one selected)'/>
-    <dropdown-list-setting text='Target' id='TargetList' apply-on-change='true' value='Target' options='toTarget' hover-hint='A player to compare against while playing'/>
+    <dropdown-list-setting text='Target' id='TargetList' apply-on-change='true' value='Target' options='ToTarget' hover-hint='A player to compare against while playing'/>
   </vertical>
 </vertical>

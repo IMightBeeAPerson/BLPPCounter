@@ -171,7 +171,6 @@
     <Compile Include="Settings\SettingHandlers\MenuSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\SettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\SimpleSettingsHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\SimpleSettingsViewController.cs" />
     <Compile Include="Utils\ColorMatch.cs" />
     <Compile Include="Utils\CustomAlias.cs" />
     <Compile Include="Utils\CustomTarget.cs" />

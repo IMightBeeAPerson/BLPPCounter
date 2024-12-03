@@ -23,7 +23,6 @@ namespace BLPPCounter
         internal static IPALogger Log { get; private set; }
         internal static bool BLInstalled => true;
         internal static string Name => "PPCounter";
-        public bool LoadedTab { get; private set; } = false;
         [Init]
         /// <summary>
         /// Called when the plugin is first loaded by IPA (either when the game starts or when the plugin is enabled if it starts disabled).
@@ -39,15 +38,15 @@ namespace BLPPCounter
         private void AddMenuStuff()
         {
             BSMLSettings.Instance.AddSettingsMenu("BL PP Counter", HelpfulPaths.SETTINGS_BSML, MenuSettingsHandler.Instance);
-            if (!LoadedTab) { SimpleSettingsHandler.Instance.ChangeMenuTab(); LoadedTab = true; }
+            SimpleSettingsHandler.Instance.ChangeMenuTab(false);
         }
 
         [OnEnable]
         public void OnEnable() {
-            Targeter.GenerateClanNames();
-            //new PlaylistLoader();
+            Targeter.GenerateClanNames(); //async
+            BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing += AddMenuStuff; //async (kinda)
             TheCounter.InitCounterStatic();
-            BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing += AddMenuStuff;
+            //new PlaylistLoader();
             /*ClanCounter.FormatTheFormat();
             var test = ClanCounter.displayClan;
             Log.Info(test.Invoke(true, () => "<color=\"yellow\">", "0", 1900.00f, () => "<color=\"green\">", "+314.15", 768.69f, "PP"));//*/
@@ -58,13 +57,9 @@ namespace BLPPCounter
         public void OnDisable() 
         { 
             GameplaySetup.Instance.RemoveTab("BL PP Counter");
-            BSMLSettings.Instance.RemoveSettingsMenu(SettingsHandler.Instance); 
-            LoadedTab = false;
-            SimpleSettingsHandler.Instance.ResetLoaded();
-            MenuSettingsHandler.Instance.ResetLoaded();
             BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing -= AddMenuStuff;
+            BSMLSettings.Instance.RemoveSettingsMenu(SettingsHandler.Instance);
         }
-
         /*private void LoadData()
         {
             string dir = HelpfulPaths.THE_FOLDER;

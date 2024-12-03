@@ -1,6 +1,7 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers;
+using System;
 using System.Collections.Generic;
 
 namespace BLPPCounter.Utils
@@ -18,25 +19,22 @@ namespace BLPPCounter.Utils
         { get => usable;
             set
             {
-                if (StoredData.Length > id && StoredData[id] != value)
-                {
-                    StoredData[id] = value;
-                    PluginConfig.Instance.SimpleMenuConfig ^= 1 << id;
-                }
+                changeSettings(id, value);
                 usable = value;
             } 
         }
-        private static bool[] StoredData => MenuSettingsHandler.Instance.SettingsToSave;
         private bool usable;
         private readonly int id;
+        private readonly Action<int, bool> changeSettings;
 
-        public SettingToggleInfo(string text, string description, string type, int id)
+        public SettingToggleInfo(string text, string description, string type, int id, Action<int, bool> changeSettings)
         {
             Text = text; 
             Description = description;
             Type = "<color=\"green\">Type of markup:</color> " + (type.Contains('-') ? type.Split('-')[0] : type);
             this.id = id;
             usable = false;
+            this.changeSettings = changeSettings;
         }
 
         public override string ToString() 

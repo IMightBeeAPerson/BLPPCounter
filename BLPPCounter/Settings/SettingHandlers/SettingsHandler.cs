@@ -30,6 +30,13 @@ namespace BLPPCounter.Settings.SettingHandlers
         public event PropertyChangedEventHandler PropertyChanged;
         private static PluginConfig pc => PluginConfig.Instance;
         public static SettingsHandler Instance { get; private set; } = new SettingsHandler();
+        public static event Action<SettingsHandler> NewInstance;
+        #endregion
+        #region Init
+        public SettingsHandler()
+        {
+            NewInstance?.Invoke(this);
+        }
         #endregion
         #region General Settings
         [UIValue(nameof(DecimalPrecision))]

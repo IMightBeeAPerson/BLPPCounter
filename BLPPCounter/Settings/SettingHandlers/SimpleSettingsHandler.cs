@@ -7,6 +7,7 @@ using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Linq;
 using System.Text.RegularExpressions;
 using static BLPPCounter.Utils.SimpleMenuInfo;
@@ -25,7 +26,6 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIValue(nameof(UIElements))]
         public List<object> UIElements { get; } = new List<object>();
         private bool loaded = false;
-        public void ResetLoaded() => loaded = false;
         [UIValue(nameof(HasNotLoaded))]
         private bool HasNotLoaded => !loaded;
         #endregion
@@ -40,6 +40,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             List<object> outp = new List<object>();
             MatchCollection mc = Regex.Matches(Utilities.GetResourceContent(System.Reflection.Assembly.GetExecutingAssembly(), resource), regex, RegexOptions.Multiline);
             bool loadData = PluginConfig.Instance.SimpleMenuConfigLength == mc.Count;
+            Plugin.Log.Info("Load Data = " + loadData);
             if (loadData) MenuSettingsHandler.Instance.LoadMenu();
             foreach (Match match in mc)
             {
@@ -67,12 +68,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
             UIElements.AddRange(outp.Cast<object>());
             ccltd.TableView.ReloadData();
-            Plugin.Log.Info("Simple Tab Settings Loaded!");
+            //Plugin.Log.Info("Simple Tab Settings Loaded!");
             //Plugin.Log.Info(string.Join("\n", UIElements));
         }
-        public void ChangeMenuTab()
+        public void ChangeMenuTab(bool removeTab = true)
         {
-            if (Plugin.Instance.LoadedTab) GameplaySetup.Instance.RemoveTab("BL PP Counter");
+            if (removeTab) GameplaySetup.Instance.RemoveTab("BL PP Counter");
             if (PluginConfig.Instance.SimpleUI)
                 GameplaySetup.Instance.AddTab("BL PP Counter", HelpfulPaths.SIMPLE_MENU_BSML, this);
             else
