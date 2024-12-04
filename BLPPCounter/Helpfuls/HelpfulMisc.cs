@@ -1,17 +1,14 @@
-﻿using IPA.Config.Data;
-using BLPPCounter.Utils;
+﻿using BLPPCounter.Utils;
 using System;
-using System.Collections.Generic;
 using System.CodeDom.Compiler;
 using System.CodeDom;
 using System.IO;
 using System.Text.RegularExpressions;
+using static GameplayModifiers;
 namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
     {
-        public static Modifier SpeedToModifier(double speed) => speed > 1.0 ? speed >= 1.5 ? Modifier.SuperFastSong : Modifier.FasterSong :
-            speed != 1.0 ? Modifier.SlowerSong : Modifier.None;
         public static string PPTypeToRating(PPType type)
         {
             switch (type)
@@ -23,18 +20,28 @@ namespace BLPPCounter.Helpfuls
                 default: return "";
             }
         }
-        public static string GetModifierShortname(Modifier mod)
+        public static string GetModifierShortname(SongSpeed mod)
         {
             switch (mod)
             {
-                case Modifier.SuperFastSong: return "sf";
-                case Modifier.FasterSong: return "fs";
-                case Modifier.SlowerSong: return "ss";
+                case SongSpeed.SuperFast: return "sf";
+                case SongSpeed.Faster: return "fs";
+                case SongSpeed.Slower: return "ss";
                 default: return "";
             }
         }
-        public static string AddModifier(string name, Modifier modifier) => 
-            modifier == Modifier.None ? name : GetModifierShortname(modifier) + name.Substring(0, 1).ToUpper() + name.Substring(1);
+        public static SongSpeed GetModifierFromShortname(string mod)
+        {
+            switch (mod)
+            {
+                case "sf": return SongSpeed.SuperFast;
+                case "fs": return SongSpeed.Faster;
+                case "ss": return SongSpeed.Slower;
+                default: return SongSpeed.Normal;
+            }
+        }
+        public static string AddModifier(string name, SongSpeed modifier) => 
+            modifier == SongSpeed.Normal ? name : GetModifierShortname(modifier) + name.Substring(0, 1).ToUpper() + name.Substring(1);
         public static string AddModifier(string name, string modifierName) =>
             modifierName.Equals("") ? name : modifierName + name.Substring(0, 1).ToUpper() + name.Substring(1);
         public static string ToLiteral(string input)

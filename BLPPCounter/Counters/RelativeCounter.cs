@@ -9,6 +9,8 @@ using BLPPCounter.Helpfuls;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 using System.Linq;
+using static GameplayModifiers;
+using System.Text.RegularExpressions;
 
 namespace BLPPCounter.Counters
 {
@@ -19,7 +21,6 @@ namespace BLPPCounter.Counters
         public static string DisplayName => "Relative";
         public static string DisplayHandler => DisplayName;
         public string Name => DisplayName;
-        public bool Usable => displayIniter != null && displayFormatter != null && TheCounter.TargetUsable && TheCounter.PercentNeededUsable;
         private static Func<bool, bool, int, float, string, string, float, string, string, float, float, string, string> displayFormatter;
         private static Func<Func<Dictionary<char, object>, string>> displayIniter;
         private static PluginConfig pc => PluginConfig.Instance;
@@ -51,12 +52,14 @@ namespace BLPPCounter.Counters
             ReplayDecoder.TryDecodeReplay(RequestByteData(replay), out bestReplay);
             noteArray = bestReplay.notes.ToArray();
             ReplayMods = bestReplay.info.modifiers.ToLower();
-            Modifier mod = ReplayMods.Contains("fs") ? Modifier.FasterSong : ReplayMods.Contains("sf") ? Modifier.SuperFastSong : ReplayMods.Contains("ss") ? Modifier.SlowerSong : Modifier.None;
-            ReplayMods = ReplayMods.ToUpper();
+            Match hold = Regex.Match(ReplayMods, "(fs|sf|ss),?");
+            SongSpeed mod = hold.Success ? HelpfulMisc.GetModifierFromShortname(hold.Groups[1].Value) : SongSpeed.Normal;
             data = data["difficulty"];
-            best[4] = HelpfulPaths.GetRating(data, PPType.Pass, mod);
-            best[5] = HelpfulPaths.GetRating(data, PPType.Acc, mod);
-            best[6] = HelpfulPaths.GetRating(data, PPType.Tech, mod);
+            float replayMult = HelpfulPaths.GetMultiAmounts(data, Regex.Replace(ReplayMods, hold.Value, "").Split(','));
+            best[4] = HelpfulPaths.GetRating(data, PPType.Pass, mod) * replayMult;
+            best[5] = HelpfulPaths.GetRating(data, PPType.Acc, mod) * replayMult;
+            best[6] = HelpfulPaths.GetRating(data, PPType.Tech, mod) * replayMult;
+            ReplayMods = ReplayMods.ToUpper();
         }
         #endregion
         #region Overrides

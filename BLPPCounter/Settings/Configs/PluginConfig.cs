@@ -40,7 +40,6 @@ namespace BLPPCounter.Settings.Configs
         #region Rank Counter Settings
         public virtual int MinRank { get; set; } = 100;
         public virtual int MaxRank { get; set; } = 0;
-        public virtual bool AdaptableRank { get; set; } = true;
         #endregion
         #region Target Settings
         public virtual bool ShowEnemy { get; set; } = true;

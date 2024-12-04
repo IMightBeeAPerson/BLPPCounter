@@ -17,6 +17,7 @@ namespace BLPPCounter.Counters
         public static string DisplayName => "Rank";
         public static string DisplayHandler => DisplayName;
         public static string API_PATH => "leaderboard/{0}/scoregraph"; //replace 0 with a BL leaderboard idea (ex: a40531)
+        public static string API_PATH2 => "leaderboard/scores/{0}?count={1}"; //replace 0 with a BL leaderboard idea (ex: a40531), replace 1 with the amount of people to request
         private static PluginConfig pc => PluginConfig.Instance;
 
         private static Func<bool, bool, float, float, int, float, string, string, string> displayRank;
@@ -27,7 +28,8 @@ namespace BLPPCounter.Counters
         private int precision;
         private float accRating, passRating, techRating;
         private TMP_Text display;
-        private float[] rankedPP;
+        private float[] mapPP;
+        private int MaxAmountOfPeople => pc.MinRank;
         #endregion
         #region Inits
         public RankCounter(TMP_Text display, float accRating, float passRating, float techRating)
@@ -42,10 +44,22 @@ namespace BLPPCounter.Counters
         public void SetupData(MapSelection map)
         {
             string songId = map.MapData.Item1;
-            TheCounter.CallAPI(string.Format(API_PATH, songId), out string data);
-            rankedPP = JToken.Parse(data).Children().Select(a => (float)Math.Round((double)a["pp"], precision)).ToArray();
-            Array.Sort(rankedPP);//, (a,b) => (int)(b - a));
-            //Plugin.Log.Info($"[{string.Join(", ", rankedPP)}]");
+            if (map.IsRanked)
+            {
+                TheCounter.CallAPI(string.Format(API_PATH, songId), out string data);
+                mapPP = JToken.Parse(data).Children().Select(a => (float)Math.Round((double)a["pp"], precision)).ToArray();
+            }
+            else
+            {
+                TheCounter.CallAPI(string.Format(API_PATH2, songId, MaxAmountOfPeople), out string data);
+                JToken mapData = map.MapData.Item2;
+                int maxScore = (int)mapData["maxScore"];
+                float acc = (float)mapData["accRating"], pass = (float)mapData["passRating"], tech = (float)mapData["techRating"];
+                mapPP = JToken.Parse(data)["scores"].Children().Select(a => 
+                (float)Math.Round((double)BLCalc.Inflate(BLCalc.GetPpSum(HelpfulMath.BackCalcAcc((int)a["modifiedScore"], maxScore), acc, pass, tech)), precision)).ToArray();
+            }
+            Array.Sort(mapPP);//, (a,b) => (int)(b - a));
+            Plugin.Log.Info($"[{string.Join(", ", mapPP)}]");
         }
         public void ReinitCounter(TMP_Text display) => this.display = display;
         public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating)
@@ -105,7 +119,7 @@ namespace BLPPCounter.Counters
             if (displayRank == null && rankIniter != null) InitTheFormat();
             return displayRank != null;
         }
-        private int GetRank(float pp) { int val = Array.BinarySearch(rankedPP, pp); return  rankedPP.Length - (val >= 0 ? val - 1 : Math.Abs(val) - 2); }
+        private int GetRank(float pp) { int val = Array.BinarySearch(mapPP, pp); return mapPP.Length - (val >= 0 ? val - 1 : Math.Abs(val) - 2); }
         #endregion
         #region Updates
         public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
@@ -122,7 +136,7 @@ namespace BLPPCounter.Counters
             for (int i = 0; i < ppVals.Length; i++)
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
             int rank = GetRank(ppVals[3]);
-            float ppDiff = rank == 1 ? 0 : (float)Math.Round((rank < rankedPP.Length + 1 ? rankedPP[rankedPP.Length - rank + 1] : rankedPP[0]) - ppVals[3], precision);
+            float ppDiff = rank == 1 ? 0 : (float)Math.Round((rank < mapPP.Length + 1 ? mapPP[mapPP.Length - rank + 1] : mapPP[0]) - ppVals[3], precision);
             string color = HelpfulFormatter.GetWeightedRankColor(rank);
             if (pc.SplitPPVals)
             {

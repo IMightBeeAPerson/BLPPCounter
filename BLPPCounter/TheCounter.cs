@@ -14,6 +14,7 @@ using Newtonsoft.Json.Linq;
 using System.Linq;
 using System.Reflection;
 using ModestTree;
+using static GameplayModifiers;
 namespace BLPPCounter
 {
 
@@ -451,7 +452,7 @@ namespace BLPPCounter
         }
         private void APIAvoidanceMode()
         {
-            Plugin.Log.Info("API Avoidance mode is functioning (probably)!");
+            Plugin.Log.Debug("API Avoidance mode is functioning (probably)!");
             //MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmap.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.34.2 and below
             MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmapDiff.difficulty.Name().Replace("+", "Plus"), mode, passRating, accRating, techRating); // 1.37.0 and above
             Plugin.Log.Debug($"Last Map\n-------------------\n{lastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
@@ -499,7 +500,7 @@ namespace BLPPCounter
                 string songId = (string)dataToken["song"]["id"];
                 foreach (JToken mapToken in mapTokens)
                 {
-                    Map map = new Map(hash, songId, mapToken);
+                    Map map = new Map(hash, songId + mapToken["value"] + mapToken["mode"], mapToken);
                     if (Data.ContainsKey(hash))
                         Data[hash].Combine(map);
                     else Data[hash] = map;
@@ -541,13 +542,24 @@ namespace BLPPCounter
         private bool SetupMapData(JToken data)
         {
             if (data == null || data.ToString().Length <= 0) return false;
-            passRating = HelpfulPaths.GetRating(data, PPType.Pass, mods.songSpeedMul);
-            accRating = HelpfulPaths.GetRating(data, PPType.Acc, mods.songSpeedMul);
-            techRating = HelpfulPaths.GetRating(data, PPType.Tech, mods.songSpeedMul);
-            stars = HelpfulPaths.GetRating(data, PPType.Star, mods.songSpeedMul);
-            string mod = HelpfulMisc.GetModifierShortname(HelpfulMisc.SpeedToModifier(mods.songSpeedMul)).ToUpper();
+            float multiplier = GetStarMultiplier(data);
+            passRating = HelpfulPaths.GetRating(data, PPType.Pass, mods.songSpeed) * multiplier;
+            accRating = HelpfulPaths.GetRating(data, PPType.Acc, mods.songSpeed) * multiplier;
+            techRating = HelpfulPaths.GetRating(data, PPType.Tech, mods.songSpeed) * multiplier;
+            stars = HelpfulPaths.GetRating(data, PPType.Star, mods.songSpeed);
+            string mod = HelpfulMisc.GetModifierShortname(mods.songSpeed).ToUpper();
             Plugin.Log.Info(mod.Length > 0 ? $"{mod} Stars: {stars}\n{mod} Pass Rating: {passRating}\n{mod} Acc Rating: {accRating}\n{mod} Tech Rating: {techRating}" : $"Stars: {stars}\nPass Rating: {passRating}\nAcc Rating: {accRating}\nTech Rating: {techRating}");
             return stars > 0;
+        }
+        private float GetStarMultiplier(JToken data)
+        {
+            float outp = 1.0f;
+            if (mods.ghostNotes) outp += HelpfulPaths.GetMultiAmount(data, "gn");
+            if (mods.noArrows) outp += HelpfulPaths.GetMultiAmount(data, "na");
+            if (mods.noFailOn0Energy) outp += HelpfulPaths.GetMultiAmount(data, "nf");
+            if (mods.enabledObstacleType == EnabledObstacleType.NoObstacles) outp += HelpfulPaths.GetMultiAmount(data, "no");
+            if (mods.noBombs) outp += HelpfulPaths.GetMultiAmount(data, "nb");
+            return outp;
         }
         #endregion
         #region Updates

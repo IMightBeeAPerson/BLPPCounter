@@ -13,8 +13,9 @@ namespace BLPPCounter.Utils
         public float PassRating { get; private set; }
         public float AccRating { get; private set; }
         public float TechRating { get; private set; }
-        public (string, JToken) MapData { get => Map.Get(Mode, Difficulty); }
-        public string Hash { get => Map.Hash; }
+        public (string, JToken) MapData => Map.Get(Mode, Difficulty);
+        public bool IsRanked => ((int)MapData.Item2["status"]) == 3;
+        public string Hash => Map.Hash;
 
         public MapSelection(Map map = default, string diff = default, string mode = default, float passRating = default, float accRating = default, float techRating = default)
         {

@@ -164,12 +164,6 @@ namespace BLPPCounter.Settings.SettingHandlers
             get => pc.MaxRank;
             set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(MaxRank))); pc.MaxRank = value; }
         }
-        [UIValue(nameof(AdaptableRank))]
-        public bool AdaptableRank
-        {
-            get => pc.AdaptableRank;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(AdaptableRank))); pc.AdaptableRank = value; }
-        }
         #endregion
         #region Target Settings
         [UIComponent("TargetList")]

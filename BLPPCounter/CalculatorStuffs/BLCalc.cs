@@ -1,4 +1,5 @@
 ﻿using BLPPCounter.Settings;
+using BLPPCounter.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -69,6 +70,7 @@ namespace BLPPCounter.CalculatorStuffs
             (a,b,c) = GetPp(accuracy, accRating, passRating, techRating);
             return a + b + c;
         }
+        public static float GetPpSum(float accuracy, MapSelection map) => GetPpSum(accuracy, map.AccRating, map.PassRating, map.TechRating);
         public static float GetAcc(float accRating, float passRating, float techRating, float inflatedPp)
         {
             float pp = Deflate(inflatedPp);
