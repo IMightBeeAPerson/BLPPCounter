@@ -31,7 +31,7 @@
       </vertical>
       <text text='Rank Counter Settings' align='Center'/>
       <vertical spacing='1' active='false'>
-        <text text='Hi'/>
+        <increment-setting text='Maximum Scores to Load' value='MinRank' integer-only='true' min='10' max='500' increment='10' apply-on-change='true'/>
       </vertical>
       <text text='Target Settings' align='Center'/>
       <vertical spacing='1'>

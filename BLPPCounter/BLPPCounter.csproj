@@ -66,6 +66,11 @@
       <SpecificVersion>False</SpecificVersion>
     </Reference>
     <Reference Include="PlatformUserModel, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
+    <Reference Include="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\System.Drawing.dll</HintPath>
+      <Private>False</Private>
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
     <Reference Include="Zenject">
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\Zenject.dll</HintPath>
     </Reference>
@@ -174,6 +179,7 @@
     <Compile Include="Utils\ColorMatch.cs" />
     <Compile Include="Utils\CustomAlias.cs" />
     <Compile Include="Utils\CustomTarget.cs" />
+    <Compile Include="Utils\List Settings\FormatListInfo.cs" />
     <Compile Include="Utils\Map.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="BLPPCounterController.cs" />
@@ -182,8 +188,9 @@
     <Compile Include="Utils\MapSelection.cs" />
     <Compile Include="Utils\PlaylistLoader.cs" />
     <Compile Include="Utils\PPType.cs" />
-    <Compile Include="Utils\SettingToggleInfo.cs" />
-    <Compile Include="Utils\SimpleMenuInfo.cs" />
+    <Compile Include="Utils\List Settings\SettingToggleInfo.cs" />
+    <Compile Include="Utils\List Settings\SimpleMenuInfo.cs" />
+    <Compile Include="Utils\SystemColorConverter.cs" />
     <Compile Include="Utils\Targeter.cs" />
   </ItemGroup>
   <ItemGroup>

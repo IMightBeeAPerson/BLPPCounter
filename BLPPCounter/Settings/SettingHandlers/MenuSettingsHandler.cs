@@ -1,23 +1,23 @@
 ﻿using BeatSaberMarkupLanguage;
 using BeatSaberMarkupLanguage.Attributes;
 using BeatSaberMarkupLanguage.Components;
-using BeatSaberMarkupLanguage.ViewControllers;
+using BeatSaberMarkupLanguage.Components.Settings;
+using BLPPCounter.Counters;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
-using HMUI;
+using ModestTree;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using UnityEngine;
-using UnityEngine.UI;
+using TMPro;
+using static BLPPCounter.Helpfuls.HelpfulFormatter;
 namespace BLPPCounter.Settings.SettingHandlers
 {
     public class MenuSettingsHandler
     {
-#pragma warning disable CS0649
+#pragma warning disable CS0649, IDE0044
         #region Variables
         #region Static
         private static PluginConfig pc => PluginConfig.Instance;
@@ -41,17 +41,14 @@ namespace BLPPCounter.Settings.SettingHandlers
         public bool SimpleUI
         {
             get => pc.SimpleUI;
-            set  {
-                pc.SimpleUI = value;
-                //Plugin.Instance.ChangeMenuTab();
-            }
+            set => pc.SimpleUI = value;
         }
         #region Simple Settings Editor
         public bool[] SettingsToSave { get; private set; }
         [UIComponent("UICustomizer")]
-        private CustomCellListTableData ccltd;
+        private CustomCellListTableData UICustomizer;
         [UIComponent("SaveButton")]
-        private Button saveButton;
+        private UnityEngine.UI.Button saveButton;
         [UIValue("UISettings")]
         public List<object> UISettings { get; } = new List<object>();
         private bool loaded = false;
@@ -71,12 +68,9 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (loaded) return;
             loaded = true;
             UISettings.AddRange(ConvertMenu().Cast<object>());
-            int count = 0;
-            foreach (object item in UISettings) if (item is SettingToggleInfo sti) sti.Usable = SettingsToSave[count++];
+            for (int i = 0; i < UISettings.Count; i++) if (UISettings[i] is SettingToggleInfo sti) sti.Usable = SettingsToSave[i];
             changes = 0;
-            //Plugin.Log.Info("UISettings: \n" + string.Join("\n", UISettings));
-            ccltd.TableView.ReloadData();
-            //Plugin.Log.Info("Simple Menu Settings has been loaded!");
+            UICustomizer.TableView.ReloadData();
         }
 #pragma warning restore IDE0051
         private List<SettingToggleInfo> ConvertMenu()
@@ -93,10 +87,176 @@ namespace BLPPCounter.Settings.SettingHandlers
                 pc.SimpleMenuConfig = HelpfulMisc.ConvertBoolsToInt32(SettingsToSave);
             }
             int count = 0;
-            foreach (Match m in mc) 
-                outp.Add(new SettingToggleInfo(m.Groups[3].Value, m.Groups.Count >= 6 ? m.Groups[5].Value : "", m.Groups[1].Value.Replace('-', ' '), count++, AddChange));
+            for (int i = 0; i < mc.Count; i++) 
+                outp.Add(new SettingToggleInfo(
+                    mc[i].Groups[3].Value,
+                    mc[i].Groups.Count >= 6 ? mc[i].Groups[5].Value : "",
+                    mc[i].Groups[1].Value.Replace('-', ' '),
+                    count++,
+                    AddChange
+                    ));
             return outp;
         }
+        #endregion
+        #region Format Settings Editor
+        //string #1: Name of message, string #2: Name of counter, string #3: Format string, dictionary: aliases
+        private readonly Dictionary<(string, string), (string, Dictionary<string, char>, Func<string, string>, Func<char, int>)> AllFormatInfo =
+            new Dictionary<(string, string), (string, Dictionary<string, char>, Func<string, string>, Func<char, int>)>()
+        {
+            {("Main Format", NormalCounter.DisplayName), (pc.FormatSettings.DefaultTextFormat, TheCounter.FormatAlias, TheCounter.QuickFormatDefault, HelpfulFormatter.GLOBAL_PARAM_AMOUNT) },
+            {("Target Format", NormalCounter.DisplayName), (pc.MessageSettings.TargetingMessage, TheCounter.TargetAlias, TheCounter.QuickFormatTarget, HelpfulFormatter.GLOBAL_PARAM_AMOUNT) },
+            {("Percent Needed Format", NormalCounter.DisplayName), (pc.MessageSettings.PercentNeededMessage, TheCounter.PercentNeededAlias, TheCounter.QuickFormatPercentNeeded, HelpfulFormatter.GLOBAL_PARAM_AMOUNT) },
+            {("Main Format", ClanCounter.DisplayName), (pc.FormatSettings.ClanTextFormat, ClanCounter.FormatAlias, ClanCounter.QuickFormatClan, HelpfulFormatter.GLOBAL_PARAM_AMOUNT) },
+            {("Weighted Format", ClanCounter.DisplayName), (pc.FormatSettings.WeightedTextFormat, ClanCounter.WeightedFormatAlias, ClanCounter.QuickFormatWeighted, HelpfulFormatter.GLOBAL_PARAM_AMOUNT) },
+            {("Custom Format", ClanCounter.DisplayName), (pc.MessageSettings.ClanMessage, ClanCounter.MessageFormatAlias, ClanCounter.QuickFormatMessage, HelpfulFormatter.GLOBAL_PARAM_AMOUNT) },
+            {("Main Format", RelativeCounter.DisplayName), (pc.FormatSettings.RelativeTextFormat, RelativeCounter.FormatAlias, RelativeCounter.QuickFormat, HelpfulFormatter.GLOBAL_PARAM_AMOUNT) }
+        };
+        private bool loaded2 = false;
+        #region UI Components
+        #region Main Menu
+        [UIComponent(nameof(ChooseFormat))]
+        private DropDownListSetting ChooseFormat;
+        [UIComponent(nameof(RawFormatText))]
+        private TextMeshProUGUI RawFormatText;
+        [UIComponent(nameof(FormattedText))]
+        private TextMeshProUGUI FormattedText;
+        #endregion
+        #region Format Editor
+        [UIComponent(nameof(FormatEditor))]
+        private CustomCellListTableData FormatEditor;
+        [UIComponent(nameof(PreviewDisplay))]
+        private TextMeshProUGUI PreviewDisplay;
+        #endregion
+        #endregion
+        #region UI Values
+        [UIValue(nameof(FormatChunks))]
+        public List<object> FormatChunks { get; } = new List<object>();
+        [UIValue(nameof(Counter))]
+        private string Counter { get => _Counter; set { _Counter = value; UpdateFormatOptions(); } }
+        private string _Counter;
+        [UIValue(nameof(FormatName))]
+        private string FormatName { get => _FormatName; set { _FormatName = value; UpdateFormatDisplay(); } }
+        private string _FormatName;
+        [UIValue(nameof(CounterNames))]
+        private List<object> CounterNames => TheCounter.ValidDisplayNames.Where(a => AllFormatInfo.Any(b => b.Key.Item2.Equals(a))).Cast<object>().ToList();
+        [UIValue(nameof(FormatNames))]
+        private List<object> FormatNames = new List<object>();
+        #endregion
+        #region UI Actions & UI Called Functions
+#pragma warning disable IDE0051
+        #region Main Menu
+        private void UpdateFormatOptions()
+        {
+            FormatNames = AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>().ToList();
+            ChooseFormat.Values = FormatNames;
+            if (FormatNames.Count > 0) FormatName = FormatNames[0] as string;
+            ChooseFormat.Value = FormatName;
+            ChooseFormat.UpdateChoices();
+        }
+        private void UpdateFormatDisplay()
+        {
+            var current = AllFormatInfo[(_FormatName, _Counter)];
+            FormattedText.text = current.Item3.Invoke(current.Item1);
+            RawFormatText.text = ColorFormatting(current.Item1.Replace("\n", "\\n"));
+            Plugin.Log.Debug(RawFormatText.text);
+        }
+        [UIAction("LoadMenu2")]
+        private void LoadMenu2()
+        {
+            if (loaded2) return;
+            loaded2 = true;
+            Counter = CounterNames[0] as string;
+
+        }
+        #endregion
+        #region Format Editor
+        [UIAction(nameof(UpdatePreviewDisplay))]
+        public void UpdatePreviewDisplay()
+        {
+            string outp = "";
+            foreach (FormatListInfo fli in FormatChunks.Cast<FormatListInfo>())
+                outp += fli.GetDisplay();
+            Plugin.Log.Info(outp);
+            PreviewDisplay.text = AllFormatInfo[(_FormatName, _Counter)].Item3.Invoke(outp.Replace("\\n", "\n"));
+        }
+        [UIAction(nameof(ParseCurrentFormat))]
+        private void ParseCurrentFormat()
+        {
+            var current = AllFormatInfo[(_FormatName, _Counter)];
+            string currentFormat = current.Item1.Replace("\n", "\\n");
+            FormatListInfo.AliasConverter = current.Item2;
+            string editedFormat = currentFormat;
+            List<FormatListInfo> outp = new List<FormatListInfo>();
+            bool groupOpen = false, captureOpen = false;
+            int index = 0;
+            string richKey = "";
+            while (editedFormat.Length > 0)
+            {
+                if (groupOpen && editedFormat[0] == INSERT_SELF)
+                {
+                    outp.Add(FormatListInfo.InitInsertSelf(index++));
+                    editedFormat = editedFormat.Substring(1);
+                    continue;
+                }
+                Match m = Regex.Match(editedFormat, FormatListInfo.GroupRegex);
+                if (m.Success)
+                {
+                    groupOpen = !groupOpen;
+                    outp.Add(FormatListInfo.InitGroup(index, m.Length, groupOpen, m.Value.Substring(1).Replace($"{ALIAS}", "")));
+                    goto endOfLoop;
+                }
+                m = Regex.Match(editedFormat, FormatListInfo.AliasRegex);
+                if (m.Success)
+                {
+                    outp.Add(FormatListInfo.InitEscapedCharacter(
+                        index,
+                        m.Length,
+                        m.Value[1] == ALIAS || !IsSpecialChar(m.Value[1]),
+                        m.Groups[3].Success ? m.Groups[3].Value.Substring(2, m.Groups[3].Value.Length - 3) : m.Groups[4].Success ? m.Groups[4].Value[1] + "" : m.Groups[1].Value.Substring(1).Replace($"{ALIAS}", ""),
+                        m.Groups[2].Success ? m.Groups[2].Value.Replace($"{ALIAS}", "").Split(DELIMITER) : null
+                        ));
+                    goto endOfLoop;
+                }
+                m = Regex.Match(editedFormat, FormatListInfo.RegularTextRegex);
+                if (m.Success)
+                {
+                    outp.Add(FormatListInfo.InitRegularText(index, m.Length, m.Value));
+                    goto endOfLoop;
+                }
+                m = Regex.Match(editedFormat, $"^(?:{Regex.Escape($"{CAPTURE_OPEN}")}\\d+|{Regex.Escape($"{CAPTURE_CLOSE}")})"); //^(?:<\\d+|>)
+                if (m.Success) 
+                {
+                    captureOpen = !captureOpen;
+                    outp.Add(FormatListInfo.InitCapture(index, m.Length, captureOpen, m.Value.Substring(1)));
+                    goto endOfLoop;
+                }
+                m = Regex.Match(editedFormat, "^(?:{0}(.+?){1}(.+?){0}|{0})".Fmt(Regex.Escape(RICH_SHORT+""), Regex.Escape(DELIMITER+""))); //^(?:\*(.+?),(.+?)\*|\*)
+                if (m.Success)
+                {
+                    bool isOpen = richKey.Length == 0;
+                    if (isOpen) richKey = RICH_SHORTHANDS.TryGetValue(m.Groups[1].Value, out string val) ? val : m.Groups[1].Value;
+                    string hasQuotes = m.Groups[2].Value.Contains(' ') ? "\"" : "";
+                    outp.Add(FormatListInfo.InitRichText(index, m.Length, isOpen, richKey, isOpen ? $"{hasQuotes}{m.Groups[2].Value}{hasQuotes}" : ""));
+                    if (!isOpen) richKey = "";
+                    goto endOfLoop;
+                }
+            endOfLoop:
+                if (m.Success)
+                {
+                    editedFormat = editedFormat.Remove(0, m.Length);
+                    index += m.Length;
+                }
+                else break;
+            }
+            FormatChunks.Clear();
+            FormatChunks.AddRange(outp.Cast<object>());
+            //Plugin.Log.Info("THE CHUNKS\n" + string.Join("\n", FormatChunks));
+            FormatEditor.TableView.ReloadData();
+            UpdatePreviewDisplay();
+        }
+        #endregion
+#pragma warning restore IDE0051
+        #endregion
         #endregion
         #endregion
     }

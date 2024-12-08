@@ -53,6 +53,54 @@ namespace BLPPCounter
         public static bool FormatUsable { get => displayFormatter != null && displayIniter != null; }
         public static bool TargetUsable { get => TargetFormatter != null && targetIniter != null; }
         public static bool PercentNeededUsable { get => PercentNeededFormatter != null && percentNeededIniter != null; }
+        public static readonly Dictionary<string, char> FormatAlias = new Dictionary<string, char>()
+        {
+            { "PP", 'x' },
+            { "FCPP", 'y' },
+            { "Mistakes", 'e' },
+            { "Label", 'l' }
+        };
+        public static readonly Dictionary<string, char> TargetAlias = new Dictionary<string, char>()
+        {
+            {"Target", 't' },
+            {"Mods", 'm' }
+        };
+        public static readonly Dictionary<string, char> PercentNeededAlias = new Dictionary<string, char>()
+        {
+            {"Color", 'c' },
+            {"Accuracy", 'a' },
+            {"TechPP", 'x' },
+            {"AccPP", 'y' },
+            {"PassPP", 'z' },
+            {"PP", 'p' }
+        };
+        public static readonly Dictionary<char, object> FormatDefaultValues = new Dictionary<char, object>()
+        {
+            {(char)1, true },
+            {(char)2, true },
+            {'x', 543.21f },
+            {'y', 654.32f },
+            {'e', 2 },
+            {'l', " PP" }
+        };
+        public static readonly Dictionary<char, object> FormatTargetValues = new Dictionary<char, object>()
+        {
+            {'t', "Person" },
+            {'m', "SF" }
+        };
+        public static readonly Dictionary<char, object> FormatPercentNeededValues = new Dictionary<char, object>()
+        {
+            {'c', new Func<string>(() => "<color=#0F0>") },
+            {'a', "95.85" },
+            {'x', 114.14f },
+            {'y', 321.23f },
+            {'z', 69.42f },
+            {'p', 543.21f },
+            {'t', "Person" },
+        };
+        public static Func<string, string> QuickFormatDefault => format => GetTheFormat(format).Invoke().Invoke(FormatDefaultValues);
+        public static Func<string, string> QuickFormatTarget => format => GetFormatTarget(format).Invoke().Invoke(FormatTargetValues);
+        public static Func<string, string> QuickFormatPercentNeeded => format => GetFormatPercentNeeded(format).Invoke().Invoke(FormatPercentNeededValues);
         #endregion
         #region Variables
         private TMP_Text display;
@@ -297,50 +345,35 @@ namespace BLPPCounter
             Data = new Dictionary<string, Map>();
             InitData();
         }
-        private static bool FormatTheFormat(string format, string counter = "") {
-            displayIniter = HelpfulFormatter.GetBasicTokenParser(format, 
-                new Dictionary<string, char>() {
-                    { "PP", 'x' },
-                    { "FCPP", 'y' },
-                    { "Mistakes", 'e' },
-                    { "Label", 'l' }
-                }, counter,
-                a => { },
+        private static Func<Func<Dictionary<char, object>, string>> GetTheFormat(string format, string counter = "") =>
+            HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, counter, a => { },
                 (tokens, tokensCopy, priority, vals) => 
                 { 
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1'); 
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2'); 
                 });
-            return displayIniter != null;
+       
+        private static bool FormatTheFormat(string format, string counter = "") 
+        { 
+            displayIniter = GetTheFormat(format, counter);
+            return displayIniter != null; 
         }
+        private static Func<Func<Dictionary<char, object>, string>> GetFormatTarget(string format) =>
+            HelpfulFormatter.GetBasicTokenParser(format, TargetAlias, DisplayName, a => { }, (a, b, c, d) => { });
         private static bool FormatTarget(string format)
         {
-            targetIniter = HelpfulFormatter.GetBasicTokenParser(format, 
-                new Dictionary<string, char>()
-                {
-                    {"Target", 't' },
-                    {"Mods", 'm' }
-                }, DisplayName,
-                a => { }, (a, b, c, d) => { });
+            targetIniter = GetFormatTarget(format);
             return targetIniter != null;
         }
-        private static bool FormatPercentNeeded(string format)
-        {
-            percentNeededIniter = HelpfulFormatter.GetBasicTokenParser(format, 
-                new Dictionary<string, char>()
-                {
-                    {"Color", 'c' },
-                    {"Accuracy", 'a' },
-                    {"TechPP", 'x' },
-                    {"AccPP", 'y' },
-                    {"PassPP", 'z' },
-                    {"PP", 'p' }
-                }, DisplayName,
-                a => { },
+        private static Func<Func<Dictionary<char, object>, string>> GetFormatPercentNeeded(string format) =>
+            HelpfulFormatter.GetBasicTokenParser(format, PercentNeededAlias, DisplayName, a => { },
                 (tokens, tokensCopy, priority, vals) =>
                 {
                     if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<string>)vals['c']).Invoke()}", "</color>");
                 });
+        private static bool FormatPercentNeeded(string format)
+        {
+            percentNeededIniter = GetFormatPercentNeeded(format);
             return percentNeededIniter != null;
         }
         private static void InitFormat()

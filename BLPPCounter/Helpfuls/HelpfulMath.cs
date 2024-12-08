@@ -34,6 +34,5 @@ namespace BLPPCounter.Helpfuls
             if (notes >= 6) return 2;
             return 0;
         }
-        public static float BackCalcAcc(int moddedScore, int maxScore) => moddedScore / (float)maxScore;
     }
 }

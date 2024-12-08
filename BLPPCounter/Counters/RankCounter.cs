@@ -53,10 +53,10 @@ namespace BLPPCounter.Counters
             {
                 TheCounter.CallAPI(string.Format(API_PATH2, songId, MaxAmountOfPeople), out string data);
                 JToken mapData = map.MapData.Item2;
-                int maxScore = (int)mapData["maxScore"];
+                float maxScore = (int)mapData["maxScore"];
                 float acc = (float)mapData["accRating"], pass = (float)mapData["passRating"], tech = (float)mapData["techRating"];
                 mapPP = JToken.Parse(data)["scores"].Children().Select(a => 
-                (float)Math.Round((double)BLCalc.Inflate(BLCalc.GetPpSum(HelpfulMath.BackCalcAcc((int)a["modifiedScore"], maxScore), acc, pass, tech)), precision)).ToArray();
+                (float)Math.Round((double)BLCalc.Inflate(BLCalc.GetPpSum((int)a["modifiedScore"] / maxScore, acc, pass, tech)), precision)).ToArray();
             }
             Array.Sort(mapPP);//, (a,b) => (int)(b - a));
             Plugin.Log.Info($"[{string.Join(", ", mapPP)}]");

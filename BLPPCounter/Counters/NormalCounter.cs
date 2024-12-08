@@ -43,8 +43,6 @@ namespace BLPPCounter.Counters
         public void UpdateFormat() { }
         public static bool InitFormat() => TheCounter.FormatUsable;
         #endregion
-
-
         #region Updates
         public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
         {

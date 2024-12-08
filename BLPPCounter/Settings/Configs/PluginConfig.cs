@@ -4,6 +4,8 @@ using IPA.Config.Stores;
 using IPA.Config.Stores.Attributes;
 using IPA.Config.Stores.Converters;
 using BLPPCounter.Utils;
+//using UnityEngine;
+using System.Drawing;
 
 [assembly: InternalsVisibleTo(GeneratedStore.AssemblyVisibilityTarget)]
 namespace BLPPCounter.Settings.Configs
@@ -53,10 +55,26 @@ namespace BLPPCounter.Settings.Configs
         //public virtual bool LocalReplay { get; set; } = false;
         //public virtual string ChosenPlaylist { get; set; } = "";
         #endregion
-        #region Menu Settings - Main
+        #region Menu Settings
         public virtual bool SimpleUI { get; set; } = true;
+        #region Simple Settings
         public virtual int SimpleMenuConfig { get; set; } = 0; //Don't worry about this, nothing janky at all going on here :)
         public virtual int SimpleMenuConfigLength { get; set; } = 0; //Nothing janky at all
+        #endregion
+        #region Format Settings
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color EscapeCharacterColor { get; set; } = Color.FromArgb(235, 33, 235); //#eb21eb
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color SpecialCharacterColor { get; set; } = Color.Goldenrod;
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color AliasColor { get; set; } = Color.FromArgb(187, 242, 46); //#bbf22e
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color AliasQuoteColor { get; set; } = Color.FromArgb(32, 171, 51); //#20ab33
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color ParamColor { get; set; } = Color.DarkCyan;
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color ParamVarColor { get; set; } = Color.Brown;
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color DelimeterColor { get; set; } = Color.DarkSlateGray;
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color CaptureColor { get; set; } = Color.FromArgb(44, 241, 245); //#2cf1f5
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color CaptureIdColor { get; set; } = Color.LightBlue;
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color GroupColor { get; set; } = Color.FromArgb(27, 40, 224); //#1b28e0
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color GroupReplaceColor { get; set; } = Color.FromArgb(255, 75, 43); //#ff4b2b
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color ShorthandColor { get; set; } = Color.DarkMagenta; //#ff4b2b
+        #endregion
         #endregion
     }
 }

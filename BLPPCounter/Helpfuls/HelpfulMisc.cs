@@ -5,6 +5,7 @@ using System.CodeDom;
 using System.IO;
 using System.Text.RegularExpressions;
 using static GameplayModifiers;
+using System.Drawing;
 namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
@@ -66,7 +67,7 @@ namespace BLPPCounter.Helpfuls
         }
         public static int ConvertBoolsToInt32(bool[] values)
         {
-            if (values.Length > 32) throw new ArgumentException("Cannot convert more than 16 bools to a 16 bit number.");
+            if (values.Length > 32) throw new ArgumentException("Cannot convert more than 32 bools to a 32 bit number.");
             int outp = 0;
             for (int i = 0; i < values.Length; i++)
                 outp |= (values[i] ? 1 : 0) << i;
@@ -96,5 +97,6 @@ namespace BLPPCounter.Helpfuls
                 if (count == 1 && toConvert < 0) { toConvert *= -1; toConvert |= 1 << 30; } //manually shift signed bit over bc unsigned shifting isn't allowed in this version 0.0
             }
         }
+        public static string ConvertColorToHex(Color c) => $"#{(int)c.R:X2}{(int)c.G:X2}{(int)c.B:X2}";
     }
 }

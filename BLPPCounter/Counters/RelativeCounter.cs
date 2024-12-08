@@ -16,14 +16,52 @@ namespace BLPPCounter.Counters
 {
     public class RelativeCounter: IMyCounters
     {
+        #region Static Variables
         private static readonly HttpClient client = new HttpClient();
+        public static readonly Dictionary<string, char> FormatAlias = new Dictionary<string, char>()
+                {
+                    { "Acc Difference", 'd' },
+                    { "Color", 'c' },
+                    { "PP Difference", 'x' },
+                    { "PP", 'p' },
+                    { "Label", 'l' },
+                    { "FC Color", 'f' },
+                    { "FCPP Difference", 'y' },
+                    { "FCPP", 'o' },
+                    { "Accuracy", 'a' },
+                    { "Target", 't' },
+                    { "Mistakes", 'e' }
+                };
+        public static readonly string[] FormatOptionDescriptions = new string[] {
+            "Shows when player is no longer has a full combo",
+            "Shows if player has the option Show Messages on"
+        };
+        public static readonly Dictionary<char, object> FormatDefaultVals = new Dictionary<char, object>()
+        {
+            {(char)1, true },
+            {(char)2, true },
+            {'e', 1 },
+            {'d', 0.1f },
+            {'c', "<color=\"green\">" },
+            {'x', (-30.5f).ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT) },
+            {'p', 543.21f },
+            {'f', "<color=\"red\">" },
+            {'y', 21.21f.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT) },
+            {'o', 654.32f },
+            {'a', 99.54f },
+            {'l', " PP" }
+        };
+        public static Func<string, string> QuickFormat => format => GetTheFormat(format).Invoke().Invoke(FormatDefaultVals);
         public static int OrderNumber => 2;
         public static string DisplayName => "Relative";
         public static string DisplayHandler => DisplayName;
-        public string Name => DisplayName;
         private static Func<bool, bool, int, float, string, string, float, string, string, float, float, string, string> displayFormatter;
+        public static Type[] FormatterTypes => displayFormatter.GetType().GetGenericArguments();
         private static Func<Func<Dictionary<char, object>, string>> displayIniter;
         private static PluginConfig pc => PluginConfig.Instance;
+        #endregion
+        #region Variables
+        public string Name => DisplayName;
         public string ReplayMods { get; private set; }
 
         private TMP_Text display;
@@ -34,6 +72,7 @@ namespace BLPPCounter.Counters
         private int precision;
         private IMyCounters backup;
         private bool failed;
+        #endregion
         #region Init
         public RelativeCounter(TMP_Text display, float accRating, float passRating, float techRating)
         {
@@ -155,10 +194,8 @@ namespace BLPPCounter.Counters
                 return null;
             }
         }
-        private string RequestScore(string id, string hash, string diff, string mode)
-        {//https://api.beatleader.xyz/score/8/76561198306905129/98470c673d1702c5030487085120ad6f24828d6c/Expert/Standard
-            return RequestData($"https://api.beatleader.xyz/score/8/{id}/{hash}/{diff}/{mode}");
-        }
+        //https://api.beatleader.xyz/score/8/76561198306905129/98470c673d1702c5030487085120ad6f24828d6c/Expert/Standard
+        private string RequestScore(string id, string hash, string diff, string mode) => RequestData($"https://api.beatleader.xyz/score/8/{id}/{hash}/{diff}/{mode}");
         private string RequestData(string path)
         {
             try
@@ -174,23 +211,9 @@ namespace BLPPCounter.Counters
         }
         #endregion
         #region Helper Functions
-        public static void FormatTheFormat(string format)
+        public static Func<Func<Dictionary<char, object>, string>> GetTheFormat(string format)
         {
-            displayIniter = HelpfulFormatter.GetBasicTokenParser(format,
-                new Dictionary<string, char>()
-                {
-                    { "Acc Difference", 'd' },
-                    { "Color", 'c' },
-                    { "PP Difference", 'x' },
-                    { "PP", 'p' },
-                    { "Label", 'l' },
-                    { "FC Color", 'f' },
-                    { "FCPP Difference", 'y' },
-                    { "FCPP", 'o' },
-                    { "Accuracy", 'a' },
-                    { "Target", 't' },
-                    { "Mistakes", 'e' }
-                }, DisplayName,
+            return HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, DisplayName,
                 formattedTokens =>
                 {
                     if (!pc.ShowLbl) formattedTokens.SetText('l');
@@ -210,6 +233,7 @@ namespace BLPPCounter.Counters
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
                 });//this is one line of code lol
         }
+        public static void FormatTheFormat(string format) => displayIniter = GetTheFormat(format);
         public static void InitDefaultFormat()
         {
             var simple = displayIniter.Invoke();
@@ -218,7 +242,7 @@ namespace BLPPCounter.Counters
                 Dictionary<char, object> vals = new Dictionary<char, object>()
                 {
                     { (char)1, fc }, {(char)2, totPp }, {'e', mistakes }, {'d', accDiff }, { 'c', color }, {'x',  modPp }, {'p', regPp },
-                    {'l', label }, { 'f', fcCol }, { 'y', fcModPp }, { 'o', fcRegPp }, {'a', acc }
+                    { 'f', fcCol }, { 'y', fcModPp }, { 'o', fcRegPp }, {'a', acc }, {'l', label }
                 };
                 return simple.Invoke(vals);
             };
@@ -265,7 +289,6 @@ namespace BLPPCounter.Counters
             }
             for (int i = 0; i < ppVals.Length; i++)
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
-            string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
             string target = pc.ShowEnemy ? pc.Target : Targeter.NO_TARGET;
             string color(float num) => pc.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
             float accDiff = (float)Math.Round((acc - best[7] / HelpfulMath.MaxScoreForNotes(notes)) * 100.0f, pc.DecimalPrecision);
@@ -275,12 +298,12 @@ namespace BLPPCounter.Counters
                 string text = "";
                 for (int i = 0; i < 4; i++)
                     text += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, mistakes, accDiff, color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
-                        color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], accToBeat, labels[i]) + "\n";
+                        color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], accToBeat, TheCounter.Labels[i]) + "\n";
                 display.text = text;
             }
             else
                 display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, mistakes, accDiff, color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
-                    color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], accToBeat, labels[3]) + "\n";
+                    color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], accToBeat, TheCounter.Labels[3]) + "\n";
         }
         #endregion
     }

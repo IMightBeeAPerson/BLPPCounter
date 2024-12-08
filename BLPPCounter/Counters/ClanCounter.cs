@@ -14,15 +14,95 @@ namespace BLPPCounter.Counters
 {
     public class ClanCounter: IMyCounters
     {
+        #region Static Variables
         private static readonly HttpClient client = new HttpClient();
         private static int playerClanId = -1;
         private static readonly List<(MapSelection, float[])> mapCache = new List<(MapSelection, float[])>(); //Map, clan pp vals, acc vals
         private static PluginConfig pc => PluginConfig.Instance;
         private static Func<bool, bool, int, Func<string>, string, float, Func<string>, string, float, string, Func<string>, string> displayClan;
-        private static Func<int, Func<string>, string, string, float, string, float, string, string, bool[], string> displayWeighted;
+        private static Func<bool[], int, Func<string>, string, string, float, string, float, string, string, string> displayWeighted;
         private static Func<Func<string>, float, float, float, float, float, string> displayCustom;
         private static Func<Func<Dictionary<char, object>, string>> clanIniter, weightedIniter, customIniter;
-
+        public static readonly Dictionary<string, char> FormatAlias = new Dictionary<string, char>()
+        {
+            { "PP", 'p' },
+            { "PP Difference", 'x' },
+            { "Color", 'c' },
+            { "FCPP", 'o' },
+            { "FCPP Difference", 'y' },
+            { "FC Color", 'f' },
+            { "Label", 'l' },
+            { "Mistakes", 'e' },
+            { "Target", 't' },
+            { "Message", 'm' }
+        };
+        public static readonly Dictionary<string, char> WeightedFormatAlias = new Dictionary<string, char>()
+        {
+            { "Mistakes", 'e' },
+            { "Rank Color", 'c' },
+            { "Rank", 'r' },
+            { "PP Difference", 'x' },
+            { "PP", 'p' },
+            { "Label", 'l' },
+            { "FCPP Difference", 'y' },
+            { "FCPP", 'o' },
+            { "Message", 'm' }
+        };
+        public static readonly Dictionary<string, char> MessageFormatAlias = new Dictionary<string, char>()
+        {
+            {"Color", 'c' },
+            {"Accuracy", 'a' },
+            {"Tech PP", 'x' },
+            {"Acc PP", 'y' },
+            {"Pass PP", 'z' },
+            {"PP", 'p' },
+            { "Target", 't' }
+        };
+        public static readonly Dictionary<char, object> DefaultValues = new Dictionary<char, object>()
+        {
+            {(char)1, true },
+            {(char)2, true },
+            {'p', 543.21f },
+            {'x', (-69.42f).ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT) },
+            {'c', new Func<string>(() => "<color=#0F0>") },
+            {'o', 654.32f },
+            {'y', 42.69f.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT) },
+            {'f', new Func<string>(() => "<color=#F00>") },
+            {'l', " PP" },
+            {'e', 1 },
+            {'t', "Person" },
+            {'m', new Func<string>(() => "<Insert formatted message here>") },
+        };
+        public static readonly Dictionary<char, object> WeightedDefaultValues = new Dictionary<char, object>()
+        {
+            {(char)1, true },
+            {(char)2, true },
+            {(char)3, true },
+            {'e', 1 },
+            {'c', new Func<string>(() => HelpfulFormatter.GetWeightedRankColor(3)) },
+            {'r', 3 },
+            {'x', -69.42f },
+            {'p', 543.21f },
+            {'l', " PP" },
+            {'y', 42.69f },
+            {'o', 654.32f },
+            {'m', "<Insert a message here>" },
+        };
+        public static readonly Dictionary<char, object> MessageDefaultValues = new Dictionary<char, object>()
+        {
+            {'c', new Func<string>(() => "<color=#0F0>") },
+            {'a', "95.85" },
+            {'x', 114.14f },
+            {'y', 321.23f },
+            {'z', 69.42f },
+            {'p', 543.21f },
+            {'t', "Person" },
+        };
+        public static Func<string, string> QuickFormatClan => format => GetFormatClan(format).Invoke().Invoke(DefaultValues);
+        public static Func<string, string> QuickFormatWeighted => format => GetFormatWeighted(format).Invoke().Invoke(WeightedDefaultValues);
+        public static Func<string, string> QuickFormatMessage => format => GetFormatCustom(format).Invoke().Invoke(MessageDefaultValues);
+        #endregion
+        #region Variables
         public static string DisplayName => "Clan";
         public static string DisplayHandler => DisplayName;
         public static int OrderNumber => 3;
@@ -34,6 +114,7 @@ namespace BLPPCounter.Counters
         private int precision, setupStatus;
         private string message;
         private bool showRank;
+        #endregion
         #region Init & Overrides
         public ClanCounter(TMP_Text display, float accRating, float passRating, float techRating)
         {
@@ -200,21 +281,10 @@ namespace BLPPCounter.Counters
             InitWeighted();
             InitCustom();
         }
-        private static void FormatClan(string format)
+        private static void FormatClan(string format) => clanIniter = GetFormatClan(format);
+        private static Func<Func<Dictionary<char, object>, string>> GetFormatClan(string format)
         {
-            clanIniter = HelpfulFormatter.GetBasicTokenParser(format, new Dictionary<string, char>()
-                {
-                    { "PP", 'p' },
-                    { "PP Difference", 'x' },
-                    { "Color", 'c' },
-                    { "FCPP", 'o' },
-                    { "FCPP Difference", 'y' },
-                    { "FC Color", 'f' },
-                    { "Label", 'l' },
-                    { "Mistakes", 'e' },
-                    { "Target", 't' },
-                    { "Message", 'm' }
-                }, DisplayName,
+            return HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, DisplayName,
                 formattedTokens =>
                 {
                     if (!pc.ShowLbl) formattedTokens.SetText('l');
@@ -236,20 +306,10 @@ namespace BLPPCounter.Counters
                 });
             
         }
-        private static void FormatWeighted(string format) //settings values are: 0 = displayFC, 1 = totPP, 2 = showRank
+        private static void FormatWeighted(string format) => weightedIniter = GetFormatWeighted(format);
+        private static Func<Func<Dictionary<char, object>, string>> GetFormatWeighted(string format) //settings values are: 0 = displayFC, 1 = totPP, 2 = showRank
         {
-            weightedIniter = HelpfulFormatter.GetBasicTokenParser(format, new Dictionary<string, char>()
-                {
-                    { "Mistakes", 'e' },
-                    { "Rank Color", 'c' },
-                    { "Rank", 'r' },
-                    { "PP Difference", 'x' },
-                    { "PP", 'p' },
-                    { "Label", 'l' },
-                    { "FCPP Difference", 'y' },
-                    { "FCPP", 'o' },
-                    { "Message", 'm' }
-                }, DisplayName,
+            return HelpfulFormatter.GetBasicTokenParser(format, WeightedFormatAlias, DisplayName,
                 formattedTokens =>
                 {
                     if (!pc.ShowLbl) formattedTokens.SetText('l');
@@ -262,18 +322,10 @@ namespace BLPPCounter.Counters
                 });
             
         }
-        private static void FormatCustom(string format)
+        private static void FormatCustom(string format) => customIniter = GetFormatCustom(format);
+        private static Func<Func<Dictionary<char, object>, string>> GetFormatCustom(string format)
         {
-            customIniter = HelpfulFormatter.GetBasicTokenParser(format, new Dictionary<string, char>()
-                {
-                    {"Color", 'c' },
-                    {"Accuracy", 'a' },
-                    {"Tech PP", 'x' },
-                    {"Acc PP", 'y' },
-                    {"Pass PP", 'z' },
-                    {"PP", 'p' },
-                    { "Target", 't' }
-                }, DisplayName,
+            return HelpfulFormatter.GetBasicTokenParser(format, MessageFormatAlias, DisplayName,
                 formattedTokens =>
                 {
                     if (!pc.Target.Equals(Targeter.NO_TARGET) && pc.ShowEnemy)
@@ -301,7 +353,7 @@ namespace BLPPCounter.Counters
         private static void InitWeighted()
         {
             var simple = weightedIniter.Invoke();
-            displayWeighted = (mistakes, rankColor, rank, modPp, regPp, fcModPp, fcRegPp, label, message, settings) =>
+            displayWeighted = (settings, mistakes, rankColor, rank, modPp, regPp, fcModPp, fcRegPp, label, message) =>
                 simple.Invoke(new Dictionary<char, object>() {{'e', mistakes }, {'c', rankColor }, {'r', rank }, {'x',  modPp }, {'p', regPp },
                     {'l', label }, { 'y', fcModPp }, { 'o', fcRegPp }, {'m', message }, { (char)1, settings[0] }, {(char)2, settings[1] }, {(char)3, settings[2] }});
         }
@@ -379,13 +431,13 @@ namespace BLPPCounter.Counters
             {
                 string text = "", color = HelpfulFormatter.GetWeightedRankColor(rank);
                 for (int i = 0; i < 4; i++)
-                    text += displayWeighted.Invoke(mistakes, () => color, $"{rank}", $"{ppVals[i + 4]}", ppVals[i],
-                        $"{ppVals[i + 12]}", ppVals[i + 8], labels[i], message, new bool[] { displayFc, pc.ExtraInfo && i == 3, showRank && i == 3 }) + "\n";
+                    text += displayWeighted.Invoke(new bool[] { displayFc, pc.ExtraInfo && i == 3, showRank && i == 3 }, 
+                        mistakes, () => color, $"{rank}", $"{ppVals[i + 4]}", ppVals[i], $"{ppVals[i + 12]}", ppVals[i + 8], labels[i], message) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayWeighted.Invoke(mistakes, () => HelpfulFormatter.GetWeightedRankColor(rank), $"{rank}", $"{ppVals[7]}", ppVals[3],
-                    $"{ppVals[15]}", ppVals[11], labels[3], message, new bool[] { displayFc, pc.ExtraInfo, showRank }) + "\n";
+                display.text = displayWeighted.Invoke(new bool[] { displayFc, pc.ExtraInfo, showRank }, 
+                    mistakes, () => HelpfulFormatter.GetWeightedRankColor(rank), $"{rank}", $"{ppVals[7]}", ppVals[3], $"{ppVals[15]}", ppVals[11], labels[3], message) + "\n";
         }
     }
     #endregion
