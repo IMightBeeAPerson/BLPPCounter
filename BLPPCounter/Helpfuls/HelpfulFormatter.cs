@@ -263,8 +263,9 @@ namespace BLPPCounter.Helpfuls
             Dictionary<string, char> aliasConverter,
             string counterName,
             Action<TokenParser> settings,
-            Action<Dictionary<(char, int), string>, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<char, object>> varSettings)
-            => GetBasicTokenParser(format, aliasConverter, counterName, settings, varSettings, null, null);
+            Action<Dictionary<(char, int), string>, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<char, object>> varSettings,
+            bool applySettings = true)
+            => GetBasicTokenParser(format, aliasConverter, counterName, settings, varSettings, null, null, applySettings);
         public static Func<Func<Dictionary<char, object>, string>> GetBasicTokenParser(
             string format,
             Dictionary<string, char> aliasConverter,
@@ -272,7 +273,8 @@ namespace BLPPCounter.Helpfuls
             Action<TokenParser> settings,
             Action<Dictionary<(char, int), string>, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<char, object>> varSettings,
             Func<char, string[], bool> confirmFormat,
-            Func<char, string[], Dictionary<char, object>, Dictionary<(char, int), string>, string> implementArgs)
+            Func<char, string[], Dictionary<char, object>, Dictionary<(char, int), string>, string> implementArgs,
+            bool applySettings = true)
         {
             Dictionary<(char, int), string> tokens;
             Dictionary<(char, int), string[]> extraArgs;
@@ -302,7 +304,7 @@ namespace BLPPCounter.Helpfuls
             return () =>
             {
                 var thing = TokenParser.UnrapTokens(tokens, true, formatted);
-                settings.Invoke(thing);
+                if (applySettings) settings.Invoke(thing);
                 string newFormatted = thing.Formatted;
                 Dictionary<(char, int), string> tokensCopy1 = thing.GetReference();
                 //Plugin.Log.Info(thing.ToString());

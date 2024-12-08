@@ -28,22 +28,28 @@
         <dropdown-list-setting text='Choose Counter' apply-on-change='true' value='Counter' options='CounterNames' hover-hint='A player to compare against while playing'/>
         <dropdown-list-setting id='ChooseFormat' text='Choose Format' apply-on-change='true' value='FormatName' options='FormatNames' hover-hint='A player to compare against while playing'/>
         <settings-submenu text='Edit this Format' align='Center' on-click='ParseCurrentFormat'>
-          <vertical spacing='1'>
+          <vertical spacing='1' anchor-pos-x='0'>
             <horizontal>
               <button text='Go Back' align='Left' click-event='back'/>
               <button text='Update Preview' align='Right' on-click='UpdatePreviewDisplay'/>
             </horizontal>
-            <custom-list id='FormatEditor' contents='FormatChunks' show-scrollbar='true' pref-width='100' pref-height='40' cell-size='20'>
+            <custom-list id='FormatEditor' contents='FormatChunks' show-scrollbar='true' pref-width='100' pref-height='40' cell-size='20' select-cell='SelectedCell' clickable-cells='true'>
               <vertical bg='round-rect-panel' bg-color='#CCC' horizontal-fit='Unconstrained' pad='2'>
                 <dropdown-list-setting text='Choose Type' apply-on-change='true' value='ChunkStr' options='TypesOfChunks' hover-hint='The types of chunks'/>
                 <string-setting id='TextComp' text='~TextCompLabel' apply-on-change='true' value='Text' formatter='Centerer' active='~ShowTextComp'/>
                 <string-setting id='Text2Comp' text='Enter Value' apply-on-change='true' value='Text2' formatter='Centerer' active='~ShowText2Comp'/>
                 <increment-setting id='Incrementer' text='Capture ID' value='CaptureID' integer-only='true' min='1' max='50' increment='1' apply-on-change='true' active='~ShowIncrement'/>
                 <horizontal id='ChoiceContainer' active='~ShowChoice'>
-                  <dropdown-list-setting text='~ChoiceText' apply-on-change='true' value='Text' options='ChoiceOptions'/>
+                  <dropdown-list-setting id='Choicer' text='~ChoiceText' apply-on-change='true' value='Text' options='ChoiceOptions'/>
                 </horizontal>
               </vertical>
             </custom-list>
+            <horizontal>
+              <button text='Add New Chunk' align='Center'/>
+            </horizontal>
+          </vertical>
+          <vertical anchor-pos-x='120' vertical-fit='PreferredSize' horizontal-fit='PreferredSize' pref-width='100' bg='round-rect-panel' bg-color='#CCC'>
+            <text id='RawPreviewDisplay' rich-text='true' text='' align='Center' word-wrapping='true'/>
             <text id='PreviewDisplay' rich-text='true' text='' align='Center'/>
           </vertical>
         </settings-submenu>

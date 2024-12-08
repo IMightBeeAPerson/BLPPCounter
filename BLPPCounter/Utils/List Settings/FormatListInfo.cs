@@ -41,8 +41,6 @@ namespace BLPPCounter.Utils
             get { if (int.TryParse(Text, out int outp)) return outp; else return 50; }
             set => Text = "" + value;
         }
-        [UIValue(nameof(Index))] private int Index;
-        [UIValue(nameof(Length))] private int Length;
         [UIValue(nameof(Toggle))] private bool Toggle;
         [UIValue(nameof(Text))] private string Text;
         [UIValue(nameof(Text2))] private string Text2;
@@ -62,10 +60,8 @@ namespace BLPPCounter.Utils
         [UIObject(nameof(ChoiceContainer))] private GameObject ChoiceContainer;
         [UIComponent(nameof(Choicer))] private DropDownListSetting Choicer;
 
-        private FormatListInfo(int index, int length, bool isTokenValue, string name, string[] tokenParams)
+        private FormatListInfo(bool isTokenValue, string name, string[] tokenParams)
         {
-            Index = index;
-            Length = length;
             Chunk = isTokenValue ? ChunkType.Escaped_Token : ChunkType.Escaped_Character;
             Text = name;
             Text2 = default;
@@ -75,10 +71,8 @@ namespace BLPPCounter.Utils
             ShowChoice = true;
             if (!isTokenValue) ChoiceText = "Choose Escaped Character";
         }
-        private FormatListInfo(int index, int length, bool isOpen, string token, ChunkType ct) 
+        private FormatListInfo(bool isOpen, string token, ChunkType ct) 
         {
-            Index = index;
-            Length = length; 
             Chunk = ct;
             Text = token;
             Text2 = default;
@@ -87,10 +81,8 @@ namespace BLPPCounter.Utils
             ShowTextComp = false;
             if (isOpen) if (ct == ChunkType.Capture_Open) ShowIncrement = true; else ShowChoice = true;
         }
-        private FormatListInfo(int index, int length, bool isOpen, string richTextKey, string richTextValue)
+        private FormatListInfo(bool isOpen, string richTextKey, string richTextValue)
         {
-            Index = index;
-            Length = length; 
             Chunk = isOpen ? ChunkType.Rich_Text_Open : ChunkType.Rich_Text_Close;
             Text = richTextKey;
             Text2 = richTextValue;
@@ -104,10 +96,8 @@ namespace BLPPCounter.Utils
             else ShowTextComp = false;
             
         }
-        private FormatListInfo(int index, int length, string text, bool isInsertSelf)
+        private FormatListInfo(string text, bool isInsertSelf)
         {
-            Index = index;
-            Length = length; 
             Chunk = isInsertSelf ? ChunkType.Insert_Group_Value : ChunkType.Regular_Text;
             Text = text;
             Text2 = default;
@@ -115,17 +105,17 @@ namespace BLPPCounter.Utils
             TokenParams = null;
             if (isInsertSelf) ShowTextComp = false;
         }
-        public static FormatListInfo InitEscapedCharacter(int index, int length, bool isTokenValue, string name, params string[] tokenParams) => 
-            new FormatListInfo(index, length, isTokenValue, name, tokenParams);
-        public static FormatListInfo InitGroup(int index, int length, bool isOpen, string token) => 
-            new FormatListInfo(index, length, isOpen, token, isOpen ? ChunkType.Group_Open : ChunkType.Group_Close);
-        public static FormatListInfo InitInsertSelf(int index) => new FormatListInfo(index, 1, "" + INSERT_SELF, true);
-        public static FormatListInfo InitCapture(int index, int length, bool isOpen, string token) => 
-            new FormatListInfo(index, length, isOpen, token, isOpen ? ChunkType.Capture_Open : ChunkType.Capture_Close);
-        public static FormatListInfo InitRichText(int index, int length, bool isOpen, string richTextKey, string richTextValue) => 
-            new FormatListInfo(index, length, isOpen, richTextKey, richTextValue);
-        public static FormatListInfo InitRegularText(int index, int length, string text) => 
-            new FormatListInfo(index, length, text, false);
+        public static FormatListInfo InitEscapedCharacter(bool isTokenValue, string name, params string[] tokenParams) => 
+            new FormatListInfo(isTokenValue, name, tokenParams);
+        public static FormatListInfo InitGroup(bool isOpen, string token) => 
+            new FormatListInfo(isOpen, token, isOpen ? ChunkType.Group_Open : ChunkType.Group_Close);
+        public static FormatListInfo InitInsertSelf() => new FormatListInfo("" + INSERT_SELF, true);
+        public static FormatListInfo InitCapture(bool isOpen, string token) => 
+            new FormatListInfo(isOpen, token, isOpen ? ChunkType.Capture_Open : ChunkType.Capture_Close);
+        public static FormatListInfo InitRichText(bool isOpen, string richTextKey, string richTextValue) => 
+            new FormatListInfo(isOpen, richTextKey, richTextValue);
+        public static FormatListInfo InitRegularText(string text) => 
+            new FormatListInfo(text, false);
 
         [UIAction(nameof(Centerer))] private string Centerer(string strIn) => $"<align=\"center\">{strIn}";
 
@@ -211,7 +201,7 @@ namespace BLPPCounter.Utils
         }
         public override string ToString()
         {
-            return $"{{Index: {Index}, Length: {Length}, Chunk: {Chunk}, Text: {Text}, Toggle: {Toggle}, Token Params: [{(TokenParams != null ? string.Join(", ", TokenParams) : "")}]}}";
+            return $"{{Chunk: {Chunk}, Text: {Text}, Toggle: {Toggle}, Token Params: [{(TokenParams != null ? string.Join(", ", TokenParams) : "")}]}}";
         }
         public enum ChunkType
         {

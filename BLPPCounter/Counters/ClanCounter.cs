@@ -98,9 +98,9 @@ namespace BLPPCounter.Counters
             {'p', 543.21f },
             {'t', "Person" },
         };
-        public static Func<string, string> QuickFormatClan => format => GetFormatClan(format).Invoke().Invoke(DefaultValues);
-        public static Func<string, string> QuickFormatWeighted => format => GetFormatWeighted(format).Invoke().Invoke(WeightedDefaultValues);
-        public static Func<string, string> QuickFormatMessage => format => GetFormatCustom(format).Invoke().Invoke(MessageDefaultValues);
+        public static Func<string, string> QuickFormatClan => format => GetFormatClan(format, false).Invoke().Invoke(DefaultValues);
+        public static Func<string, string> QuickFormatWeighted => format => GetFormatWeighted(format, false).Invoke().Invoke(WeightedDefaultValues);
+        public static Func<string, string> QuickFormatMessage => format => GetFormatCustom(format, false).Invoke().Invoke(MessageDefaultValues);
         #endregion
         #region Variables
         public static string DisplayName => "Clan";
@@ -282,7 +282,7 @@ namespace BLPPCounter.Counters
             InitCustom();
         }
         private static void FormatClan(string format) => clanIniter = GetFormatClan(format);
-        private static Func<Func<Dictionary<char, object>, string>> GetFormatClan(string format)
+        private static Func<Func<Dictionary<char, object>, string>> GetFormatClan(string format, bool applySettings = true)
         {
             return HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, DisplayName,
                 formattedTokens =>
@@ -303,11 +303,11 @@ namespace BLPPCounter.Counters
                     if (vals.ContainsKey('m')) HelpfulFormatter.SetText(tokensCopy, 'm', ((Func<string>)vals['m']).Invoke());
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1');
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
-                });
+                }, applySettings);
             
         }
         private static void FormatWeighted(string format) => weightedIniter = GetFormatWeighted(format);
-        private static Func<Func<Dictionary<char, object>, string>> GetFormatWeighted(string format) //settings values are: 0 = displayFC, 1 = totPP, 2 = showRank
+        private static Func<Func<Dictionary<char, object>, string>> GetFormatWeighted(string format, bool applySettings = true) //settings values are: 0 = displayFC, 1 = totPP, 2 = showRank
         {
             return HelpfulFormatter.GetBasicTokenParser(format, WeightedFormatAlias, DisplayName,
                 formattedTokens =>
@@ -319,11 +319,11 @@ namespace BLPPCounter.Counters
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1'); 
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2'); 
                     if (!(bool)vals[(char)3]) HelpfulFormatter.SetText(tokensCopy, '3'); 
-                });
+                }, applySettings);
             
         }
         private static void FormatCustom(string format) => customIniter = GetFormatCustom(format);
-        private static Func<Func<Dictionary<char, object>, string>> GetFormatCustom(string format)
+        private static Func<Func<Dictionary<char, object>, string>> GetFormatCustom(string format, bool applySettings = true)
         {
             return HelpfulFormatter.GetBasicTokenParser(format, MessageFormatAlias, DisplayName,
                 formattedTokens =>
@@ -335,7 +335,7 @@ namespace BLPPCounter.Counters
                 (tokens, tokensCopy, priority, vals) =>
                 {
                     if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<string>)vals['c']).Invoke()}", "</color>");
-                });
+                }, applySettings);
         }
         private static void InitClan()
         {

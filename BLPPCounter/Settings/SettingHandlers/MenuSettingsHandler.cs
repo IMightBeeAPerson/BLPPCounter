@@ -6,6 +6,7 @@ using BLPPCounter.Counters;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
+using HMUI;
 using ModestTree;
 using System;
 using System.Collections.Generic;
@@ -112,6 +113,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             {("Main Format", RelativeCounter.DisplayName), (pc.FormatSettings.RelativeTextFormat, RelativeCounter.FormatAlias, RelativeCounter.QuickFormat, HelpfulFormatter.GLOBAL_PARAM_AMOUNT) }
         };
         private bool loaded2 = false;
+        private (string, Dictionary<string, char>, Func<string, string>, Func<char, int>) CurrentFormatInfo => AllFormatInfo[(_FormatName, _Counter)];
         #region UI Components
         #region Main Menu
         [UIComponent(nameof(ChooseFormat))]
@@ -124,6 +126,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         #region Format Editor
         [UIComponent(nameof(FormatEditor))]
         private CustomCellListTableData FormatEditor;
+        [UIComponent(nameof(RawPreviewDisplay))]
+        private TextMeshProUGUI RawPreviewDisplay;
         [UIComponent(nameof(PreviewDisplay))]
         private TextMeshProUGUI PreviewDisplay;
         #endregion
@@ -155,9 +159,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private void UpdateFormatDisplay()
         {
-            var current = AllFormatInfo[(_FormatName, _Counter)];
-            FormattedText.text = current.Item3.Invoke(current.Item1);
-            RawFormatText.text = ColorFormatting(current.Item1.Replace("\n", "\\n"));
+            FormattedText.text = CurrentFormatInfo.Item3.Invoke(CurrentFormatInfo.Item1);
+            RawFormatText.text = ColorFormatting(CurrentFormatInfo.Item1.Replace("\n", "\\n"));
             Plugin.Log.Debug(RawFormatText.text);
         }
         [UIAction("LoadMenu2")]
@@ -166,10 +169,21 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (loaded2) return;
             loaded2 = true;
             Counter = CounterNames[0] as string;
-
         }
         #endregion
         #region Format Editor
+        [UIAction(nameof(SelectedCell))]
+        private void SelectedCell(TableView _, object obj)
+        {
+            const string richStart = "<mark=#FFFF0088>", richEnd = "</mark>";
+            FormatListInfo selectedFli = obj as FormatListInfo;
+            string outp = "";
+            foreach (FormatListInfo fli in FormatChunks.Cast<FormatListInfo>())
+                outp += string.Format(selectedFli.Equals(fli) ? $"{richStart}{{0}}{richEnd}" : "{0}", fli.GetDisplay());
+            RawPreviewDisplay.text = ColorFormatting(outp);
+            PreviewDisplay.text = CurrentFormatInfo.Item3.Invoke(outp.Replace("\\n", "\n").Replace(richStart,$"{RICH_SHORT}mark{DELIMITER}#FFFF0088{RICH_SHORT}").Replace(richEnd,""+RICH_SHORT));
+            Plugin.Log.Info("New Formatted Text: " + RawPreviewDisplay.text);
+        }
         [UIAction(nameof(UpdatePreviewDisplay))]
         public void UpdatePreviewDisplay()
         {
@@ -177,24 +191,23 @@ namespace BLPPCounter.Settings.SettingHandlers
             foreach (FormatListInfo fli in FormatChunks.Cast<FormatListInfo>())
                 outp += fli.GetDisplay();
             Plugin.Log.Info(outp);
-            PreviewDisplay.text = AllFormatInfo[(_FormatName, _Counter)].Item3.Invoke(outp.Replace("\\n", "\n"));
+            RawPreviewDisplay.text = ColorFormatting(outp);
+            PreviewDisplay.text = CurrentFormatInfo.Item3.Invoke(outp.Replace("\\n", "\n"));
         }
         [UIAction(nameof(ParseCurrentFormat))]
         private void ParseCurrentFormat()
         {
-            var current = AllFormatInfo[(_FormatName, _Counter)];
-            string currentFormat = current.Item1.Replace("\n", "\\n");
-            FormatListInfo.AliasConverter = current.Item2;
+            string currentFormat = CurrentFormatInfo.Item1.Replace("\n", "\\n");
+            FormatListInfo.AliasConverter = CurrentFormatInfo.Item2;
             string editedFormat = currentFormat;
             List<FormatListInfo> outp = new List<FormatListInfo>();
             bool groupOpen = false, captureOpen = false;
-            int index = 0;
             string richKey = "";
             while (editedFormat.Length > 0)
             {
                 if (groupOpen && editedFormat[0] == INSERT_SELF)
                 {
-                    outp.Add(FormatListInfo.InitInsertSelf(index++));
+                    outp.Add(FormatListInfo.InitInsertSelf());
                     editedFormat = editedFormat.Substring(1);
                     continue;
                 }
@@ -202,15 +215,13 @@ namespace BLPPCounter.Settings.SettingHandlers
                 if (m.Success)
                 {
                     groupOpen = !groupOpen;
-                    outp.Add(FormatListInfo.InitGroup(index, m.Length, groupOpen, m.Value.Substring(1).Replace($"{ALIAS}", "")));
+                    outp.Add(FormatListInfo.InitGroup(groupOpen, m.Value.Substring(1).Replace($"{ALIAS}", "")));
                     goto endOfLoop;
                 }
                 m = Regex.Match(editedFormat, FormatListInfo.AliasRegex);
                 if (m.Success)
                 {
                     outp.Add(FormatListInfo.InitEscapedCharacter(
-                        index,
-                        m.Length,
                         m.Value[1] == ALIAS || !IsSpecialChar(m.Value[1]),
                         m.Groups[3].Success ? m.Groups[3].Value.Substring(2, m.Groups[3].Value.Length - 3) : m.Groups[4].Success ? m.Groups[4].Value[1] + "" : m.Groups[1].Value.Substring(1).Replace($"{ALIAS}", ""),
                         m.Groups[2].Success ? m.Groups[2].Value.Replace($"{ALIAS}", "").Split(DELIMITER) : null
@@ -220,14 +231,14 @@ namespace BLPPCounter.Settings.SettingHandlers
                 m = Regex.Match(editedFormat, FormatListInfo.RegularTextRegex);
                 if (m.Success)
                 {
-                    outp.Add(FormatListInfo.InitRegularText(index, m.Length, m.Value));
+                    outp.Add(FormatListInfo.InitRegularText( m.Value));
                     goto endOfLoop;
                 }
                 m = Regex.Match(editedFormat, $"^(?:{Regex.Escape($"{CAPTURE_OPEN}")}\\d+|{Regex.Escape($"{CAPTURE_CLOSE}")})"); //^(?:<\\d+|>)
                 if (m.Success) 
                 {
                     captureOpen = !captureOpen;
-                    outp.Add(FormatListInfo.InitCapture(index, m.Length, captureOpen, m.Value.Substring(1)));
+                    outp.Add(FormatListInfo.InitCapture(captureOpen, m.Value.Substring(1)));
                     goto endOfLoop;
                 }
                 m = Regex.Match(editedFormat, "^(?:{0}(.+?){1}(.+?){0}|{0})".Fmt(Regex.Escape(RICH_SHORT+""), Regex.Escape(DELIMITER+""))); //^(?:\*(.+?),(.+?)\*|\*)
@@ -236,16 +247,13 @@ namespace BLPPCounter.Settings.SettingHandlers
                     bool isOpen = richKey.Length == 0;
                     if (isOpen) richKey = RICH_SHORTHANDS.TryGetValue(m.Groups[1].Value, out string val) ? val : m.Groups[1].Value;
                     string hasQuotes = m.Groups[2].Value.Contains(' ') ? "\"" : "";
-                    outp.Add(FormatListInfo.InitRichText(index, m.Length, isOpen, richKey, isOpen ? $"{hasQuotes}{m.Groups[2].Value}{hasQuotes}" : ""));
+                    outp.Add(FormatListInfo.InitRichText(isOpen, richKey, isOpen ? $"{hasQuotes}{m.Groups[2].Value}{hasQuotes}" : ""));
                     if (!isOpen) richKey = "";
                     goto endOfLoop;
                 }
             endOfLoop:
                 if (m.Success)
-                {
                     editedFormat = editedFormat.Remove(0, m.Length);
-                    index += m.Length;
-                }
                 else break;
             }
             FormatChunks.Clear();
