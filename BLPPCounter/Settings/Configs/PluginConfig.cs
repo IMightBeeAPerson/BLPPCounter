@@ -56,12 +56,15 @@ namespace BLPPCounter.Settings.Configs
         //public virtual string ChosenPlaylist { get; set; } = "";
         #endregion
         #region Menu Settings
-        public virtual bool SimpleUI { get; set; } = true;
         #region Simple Settings
+        public virtual bool SimpleUI { get; set; } = true;
         public virtual int SimpleMenuConfig { get; set; } = 0; //Don't worry about this, nothing janky at all going on here :)
         public virtual int SimpleMenuConfigLength { get; set; } = 0; //Nothing janky at all
         #endregion
         #region Format Settings
+        public virtual bool UpdatePreview { get; set; } = true;
+
+        #region Colors
         [UseConverter(typeof(SystemColorConverter))] public virtual Color EscapeCharacterColor { get; set; } = Color.FromArgb(235, 33, 235); //#eb21eb
         [UseConverter(typeof(SystemColorConverter))] public virtual Color SpecialCharacterColor { get; set; } = Color.Goldenrod;
         [UseConverter(typeof(SystemColorConverter))] public virtual Color AliasColor { get; set; } = Color.FromArgb(187, 242, 46); //#bbf22e
@@ -74,6 +77,8 @@ namespace BLPPCounter.Settings.Configs
         [UseConverter(typeof(SystemColorConverter))] public virtual Color GroupColor { get; set; } = Color.FromArgb(27, 40, 224); //#1b28e0
         [UseConverter(typeof(SystemColorConverter))] public virtual Color GroupReplaceColor { get; set; } = Color.FromArgb(255, 75, 43); //#ff4b2b
         [UseConverter(typeof(SystemColorConverter))] public virtual Color ShorthandColor { get; set; } = Color.DarkMagenta; //#ff4b2b
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color HighlightColor { get; set; } = Color.FromArgb(136, 255, 255, 0); //#ff4b2b
+        #endregion
         #endregion
         #endregion
     }

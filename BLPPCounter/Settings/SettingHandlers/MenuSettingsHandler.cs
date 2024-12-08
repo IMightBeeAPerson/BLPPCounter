@@ -38,11 +38,17 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region Main Settings
-        [UIValue("SimpleUI")]
+        [UIValue(nameof(SimpleUI))]
         public bool SimpleUI
         {
             get => pc.SimpleUI;
             set => pc.SimpleUI = value;
+        }
+        [UIValue(nameof(UpdatePreview))]
+        public bool UpdatePreview
+        {
+            get => pc.UpdatePreview;
+            set => pc.UpdatePreview = value;
         }
         #region Simple Settings Editor
         public bool[] SettingsToSave { get; private set; }
@@ -172,17 +178,30 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region Format Editor
+        private void UpdateFormatTable(bool forceUpdate = false)
+        {
+            if (!forceUpdate && !pc.UpdatePreview) return;
+            FormatEditor.TableView.ReloadData();
+            UpdatePreviewDisplay();
+        }
         [UIAction(nameof(SelectedCell))]
         private void SelectedCell(TableView _, object obj)
         {
-            const string richStart = "<mark=#FFFF0088>", richEnd = "</mark>";
+            const string richEnd = "</mark>";
+            string richStart = $"<mark={pc.HighlightColor.ToArgb():X8}>";
             FormatListInfo selectedFli = obj as FormatListInfo;
             string outp = "";
             foreach (FormatListInfo fli in FormatChunks.Cast<FormatListInfo>())
                 outp += string.Format(selectedFli.Equals(fli) ? $"{richStart}{{0}}{richEnd}" : "{0}", fli.GetDisplay());
             RawPreviewDisplay.text = ColorFormatting(outp);
-            PreviewDisplay.text = CurrentFormatInfo.Item3.Invoke(outp.Replace("\\n", "\n").Replace(richStart,$"{RICH_SHORT}mark{DELIMITER}#FFFF0088{RICH_SHORT}").Replace(richEnd,""+RICH_SHORT));
-            Plugin.Log.Info("New Formatted Text: " + RawPreviewDisplay.text);
+            PreviewDisplay.text = CurrentFormatInfo.Item3.Invoke(outp.Replace("\\n", "\n").Replace(richStart,$"{RICH_SHORT}mark{DELIMITER}{pc.HighlightColor.ToArgb():X8}{RICH_SHORT}").Replace(richEnd,""+RICH_SHORT));
+            Plugin.Log.Info("New Formatted Text: " + PreviewDisplay.text);
+        }
+        [UIAction(nameof(AddDefaultChunk))]
+        private void AddDefaultChunk()
+        {
+            FormatChunks.Add(FormatListInfo.InitRegularText("Default Text"));
+            UpdateFormatTable(true);
         }
         [UIAction(nameof(UpdatePreviewDisplay))]
         public void UpdatePreviewDisplay()
@@ -190,7 +209,6 @@ namespace BLPPCounter.Settings.SettingHandlers
             string outp = "";
             foreach (FormatListInfo fli in FormatChunks.Cast<FormatListInfo>())
                 outp += fli.GetDisplay();
-            Plugin.Log.Info(outp);
             RawPreviewDisplay.text = ColorFormatting(outp);
             PreviewDisplay.text = CurrentFormatInfo.Item3.Invoke(outp.Replace("\\n", "\n"));
         }
@@ -199,6 +217,29 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             string currentFormat = CurrentFormatInfo.Item1.Replace("\n", "\\n");
             FormatListInfo.AliasConverter = CurrentFormatInfo.Item2;
+            FormatListInfo.MovePlacement = (fli, goinUP) =>
+            {
+                int index = FormatChunks.IndexOf(fli);
+                if (goinUP)
+                {
+                    if (index > 0)
+                    {
+                        FormatChunks[index] = FormatChunks[index - 1];
+                        FormatChunks[index - 1] = fli;
+                        UpdateFormatTable();
+                    }
+                } else if (index < FormatChunks.Count - 1)
+                {
+                    FormatChunks[index] = FormatChunks[index + 1];
+                    FormatChunks[index + 1] = fli;
+                    UpdateFormatTable();
+                }
+            };
+            FormatListInfo.RemoveSelf = (fli) =>
+            {
+                FormatChunks.Remove(fli);
+                UpdateFormatTable();
+            };
             string editedFormat = currentFormat;
             List<FormatListInfo> outp = new List<FormatListInfo>();
             bool groupOpen = false, captureOpen = false;

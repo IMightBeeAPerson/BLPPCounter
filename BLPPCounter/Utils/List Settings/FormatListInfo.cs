@@ -15,7 +15,10 @@ namespace BLPPCounter.Utils
     public class FormatListInfo
     {
 #pragma warning disable IDE0044, CS0649, CS0414
-        public static Dictionary<string, char> AliasConverter;
+        public static Dictionary<string, char> AliasConverter { get; internal set; }
+        internal static Action<FormatListInfo, bool> MovePlacement;
+        internal static Action<FormatListInfo> RemoveSelf;
+
         internal static readonly string AliasRegex = 
             "^(?:" + RegexAliasPattern.Replace($"(?={Regex.Escape("" + PARAM_CLOSE)})", $"{Regex.Escape("" + PARAM_CLOSE)}")
             + $"|({Regex.Escape($"{ESCAPE_CHAR}")}.))".Replace($"{Regex.Escape(""+GROUP_OPEN)}",""); //^(?:(&.|&'[^']+?')\((.+)\)|([&]'[^']+?')|(&.))
@@ -118,6 +121,9 @@ namespace BLPPCounter.Utils
             new FormatListInfo(text, false);
 
         [UIAction(nameof(Centerer))] private string Centerer(string strIn) => $"<align=\"center\">{strIn}";
+        [UIAction(nameof(MoveChunkUp))] private void MoveChunkUp() => MovePlacement(this, true);
+        [UIAction(nameof(MoveChunkDown))] private void MoveChunkDown() => MovePlacement(this, false);
+        [UIAction(nameof(RemoveChunk))] private void RemoveChunk() => RemoveSelf(this);
 
         private void UpdateView()
         {

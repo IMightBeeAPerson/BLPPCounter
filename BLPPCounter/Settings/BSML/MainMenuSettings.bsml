@@ -20,6 +20,8 @@
         </custom-list>
       </vertical>
     </settings-submenu>
+    <text text='Format Editor Settings' align='Center'/>
+    <checkbox-setting text='Auto Update Preview' apply-on-change='true' value='UpdatePreview' hover-hint='If enabled, updates preview every time there is a change made'/>
     <settings-submenu text='Edit Format Settings' hover-hint='Edit the format of the counters in game!' align='Center' on-click='LoadMenu2'>
       <vertical spacing='1' vertical-fit='PreferredSize' horizontal-fit='PreferredSize' pref-width='100'>
         <horizontal>
@@ -33,7 +35,7 @@
               <button text='Go Back' align='Left' click-event='back'/>
               <button text='Update Preview' align='Right' on-click='UpdatePreviewDisplay'/>
             </horizontal>
-            <custom-list id='FormatEditor' contents='FormatChunks' show-scrollbar='true' pref-width='100' pref-height='40' cell-size='20' select-cell='SelectedCell' clickable-cells='true'>
+            <custom-list id='FormatEditor' contents='FormatChunks' show-scrollbar='true' pref-width='100' pref-height='60' cell-size='30' select-cell='SelectedCell' clickable-cells='true'>
               <vertical bg='round-rect-panel' bg-color='#CCC' horizontal-fit='Unconstrained' pad='2'>
                 <dropdown-list-setting text='Choose Type' apply-on-change='true' value='ChunkStr' options='TypesOfChunks' hover-hint='The types of chunks'/>
                 <string-setting id='TextComp' text='~TextCompLabel' apply-on-change='true' value='Text' formatter='Centerer' active='~ShowTextComp'/>
@@ -42,10 +44,15 @@
                 <horizontal id='ChoiceContainer' active='~ShowChoice'>
                   <dropdown-list-setting id='Choicer' text='~ChoiceText' apply-on-change='true' value='Text' options='ChoiceOptions'/>
                 </horizontal>
+                <horizontal>
+                  <button text='Move Up' align='Left' on-click='MoveChunkUp'/>
+                  <button text='Remove Chunk' align='Center' color='#FF0000' on-click='RemoveChunk'/>
+                  <button text='Move Down' align='Right' on-click='MoveChunkDown'/>
+                </horizontal>
               </vertical>
             </custom-list>
             <horizontal>
-              <button text='Add New Chunk' align='Center'/>
+              <button text='Add New Chunk' align='Center' on-click='AddDefaultChunk'/>
             </horizontal>
           </vertical>
           <vertical anchor-pos-x='120' vertical-fit='PreferredSize' horizontal-fit='PreferredSize' pref-width='100' bg='round-rect-panel' bg-color='#CCC'>
