@@ -98,7 +98,7 @@ namespace BLPPCounter.Counters
                     HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{vals['c']}", "</color>");
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1');
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
-                });
+                }, out string _);
         }
         public static void InitTheFormat()
         {

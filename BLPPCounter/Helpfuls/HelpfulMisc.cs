@@ -97,6 +97,7 @@ namespace BLPPCounter.Helpfuls
                 if (count == 1 && toConvert < 0) { toConvert *= -1; toConvert |= 1 << 30; } //manually shift signed bit over bc unsigned shifting isn't allowed in this version 0.0
             }
         }
-        public static string ConvertColorToHex(Color c) => $"#{(int)c.R:X2}{(int)c.G:X2}{(int)c.B:X2}";
+        public static string ConvertColorToHex(Color c) => $"#{(int)c.R:X2}{(int)c.G:X2}{(int)c.B:X2}{(int)c.A:X2}";
+        public static string ConvertColorToMarkup(Color c) => $"<color={ConvertColorToHex(c)}>";
     }
 }

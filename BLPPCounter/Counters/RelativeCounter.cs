@@ -52,7 +52,7 @@ namespace BLPPCounter.Counters
             {'l', " PP" },
             {'t', "Targeting <color=red>Person</color>" }
         };
-        public static Func<string, string> QuickFormat => format => GetTheFormat(format, false).Invoke().Invoke(FormatDefaultVals);
+        public static Func<string, string> QuickFormat => format => GetTheFormat(format, false).Invoke()?.Invoke(FormatDefaultVals);
         public static int OrderNumber => 2;
         public static string DisplayName => "Relative";
         public static string DisplayHandler => DisplayName;
@@ -232,7 +232,7 @@ namespace BLPPCounter.Counters
                     HelpfulFormatter.SurroundText(tokensCopy, 'f', $"{vals['f']}", "</color>");
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1');
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
-                }, applySettings);//this is one line of code lol
+                }, out string _, applySettings);//this is one line of code lol
         }
         public static void FormatTheFormat(string format) => displayIniter = GetTheFormat(format);
         public static void InitDefaultFormat()

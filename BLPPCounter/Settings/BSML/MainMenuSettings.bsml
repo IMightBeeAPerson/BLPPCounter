@@ -20,6 +20,7 @@
         </custom-list>
       </vertical>
     </settings-submenu>
+    <text text='-------------------------------------' align='Center' bold='true'/>
     <text text='Format Editor Settings' align='Center'/>
     <checkbox-setting text='Auto Update Preview' apply-on-change='true' value='UpdatePreview' hover-hint='If enabled, updates preview every time there is a change made'/>
     <settings-submenu text='Edit Format Settings' hover-hint='Edit the format of the counters in game!' align='Center' on-click='LoadMenu2'>
@@ -33,6 +34,7 @@
           <vertical spacing='1' anchor-pos-x='0'>
             <horizontal>
               <button text='Go Back' align='Left' click-event='back'/>
+              <button text='Save' align='Center' click-event='back'/>
               <button text='Update Preview' align='Right' on-click='UpdatePreviewDisplay'/>
             </horizontal>
             <custom-list id='FormatEditor' contents='FormatChunks' show-scrollbar='true' pref-width='100' pref-height='60' cell-size='30' select-cell='SelectedCell' clickable-cells='true'>
@@ -40,19 +42,21 @@
                 <dropdown-list-setting text='Choose Type' apply-on-change='true' value='ChunkStr' options='TypesOfChunks' hover-hint='The types of chunks'/>
                 <string-setting id='TextComp' text='~TextCompLabel' apply-on-change='true' value='Text' formatter='Centerer' active='~ShowTextComp'/>
                 <string-setting id='Text2Comp' text='Enter Value' apply-on-change='true' value='Text2' formatter='Centerer' active='~ShowText2Comp'/>
-                <increment-setting id='Incrementer' text='Capture ID' value='CaptureID' integer-only='true' min='1' max='50' increment='1' apply-on-change='true' active='~ShowIncrement'/>
+                <increment-setting id='Incrementer' text='~IncrementText' value='IncrementVal' integer-only='true' min='1' max='50' increment='1' apply-on-change='true' active='~ShowIncrement'/>
                 <horizontal id='ChoiceContainer' active='~ShowChoice'>
                   <dropdown-list-setting id='Choicer' text='~ChoiceText' apply-on-change='true' value='Text' options='ChoiceOptions'/>
                 </horizontal>
                 <horizontal>
-                  <button text='Move Up' align='Left' on-click='MoveChunkUp'/>
-                  <button text='Remove Chunk' align='Center' color='#FF0000' on-click='RemoveChunk'/>
-                  <button text='Move Down' align='Right' on-click='MoveChunkDown'/>
+                  <page-button  align='Left' on-click='MoveChunkUp' direction='Up' scale='0.5'/>
+                  <button text='Remove Chunk' align='Center' face-color='#FF0000' on-click='RemoveChunk'/>
+                  <page-button align='Right' on-click='MoveChunkDown' direction='Down' scale='0.5'/>
                 </horizontal>
               </vertical>
             </custom-list>
             <horizontal>
+              <button text='Scroll Fully Up' align='Left' on-click='ScrollToTop'/>
               <button text='Add New Chunk' align='Center' on-click='AddDefaultChunk'/>
+              <button text='Scroll Fully Down' align='Right' on-click='ScrollToBottom'/>
             </horizontal>
           </vertical>
           <vertical anchor-pos-x='120' vertical-fit='PreferredSize' horizontal-fit='PreferredSize' pref-width='100' bg='round-rect-panel' bg-color='#CCC'>

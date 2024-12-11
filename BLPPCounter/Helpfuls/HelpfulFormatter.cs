@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEngine;
-using Microsoft.SqlServer.Server;
+using static BLPPCounter.Helpfuls.HelpfulMisc;
 
 namespace BLPPCounter.Helpfuls
 {
@@ -264,8 +264,9 @@ namespace BLPPCounter.Helpfuls
             string counterName,
             Action<TokenParser> settings,
             Action<Dictionary<(char, int), string>, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<char, object>> varSettings,
+            out string errorStr,
             bool applySettings = true)
-            => GetBasicTokenParser(format, aliasConverter, counterName, settings, varSettings, null, null, applySettings);
+            => GetBasicTokenParser(format, aliasConverter, counterName, settings, varSettings, null, null, out errorStr, applySettings);
         public static Func<Func<Dictionary<char, object>, string>> GetBasicTokenParser(
             string format,
             Dictionary<string, char> aliasConverter,
@@ -274,6 +275,7 @@ namespace BLPPCounter.Helpfuls
             Action<Dictionary<(char, int), string>, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<char, object>> varSettings,
             Func<char, string[], bool> confirmFormat,
             Func<char, string[], Dictionary<char, object>, Dictionary<(char, int), string>, string> implementArgs,
+            out string errorStr,
             bool applySettings = true)
         {
             Dictionary<(char, int), string> tokens;
@@ -293,13 +295,14 @@ namespace BLPPCounter.Helpfuls
             }
             catch (Exception e)
             {
-                Plugin.Log.Error("Formatting failed! " + e.Message);
-                Plugin.Log.Error("Formatting: " + HelpfulMisc.ToLiteral(format));
+                errorStr = "Formatting failed! " + e.Message;
+                errorStr += "\nFormatting: " + ToLiteral(format).Replace("\\'", "'");
                 return null;
             }
+            errorStr = "";
             /*Plugin.Log.Info("---------------");
                     foreach (var token in tokens)
-                        Plugin.Log.Info($"{token.Key} || " + HelpfulMisc.ToLiteral(token.Value));
+                        Plugin.Log.Info($"{token.Key} || " + ToLiteral(token.Value));
                     Plugin.Log.Info("Formatted || " + formatted);//*/
             return () =>
             {
@@ -325,7 +328,7 @@ namespace BLPPCounter.Helpfuls
                 {
                     /*Plugin.Log.Info("---------------");
                     foreach (var token in tokensCopy1)
-                        Plugin.Log.Info($"{token.Key} || " + HelpfulMisc.ToLiteral(token.Value));
+                        Plugin.Log.Info($"{token.Key} || " + ToLiteral(token.Value));
                     Plugin.Log.Info("Formatted || " + formatted);//*/
                     Dictionary<(char, int), string> tokensCopy2 = new Dictionary<(char, int), string>(tokensCopy1);
                     varSettings.Invoke(tokensCopy1, tokensCopy2, priority, vals);
@@ -465,40 +468,40 @@ namespace BLPPCounter.Helpfuls
             string newFormat = format;
             MatchCollection mc = Regex.Matches(format, RegexAliasPattern);
             HashSet<string> usedVals = new HashSet<string>();
-            string formatColor = $"<color={HelpfulMisc.ConvertColorToHex(PC.AliasQuoteColor)}>{{0}}</color>" +
-                $"<color={HelpfulMisc.ConvertColorToHex(PC.AliasColor)}>{{1}}</color>" +
-                $"<color={HelpfulMisc.ConvertColorToHex(PC.AliasQuoteColor)}>{{2}}</color>";
+            string formatColor = $"<color={ConvertColorToHex(PC.AliasQuoteColor)}>{{0}}</color>" +
+                $"<color={ConvertColorToHex(PC.AliasColor)}>{{1}}</color>" +
+                $"<color={ConvertColorToHex(PC.AliasQuoteColor)}>{{2}}</color>";
             foreach (Match m in mc)
                 if (!usedVals.Contains(m.Value))
                 {
                     bool hasParams = !m.Groups[3].Success;
                     string val = hasParams ? m.Groups[1].Value : m.Value;
-                    string outp = (val[0] == ESCAPE_CHAR ? $"<color={HelpfulMisc.ConvertColorToHex(PC.EscapeCharacterColor)}>{ESCAPE_CHAR}</color>" : $"{val[0]}") +
+                    string outp = (val[0] == ESCAPE_CHAR ? $"<color={ConvertColorToHex(PC.EscapeCharacterColor)}>{ESCAPE_CHAR}</color>" : $"{val[0]}") +
                         formatColor.Fmt(val[1], val.Substring(2, val.Length - 3), val[val.Length - 1]);
                     if (hasParams)
                     {
-                        outp += $"<color={HelpfulMisc.ConvertColorToHex(PC.ParamColor)}>{PARAM_OPEN}</color>";
+                        outp += $"<color={ConvertColorToHex(PC.ParamColor)}>{PARAM_OPEN}</color>";
                         bool isFirstIteration = true;
                         foreach (string charParam in m.Groups[2].Value.Split(DELIMITER))
                         {
-                            if (!isFirstIteration) outp += $"<color={HelpfulMisc.ConvertColorToHex(PC.DelimeterColor)}>{DELIMITER}</color>";
+                            if (!isFirstIteration) outp += $"<color={ConvertColorToHex(PC.DelimeterColor)}>{DELIMITER}</color>";
                             else isFirstIteration = false;
                             if (charParam.Contains(ALIAS))
-                                outp += $"<color={HelpfulMisc.ConvertColorToHex(PC.AliasQuoteColor)}>{ALIAS}</color>" +
-                                    $"<color={HelpfulMisc.ConvertColorToHex(PC.AliasColor)}>{charParam.Substring(1, charParam.Length - 2)}</color>" +
-                                    $"<color={HelpfulMisc.ConvertColorToHex(PC.AliasQuoteColor)}>{ALIAS}</color>";
-                            else outp += $"<color={HelpfulMisc.ConvertColorToHex(PC.ParamVarColor)}>{charParam}</color>";
+                                outp += $"<color={ConvertColorToHex(PC.AliasQuoteColor)}>{ALIAS}</color>" +
+                                    $"<color={ConvertColorToHex(PC.AliasColor)}>{charParam.Substring(1, charParam.Length - 2)}</color>" +
+                                    $"<color={ConvertColorToHex(PC.AliasQuoteColor)}>{ALIAS}</color>";
+                            else outp += $"<color={ConvertColorToHex(PC.ParamVarColor)}>{charParam}</color>";
                         }
-                        outp += $"<color={HelpfulMisc.ConvertColorToHex(PC.ParamColor)}>{PARAM_CLOSE}</color>";
+                        outp += $"<color={ConvertColorToHex(PC.ParamColor)}>{PARAM_CLOSE}</color>";
                     }
                     newFormat = newFormat.Replace(m.Value + (hasParams ? $"{PARAM_CLOSE}" : ""), outp);
                     usedVals.Add(m.Value);
                 }
             usedVals.Clear();
             mc = Regex.Matches(newFormat, "(?<Prefix>{0}\\d+)(?<Body>.*?(?:{0}.+?{1}[^{0}{1}]*)*)(?<Suffix>{1})".Fmt(Regex.Escape(CAPTURE_OPEN + ""), Regex.Escape(CAPTURE_CLOSE + "")));
-            formatColor = $"<color={HelpfulMisc.ConvertColorToHex(PC.CaptureColor)}>{{0}}</color>" +
-                $"<color={HelpfulMisc.ConvertColorToHex(PC.CaptureIdColor)}>{{1}}</color>{{2}}" +
-                $"<color={HelpfulMisc.ConvertColorToHex(PC.CaptureColor)}>{{3}}</color>";
+            formatColor = $"<color={ConvertColorToHex(PC.CaptureColor)}>{{0}}</color>" +
+                $"<color={ConvertColorToHex(PC.CaptureIdColor)}>{{1}}</color>{{2}}" +
+                $"<color={ConvertColorToHex(PC.CaptureColor)}>{{3}}</color>";
             foreach (Match m in mc) if (!usedVals.Contains(m.Value)) 
                 {
                     newFormat = newFormat.Replace(m.Value, formatColor.Fmt(m.Groups["Prefix"].Value[0], m.Groups["Prefix"].Value.Substring(1), m.Groups["Body"].Value, m.Groups["Suffix"].Value));
@@ -506,19 +509,19 @@ namespace BLPPCounter.Helpfuls
                 }
             mc = Regex.Matches(newFormat, "(?<Prefix>(?<!{3}){0}[a-z]?)(?<Body>[^{1}]+?(?<Replace>{1})?[^{1}]*?)(?<Suffix>(?<!{3}){2})".Fmt(
                 Regex.Escape(GROUP_OPEN + ""), Regex.Escape(INSERT_SELF + ""), Regex.Escape(GROUP_CLOSE + ""), Regex.Escape(ESCAPE_CHAR + "")));
-            formatColor = $"<color={HelpfulMisc.ConvertColorToHex(PC.GroupColor)}>{{0}}</color>{{1}}{{2}}" +
-                $"<color={HelpfulMisc.ConvertColorToHex(PC.GroupColor)}>{{3}}</color>";
+            formatColor = $"<color={ConvertColorToHex(PC.GroupColor)}>{{0}}</color>{{1}}{{2}}" +
+                $"<color={ConvertColorToHex(PC.GroupColor)}>{{3}}</color>";
             foreach (Match m in mc)
             {
-                string hasSpecial = m.Groups["Prefix"].Value.Length > 1 ? $"<color={HelpfulMisc.ConvertColorToHex(PC.SpecialCharacterColor)}>{m.Groups["Prefix"].Value[1]}</color>" : "";
+                string hasSpecial = m.Groups["Prefix"].Value.Length > 1 ? $"<color={ConvertColorToHex(PC.SpecialCharacterColor)}>{m.Groups["Prefix"].Value[1]}</color>" : "";
                 string hasCapture = m.Groups["Replace"].Success ? m.Groups["Body"].Value.Replace($"{INSERT_SELF}", 
-                    $"<color={HelpfulMisc.ConvertColorToHex(PC.GroupReplaceColor)}>{INSERT_SELF}</color>") : m.Groups["Body"].Value;
+                    $"<color={ConvertColorToHex(PC.GroupReplaceColor)}>{INSERT_SELF}</color>") : m.Groups["Body"].Value;
                 newFormat = newFormat.Replace(m.Value, formatColor.Fmt(m.Groups["Prefix"].Value[0], hasSpecial, hasCapture, m.Groups["Suffix"]));
             }
             usedVals.Clear();
             mc = Regex.Matches(format, $"{Regex.Escape(ESCAPE_CHAR + "")}[^{Regex.Escape(ALIAS + "")}]");
-            formatColor = $"<color={HelpfulMisc.ConvertColorToHex(PC.EscapeCharacterColor)}>{{0}}</color>" +
-                $"<color={HelpfulMisc.ConvertColorToHex(PC.AliasColor)}>{{1}}</color>";
+            formatColor = $"<color={ConvertColorToHex(PC.EscapeCharacterColor)}>{{0}}</color>" +
+                $"<color={ConvertColorToHex(PC.AliasColor)}>{{1}}</color>";
             foreach (Match m in mc) if (!usedVals.Contains(m.Value))
                 {
                     newFormat = newFormat.Replace(m.Value, formatColor.Fmt(m.Value[0], m.Value[1]));
@@ -526,7 +529,7 @@ namespace BLPPCounter.Helpfuls
                 }
             usedVals.Clear();
             mc = Regex.Matches(format, "\\\\.");
-            formatColor = $"<color={HelpfulMisc.ConvertColorToHex(PC.SpecialCharacterColor)}>{{0}}</color>";
+            formatColor = $"<color={ConvertColorToHex(PC.SpecialCharacterColor)}>{{0}}</color>";
             foreach (Match m in mc) if (!usedVals.Contains(m.Value))
                 {
                     newFormat = newFormat.Replace(m.Value, formatColor.Fmt(m.Value));
@@ -536,16 +539,31 @@ namespace BLPPCounter.Helpfuls
             mc = Regex.Matches(newFormat, "{0}(?<Type>.+?){1}?(?<Params>.*?){0}(?<Body>.+?){0}".Fmt(Regex.Escape(RICH_SHORT + ""), Regex.Escape(DELIMITER + "")));
             foreach (Match m in mc) if (!usedVals.Contains(m.Value))
                 {
-                    string outp = $"<color={HelpfulMisc.ConvertColorToHex(PC.ShorthandColor)}>{RICH_SHORT}</color>" +
-                    $"<color={HelpfulMisc.ConvertColorToHex(PC.ParamVarColor)}><b>{m.Groups["Type"].Value}</b></color>";
+                    string outp = $"<color={ConvertColorToHex(PC.ShorthandColor)}>{RICH_SHORT}</color>" +
+                    $"<color={ConvertColorToHex(PC.ParamVarColor)}><b>{m.Groups["Type"].Value}</b></color>";
                     foreach (string otherParams in m.Groups["Params"].Value.Split(DELIMITER)) 
-                        outp += $"<color={HelpfulMisc.ConvertColorToHex(PC.DelimeterColor)}>{DELIMITER}</color>" +
-                        $"<color={HelpfulMisc.ConvertColorToHex(PC.ParamVarColor)}>{otherParams}</color>";
-                    outp += $"<color={HelpfulMisc.ConvertColorToHex(PC.ShorthandColor)}>{RICH_SHORT}</color>{m.Groups["Body"].Value}" +
-                        $"<color={HelpfulMisc.ConvertColorToHex(PC.ShorthandColor)}>{RICH_SHORT}</color>";
+                        outp += $"<color={ConvertColorToHex(PC.DelimeterColor)}>{DELIMITER}</color>" +
+                        $"<color={ConvertColorToHex(PC.ParamVarColor)}>{otherParams}</color>";
+                    outp += $"<color={ConvertColorToHex(PC.ShorthandColor)}>{RICH_SHORT}</color>{m.Groups["Body"].Value}" +
+                        $"<color={ConvertColorToHex(PC.ShorthandColor)}>{RICH_SHORT}</color>";
                     newFormat = newFormat.Replace(m.Value, outp);
                 }
             return newFormat;
+        }
+        public static string ColorSpecialChar(char c)
+        {
+            switch (c)
+            {
+                case char v when v == ESCAPE_CHAR: return $"{ConvertColorToMarkup(PC.EscapeCharacterColor)}{v}";
+                case char v when v == RICH_SHORT: return $"{ConvertColorToMarkup(PC.ShorthandColor)}{v}";
+                case char v when v == DELIMITER: return $"{ConvertColorToMarkup(PC.DelimeterColor)}{v}";
+                case char v when v == GROUP_OPEN || v == GROUP_CLOSE: return $"{ConvertColorToMarkup(PC.GroupColor)}{v}";
+                case char v when v == INSERT_SELF: return $"{ConvertColorToMarkup(PC.GroupReplaceColor)}{v}";
+                case char v when v == CAPTURE_OPEN || v == CAPTURE_CLOSE: return $"{ConvertColorToMarkup(PC.CaptureColor)}{v}";
+                case char v when v == PARAM_OPEN || v == PARAM_CLOSE: return $"{ConvertColorToMarkup(PC.ParamColor)}{v}";
+                case char v when v == ALIAS: return $"{ConvertColorToMarkup(PC.AliasQuoteColor)}{v}";
+                default: throw new ArgumentException("Character given is not special");
+            }
         }
         public class TokenParser
         {
@@ -683,7 +701,7 @@ namespace BLPPCounter.Helpfuls
                     outp += $"\n{token.Key.Item1} || [{string.Join(", ", token.Value)}]";
                 outp += "\nToken values: ";
                 foreach (var token in tokenValues)
-                    outp += $"\n{token.Key} || {HelpfulMisc.ToLiteral(token.Value)}";
+                    outp += $"\n{token.Key} || {ToLiteral(token.Value)}";
                 return outp + "\n----------------------------";
             }
         }

@@ -303,7 +303,7 @@ namespace BLPPCounter.Counters
                     if (vals.ContainsKey('m')) HelpfulFormatter.SetText(tokensCopy, 'm', ((Func<string>)vals['m']).Invoke());
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1');
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
-                }, applySettings);
+                }, out string _, applySettings);
             
         }
         private static void FormatWeighted(string format) => weightedIniter = GetFormatWeighted(format);
@@ -319,7 +319,7 @@ namespace BLPPCounter.Counters
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1'); 
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2'); 
                     if (!(bool)vals[(char)3]) HelpfulFormatter.SetText(tokensCopy, '3'); 
-                }, applySettings);
+                }, out string _, applySettings);
             
         }
         private static void FormatCustom(string format) => customIniter = GetFormatCustom(format);
@@ -335,7 +335,7 @@ namespace BLPPCounter.Counters
                 (tokens, tokensCopy, priority, vals) =>
                 {
                     if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<string>)vals['c']).Invoke()}", "</color>");
-                }, applySettings);
+                }, out string _, applySettings);
         }
         private static void InitClan()
         {
