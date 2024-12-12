@@ -224,7 +224,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction(nameof(AddDefaultChunk))]
         private void AddDefaultChunk()
         {
-            FormatChunks.Add(FormatListInfo.InitRegularText("Default Text"));
+            FormatChunks.Add(FormatListInfo.DefaultVal);
             (FormatChunks[FormatChunks.Count - 1] as FormatListInfo).AboveInfo = FormatChunks[FormatChunks.Count - 2] as FormatListInfo;
             UpdateFormatTable(true);
         }
@@ -287,8 +287,9 @@ namespace BLPPCounter.Settings.SettingHandlers
                 UpdateFormatTable();
             };
             FormatListInfo.UpdateParentView = () => FormatEditor.TableView.ReloadData();
+            List<FormatListInfo> outp = FormatListInfo.InitAllFromChunks(FormatListInfo.ChunkItAll(currentFormat));
+            /*
             string editedFormat = currentFormat;
-            List<FormatListInfo> outp = new List<FormatListInfo>();
             bool groupOpen = false, captureOpen = false;
             string richKey = "";
             while (editedFormat.Length > 0)
@@ -351,7 +352,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                     editedFormat = editedFormat.Remove(0, m.Length);
                 else break;
                 if (outp.Count > 1) outp[outp.Count - 1].AboveInfo = outp[outp.Count - 2];
-            }
+            }//*/
             FormatChunks.Clear();
             FormatChunks.AddRange(outp.Cast<object>());
             //Plugin.Log.Info("THE CHUNKS\n" + string.Join("\n", FormatChunks));

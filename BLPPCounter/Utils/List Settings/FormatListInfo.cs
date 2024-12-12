@@ -14,6 +14,7 @@ using static BLPPCounter.Utils.FormatListInfo.ChunkType;
 using static BLPPCounter.Helpfuls.HelpfulMisc;
 using BLPPCounter.Settings.Configs;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TextBox;
+using ModestTree;
 
 namespace BLPPCounter.Utils
 {
@@ -26,11 +27,14 @@ namespace BLPPCounter.Utils
         internal static Action<FormatListInfo> RemoveSelf;
         internal static Action UpdateParentView;
 
-        private static readonly string AliasRegex = 
-            "^(?:" + RegexAliasPattern.Replace($"(?={Regex.Escape("" + PARAM_CLOSE)})", $"{Regex.Escape("" + PARAM_CLOSE)}")
-            + $"|({Regex.Escape($"{ESCAPE_CHAR}")}.))".Replace($"{Regex.Escape(""+GROUP_OPEN)}",""); //^(?:(&.|&'[^']+?')\((.+)\)|([&]'[^']+?')|(&.))
-        private static readonly string RegularTextRegex = "^[^" + Regex.Escape(string.Join("", SPECIAL_CHARS)).Replace($"{GROUP_CLOSE}",$"\\{GROUP_CLOSE}") + "]+"; //^[^<>\[\]$&]+
-        private static readonly string GroupRegex = $"^(?:{Regex.Escape(""+GROUP_OPEN)}(?:'.+?'|.)|{Regex.Escape(""+GROUP_CLOSE)})";//^(?:\[(?:'.+?'|.)|\])
+        private static readonly string AliasRegex = //(?:(?<Token1>&.|&'.+?')\((?<Params>.+)\)|(?<Token2>&'.+?'|&.))
+            string.Format("(?:(?<Token1>{0}.|{0}{1}.+?{1}){2}(?<Params>.+?){3}|(?<Token2>{0}{1}.+?{1}|{0}.))", Regex.Escape($"{ESCAPE_CHAR}{ALIAS}{PARAM_OPEN}{PARAM_CLOSE}").Split("")); 
+        private static readonly string RegularTextRegex = "[^" + string.Join("", SPECIAL_CHARS).Replace($"]",$"\\]") + "]+"; //[^<>[\]&*]+
+        private static readonly string EscapedCharRegex = $"{Regex.Escape(""+ESCAPE_CHAR)}[{string.Join("", SPECIAL_CHARS).Replace($"]", $"\\]")}]"; //&[<>[\]&*]
+        private static readonly string GroupRegex = $"(?:{Regex.Escape(""+GROUP_OPEN)}(?:'.+?'|.)|{Regex.Escape(""+GROUP_CLOSE)})";//(?:\[(?:'.+?'|.)|\])
+        internal static readonly Regex CollectiveRegex = GetRegexForAllChunks();
+
+        public static FormatListInfo DefaultVal => new FormatListInfo("Default Text", false);
         #endregion
         #region UI Variables
         [UIValue(nameof(TypesOfChunks))] private List<object> TypesOfChunks => Enum.GetNames(typeof(ChunkType)).Select(s => s.Replace('_', ' ')).Cast<object>().ToList();
@@ -85,7 +89,7 @@ namespace BLPPCounter.Utils
         {
             PropertyChanged += DoSomethingOnPropertyChange;
             Chunk = isTokenValue ? Escaped_Token : Escaped_Character;
-            Text = name;
+            Text = isTokenValue ? ConvertToAlias(name) : name;
             Text2 = default;
             ChoiceOptions = isTokenValue ? AliasConverter.Keys.Cast<object>().ToList() : SPECIAL_CHARS.Select(c => "" + c).Cast<object>().ToList();
             TokenParams = tokenParams;
@@ -97,7 +101,7 @@ namespace BLPPCounter.Utils
         {
             PropertyChanged += DoSomethingOnPropertyChange;
             Chunk = ct;
-            Text = token;
+            Text = ct == Group_Open ? ConvertToAlias(token) : token;
             Text2 = token;
             TokenParams = null;
             ShowTextComp = false;
@@ -107,7 +111,7 @@ namespace BLPPCounter.Utils
         {
             PropertyChanged += DoSomethingOnPropertyChange;
             Chunk = isOpen ? Rich_Text_Open : Rich_Text_Close;
-            Text = richTextKey;
+            Text = RICH_SHORTHANDS.TryGetValue(richTextKey, out string val) ? val : richTextKey;
             Text2 = richTextValue;
             TokenParams = null;
             if (isOpen)
@@ -116,7 +120,6 @@ namespace BLPPCounter.Utils
                 TextCompLabel = "Enter Key";
             }
             else ShowTextComp = false;
-            
         }
         private FormatListInfo(string text, bool isInsertSelf)
         {
@@ -143,7 +146,7 @@ namespace BLPPCounter.Utils
         #endregion
         #region Static Functions
         #region Inits
-        public static FormatListInfo InitEscapedCharacter(bool isTokenValue, string name, params string[] tokenParams) => 
+        /*public static FormatListInfo InitEscapedCharacter(bool isTokenValue, string name, params string[] tokenParams) => 
             new FormatListInfo(isTokenValue, name, tokenParams);
         public static FormatListInfo InitGroup(bool isOpen, string token) => 
             new FormatListInfo(isOpen, token, isOpen ? Group_Open : Group_Close);
@@ -155,22 +158,97 @@ namespace BLPPCounter.Utils
         public static FormatListInfo InitRegularText(string text) => 
             new FormatListInfo(text, false);
         public static FormatListInfo InitParameter(string name, int index = 0) =>
-            new FormatListInfo(name, index);
+            new FormatListInfo(name, index);//*/
+        public static List<FormatListInfo> InitAllFromChunks((Match, ChunkType)[] chunks)
+        {
+            List<FormatListInfo> outp = new List<FormatListInfo>();
+            foreach ((Match, ChunkType) chunk in chunks)
+            {
+                outp.Add(InitFromGivenChunk(chunk, out FormatListInfo[] extras));
+                if (extras != null) outp.AddRange(extras);
+            }
+            for (int i = 0; i < outp.Count; i++) if (i != 0) outp[i].AboveInfo = outp[i - 1]; 
+            return outp;
+        }
+        public static FormatListInfo InitFromGivenChunk((Match, ChunkType) chunk, out FormatListInfo[] extraInfo)
+        {
+            extraInfo = null;
+            switch (chunk.Item2)
+            {
+                case Regular_Text: return new FormatListInfo(chunk.Item1.Value, false);
+                case Escaped_Character: return new FormatListInfo(false, chunk.Item1.Value[1]+"", null as string[]);
+                case Escaped_Token:
+                    Group successGroup = chunk.Item1.Groups.First(g => g.Success && g.Value.Contains("Token"));
+                    int successGroupIndex = int.Parse("" + successGroup.Name.Last());
+                    if (successGroupIndex == 2) return new FormatListInfo(true, successGroup.Value.Substring(1), null as string[]);
+                    string[] theParams = chunk.Item1.Groups["Params"].Value.Split(DELIMITER);
+                    extraInfo = new FormatListInfo[theParams.Length];
+                    for (int i = 0; i < theParams.Length; i++)
+                        extraInfo[i] = new FormatListInfo(theParams[i], i);
+                    return new FormatListInfo(true, successGroup.Value.Substring(1), theParams);
+                case Capture_Open:
+                case Capture_Close:
+                    return new FormatListInfo(chunk.Item2 == Capture_Open, chunk.Item1.Value.Substring(1), chunk.Item2);
+                case Group_Open:
+                case Group_Close:
+                    return new FormatListInfo(chunk.Item2 == Group_Open, chunk.Item1.Value.Substring(1), chunk.Item2);
+                case Rich_Text_Open:
+                    bool isShorthand = chunk.Item1.Groups["Param1"].Success;
+                    return isShorthand ? new FormatListInfo(true, chunk.Item1.Groups["Param1"].Value, chunk.Item1.Groups["Param2"].Value) :
+                        new FormatListInfo(true, chunk.Item1.Groups["Key"].Value, chunk.Item1.Groups["Value"].Value);
+                case Rich_Text_Close: return new FormatListInfo(false, "", "");
+                case Insert_Group_Value: return new FormatListInfo("" + INSERT_SELF, true);
+                default: return null;
+            }
+        }
+
+        private string ConvertToAlias(string str)
+        {
+            if (str[0] == ALIAS) return str.Substring(1, str.Length - 2);
+            if (str.Length > 1) return str;
+            return AliasConverter.First(kvp => str.Equals(kvp.Value+"")).Key;
+        }
         #endregion
         #region Misc
-        public static (string, ChunkType) ChunkItAll(string format)
+        public static (Match, ChunkType)[] ChunkItAll(string format)
         {
-
+            MatchCollection mc = CollectiveRegex.Matches(format);
+            (Match, ChunkType)[] outp = new (Match, ChunkType)[mc.Count];
+            for (int i = 0; i < outp.Length; i++)
+                outp[i] = (mc[i], (ChunkType)Enum.Parse(typeof(ChunkType), mc[i].Groups.First(g => g.Success).Name));
+            return outp;
         }
-        private static string ChunkItOnce(string format)
+        private static Regex GetRegexForAllChunks()
         {
-
+            string outp = "\\G(?:";
+            List<ChunkType> arr = new List<ChunkType>() { Insert_Group_Value, Group_Open };
+            arr.AddRange((Enum.GetValues(typeof(ChunkType)) as IEnumerable<ChunkType>).Where(ct => !arr.Contains(ct) && !ct.Equals(Parameter)));
+            //ChunkType[] arr = Enum.GetValues(typeof(ChunkType)) as ChunkType[];
+            foreach (ChunkType ct in arr)
+                outp += $"(<{ct}>{GetRegexForChunk(ct)})|";
+            Plugin.Log.Info(outp);
+            return new Regex(outp.Substring(0, outp.Length - 1) + ")");
         }
+        /* 
+         \G(?:(?<Insert_Group_Value>\$)|(?<Group_Open>(?<Alias>\['.+?'))|(?<Regular_Text>[^<>[\]&*]+)|(?<Escaped_Character>&[^'])|
+         (?<Escaped_Token>(?:(?<Token1>&.|&'[^']+?')\((?<Params>.+)\)|(?<Token2>[&]'[^']+?')|(?<Token3>&.)))|(?<Capture_Open><\d+)|
+         (?<Capture_Close>>)|(?<Token>\[[^'])|(?<Group_Close>\])|(?<Rich_Text_Open>\*(?<Param1>.+?),(?<Param2>.+?)\*|<(?<Key>\\D+)=(?<Value>.+?)>)|
+         (?<Rich_Text_Close>\*|<.+?>))
+         */
         internal static string GetRegexForChunk(ChunkType ct)
         {
             switch (ct)
             {
-                case Regular_Text: return RegularTextRegex;
+                case Regular_Text: return RegularTextRegex;//[^<>[\]&*]+
+                case Escaped_Character: return EscapedCharRegex;//&[<>[\]&*]
+                case Escaped_Token: return AliasRegex;//(?:(?<Token1>&.|&'[^']+?')\((?<Params>.+)\)|(?<Token2>&'[^']+?')|(?<Token3>&.))
+                case Capture_Open: return $"{Regex.Escape(CAPTURE_OPEN+"")}\\d+"; //<\d+
+                case Capture_Close: return Regex.Escape(CAPTURE_CLOSE + ""); //>
+                case Group_Open: return string.Format("(?<Alias>{0}{1}.+?{1})|(?<Token>{0}[^{1}])", Regex.Escape($"{ESCAPE_CHAR}{ALIAS}").Split("")); //(?<Alias>\['.+?')|(?<Token>\[[^'])
+                case Group_Close: return Regex.Escape(GROUP_CLOSE + ""); //\]
+                case Rich_Text_Open: return string.Format("{0}(?<Param1>.+?){1}(?<Param2>.+?){0}|<(?<Key>\\D+)=(?<Value>.+?)>", Regex.Escape(RICH_SHORT + ""), Regex.Escape(DELIMITER + "")); //\*(?<Param1>.+?),(?<Param2>.+?)\*|<(?<Key>\\D+)=(?<Value>.+?)>
+                case Rich_Text_Close: return $"{Regex.Escape(RICH_SHORT+"")}|</.+?>"; //\*|<.+?>
+                case Insert_Group_Value: return Regex.Escape(INSERT_SELF+""); //$
                 default: return "";
             }
         }
