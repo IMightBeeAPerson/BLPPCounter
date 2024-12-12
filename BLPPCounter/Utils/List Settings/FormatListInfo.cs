@@ -1,20 +1,16 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
 using System.Collections.Generic;
-using BLPPCounter.Helpfuls;
 using System.Text.RegularExpressions;
 using static BLPPCounter.Helpfuls.HelpfulFormatter;
 using System;
 using System.Linq;
 using BeatSaberMarkupLanguage.Components.Settings;
-using UnityEngine.UI;
 using UnityEngine;
 using TMPro;
 using System.ComponentModel;
 using static BLPPCounter.Utils.FormatListInfo.ChunkType;
 using static BLPPCounter.Helpfuls.HelpfulMisc;
 using BLPPCounter.Settings.Configs;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TextBox;
-using ModestTree;
 
 namespace BLPPCounter.Utils
 {
@@ -27,11 +23,9 @@ namespace BLPPCounter.Utils
         internal static Action<FormatListInfo> RemoveSelf;
         internal static Action UpdateParentView;
 
-        private static readonly string AliasRegex = //(?:(?<Token1>&.|&'.+?')\((?<Params>.+)\)|(?<Token2>&'.+?'|&.))
-            string.Format("(?:(?<Token1>{0}.|{0}{1}.+?{1}){2}(?<Params>.+?){3}|(?<Token2>{0}{1}.+?{1}|{0}.))", Regex.Escape($"{ESCAPE_CHAR}{ALIAS}{PARAM_OPEN}{PARAM_CLOSE}").Split("")); 
+        private static readonly string AliasRegex = string.Format("(?<Token1>{0}.|{0}{1}[^{1}]+?{1}){2}(?<Params>.+?){3}|(?<Token2>{0}{1}.+?{1}|{0}.)", Regex.Escape($"{ESCAPE_CHAR}"), Regex.Escape($"{ALIAS}"), Regex.Escape($"{PARAM_OPEN}"), Regex.Escape($"{PARAM_CLOSE}")); 
         private static readonly string RegularTextRegex = "[^" + string.Join("", SPECIAL_CHARS).Replace($"]",$"\\]") + "]+"; //[^<>[\]&*]+
         private static readonly string EscapedCharRegex = $"{Regex.Escape(""+ESCAPE_CHAR)}[{string.Join("", SPECIAL_CHARS).Replace($"]", $"\\]")}]"; //&[<>[\]&*]
-        private static readonly string GroupRegex = $"(?:{Regex.Escape(""+GROUP_OPEN)}(?:'.+?'|.)|{Regex.Escape(""+GROUP_CLOSE)})";//(?:\[(?:'.+?'|.)|\])
         internal static readonly Regex CollectiveRegex = GetRegexForAllChunks();
 
         public static FormatListInfo DefaultVal => new FormatListInfo("Default Text", false);
@@ -134,7 +128,7 @@ namespace BLPPCounter.Utils
         {
             PropertyChanged += DoSomethingOnPropertyChange;
             Chunk = Parameter;
-            Text = name;
+            Text = name; //Don't need to worry about the alias here because the function using this initializer takes care of it.
             Text2 = $"{index + 1}"; //plus one because the average person doesn't use zero indexing and this number will be displayed.
             TokenParams = null;
             ShowTextComp = false;
@@ -167,21 +161,22 @@ namespace BLPPCounter.Utils
                 outp.Add(InitFromGivenChunk(chunk, out FormatListInfo[] extras));
                 if (extras != null) outp.AddRange(extras);
             }
-            for (int i = 0; i < outp.Count; i++) if (i != 0) outp[i].AboveInfo = outp[i - 1]; 
+            for (int i = 0; i < outp.Count; i++) if (i != 0) outp[i].AboveInfo = outp[i - 1];
             return outp;
         }
         public static FormatListInfo InitFromGivenChunk((Match, ChunkType) chunk, out FormatListInfo[] extraInfo)
         {
             extraInfo = null;
+            Plugin.Log.Info(chunk.ToString());
             switch (chunk.Item2)
             {
                 case Regular_Text: return new FormatListInfo(chunk.Item1.Value, false);
                 case Escaped_Character: return new FormatListInfo(false, chunk.Item1.Value[1]+"", null as string[]);
                 case Escaped_Token:
-                    Group successGroup = chunk.Item1.Groups.First(g => g.Success && g.Value.Contains("Token"));
+                    Group successGroup = chunk.Item1.Groups.First(g => g.Success && g.Name.Length >= 5 && g.Name.Substring(0, 5).Equals("Token"));
                     int successGroupIndex = int.Parse("" + successGroup.Name.Last());
                     if (successGroupIndex == 2) return new FormatListInfo(true, successGroup.Value.Substring(1), null as string[]);
-                    string[] theParams = chunk.Item1.Groups["Params"].Value.Split(DELIMITER);
+                    string[] theParams = chunk.Item1.Groups["Params"].Value.Split(DELIMITER).Select(s => ConvertToAlias(s)).ToArray();
                     extraInfo = new FormatListInfo[theParams.Length];
                     for (int i = 0; i < theParams.Length; i++)
                         extraInfo[i] = new FormatListInfo(theParams[i], i);
@@ -202,7 +197,7 @@ namespace BLPPCounter.Utils
             }
         }
 
-        private string ConvertToAlias(string str)
+        private static string ConvertToAlias(string str)
         {
             if (str[0] == ALIAS) return str.Substring(1, str.Length - 2);
             if (str.Length > 1) return str;
@@ -215,7 +210,7 @@ namespace BLPPCounter.Utils
             MatchCollection mc = CollectiveRegex.Matches(format);
             (Match, ChunkType)[] outp = new (Match, ChunkType)[mc.Count];
             for (int i = 0; i < outp.Length; i++)
-                outp[i] = (mc[i], (ChunkType)Enum.Parse(typeof(ChunkType), mc[i].Groups.First(g => g.Success).Name));
+                outp[i] = (mc[i], (ChunkType)Enum.Parse(typeof(ChunkType), mc[i].Groups.First(g => g.Success && g.Name.Contains("_")).Name));
             return outp;
         }
         private static Regex GetRegexForAllChunks()
@@ -225,15 +220,11 @@ namespace BLPPCounter.Utils
             arr.AddRange((Enum.GetValues(typeof(ChunkType)) as IEnumerable<ChunkType>).Where(ct => !arr.Contains(ct) && !ct.Equals(Parameter)));
             //ChunkType[] arr = Enum.GetValues(typeof(ChunkType)) as ChunkType[];
             foreach (ChunkType ct in arr)
-                outp += $"(<{ct}>{GetRegexForChunk(ct)})|";
-            Plugin.Log.Info(outp);
+                outp += $"(?<{ct}>{GetRegexForChunk(ct)})|";
             return new Regex(outp.Substring(0, outp.Length - 1) + ")");
         }
         /* 
-         \G(?:(?<Insert_Group_Value>\$)|(?<Group_Open>(?<Alias>\['.+?'))|(?<Regular_Text>[^<>[\]&*]+)|(?<Escaped_Character>&[^'])|
-         (?<Escaped_Token>(?:(?<Token1>&.|&'[^']+?')\((?<Params>.+)\)|(?<Token2>[&]'[^']+?')|(?<Token3>&.)))|(?<Capture_Open><\d+)|
-         (?<Capture_Close>>)|(?<Token>\[[^'])|(?<Group_Close>\])|(?<Rich_Text_Open>\*(?<Param1>.+?),(?<Param2>.+?)\*|<(?<Key>\\D+)=(?<Value>.+?)>)|
-         (?<Rich_Text_Close>\*|<.+?>))
+         \G(?:(?<Insert_Group_Value>\$)|(?<Group_Open>(?<Alias>\['.+?')|(?<Token>\[[^']))|(?<Regular_Text>[^&*,[\]$<>]+)|(?<Escaped_Character>&[&*,[\]$<>])|(?<Escaped_Token>(?<Token1>&.|&'[^']+?')\((?<Params>.+?)\)|(?<Token2>&'.+?'|&.))|(?<Capture_Open><\d+)|(?<Capture_Close>>)|(?<Group_Close>])|(?<Rich_Text_Open>\*(?<Param1>.+?),(?<Param2>.+?)\*|<(?<Key>\D+)=(?<Value>.+?)>)|(?<Rich_Text_Close>\*|<.+?>))
          */
         internal static string GetRegexForChunk(ChunkType ct)
         {
@@ -244,10 +235,10 @@ namespace BLPPCounter.Utils
                 case Escaped_Token: return AliasRegex;//(?:(?<Token1>&.|&'[^']+?')\((?<Params>.+)\)|(?<Token2>&'[^']+?')|(?<Token3>&.))
                 case Capture_Open: return $"{Regex.Escape(CAPTURE_OPEN+"")}\\d+"; //<\d+
                 case Capture_Close: return Regex.Escape(CAPTURE_CLOSE + ""); //>
-                case Group_Open: return string.Format("(?<Alias>{0}{1}.+?{1})|(?<Token>{0}[^{1}])", Regex.Escape($"{ESCAPE_CHAR}{ALIAS}").Split("")); //(?<Alias>\['.+?')|(?<Token>\[[^'])
+                case Group_Open: return string.Format("(?<Alias>{0}{1}.+?{1})|(?<Token>{0}[^{1}])", Regex.Escape($"{GROUP_OPEN}"), Regex.Escape($"{ALIAS}")); //(?<Alias>\['.+?')|(?<Token>\[[^'])
                 case Group_Close: return Regex.Escape(GROUP_CLOSE + ""); //\]
                 case Rich_Text_Open: return string.Format("{0}(?<Param1>.+?){1}(?<Param2>.+?){0}|<(?<Key>\\D+)=(?<Value>.+?)>", Regex.Escape(RICH_SHORT + ""), Regex.Escape(DELIMITER + "")); //\*(?<Param1>.+?),(?<Param2>.+?)\*|<(?<Key>\\D+)=(?<Value>.+?)>
-                case Rich_Text_Close: return $"{Regex.Escape(RICH_SHORT+"")}|</.+?>"; //\*|<.+?>
+                case Rich_Text_Close: return $"{Regex.Escape(RICH_SHORT+"")}|<.+?>"; //\*|<.+?>
                 case Insert_Group_Value: return Regex.Escape(INSERT_SELF+""); //$
                 default: return "";
             }

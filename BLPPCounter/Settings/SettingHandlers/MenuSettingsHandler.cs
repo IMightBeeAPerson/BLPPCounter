@@ -355,7 +355,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             }//*/
             FormatChunks.Clear();
             FormatChunks.AddRange(outp.Cast<object>());
-            //Plugin.Log.Info("THE CHUNKS\n" + string.Join("\n", FormatChunks));
+            Plugin.Log.Info("THE CHUNKS\n" + string.Join("\n", FormatChunks));
             UpdateFormatTable(true);
         }
         #endregion
