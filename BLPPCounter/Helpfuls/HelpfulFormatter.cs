@@ -27,14 +27,16 @@ namespace BLPPCounter.Helpfuls
         public static char PARAM_OPEN => PC.TokenSettings.EscapeCharParamBracketOpen;
         public static char PARAM_CLOSE => PC.TokenSettings.EscapeCharParamBracketClose;
         public static char ALIAS => PC.TokenSettings.NicknameIndicator;
-        public static readonly HashSet<char> SPECIAL_CHARS;
+        public static readonly HashSet<char> SPECIAL_CHARS, ALL_SPECIAL_CHARS; 
+        //difference is SPECIAL_CHARS only contains characters that modifies the format by itself, unlike chars like OPEN_PARAM which are normal unless used after an escaped token.
         public static Dictionary<string, string> RICH_SHORTHANDS => PC.TokenSettings.RichShorthands;
         public static readonly string NUMBER_TOSTRING_FORMAT;
         public static readonly Dictionary<string, char> GLOBAL_ALIASES;
         public static readonly Func<char, int> GLOBAL_PARAM_AMOUNT = c => GetGlobalParamAmount(c);
 
-        internal static readonly string RegexAliasPattern = "({0}.|{0}{2}[^{2}]+{2}){3}(.+)(?={4})|([{0}{1}]{2}[^{2}]+?{2})";
+        private static readonly string RegexAliasPattern = "({0}.|{0}{2}[^{2}]+{2}){3}(.+)(?={4})|([{0}{1}]{2}[^{2}]+?{2})";
         private static readonly string RegexAliasErrorFinder = "[{0}{1}]{2}(?=[^{2}]+?(?:[{0}{1}]|(?!.)))";
+        internal static readonly string RegexAllSpecialChars, RegexSpecialChars;
         //0 = ESCAPE_CHAR, 1 = GROUP_OPEN, 2 = ALIAS, 3 = PARAM_OPEN, 4 = PARAM_CLOSE (for both expressions above)
 
         static HelpfulFormatter()
@@ -44,7 +46,10 @@ namespace BLPPCounter.Helpfuls
             var hold = "";
             for (int i = 0; i < PC.DecimalPrecision; i++) hold += "#";
             NUMBER_TOSTRING_FORMAT = PC.DecimalPrecision > 0 ? PC.FormatSettings.NumberFormat.Replace("#","#." + hold) : PC.FormatSettings.NumberFormat;
-            SPECIAL_CHARS = new HashSet<char>() { ESCAPE_CHAR, RICH_SHORT, DELIMITER, GROUP_OPEN, GROUP_CLOSE, INSERT_SELF, CAPTURE_OPEN, CAPTURE_CLOSE };
+            SPECIAL_CHARS = new HashSet<char>() { ESCAPE_CHAR, RICH_SHORT, GROUP_OPEN, GROUP_CLOSE, CAPTURE_OPEN, CAPTURE_CLOSE };
+            ALL_SPECIAL_CHARS = new HashSet<char> { ESCAPE_CHAR, RICH_SHORT, DELIMITER, GROUP_OPEN, GROUP_CLOSE, INSERT_SELF, CAPTURE_OPEN, CAPTURE_CLOSE, PARAM_OPEN, PARAM_CLOSE, ALIAS };
+            RegexAllSpecialChars = "[" + string.Join("", ALL_SPECIAL_CHARS).Replace("]", "\\]") + "]";
+            RegexSpecialChars = "[" + string.Join("", SPECIAL_CHARS).Replace("]", "\\]") + "]";
             GLOBAL_ALIASES = new Dictionary<string, char>()
             {
                 {"Dynamic s", 's' },
@@ -463,7 +468,7 @@ namespace BLPPCounter.Helpfuls
             while (arr[++c].Rank < rank && c + 1 < arr.Length) ;
             return "<color=#" + arr[c].Color + ">";
         }
-        public static string ColorFormatting(string format)
+        /*public static string ColorFormatting(string format)
         {
             string newFormat = format;
             MatchCollection mc = Regex.Matches(format, RegexAliasPattern);
@@ -549,6 +554,25 @@ namespace BLPPCounter.Helpfuls
                     newFormat = newFormat.Replace(m.Value, outp);
                 }
             return newFormat;
+        }//*/
+        public static string DefaultToUsedChar(string str) => Regex.Replace(str, "[&*,[\\]$<>()']", m => ""+DefaultToUsedChar(m.Value[0]));
+        public static char DefaultToUsedChar(char c)
+        {
+            switch (c)
+            {
+                case '&': return ESCAPE_CHAR;
+                case '*': return RICH_SHORT;
+                case ',': return DELIMITER;
+                case '[': return GROUP_OPEN;
+                case ']': return GROUP_CLOSE;
+                case '$': return INSERT_SELF;
+                case '<': return CAPTURE_OPEN;
+                case '>': return CAPTURE_CLOSE;
+                case '(': return PARAM_OPEN;
+                case ')': return PARAM_CLOSE;
+                case '\'': return ALIAS;
+                default: return c;
+            }
         }
         public static string ColorSpecialChar(char c)
         {
@@ -564,6 +588,21 @@ namespace BLPPCounter.Helpfuls
                 case char v when v == ALIAS: return $"{ConvertColorToMarkup(PC.AliasQuoteColor)}{v}";
                 default: throw new ArgumentException("Character given is not special");
             }
+        }
+        public static string ColorDefaultFormatToColor(string str) => ColorFormatToColor(DefaultToUsedChar(str));
+        public static string ColorFormatToColor(string str)
+        {
+            string Converter(Match m) {
+                string name = m.Groups.First(g => g.Success && !char.IsDigit(g.Name[0])).Name;
+                switch (name)
+                {
+                    case "Special": return ColorSpecialChar(m.Value[0]);
+                    case "Color": return ConvertColorToMarkup(PluginConfig.Instance.GetColorFromName(m.Value.Substring(1)));
+                    case "Replace": return "{" + m.Value + "}";
+                    default: return m.Value;
+                }
+            }
+            return Regex.Replace(str, "(?<Special>" + RegexAllSpecialChars + ")|c(?<Color>[A-Z][a-z]+)|(?<Replace>\\d)", Converter);
         }
         public class TokenParser
         {

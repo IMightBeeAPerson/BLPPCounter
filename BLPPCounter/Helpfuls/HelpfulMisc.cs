@@ -6,6 +6,8 @@ using System.IO;
 using System.Text.RegularExpressions;
 using static GameplayModifiers;
 using System.Drawing;
+using System.Collections.Generic;
+using System.Linq;
 namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
@@ -99,5 +101,9 @@ namespace BLPPCounter.Helpfuls
         }
         public static string ConvertColorToHex(Color c) => $"#{(int)c.R:X2}{(int)c.G:X2}{(int)c.B:X2}{(int)c.A:X2}";
         public static string ConvertColorToMarkup(Color c) => $"<color={ConvertColorToHex(c)}>";
+        public static K GetKeyFromDictionary<K, V>(Dictionary<K, V> dict, V val) => 
+            dict.ContainsValue(val) ? dict.First(kvp => kvp.Value.Equals(val)).Key : default;
+        public static string GetKeyFromDictionary<V>(Dictionary<string, V> dict, V val) =>
+            GetKeyFromDictionary<string, V>(dict, val) ?? val.ToString();
     }
 }

@@ -13,6 +13,10 @@ using BeatSaberMarkupLanguage;
 using System.ComponentModel;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Reflection;
+using System.Linq;
+using System.Drawing;
+using System.Collections.Generic;
 
 namespace BLPPCounter
 {

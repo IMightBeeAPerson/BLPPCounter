@@ -6,6 +6,8 @@ using IPA.Config.Stores.Converters;
 using BLPPCounter.Utils;
 //using UnityEngine;
 using System.Drawing;
+using System.Reflection;
+using System.Linq;
 
 [assembly: InternalsVisibleTo(GeneratedStore.AssemblyVisibilityTarget)]
 namespace BLPPCounter.Settings.Configs
@@ -78,6 +80,11 @@ namespace BLPPCounter.Settings.Configs
         [UseConverter(typeof(SystemColorConverter))] public virtual Color GroupReplaceColor { get; set; } = Color.FromArgb(255, 75, 43); //#ff4b2b
         [UseConverter(typeof(SystemColorConverter))] public virtual Color ShorthandColor { get; set; } = Color.DarkMagenta; //#ff4b2b
         [UseConverter(typeof(SystemColorConverter))] public virtual Color HighlightColor { get; set; } = Color.FromArgb(136, 255, 255, 0); //#ff4b2b
+        [Ignore] private readonly Dictionary<string, PropertyInfo> Colors = new Dictionary<string, PropertyInfo>(
+            typeof(PluginConfig).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.PropertyType.Equals(typeof(Color)))
+                .Select(p => new KeyValuePair<string, PropertyInfo>(p.Name.Substring(0, p.Name.Length - 5), p)));
+        public Color GetColorFromName(string name) => (Color)Colors[name].GetValue(this);
         #endregion
         #endregion
         #endregion

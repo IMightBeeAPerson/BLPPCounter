@@ -11,6 +11,7 @@ using System.ComponentModel;
 using static BLPPCounter.Utils.FormatListInfo.ChunkType;
 using static BLPPCounter.Helpfuls.HelpfulMisc;
 using BLPPCounter.Settings.Configs;
+using BLPPCounter.Helpfuls;
 
 namespace BLPPCounter.Utils
 {
@@ -23,12 +24,14 @@ namespace BLPPCounter.Utils
         internal static Action<FormatListInfo> RemoveSelf;
         internal static Action UpdateParentView;
 
-        private static readonly string AliasRegex = string.Format("(?<Token1>{0}.|{0}{1}[^{1}]+?{1}){2}(?<Params>.+?){3}|(?<Token2>{0}{1}.+?{1}|{0}.)", Regex.Escape($"{ESCAPE_CHAR}"), Regex.Escape($"{ALIAS}"), Regex.Escape($"{PARAM_OPEN}"), Regex.Escape($"{PARAM_CLOSE}")); 
-        private static readonly string RegularTextRegex = "[^" + string.Join("", SPECIAL_CHARS).Replace($"]",$"\\]") + "]+"; //[^<>[\]&*]+
-        private static readonly string EscapedCharRegex = $"{Regex.Escape(""+ESCAPE_CHAR)}[{string.Join("", SPECIAL_CHARS).Replace($"]", $"\\]")}]"; //&[<>[\]&*]
+        private static readonly string AliasRegex = string.Format("(?<Token1>{0}.|{0}{1}[^{1}]+{1}){2}(?<Params>[^{3}]+){3}|(?<Token2>{0}{1}[^{1}]+{1}|{0}.)", Regex.Escape($"{ESCAPE_CHAR}"), Regex.Escape($"{ALIAS}"), Regex.Escape($"{PARAM_OPEN}"), Regex.Escape($"{PARAM_CLOSE}"));
+        //(?<Token1>&.|&'[^']+')\((?<Params>[^\)]+)\)|(?<Token2>&'[^']+'|&.)
+        private static readonly string RegularTextRegex = "[^" + RegexAllSpecialChars.Substring(1) + "+"; //[^&*,[\]$<>()']+
+        private static readonly string EscapedCharRegex = $"{Regex.Escape(""+ESCAPE_CHAR)}{RegexSpecialChars}"; //&[&*[\]<>]
         internal static readonly Regex CollectiveRegex = GetRegexForAllChunks();
 
         public static FormatListInfo DefaultVal => new FormatListInfo("Default Text", false);
+
         #endregion
         #region UI Variables
         [UIValue(nameof(TypesOfChunks))] private List<object> TypesOfChunks => Enum.GetNames(typeof(ChunkType)).Select(s => s.Replace('_', ' ')).Cast<object>().ToList();
@@ -83,7 +86,7 @@ namespace BLPPCounter.Utils
         {
             PropertyChanged += DoSomethingOnPropertyChange;
             Chunk = isTokenValue ? Escaped_Token : Escaped_Character;
-            Text = isTokenValue ? ConvertToAlias(name) : name;
+            Text = isTokenValue ? ConvertFromAlias(name) : name;
             Text2 = default;
             ChoiceOptions = isTokenValue ? AliasConverter.Keys.Cast<object>().ToList() : SPECIAL_CHARS.Select(c => "" + c).Cast<object>().ToList();
             TokenParams = tokenParams;
@@ -95,7 +98,7 @@ namespace BLPPCounter.Utils
         {
             PropertyChanged += DoSomethingOnPropertyChange;
             Chunk = ct;
-            Text = ct == Group_Open ? ConvertToAlias(token) : token;
+            Text = ct == Group_Open ? ConvertFromAlias(token) : token;
             Text2 = token;
             TokenParams = null;
             ShowTextComp = false;
@@ -140,19 +143,6 @@ namespace BLPPCounter.Utils
         #endregion
         #region Static Functions
         #region Inits
-        /*public static FormatListInfo InitEscapedCharacter(bool isTokenValue, string name, params string[] tokenParams) => 
-            new FormatListInfo(isTokenValue, name, tokenParams);
-        public static FormatListInfo InitGroup(bool isOpen, string token) => 
-            new FormatListInfo(isOpen, token, isOpen ? Group_Open : Group_Close);
-        public static FormatListInfo InitInsertSelf() => new FormatListInfo("" + INSERT_SELF, true);
-        public static FormatListInfo InitCapture(bool isOpen, string token) => 
-            new FormatListInfo(isOpen, token, isOpen ? Capture_Open : Capture_Close);
-        public static FormatListInfo InitRichText(bool isOpen, string richTextKey, string richTextValue) => 
-            new FormatListInfo(isOpen, richTextKey, richTextValue);
-        public static FormatListInfo InitRegularText(string text) => 
-            new FormatListInfo(text, false);
-        public static FormatListInfo InitParameter(string name, int index = 0) =>
-            new FormatListInfo(name, index);//*/
         public static List<FormatListInfo> InitAllFromChunks((Match, ChunkType)[] chunks)
         {
             List<FormatListInfo> outp = new List<FormatListInfo>();
@@ -167,7 +157,7 @@ namespace BLPPCounter.Utils
         public static FormatListInfo InitFromGivenChunk((Match, ChunkType) chunk, out FormatListInfo[] extraInfo)
         {
             extraInfo = null;
-            Plugin.Log.Info(chunk.ToString());
+            //Plugin.Log.Info(chunk.ToString());
             switch (chunk.Item2)
             {
                 case Regular_Text: return new FormatListInfo(chunk.Item1.Value, false);
@@ -176,7 +166,7 @@ namespace BLPPCounter.Utils
                     Group successGroup = chunk.Item1.Groups.First(g => g.Success && g.Name.Length >= 5 && g.Name.Substring(0, 5).Equals("Token"));
                     int successGroupIndex = int.Parse("" + successGroup.Name.Last());
                     if (successGroupIndex == 2) return new FormatListInfo(true, successGroup.Value.Substring(1), null as string[]);
-                    string[] theParams = chunk.Item1.Groups["Params"].Value.Split(DELIMITER).Select(s => ConvertToAlias(s)).ToArray();
+                    string[] theParams = chunk.Item1.Groups["Params"].Value.Split(DELIMITER).Select(s => ConvertFromAlias(s)).ToArray();
                     extraInfo = new FormatListInfo[theParams.Length];
                     for (int i = 0; i < theParams.Length; i++)
                         extraInfo[i] = new FormatListInfo(theParams[i], i);
@@ -197,11 +187,11 @@ namespace BLPPCounter.Utils
             }
         }
 
-        private static string ConvertToAlias(string str)
+        private static string ConvertFromAlias(string str)
         {
             if (str[0] == ALIAS) return str.Substring(1, str.Length - 2);
             if (str.Length > 1) return str;
-            return AliasConverter.First(kvp => str.Equals(kvp.Value+"")).Key;
+            return GetKeyFromDictionary(AliasConverter, str[0]);
         }
         #endregion
         #region Misc
@@ -218,29 +208,91 @@ namespace BLPPCounter.Utils
             string outp = "\\G(?:";
             List<ChunkType> arr = new List<ChunkType>() { Insert_Group_Value, Group_Open };
             arr.AddRange((Enum.GetValues(typeof(ChunkType)) as IEnumerable<ChunkType>).Where(ct => !arr.Contains(ct) && !ct.Equals(Parameter)));
-            //ChunkType[] arr = Enum.GetValues(typeof(ChunkType)) as ChunkType[];
             foreach (ChunkType ct in arr)
                 outp += $"(?<{ct}>{GetRegexForChunk(ct)})|";
+            //Plugin.Log.Info(outp.Substring(0, outp.Length - 1) + ")");
             return new Regex(outp.Substring(0, outp.Length - 1) + ")");
+            // \G(?:(?<Insert_Group_Value>\$)|(?<Group_Open>(?<Alias>\['[^']+')|(?<Token>\[[^']))|(?<Regular_Text>[^&*,[\]$<>]+)|(?<Escaped_Character>&[&*,[\]$<>])|(?<Escaped_Token>(?<Token1>&.|&'[^']+?')\((?<Params>[^\)]+)\)|(?<Token2>&'[^']+'|&.))|(?<Capture_Open><\d+)|(?<Capture_Close>>)|(?<Group_Close>])|(?<Rich_Text_Open>\*(?<Param1>[^,]+),(?<Param2>[^\*]+)\*|<(?<Key>[^=]+)=(?<Value>[^>]+)>)|(?<Rich_Text_Close>\*|<[^>]+>))
         }
-        /* 
-         \G(?:(?<Insert_Group_Value>\$)|(?<Group_Open>(?<Alias>\['.+?')|(?<Token>\[[^']))|(?<Regular_Text>[^&*,[\]$<>]+)|(?<Escaped_Character>&[&*,[\]$<>])|(?<Escaped_Token>(?<Token1>&.|&'[^']+?')\((?<Params>.+?)\)|(?<Token2>&'.+?'|&.))|(?<Capture_Open><\d+)|(?<Capture_Close>>)|(?<Group_Close>])|(?<Rich_Text_Open>\*(?<Param1>.+?),(?<Param2>.+?)\*|<(?<Key>\D+)=(?<Value>.+?)>)|(?<Rich_Text_Close>\*|<.+?>))
-         */
         internal static string GetRegexForChunk(ChunkType ct)
         {
             switch (ct)
             {
-                case Regular_Text: return RegularTextRegex;//[^<>[\]&*]+
-                case Escaped_Character: return EscapedCharRegex;//&[<>[\]&*]
-                case Escaped_Token: return AliasRegex;//(?:(?<Token1>&.|&'[^']+?')\((?<Params>.+)\)|(?<Token2>&'[^']+?')|(?<Token3>&.))
+                case Regular_Text: return RegularTextRegex;//[^&*,[\]$<>()']+
+                case Escaped_Character: return EscapedCharRegex;//&[&*[\]<>]
+                case Escaped_Token: return AliasRegex;//(?<Token1>&.|&'[^']+')\((?<Params>[^\)]+)\)|(?<Token2>&'[^']+'|&.)
                 case Capture_Open: return $"{Regex.Escape(CAPTURE_OPEN+"")}\\d+"; //<\d+
                 case Capture_Close: return Regex.Escape(CAPTURE_CLOSE + ""); //>
-                case Group_Open: return string.Format("(?<Alias>{0}{1}.+?{1})|(?<Token>{0}[^{1}])", Regex.Escape($"{GROUP_OPEN}"), Regex.Escape($"{ALIAS}")); //(?<Alias>\['.+?')|(?<Token>\[[^'])
+                case Group_Open: return string.Format("(?<Alias>{0}{1}[^{1}]+{1})|(?<Token>{0}[^{1}])", Regex.Escape($"{GROUP_OPEN}"), Regex.Escape($"{ALIAS}")); //(?<Alias>\['[^']+')|(?<Token>\[[^'])
                 case Group_Close: return Regex.Escape(GROUP_CLOSE + ""); //\]
-                case Rich_Text_Open: return string.Format("{0}(?<Param1>.+?){1}(?<Param2>.+?){0}|<(?<Key>\\D+)=(?<Value>.+?)>", Regex.Escape(RICH_SHORT + ""), Regex.Escape(DELIMITER + "")); //\*(?<Param1>.+?),(?<Param2>.+?)\*|<(?<Key>\\D+)=(?<Value>.+?)>
-                case Rich_Text_Close: return $"{Regex.Escape(RICH_SHORT+"")}|<.+?>"; //\*|<.+?>
+                case Rich_Text_Open: return string.Format("{0}(?<Param1>[^{1}]+){1}(?<Param2>[^{0}]+){0}|<(?<Key>[^=]+)=(?<Value>[^>]+)>", Regex.Escape(RICH_SHORT + ""), Regex.Escape(DELIMITER + "")); //\*(?<Param1>[^,]+),(?<Param2>[^\*]+)\*|<(?<Key>[^=]+)=(?<Value>[^>]+)>
+                case Rich_Text_Close: return $"{Regex.Escape(RICH_SHORT+"")}|<[^>]+>"; //\*|<[^>]+>
                 case Insert_Group_Value: return Regex.Escape(INSERT_SELF+""); //$
                 default: return "";
+            }
+        }
+        public static string ColorFormat(string format)
+        {
+            var arr = ChunkItAll(format);
+            format = "";
+            foreach (var chunk in arr)
+                format += ColorFormatChunk(chunk);
+            return format;
+        }
+        public static string ColorFormatChunk((Match, ChunkType) chunk) => ColorFormatChunk(chunk.Item1.Value, chunk.Item2);
+        public static string ColorFormatChunk(string Text, ChunkType ct)
+        {
+            PluginConfig pc = PluginConfig.Instance;
+            string outp;
+            string ColorEscapeToken(string token, char escToken) => token[0] == ALIAS ? 
+                string.Format(ColorDefaultFormatToColor("'cAlias0'"), ConvertFromAlias(token)) :
+                string.Format(ColorFormatToColor($"{escToken}cAlias0"), GetKeyFromDictionary(AliasConverter, token[0]));
+            switch (ct)
+            {
+                case Regular_Text:
+                    return "<color=white>" + Text.Replace("\\n", $"{ConvertColorToMarkup(pc.SpecialCharacterColor)}\\n</color>");
+                case Escaped_Character:
+                    return $"{ColorSpecialChar(ESCAPE_CHAR)}{ConvertColorToMarkup(pc.AliasColor)}{Text[1]}";
+                case Escaped_Token:
+                    string[] hold1 = null;
+                    Text = Text.Substring(1);
+                    if (Text.Contains(PARAM_OPEN))
+                    {
+                        hold1 = Text.Split(PARAM_OPEN);
+                        Text = hold1[0];
+                    }
+                    else return ColorEscapeToken(Text, ESCAPE_CHAR);
+                    outp = ColorEscapeToken(Text, ESCAPE_CHAR) + ColorSpecialChar(PARAM_OPEN);
+                    hold1 = hold1[1].Substring(0, hold1[1].Length - 1).Split(DELIMITER);
+                    for (int i = 0; i < hold1.Length; i++)
+                        outp += $"{(i != 0 ? ColorSpecialChar(DELIMITER) : "")}{ColorEscapeToken(hold1[i], ESCAPE_CHAR)}";
+                    outp += ColorSpecialChar(PARAM_CLOSE);
+                    return outp;
+                case Capture_Open:
+                    return $"{ColorSpecialChar(CAPTURE_OPEN)}{ConvertColorToMarkup(pc.CaptureIdColor)}{Text.Substring(1)}";
+                case Capture_Close:
+                    return ColorSpecialChar(CAPTURE_CLOSE);
+                case Group_Open:
+                    return $"{ColorSpecialChar(GROUP_OPEN)}{ColorEscapeToken(Text.Substring(1), GROUP_OPEN)}";
+                case Group_Close:
+                    return ColorSpecialChar(GROUP_CLOSE);
+                case Rich_Text_Open:
+                    int index;
+                    if (Text[0] == '<')
+                    {
+                        index = Text.IndexOf('=');
+                        return $"{ConvertColorToMarkup(pc.ShorthandColor)}<{ConvertColorToMarkup(pc.SpecialCharacterColor)}{Text.Substring(1, index - 1)}" + 
+                            $"{ConvertColorToMarkup(pc.DelimeterColor)}={ConvertColorToMarkup(pc.ParamVarColor)}{Text.Substring(index)}{ConvertColorToMarkup(pc.ShorthandColor)}>";
+                    }
+                    index = Text.IndexOf(DELIMITER);
+                    outp = $"{ColorSpecialChar(RICH_SHORT)}{{0}}{ColorSpecialChar(DELIMITER)}{ConvertColorToMarkup(pc.ParamVarColor)}{Text.Substring(index + 1, Text.Length - index - 2)}{ColorSpecialChar(RICH_SHORT)}";
+                    Text = Text.Substring(1, index - 1);
+                    return RICH_SHORTHANDS.ContainsValue(Text) ? string.Format(outp, RICH_SHORTHANDS.First(p => p.Value.Equals(Text)).Key) : string.Format(outp, Text);
+                case Rich_Text_Close:
+                    return ColorSpecialChar(RICH_SHORT);
+                case Insert_Group_Value:
+                    return ColorSpecialChar(INSERT_SELF);
+                default: return Text;
             }
         }
         #endregion
@@ -359,14 +411,14 @@ namespace BLPPCounter.Utils
                 default: return "";
             }
         }
-        public string GetColorDisplay()
-        {
+        public string GetColorDisplay() => ColorFormatChunk(GetDisplay(), Chunk);
+        /*{
             PluginConfig pc = PluginConfig.Instance;
             string outp;
             switch (Chunk)
             {
                 case Regular_Text:
-                    return "<color=white>" + GetDisplay().Replace("\\n", $"{ConvertColorToMarkup(pc.SpecialCharacterColor)}\\n</color>");
+                    return "<color=white>" + Text.Replace("\\n", $"{ConvertColorToMarkup(pc.SpecialCharacterColor)}\\n</color>");
                 case Escaped_Character:
                     return $"{ColorSpecialChar(ESCAPE_CHAR)}{ConvertColorToMarkup(pc.AliasColor)}{Text}";
                 case Escaped_Token:
@@ -388,7 +440,7 @@ namespace BLPPCounter.Utils
                 case Group_Close:
                     return ColorSpecialChar(GROUP_CLOSE);
                 case Rich_Text_Open:
-                    outp = $"{ColorSpecialChar(RICH_SHORT)}{{0}}{ColorSpecialChar(DELIMITER)}{ConvertColorToMarkup(pc.ParamVarColor)}{Text2}{ColorSpecialChar(RICH_SHORT)}";
+                    outp = $"{ColorSpecialChar(RICH_SHORT)}{ConvertColorToMarkup(pc.SpecialCharacterColor)}{{0}}{ColorSpecialChar(DELIMITER)}{ConvertColorToMarkup(pc.ParamVarColor)}{Text2}{ColorSpecialChar(RICH_SHORT)}";
                     return RICH_SHORTHANDS.ContainsValue(Text) ? string.Format(outp, RICH_SHORTHANDS.First(p => p.Value.Equals(Text)).Key) : string.Format(outp, Text);
                 case Rich_Text_Close:
                     return ColorSpecialChar(RICH_SHORT);
@@ -396,7 +448,7 @@ namespace BLPPCounter.Utils
                     return ColorSpecialChar(INSERT_SELF);
                 default: return GetDisplay();
             }
-        }
+        }//*/
         #endregion
         #region Overrides
         public override string ToString()
@@ -417,7 +469,7 @@ namespace BLPPCounter.Utils
             Group_Close = 64,
             Rich_Text_Open = 128,
             Rich_Text_Close = 256,
-            Insert_Group_Value = 512,
+            Insert_Group_Value = 512
         }
         #endregion
     }

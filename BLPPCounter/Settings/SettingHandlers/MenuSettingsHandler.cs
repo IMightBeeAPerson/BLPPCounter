@@ -179,7 +179,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void UpdateFormatDisplay()
         {
             FormattedText.text = CurrentFormatInfo.Item4.Invoke(CurrentFormatInfo.Item1);
-            RawFormatText.text = ColorFormatting(CurrentFormatInfo.Item1.Replace("\n", "\\n"));
+            RawFormatText.text = FormatListInfo.ColorFormat(CurrentFormatInfo.Item1.Replace("\n", "\\n"));
             //Plugin.Log.Debug(RawFormatText.text);
         }
         [UIAction("LoadMenu2")]
@@ -287,7 +287,8 @@ namespace BLPPCounter.Settings.SettingHandlers
                 UpdateFormatTable();
             };
             FormatListInfo.UpdateParentView = () => FormatEditor.TableView.ReloadData();
-            List<FormatListInfo> outp = FormatListInfo.InitAllFromChunks(FormatListInfo.ChunkItAll(currentFormat));
+            FormatChunks.Clear();
+            FormatChunks.AddRange(FormatListInfo.InitAllFromChunks(FormatListInfo.ChunkItAll(currentFormat)).Cast<object>());
             /*
             string editedFormat = currentFormat;
             bool groupOpen = false, captureOpen = false;
@@ -353,9 +354,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 else break;
                 if (outp.Count > 1) outp[outp.Count - 1].AboveInfo = outp[outp.Count - 2];
             }//*/
-            FormatChunks.Clear();
-            FormatChunks.AddRange(outp.Cast<object>());
-            Plugin.Log.Info("THE CHUNKS\n" + string.Join("\n", FormatChunks));
+            //Plugin.Log.Info("THE CHUNKS\n" + string.Join("\n", FormatChunks));
             UpdateFormatTable(true);
         }
         #endregion
