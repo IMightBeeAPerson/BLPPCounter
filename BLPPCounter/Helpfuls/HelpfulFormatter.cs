@@ -7,6 +7,9 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEngine;
 using static BLPPCounter.Helpfuls.HelpfulMisc;
+using static BLPPCounter.Utils.FormatListInfo;
+using static BLPPCounter.Utils.FormatListInfo.ChunkType;
+using BeatSaberMarkupLanguage.Components;
 
 namespace BLPPCounter.Helpfuls
 {
@@ -35,17 +38,21 @@ namespace BLPPCounter.Helpfuls
         public static readonly Func<char, int> GLOBAL_PARAM_AMOUNT = c => GetGlobalParamAmount(c);
 
         private static readonly string RegexAliasPattern = "({0}.|{0}{2}[^{2}]+{2}){3}(.+)(?={4})|([{0}{1}]{2}[^{2}]+?{2})";
+        private static readonly string TestRegexAliasPattern = "(?<Token>[{0}{1}]{2}[^{2}]+{2})(?!{3})|(?<Token>{0}.|{0}{2}[^{2}]+{2}){3}(?<Params>[^{4}]+)";
+        //(?<Token>[&[]'[^']+')(?!\()|(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)
+        //(?<Token>[{0}{1}]{2}[^{2}]+{2})(?!{3})|(?<Token>{0}.|{0}{2}[^{2}]+{2}){3}(?<Params>[^{4}]+)
         private static readonly string RegexAliasErrorFinder = "[{0}{1}]{2}(?=[^{2}]+?(?:[{0}{1}]|(?!.)))";
         internal static readonly string RegexAllSpecialChars, RegexSpecialChars;
         //0 = ESCAPE_CHAR, 1 = GROUP_OPEN, 2 = ALIAS, 3 = PARAM_OPEN, 4 = PARAM_CLOSE (for both expressions above)
 
         static HelpfulFormatter()
         {
-            RegexAliasPattern = string.Format(RegexAliasPattern, Regex.Escape(ESCAPE_CHAR+""), Regex.Escape(GROUP_OPEN+""), Regex.Escape(ALIAS+""), Regex.Escape(PARAM_OPEN+""), Regex.Escape(PARAM_CLOSE + ""));
-            RegexAliasErrorFinder = string.Format(RegexAliasErrorFinder, Regex.Escape(ESCAPE_CHAR+""), Regex.Escape(GROUP_OPEN+""), Regex.Escape(ALIAS+""), Regex.Escape(PARAM_OPEN+""));
+            RegexAliasPattern = string.Format(RegexAliasPattern, Regex.Escape(ESCAPE_CHAR + ""), Regex.Escape(GROUP_OPEN + ""), Regex.Escape(ALIAS + ""), Regex.Escape(PARAM_OPEN + ""), Regex.Escape(PARAM_CLOSE + ""));
+            TestRegexAliasPattern = string.Format(TestRegexAliasPattern, Regex.Escape(ESCAPE_CHAR + ""), Regex.Escape(GROUP_OPEN + ""), Regex.Escape(ALIAS + ""), Regex.Escape(PARAM_OPEN + ""), Regex.Escape(PARAM_CLOSE + ""));
+            RegexAliasErrorFinder = string.Format(RegexAliasErrorFinder, Regex.Escape(ESCAPE_CHAR + ""), Regex.Escape(GROUP_OPEN + ""), Regex.Escape(ALIAS + ""), Regex.Escape(PARAM_OPEN + ""));
             var hold = "";
             for (int i = 0; i < PC.DecimalPrecision; i++) hold += "#";
-            NUMBER_TOSTRING_FORMAT = PC.DecimalPrecision > 0 ? PC.FormatSettings.NumberFormat.Replace("#","#." + hold) : PC.FormatSettings.NumberFormat;
+            NUMBER_TOSTRING_FORMAT = PC.DecimalPrecision > 0 ? PC.FormatSettings.NumberFormat.Replace("#", "#." + hold) : PC.FormatSettings.NumberFormat;
             SPECIAL_CHARS = new HashSet<char>() { ESCAPE_CHAR, RICH_SHORT, GROUP_OPEN, GROUP_CLOSE, CAPTURE_OPEN, CAPTURE_CLOSE };
             ALL_SPECIAL_CHARS = new HashSet<char> { ESCAPE_CHAR, RICH_SHORT, DELIMITER, GROUP_OPEN, GROUP_CLOSE, INSERT_SELF, CAPTURE_OPEN, CAPTURE_CLOSE, PARAM_OPEN, PARAM_CLOSE, ALIAS };
             RegexAllSpecialChars = "[" + string.Join("", ALL_SPECIAL_CHARS).Replace("]", "\\]") + "]";
@@ -56,14 +63,13 @@ namespace BLPPCounter.Helpfuls
                 {"Hide", 'h' }
             };
         }
-
         public static (string, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<(char, int), string[]>) ParseCounterFormat(string format, Dictionary<string, char> aliasConverter, string counterName)
         {
             Dictionary<(char, int), string> tokens = new Dictionary<(char, int), string>();
             Dictionary<(char, int), string[]> extraArgs = new Dictionary<(char, int), string[]>();
             Dictionary<int, char> priority = new Dictionary<int, char>();
 
-            foreach (var e in GLOBAL_ALIASES) aliasConverter.Add(e.Key, e.Value);
+            foreach (var e in GLOBAL_ALIASES) aliasConverter.TryAdd(e.Key, e.Value);
             CustomAlias.ApplyAliases(PluginConfig.Instance.TokenSettings.TokenAliases, aliasConverter, counterName);
 
             string formatted = "";
@@ -72,50 +78,39 @@ namespace BLPPCounter.Helpfuls
             string captureStr = "", richVal = "";
             int ssIndex = -1;
             char num = (char)0;
-            if (Regex.Matches(format, RegexAliasErrorFinder) is MatchCollection badMc && badMc.Count > 0)
+            if (FindAliasErrorsInFormat(format, out string errorMessage))
+                throw new FormatException(errorMessage);
+            if (format.Contains($"{ESCAPE_CHAR}{ALIAS}") || format.Contains($"{GROUP_OPEN}{ALIAS}"))
             {
-                string errorMessage = "Incorrect alias format, there is missing closing brackets in the following places:\n";
-                int surroundLength = format.Length / 5;
-                foreach (Match match in badMc)
-                {
-                    int index = match.Index + 1;
-                    errorMessage += index >= surroundLength ? format.Substring(index - surroundLength, surroundLength + 1) : index > 0 ? format.Substring(0, index) : "";
-                    errorMessage += "HERE -->";
-                    errorMessage += format.Substring(index, match.Length + surroundLength + index > format.Length ? format.Length - index : match.Length + surroundLength);
-                    if (index > surroundLength) errorMessage = "..." + errorMessage;
-                    if (match.Length + surroundLength + index <= format.Length) errorMessage += "...";
-                    errorMessage += "\n";
-                }
-                throw new FormatException(errorMessage.Trim());
-            }
-            if (Regex.Matches(format, RegexAliasPattern) is MatchCollection mc && mc.Count > 0)
                 if (aliasConverter == null)
                     throw new ArgumentNullException("No alias converter given while format contains aliases! Please remove aliases from the format as there is no way to parse them.\nFormat: " + format);
-                else
+                string AliasReplace(Match m)//(?<Token>[&[]'[^']+')(?!\()|(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)
                 {
-                    List<Match> toFilter = mc.Cast<Match>().ToList();
-                    toFilter.Sort((a,b) => b.Index - a.Index);
-                    foreach (Match m in toFilter)
+                    bool invalidName = false;
+                    string val = m.Groups["Token"].Value;
+                    char t;
+                    if (val[1] == ALIAS) if (aliasConverter.TryGetValue(val.Substring(2, val.Length - 3), out t)) val = $"{val[0]}{t}";
+                        else invalidName = true;
+                    string outp = val;
+                    if (!invalidName && m.Groups["Params"].Success)
                     {
-                        string matchVal = m.Value;
-                        if (matchVal.Count(a => a == ALIAS) != 2)
-                        {
-                            string outp = "";
-                            foreach (string toCheck in m.Groups[2].Value.Split(DELIMITER))
-                                if (toCheck[0] == ALIAS && toCheck[toCheck.Length - 1] == ALIAS)
-                                    if (aliasConverter.TryGetValue(toCheck.Substring(1, toCheck.Length - 2), out char t1))
-                                        outp += $"{t1}{DELIMITER}";
-                                    else throw new FormatException($"Incorrect alias format, there is missing closing brackets or a wrong alias name used in a paramaterized variable.\nFailed when parsing \"{toCheck}\"");
-                            format = format.Substring(0, m.Groups[2].Index) + outp.Substring(0,outp.Length-1) + format.Substring(m.Groups[2].Index + m.Groups[2].Length);
-                            matchVal = m.Groups[1].Value;//*/
-                        }
-                        if (aliasConverter.TryGetValue(matchVal.Substring(2, matchVal.Length - 3), out char t2))
-                            format = format.Substring(0, m.Index + 1) + $"{t2}" + format.Substring(m.Index + matchVal.Length);
-                        else throw new FormatException($"Incorrect aliasing used. The alias name '{matchVal.Substring(2, matchVal.Length - 3)}' does not exist for {counterName} counter." +
-                            $"\nCorrect Format: {ESCAPE_CHAR}{ALIAS}<Alias Name>{ALIAS} OR {GROUP_OPEN}{ALIAS}<Alias Name>{ALIAS} ... {GROUP_CLOSE}" +
-                            $"\nPossible alias names are listed below:\n{string.Join("\n", aliasConverter).Replace("[","\"").Replace("]","").Replace(", ","\" as ")}");
+                        outp += PARAM_OPEN;
+                        foreach (string param in m.Groups["Params"].Value.Split(DELIMITER))
+                            if (param[0] == ALIAS)
+                            {
+                                if (aliasConverter.TryGetValue(param.Substring(1, param.Length-2), out t)) outp += $"{t}{DELIMITER}";
+                                else { val = param.Substring(1, param.Length - 2); invalidName = true; break; }
+                            }
+                            else outp += $"{param}{DELIMITER}";
+                        outp = outp.Substring(0, outp.Length - 1);
                     }
+                    if (invalidName) throw new FormatException($"Incorrect aliasing used. The alias name '{val}' does not exist for {counterName} counter." +
+                        $"\nCorrect Format: {ESCAPE_CHAR}{ALIAS}<Alias Name>{ALIAS} OR {GROUP_OPEN}{ALIAS}<Alias Name>{ALIAS} ... {GROUP_CLOSE}" +
+                        $"\nPossible alias names are listed below:\n{string.Join("\n", aliasConverter).Replace("[", "\"").Replace("]", "").Replace(", ", "\" as ")}");
+                    return outp;
                 }
+                format = Regex.Replace(format, TestRegexAliasPattern, AliasReplace);
+            }//*/
             if (aliasConverter == null)
                 Plugin.Log.Debug("No alias converter given! Thankfully, there are no aliases present so there will not be an error.");
             for (int i = 0; i < format.Length; i++)//[p$ ]&[[c&x]&]<1 / [o$ ]&[[f&y]&] >&l<2\n&m[t\n$]>
@@ -262,7 +257,27 @@ namespace BLPPCounter.Helpfuls
             newCount = i;
             return (originChar, priority, inp.ToArray());
         }
-       
+        public static bool FindAliasErrorsInFormat(string format, out string errorMessage) //true = IS errors, false = NO errors
+        {
+            if (Regex.Matches(format, RegexAliasErrorFinder) is MatchCollection badMc && badMc.Count > 0)
+            {
+                errorMessage = "Incorrect alias format, there is missing closing brackets in the following places:\n";
+                int surroundLength = format.Length / 5; //this is an arbitrary number, but after tweaking around I found it to look pretty good.
+                foreach (Match match in badMc)
+                {
+                    int index = match.Index + 1;
+                    errorMessage += index >= surroundLength ? format.Substring(index - surroundLength, surroundLength + 1) : index > 0 ? format.Substring(0, index) : "";
+                    errorMessage += "HERE -->";
+                    errorMessage += format.Substring(index, match.Length + surroundLength + index > format.Length ? format.Length - index : match.Length + surroundLength);
+                    if (index > surroundLength) errorMessage = "..." + errorMessage;
+                    if (match.Length + surroundLength + index <= format.Length) errorMessage += "...";
+                    errorMessage += "\n";
+                }
+                return true;
+            }
+            errorMessage = "";
+            return false;
+        }
         public static Func<Func<Dictionary<char, object>, string>> GetBasicTokenParser(
             string format,
             Dictionary<string, char> aliasConverter,
@@ -302,6 +317,7 @@ namespace BLPPCounter.Helpfuls
             {
                 errorStr = "Formatting failed! " + e.Message;
                 errorStr += "\nFormatting: " + ToLiteral(format).Replace("\\'", "'");
+                //throw new FormatException(errorStr);
                 return null;
             }
             errorStr = "";
@@ -468,93 +484,6 @@ namespace BLPPCounter.Helpfuls
             while (arr[++c].Rank < rank && c + 1 < arr.Length) ;
             return "<color=#" + arr[c].Color + ">";
         }
-        /*public static string ColorFormatting(string format)
-        {
-            string newFormat = format;
-            MatchCollection mc = Regex.Matches(format, RegexAliasPattern);
-            HashSet<string> usedVals = new HashSet<string>();
-            string formatColor = $"<color={ConvertColorToHex(PC.AliasQuoteColor)}>{{0}}</color>" +
-                $"<color={ConvertColorToHex(PC.AliasColor)}>{{1}}</color>" +
-                $"<color={ConvertColorToHex(PC.AliasQuoteColor)}>{{2}}</color>";
-            foreach (Match m in mc)
-                if (!usedVals.Contains(m.Value))
-                {
-                    bool hasParams = !m.Groups[3].Success;
-                    string val = hasParams ? m.Groups[1].Value : m.Value;
-                    string outp = (val[0] == ESCAPE_CHAR ? $"<color={ConvertColorToHex(PC.EscapeCharacterColor)}>{ESCAPE_CHAR}</color>" : $"{val[0]}") +
-                        formatColor.Fmt(val[1], val.Substring(2, val.Length - 3), val[val.Length - 1]);
-                    if (hasParams)
-                    {
-                        outp += $"<color={ConvertColorToHex(PC.ParamColor)}>{PARAM_OPEN}</color>";
-                        bool isFirstIteration = true;
-                        foreach (string charParam in m.Groups[2].Value.Split(DELIMITER))
-                        {
-                            if (!isFirstIteration) outp += $"<color={ConvertColorToHex(PC.DelimeterColor)}>{DELIMITER}</color>";
-                            else isFirstIteration = false;
-                            if (charParam.Contains(ALIAS))
-                                outp += $"<color={ConvertColorToHex(PC.AliasQuoteColor)}>{ALIAS}</color>" +
-                                    $"<color={ConvertColorToHex(PC.AliasColor)}>{charParam.Substring(1, charParam.Length - 2)}</color>" +
-                                    $"<color={ConvertColorToHex(PC.AliasQuoteColor)}>{ALIAS}</color>";
-                            else outp += $"<color={ConvertColorToHex(PC.ParamVarColor)}>{charParam}</color>";
-                        }
-                        outp += $"<color={ConvertColorToHex(PC.ParamColor)}>{PARAM_CLOSE}</color>";
-                    }
-                    newFormat = newFormat.Replace(m.Value + (hasParams ? $"{PARAM_CLOSE}" : ""), outp);
-                    usedVals.Add(m.Value);
-                }
-            usedVals.Clear();
-            mc = Regex.Matches(newFormat, "(?<Prefix>{0}\\d+)(?<Body>.*?(?:{0}.+?{1}[^{0}{1}]*)*)(?<Suffix>{1})".Fmt(Regex.Escape(CAPTURE_OPEN + ""), Regex.Escape(CAPTURE_CLOSE + "")));
-            formatColor = $"<color={ConvertColorToHex(PC.CaptureColor)}>{{0}}</color>" +
-                $"<color={ConvertColorToHex(PC.CaptureIdColor)}>{{1}}</color>{{2}}" +
-                $"<color={ConvertColorToHex(PC.CaptureColor)}>{{3}}</color>";
-            foreach (Match m in mc) if (!usedVals.Contains(m.Value)) 
-                {
-                    newFormat = newFormat.Replace(m.Value, formatColor.Fmt(m.Groups["Prefix"].Value[0], m.Groups["Prefix"].Value.Substring(1), m.Groups["Body"].Value, m.Groups["Suffix"].Value));
-                    usedVals.Add(m.Value);
-                }
-            mc = Regex.Matches(newFormat, "(?<Prefix>(?<!{3}){0}[a-z]?)(?<Body>[^{1}]+?(?<Replace>{1})?[^{1}]*?)(?<Suffix>(?<!{3}){2})".Fmt(
-                Regex.Escape(GROUP_OPEN + ""), Regex.Escape(INSERT_SELF + ""), Regex.Escape(GROUP_CLOSE + ""), Regex.Escape(ESCAPE_CHAR + "")));
-            formatColor = $"<color={ConvertColorToHex(PC.GroupColor)}>{{0}}</color>{{1}}{{2}}" +
-                $"<color={ConvertColorToHex(PC.GroupColor)}>{{3}}</color>";
-            foreach (Match m in mc)
-            {
-                string hasSpecial = m.Groups["Prefix"].Value.Length > 1 ? $"<color={ConvertColorToHex(PC.SpecialCharacterColor)}>{m.Groups["Prefix"].Value[1]}</color>" : "";
-                string hasCapture = m.Groups["Replace"].Success ? m.Groups["Body"].Value.Replace($"{INSERT_SELF}", 
-                    $"<color={ConvertColorToHex(PC.GroupReplaceColor)}>{INSERT_SELF}</color>") : m.Groups["Body"].Value;
-                newFormat = newFormat.Replace(m.Value, formatColor.Fmt(m.Groups["Prefix"].Value[0], hasSpecial, hasCapture, m.Groups["Suffix"]));
-            }
-            usedVals.Clear();
-            mc = Regex.Matches(format, $"{Regex.Escape(ESCAPE_CHAR + "")}[^{Regex.Escape(ALIAS + "")}]");
-            formatColor = $"<color={ConvertColorToHex(PC.EscapeCharacterColor)}>{{0}}</color>" +
-                $"<color={ConvertColorToHex(PC.AliasColor)}>{{1}}</color>";
-            foreach (Match m in mc) if (!usedVals.Contains(m.Value))
-                {
-                    newFormat = newFormat.Replace(m.Value, formatColor.Fmt(m.Value[0], m.Value[1]));
-                    usedVals.Add(m.Value);
-                }
-            usedVals.Clear();
-            mc = Regex.Matches(format, "\\\\.");
-            formatColor = $"<color={ConvertColorToHex(PC.SpecialCharacterColor)}>{{0}}</color>";
-            foreach (Match m in mc) if (!usedVals.Contains(m.Value))
-                {
-                    newFormat = newFormat.Replace(m.Value, formatColor.Fmt(m.Value));
-                    usedVals.Add(m.Value);
-                }
-            usedVals.Clear();
-            mc = Regex.Matches(newFormat, "{0}(?<Type>.+?){1}?(?<Params>.*?){0}(?<Body>.+?){0}".Fmt(Regex.Escape(RICH_SHORT + ""), Regex.Escape(DELIMITER + "")));
-            foreach (Match m in mc) if (!usedVals.Contains(m.Value))
-                {
-                    string outp = $"<color={ConvertColorToHex(PC.ShorthandColor)}>{RICH_SHORT}</color>" +
-                    $"<color={ConvertColorToHex(PC.ParamVarColor)}><b>{m.Groups["Type"].Value}</b></color>";
-                    foreach (string otherParams in m.Groups["Params"].Value.Split(DELIMITER)) 
-                        outp += $"<color={ConvertColorToHex(PC.DelimeterColor)}>{DELIMITER}</color>" +
-                        $"<color={ConvertColorToHex(PC.ParamVarColor)}>{otherParams}</color>";
-                    outp += $"<color={ConvertColorToHex(PC.ShorthandColor)}>{RICH_SHORT}</color>{m.Groups["Body"].Value}" +
-                        $"<color={ConvertColorToHex(PC.ShorthandColor)}>{RICH_SHORT}</color>";
-                    newFormat = newFormat.Replace(m.Value, outp);
-                }
-            return newFormat;
-        }//*/
         public static string DefaultToUsedChar(string str) => Regex.Replace(str, "[&*,[\\]$<>()']", m => ""+DefaultToUsedChar(m.Value[0]));
         public static char DefaultToUsedChar(char c)
         {

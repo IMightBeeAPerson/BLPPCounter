@@ -34,7 +34,7 @@
           <vertical spacing='1' anchor-pos-x='0'>
             <horizontal>
               <button text='Go Back' align='Left' click-event='back'/>
-              <button text='Save' align='Center' click-event='back'/>
+              <button id='TheSaveButton' text='Save' align='Center' on-click='SaveFormatToConfig'/>
               <button text='Update Preview' align='Right' on-click='UpdatePreviewDisplay'/>
             </horizontal>
             <custom-list id='FormatEditor' contents='FormatChunks' show-scrollbar='true' pref-width='100' pref-height='60' cell-size='30' select-cell='SelectedCell' clickable-cells='true'>
@@ -62,6 +62,7 @@
           <vertical anchor-pos-x='120' vertical-fit='PreferredSize' horizontal-fit='PreferredSize' pref-width='100' bg='round-rect-panel' bg-color='#CCC'>
             <text id='RawPreviewDisplay' rich-text='true' text='' align='Center' word-wrapping='true'/>
             <text id='PreviewDisplay' rich-text='true' text='' align='Center'/>
+            <text id='SaveMessage' rich-text='true' align='Center'/>
           </vertical>
         </settings-submenu>
         <settings-submenu text='Edit Values' align='Center'>

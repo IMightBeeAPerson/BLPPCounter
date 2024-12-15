@@ -99,8 +99,8 @@ namespace BLPPCounter
             {'t', "Person" },
         };
         public static Func<string, string> QuickFormatDefault => format => GetTheFormat(format, out string errorStr)?.Invoke().Invoke(FormatDefaultValues) ?? errorStr;
-        public static Func<string, string> QuickFormatTarget => format => GetFormatTarget(format)?.Invoke().Invoke(FormatTargetValues);
-        public static Func<string, string> QuickFormatPercentNeeded => format => GetFormatPercentNeeded(format)?.Invoke().Invoke(FormatPercentNeededValues);
+        public static Func<string, string> QuickFormatTarget => format => GetFormatTarget(format, out string errorStr)?.Invoke().Invoke(FormatTargetValues) ?? errorStr;
+        public static Func<string, string> QuickFormatPercentNeeded => format => GetFormatPercentNeeded(format, out string errorStr)?.Invoke().Invoke(FormatPercentNeededValues) ?? errorStr;
         #endregion
         #region Variables
         private TMP_Text display;
@@ -358,22 +358,22 @@ namespace BLPPCounter
             displayIniter = GetTheFormat(format, out string _, counter);
             return displayIniter != null; 
         }
-        private static Func<Func<Dictionary<char, object>, string>> GetFormatTarget(string format) =>
-            HelpfulFormatter.GetBasicTokenParser(format, TargetAlias, DisplayName, a => { }, (a, b, c, d) => { }, out string _);
+        private static Func<Func<Dictionary<char, object>, string>> GetFormatTarget(string format, out string errorStr) =>
+            HelpfulFormatter.GetBasicTokenParser(format, TargetAlias, DisplayName, a => { }, (a, b, c, d) => { }, out errorStr);
         private static bool FormatTarget(string format)
         {
-            targetIniter = GetFormatTarget(format);
+            targetIniter = GetFormatTarget(format, out string _);
             return targetIniter != null;
         }
-        private static Func<Func<Dictionary<char, object>, string>> GetFormatPercentNeeded(string format) =>
+        private static Func<Func<Dictionary<char, object>, string>> GetFormatPercentNeeded(string format, out string errorStr) =>
             HelpfulFormatter.GetBasicTokenParser(format, PercentNeededAlias, DisplayName, a => { },
                 (tokens, tokensCopy, priority, vals) =>
                 {
                     if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<string>)vals['c']).Invoke()}", "</color>");
-                }, out string _);
+                }, out errorStr);
         private static bool FormatPercentNeeded(string format)
         {
-            percentNeededIniter = GetFormatPercentNeeded(format);
+            percentNeededIniter = GetFormatPercentNeeded(format, out string _);
             return percentNeededIniter != null;
         }
         private static void InitFormat()

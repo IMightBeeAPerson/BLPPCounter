@@ -148,8 +148,10 @@ namespace BLPPCounter.Settings.SettingHandlers
         private TextMeshProUGUI RawPreviewDisplay;
         [UIComponent(nameof(PreviewDisplay))]
         private TextMeshProUGUI PreviewDisplay;
-        [UIComponent(nameof(SaveButton))]
-        private UnityEngine.UI.Button SaveButton;
+        [UIComponent(nameof(TheSaveButton))]
+        private UnityEngine.UI.Button TheSaveButton;
+        [UIComponent(nameof(SaveMessage))]
+        private TextMeshProUGUI SaveMessage;
         #endregion
         #endregion
         #region UI Values
@@ -195,9 +197,9 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             if (!forceUpdate && !pc.UpdatePreview) return;
             FormatEditor.TableView.ReloadData();
-            UpdatePreviewDisplay();
+            UpdatePreviewDisplay(true);
         }
-        private void UpdateSaveButton() => saveButton.interactable = saveable;
+        private void UpdateSaveButton() => TheSaveButton.interactable = saveable;
         private void SaveFormat()
         {
             UpdateFormatTable(true);
@@ -219,7 +221,8 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
             PreviewDisplay.text = saveable ? CurrentFormatInfo.Item4.Invoke(outp.Replace("\\n", "\n").Replace(richStart,$"{RICH_SHORT}mark{DELIMITER}{pc.HighlightColor.ToArgb():X8}{RICH_SHORT}").Replace(richEnd,""+RICH_SHORT)) : "Can not format.";
             RawPreviewDisplay.text = colorOutp;
-            Plugin.Log.Info("New Colored Formatted Text: " + RawPreviewDisplay.text);
+            //Plugin.Log.Info("New Colored Formatted Text: " + RawPreviewDisplay.text);
+            UpdateSaveButton();
         }
         [UIAction(nameof(AddDefaultChunk))]
         private void AddDefaultChunk()
@@ -229,19 +232,21 @@ namespace BLPPCounter.Settings.SettingHandlers
             UpdateFormatTable(true);
         }
         [UIAction(nameof(UpdatePreviewDisplay))]
-        public void UpdatePreviewDisplay()
+        public void UpdatePreviewDisplay(bool forceUpdate = false)
         {
+            if (!forceUpdate && !pc.UpdatePreview) return;
             string outp = "", colorOutp = "";
-            bool updatable = true;
+            saveable = true;
             foreach (FormatListInfo fli in FormatChunks.Cast<FormatListInfo>())
             {
                 outp += fli.GetDisplay();
                 colorOutp += fli.GetColorDisplay();
-                updatable &= fli.Updatable();
+                saveable &= fli.Updatable();
             }
-            PreviewDisplay.text = updatable ? CurrentFormatInfo.Item4.Invoke(outp.Replace("\\n", "\n")) : "Can not format.";
+            PreviewDisplay.text = saveable ? CurrentFormatInfo.Item4.Invoke(outp.Replace("\\n", "\n")) : "Can not format.";
             RawPreviewDisplay.text = colorOutp;
             rawFormat = outp;
+            UpdateSaveButton();
         }
         [UIAction(nameof(ScrollToTop))]
         private void ScrollToTop() => FormatEditor.TableView.ScrollToCellWithIdx(0, TableView.ScrollPositionType.Beginning, false);
@@ -251,111 +256,18 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void ParseCurrentFormat()
         {
             string currentFormat = CurrentFormatInfo.Item1.Replace("\n", "\\n");
-            FormatListInfo.AliasConverter = new Dictionary<string,char>(CurrentFormatInfo.Item3);
-            foreach (KeyValuePair<string,char> item in GLOBAL_ALIASES) FormatListInfo.AliasConverter[item.Key] = item.Value;
-            FormatListInfo.MovePlacement = (fli, goinUP) =>
-            {
-                int index = FormatChunks.IndexOf(fli);
-                if (goinUP)
-                {
-                    if (index > 0)
-                    {
-                        FormatListInfo other = FormatChunks[index - 1] as FormatListInfo;
-                        FormatChunks[index] = other;
-                        FormatChunks[index - 1] = fli;
-                        fli.AboveInfo = other.AboveInfo;
-                        other.AboveInfo = fli; 
-                        UpdateFormatTable();
-                    }
-                } else if (index < FormatChunks.Count - 1)
-                {
-                    FormatListInfo other = FormatChunks[index + 1] as FormatListInfo;
-                    FormatChunks[index] = other;
-                    FormatChunks[index + 1] = fli;
-                    other.AboveInfo = fli.AboveInfo;
-                    fli.AboveInfo = other;
-                    UpdateFormatTable();
-                }
-            };
-            FormatListInfo.RemoveSelf = (fli) =>
-            {
-                int index = FormatChunks.IndexOf(fli);
-                if (index < FormatChunks.Count - 1) 
-                    (FormatChunks[index + 1] as FormatListInfo).AboveInfo = index > 0 ? (FormatChunks[index - 1] as FormatListInfo) : null;
-                fli.TellParentTheyHaveAChild(true);
-                FormatChunks.Remove(fli);
-                UpdateFormatTable();
-            };
-            FormatListInfo.UpdateParentView = () => FormatEditor.TableView.ReloadData();
+            FormatListInfo.InitStaticActions(CurrentFormatInfo.Item3, FormatChunks, () => UpdateFormatTable(), () => UpdatePreviewDisplay());
+            foreach (KeyValuePair<string, char> item in GLOBAL_ALIASES) FormatListInfo.AliasConverter[item.Key] = item.Value;
             FormatChunks.Clear();
             FormatChunks.AddRange(FormatListInfo.InitAllFromChunks(FormatListInfo.ChunkItAll(currentFormat)).Cast<object>());
-            /*
-            string editedFormat = currentFormat;
-            bool groupOpen = false, captureOpen = false;
-            string richKey = "";
-            while (editedFormat.Length > 0)
-            {
-                if (groupOpen && editedFormat[0] == INSERT_SELF)
-                {
-                    outp.Add(FormatListInfo.InitInsertSelf());
-                    if (outp.Count > 1) outp[outp.Count - 1].AboveInfo = outp[outp.Count - 2];
-                    editedFormat = editedFormat.Substring(1);
-                    continue;
-                }
-                Match m = Regex.Match(editedFormat, FormatListInfo.GroupRegex);
-                if (m.Success)
-                {
-                    groupOpen = !groupOpen;
-                    outp.Add(FormatListInfo.InitGroup(groupOpen, m.Value.Substring(1).Replace($"{ALIAS}", "")));
-                    goto endOfLoop;
-                }
-                m = Regex.Match(editedFormat, FormatListInfo.AliasRegex);
-                if (m.Success)
-                {
-                    string[] theParams = m.Groups[2].Success ? m.Groups[2].Value.Replace($"{ALIAS}", "").Split(DELIMITER) : null;
-                    outp.Add(FormatListInfo.InitEscapedCharacter(
-                        m.Value[1] == ALIAS || !IsSpecialChar(m.Value[1]),
-                        m.Groups[3].Success ? m.Groups[3].Value.Substring(2, m.Groups[3].Value.Length - 3) : m.Groups[4].Success ? m.Groups[4].Value[1] + "" : m.Groups[1].Value.Substring(1).Replace($"{ALIAS}", ""),
-                        theParams
-                        ));
-                    if (theParams != null) for (int i = 0; i < theParams.Length; i++)
-                        {
-                            if (outp.Count > 1) outp[outp.Count - 1].AboveInfo = outp[outp.Count - 2];
-                            outp.Add(FormatListInfo.InitParameter(theParams[i], i));
-                        }
-                    goto endOfLoop;
-                }
-                m = Regex.Match(editedFormat, FormatListInfo.RegularTextRegex);
-                if (m.Success)
-                {
-                    outp.Add(FormatListInfo.InitRegularText( m.Value));
-                    goto endOfLoop;
-                }
-                m = Regex.Match(editedFormat, $"^(?:{Regex.Escape($"{CAPTURE_OPEN}")}\\d+|{Regex.Escape($"{CAPTURE_CLOSE}")})"); //^(?:<\\d+|>)
-                if (m.Success) 
-                {
-                    captureOpen = !captureOpen;
-                    outp.Add(FormatListInfo.InitCapture(captureOpen, m.Value.Substring(1)));
-                    goto endOfLoop;
-                }
-                m = Regex.Match(editedFormat, "^(?:{0}(.+?){1}(.+?){0}|{0})".Fmt(Regex.Escape(RICH_SHORT+""), Regex.Escape(DELIMITER+""))); //^(?:\*(.+?),(.+?)\*|\*)
-                if (m.Success)
-                {
-                    bool isOpen = richKey.Length == 0;
-                    if (isOpen) richKey = RICH_SHORTHANDS.TryGetValue(m.Groups[1].Value, out string val) ? val : m.Groups[1].Value;
-                    string hasQuotes = m.Groups[2].Value.Contains(' ') ? "\"" : "";
-                    outp.Add(FormatListInfo.InitRichText(isOpen, richKey, isOpen ? $"{hasQuotes}{m.Groups[2].Value}{hasQuotes}" : ""));
-                    if (!isOpen) richKey = "";
-                    goto endOfLoop;
-                }
-            endOfLoop:
-                if (m.Success)
-                    editedFormat = editedFormat.Remove(0, m.Length);
-                else break;
-                if (outp.Count > 1) outp[outp.Count - 1].AboveInfo = outp[outp.Count - 2];
-            }//*/
             //Plugin.Log.Info("THE CHUNKS\n" + string.Join("\n", FormatChunks));
             UpdateFormatTable(true);
+        }
+        [UIAction(nameof(SaveFormatToConfig))]
+        private void SaveFormatToConfig()
+        {
+            CurrentFormatInfo.Item2(rawFormat);
+            SaveMessage.text = "<color=green>Format saved successfully!</color>";
         }
         #endregion
         #endregion
