@@ -6,11 +6,13 @@ using BLPPCounter.Counters;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
+using BLPPCounter.Utils.List_Settings;
 using HMUI;
 using ModestTree;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using TMPro;
 using static BLPPCounter.Helpfuls.HelpfulFormatter;
@@ -107,28 +109,41 @@ namespace BLPPCounter.Settings.SettingHandlers
         #endregion
         #region Format Settings Editor
         #region Misc Variables
-        //string #1: Name of message, string #2: Name of counter, string #3: Format string, action: SaveFormat, dictionary: aliases,
+        /*KEYS: string #1: Name of message, string #2: Name of counter
+        //VALUES: string #1: Format string, action #1: SaveFormat, dictionary #1: aliases, dictionary #2: descriptions
         //function #1: GetFormattedFormat, function #2: GetParamAmounts
-        private readonly Dictionary<(string, string), (string, Action<string>, Dictionary<string, char>, Func<string, string>, Func<char, int>)> AllFormatInfo =
-            new Dictionary<(string, string), (string, Action<string>, Dictionary<string, char>, Func<string, string>, Func<char, int>)>()
+        private readonly Dictionary<(string, string), (string, Action<string>, Dictionary<string, char>, Dictionary<string, string>, Func<string, string>, Func<char, int>)> AllFormatInfo =
+            new Dictionary<(string, string), (string, Action<string>, Dictionary<string, char>, Dictionary<string, string>, Func<string, string>, Func<char, int>)>()
         {
-            {("Main Format", NormalCounter.DisplayName), (pc.FormatSettings.DefaultTextFormat, str => pc.FormatSettings.DefaultTextFormat = str,
-                    TheCounter.FormatAlias, TheCounter.QuickFormatDefault, GLOBAL_PARAM_AMOUNT) },
-            {("Target Format", NormalCounter.DisplayName), (pc.MessageSettings.TargetingMessage, str => pc.MessageSettings.TargetingMessage = str, 
-                    TheCounter.TargetAlias, TheCounter.QuickFormatTarget, GLOBAL_PARAM_AMOUNT) },
-            {("Percent Needed Format", NormalCounter.DisplayName), (pc.MessageSettings.PercentNeededMessage, str => pc.MessageSettings.PercentNeededMessage = str, 
-                    TheCounter.PercentNeededAlias, TheCounter.QuickFormatPercentNeeded, GLOBAL_PARAM_AMOUNT) },
+            {("Main Format", TheCounter.DisplayName), (pc.FormatSettings.DefaultTextFormat, str => pc.FormatSettings.DefaultTextFormat = str,
+                    TheCounter.FormatAlias, TheCounter.FormatDescriptions, TheCounter.QuickFormatDefault, GLOBAL_PARAM_AMOUNT) },
+            {("Target Format", TheCounter.DisplayName), (pc.MessageSettings.TargetingMessage, str => pc.MessageSettings.TargetingMessage = str, 
+                    TheCounter.TargetAlias, null, TheCounter.QuickFormatTarget, GLOBAL_PARAM_AMOUNT) },
+            {("Percent Needed Format", TheCounter.DisplayName), (pc.MessageSettings.PercentNeededMessage, str => pc.MessageSettings.PercentNeededMessage = str, 
+                    TheCounter.PercentNeededAlias, null, TheCounter.QuickFormatPercentNeeded, GLOBAL_PARAM_AMOUNT) },
             {("Main Format", ClanCounter.DisplayName), (pc.FormatSettings.ClanTextFormat,  str => pc.FormatSettings.ClanTextFormat = str,
-                    ClanCounter.FormatAlias, ClanCounter.QuickFormatClan, GLOBAL_PARAM_AMOUNT) },
+                    ClanCounter.FormatAlias, null, ClanCounter.QuickFormatClan, GLOBAL_PARAM_AMOUNT) },
             {("Weighted Format", ClanCounter.DisplayName), (pc.FormatSettings.WeightedTextFormat,  str => pc.FormatSettings.WeightedTextFormat = str,
-                    ClanCounter.WeightedFormatAlias, ClanCounter.QuickFormatWeighted, GLOBAL_PARAM_AMOUNT) },
+                    ClanCounter.WeightedFormatAlias, null, ClanCounter.QuickFormatWeighted, GLOBAL_PARAM_AMOUNT) },
             {("Custom Format", ClanCounter.DisplayName), (pc.MessageSettings.ClanMessage, str => pc.MessageSettings.ClanMessage = str, 
-                    ClanCounter.MessageFormatAlias, ClanCounter.QuickFormatMessage, GLOBAL_PARAM_AMOUNT) },
+                    ClanCounter.MessageFormatAlias, null, ClanCounter.QuickFormatMessage, GLOBAL_PARAM_AMOUNT) },
             {("Main Format", RelativeCounter.DisplayName), (pc.FormatSettings.RelativeTextFormat,  str => pc.FormatSettings.RelativeTextFormat = str,
-                    RelativeCounter.FormatAlias, RelativeCounter.QuickFormat, GLOBAL_PARAM_AMOUNT) }
+                    RelativeCounter.FormatAlias, null, RelativeCounter.QuickFormat, GLOBAL_PARAM_AMOUNT) }
         };
+        private (string, Action<string>, Dictionary<string, char>, Dictionary<string, string>, Func<string, string>, Func<char, int>) CurrentFormatInfo => AllFormatInfo[(_FormatName, _Counter)];
+        //*/
+        private readonly Dictionary<(string, string), FormatRelation> AllFormatInfo = new Dictionary<(string, string), FormatRelation>()
+        {
+            { TheCounter.DefaultFormatRelation.GetKey, TheCounter.DefaultFormatRelation },
+            { TheCounter.TargetFormatRelation.GetKey, TheCounter.TargetFormatRelation },
+            { TheCounter.PercentNeededFormatRelation.GetKey, TheCounter.PercentNeededFormatRelation },
+            { ClanCounter.ClanFormatRelation.GetKey, ClanCounter.ClanFormatRelation },
+            { ClanCounter.WeightedFormatRelation.GetKey, ClanCounter.WeightedFormatRelation },
+            { ClanCounter.MessageFormatRelation.GetKey, ClanCounter.MessageFormatRelation },
+            { RelativeCounter.DefaultFormatRelation.GetKey, RelativeCounter.DefaultFormatRelation }
+        };
+        private FormatRelation CurrentFormatInfo => AllFormatInfo[(_FormatName, _Counter)];
         private bool loaded2 = false;
-        private (string, Action<string>, Dictionary<string, char>, Func<string, string>, Func<char, int>) CurrentFormatInfo => AllFormatInfo[(_FormatName, _Counter)];
         private string rawFormat;
         private bool saveable = false;
         #endregion
@@ -152,6 +167,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         private UnityEngine.UI.Button TheSaveButton;
         [UIComponent(nameof(SaveMessage))]
         private TextMeshProUGUI SaveMessage;
+        [UIComponent(nameof(AliasTable))]
+        private TextMeshProUGUI AliasTable;
         #endregion
         #endregion
         #region UI Values
@@ -164,7 +181,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         private string FormatName { get => _FormatName; set { _FormatName = value; UpdateFormatDisplay(); } }
         private string _FormatName;
         [UIValue(nameof(CounterNames))]
-        private List<object> CounterNames => TheCounter.ValidDisplayNames.Where(a => AllFormatInfo.Any(b => b.Key.Item2.Equals(a))).Cast<object>().ToList();
+        private List<object> CounterNames => TheCounter.ValidDisplayNames.Where(a => AllFormatInfo.Any(b => b.Key.Item2.Equals(a)))
+            .Append(TheCounter.DisplayName).Cast<object>().ToList();
         [UIValue(nameof(FormatNames))]
         private List<object> FormatNames = new List<object>();
         #endregion
@@ -180,8 +198,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private void UpdateFormatDisplay()
         {
-            FormattedText.text = CurrentFormatInfo.Item4.Invoke(CurrentFormatInfo.Item1);
-            RawFormatText.text = FormatListInfo.ColorFormat(CurrentFormatInfo.Item1.Replace("\n", "\\n"));
+            FormattedText.text = CurrentFormatInfo.GetQuickFormat();
+            RawFormatText.text = FormatListInfo.ColorFormat(CurrentFormatInfo.Format.Replace("\n", "\\n"));
             //Plugin.Log.Debug(RawFormatText.text);
         }
         [UIAction("LoadMenu2")]
@@ -199,11 +217,36 @@ namespace BLPPCounter.Settings.SettingHandlers
             FormatEditor.TableView.ReloadData();
             UpdatePreviewDisplay(true);
         }
-        private void UpdateSaveButton() => TheSaveButton.interactable = saveable;
-        private void SaveFormat()
+        public void UpdatePreviewDisplay(bool forceUpdate = false)
         {
-            UpdateFormatTable(true);
-            CurrentFormatInfo.Item2(rawFormat);
+            if (!forceUpdate && !pc.UpdatePreview) return;
+            string outp = "", colorOutp = "";
+            saveable = true;
+            foreach (FormatListInfo fli in FormatChunks.Cast<FormatListInfo>())
+            {
+                outp += fli.GetDisplay();
+                colorOutp += fli.GetColorDisplay();
+                saveable &= fli.Updatable();
+            }
+            PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : "Can not format.";
+            RawPreviewDisplay.text = colorOutp;
+            rawFormat = outp;
+            FormatEditor.TableView.ClearSelection();
+            UpdateSaveButton();
+            UpdateAliasTable();
+        }
+        private void UpdateSaveButton()
+        {
+            TheSaveButton.interactable = saveable;
+            SaveMessage.text = "";
+        }
+        private void UpdateAliasTable()
+        {
+            string outp = "<align=\"center\">Tokens | Descriptions\n-----------------------------</align>\n";
+            string formatString = $"| {{0,-{CurrentFormatInfo.Descriptions.Keys.Aggregate(0, (a, b) => Math.Max(a, b.Length))}}} | {{1}}\n";
+            foreach (var val in CurrentFormatInfo.Descriptions)
+                outp += string.Format(formatString, val.Key, val.Value);
+            AliasTable.text = outp;
         }
         [UIAction(nameof(SelectedCell))]
         private void SelectedCell(TableView _, object obj)
@@ -219,7 +262,8 @@ namespace BLPPCounter.Settings.SettingHandlers
                 colorOutp += string.Format(selectedFli.Equals(fli) ? $"{richStart}{{0}}{richEnd}" : "{0}", fli.GetColorDisplay());
                 saveable &= fli.Updatable();
             }
-            PreviewDisplay.text = saveable ? CurrentFormatInfo.Item4.Invoke(outp.Replace("\\n", "\n").Replace(richStart,$"{RICH_SHORT}mark{DELIMITER}{pc.HighlightColor.ToArgb():X8}{RICH_SHORT}").Replace(richEnd,""+RICH_SHORT)) : "Can not format.";
+            //PreviewDisplay.text = saveable ? CurrentFormatInfo.Item4.Invoke(outp.Replace("\\n", "\n").Replace(richStart,$"{RICH_SHORT}mark{DELIMITER}{pc.HighlightColor.ToArgb():X8}{RICH_SHORT}").Replace(richEnd,""+RICH_SHORT)) : "Can not format.";
+            PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : "Can not format.";
             RawPreviewDisplay.text = colorOutp;
             //Plugin.Log.Info("New Colored Formatted Text: " + RawPreviewDisplay.text);
             UpdateSaveButton();
@@ -231,23 +275,9 @@ namespace BLPPCounter.Settings.SettingHandlers
             (FormatChunks[FormatChunks.Count - 1] as FormatListInfo).AboveInfo = FormatChunks[FormatChunks.Count - 2] as FormatListInfo;
             UpdateFormatTable(true);
         }
-        [UIAction(nameof(UpdatePreviewDisplay))]
-        public void UpdatePreviewDisplay(bool forceUpdate = false)
-        {
-            if (!forceUpdate && !pc.UpdatePreview) return;
-            string outp = "", colorOutp = "";
-            saveable = true;
-            foreach (FormatListInfo fli in FormatChunks.Cast<FormatListInfo>())
-            {
-                outp += fli.GetDisplay();
-                colorOutp += fli.GetColorDisplay();
-                saveable &= fli.Updatable();
-            }
-            PreviewDisplay.text = saveable ? CurrentFormatInfo.Item4.Invoke(outp.Replace("\\n", "\n")) : "Can not format.";
-            RawPreviewDisplay.text = colorOutp;
-            rawFormat = outp;
-            UpdateSaveButton();
-        }
+        [UIAction(nameof(ForceUpdatePreviewDisplay))]
+        private void ForceUpdatePreviewDisplay() => UpdatePreviewDisplay(true); //dislike this function's need for existance.
+      
         [UIAction(nameof(ScrollToTop))]
         private void ScrollToTop() => FormatEditor.TableView.ScrollToCellWithIdx(0, TableView.ScrollPositionType.Beginning, false);
         [UIAction(nameof(ScrollToBottom))]
@@ -255,8 +285,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction(nameof(ParseCurrentFormat))]
         private void ParseCurrentFormat()
         {
-            string currentFormat = CurrentFormatInfo.Item1.Replace("\n", "\\n");
-            FormatListInfo.InitStaticActions(CurrentFormatInfo.Item3, FormatChunks, () => UpdateFormatTable(), () => UpdatePreviewDisplay());
+            string currentFormat = CurrentFormatInfo.Format.Replace("\n", "\\n");
+            FormatListInfo.InitStaticActions(CurrentFormatInfo.Alias, FormatChunks, () => UpdateFormatTable(), () => UpdatePreviewDisplay());
             foreach (KeyValuePair<string, char> item in GLOBAL_ALIASES) FormatListInfo.AliasConverter[item.Key] = item.Value;
             FormatChunks.Clear();
             FormatChunks.AddRange(FormatListInfo.InitAllFromChunks(FormatListInfo.ChunkItAll(currentFormat)).Cast<object>());
@@ -266,8 +296,13 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction(nameof(SaveFormatToConfig))]
         private void SaveFormatToConfig()
         {
-            CurrentFormatInfo.Item2(rawFormat);
+            Plugin.Log.Info("This was called");
+            CurrentFormatInfo.Format = rawFormat;
+            Type counter = _Counter.Equals(TheCounter.DisplayName) ? typeof(TheCounter) : Type.GetType(TheCounter.DisplayNameToCounter[_Counter]);
+            if (counter == null) { Plugin.Log.Error("Counter is null"); return; }
+            counter.GetMethods(BindingFlags.Public | BindingFlags.Static).First(a => a.Name.Equals("InitFormat")).Invoke(null, null);
             SaveMessage.text = "<color=green>Format saved successfully!</color>";
+            TheSaveButton.interactable = false;
         }
         #endregion
         #endregion

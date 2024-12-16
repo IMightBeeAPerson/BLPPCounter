@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net.Http;
 using TMPro;
 using SiraUtil.Affinity;
+using BLPPCounter.Utils.List_Settings;
 
 namespace BLPPCounter.Counters
 {
@@ -58,49 +59,90 @@ namespace BLPPCounter.Counters
             {"PP", 'p' },
             { "Target", 't' }
         };
-        public static readonly Dictionary<char, object> DefaultValues = new Dictionary<char, object>()
-        {
-            {(char)1, true },
-            {(char)2, true },
-            {'p', 543.21f },
-            {'x', (-69.42f).ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT) },
-            {'c', new Func<string>(() => "<color=#0F0>") },
-            {'o', 654.32f },
-            {'y', 42.69f.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT) },
-            {'f', new Func<string>(() => "<color=#F00>") },
-            {'l', " PP" },
-            {'e', 1 },
-            {'t', "Person" },
-            {'m', new Func<string>(() => "<Insert formatted message here>") },
-        };
-        public static readonly Dictionary<char, object> WeightedDefaultValues = new Dictionary<char, object>()
-        {
-            {(char)1, true },
-            {(char)2, true },
-            {(char)3, true },
-            {'e', 1 },
-            {'c', new Func<string>(() => HelpfulFormatter.GetWeightedRankColor(3)) },
-            {'r', 3 },
-            {'x', -69.42f },
-            {'p', 543.21f },
-            {'l', " PP" },
-            {'y', 42.69f },
-            {'o', 654.32f },
-            {'m', "<Insert a message here>" },
-        };
-        public static readonly Dictionary<char, object> MessageDefaultValues = new Dictionary<char, object>()
-        {
-            {'c', new Func<string>(() => "<color=#0F0>") },
-            {'a', "95.85" },
-            {'x', 114.14f },
-            {'y', 321.23f },
-            {'z', 69.42f },
-            {'p', 543.21f },
-            {'t', "Person" },
-        };
-        public static Func<string, string> QuickFormatClan => format => GetFormatClan(format, false).Invoke().Invoke(DefaultValues);
-        public static Func<string, string> QuickFormatWeighted => format => GetFormatWeighted(format, false).Invoke().Invoke(WeightedDefaultValues);
-        public static Func<string, string> QuickFormatMessage => format => GetFormatCustom(format, false).Invoke().Invoke(MessageDefaultValues);
+        internal static readonly FormatRelation ClanFormatRelation = new FormatRelation("Main Format", DisplayName,
+            pc.FormatSettings.ClanTextFormat, str => pc.FormatSettings.ClanTextFormat = str, FormatAlias,
+            new Dictionary<string, string>()
+            {
+                { "PP", "The unmodified PP number" },
+                { "PP Difference", "The modified PP number (plus/minus value)" },
+                { "Color", "Must use as a group value, and will color everything inside group" },
+                { "FCPP", "The unmodified PP number if the map was FC'ed" },
+                { "FCPP Difference", "The modified PP number if the map was FC'ed" },
+                { "FC Color", "Must use as a group value, and will color everything inside group" },
+                { "Label", "The label (ex: PP, Tech PP, etc)" },
+                { "Mistakes", "The amount of mistakes made in the map. This includes bomb and wall hits" },
+                { "Target", "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" },
+                { "Message", "This will show a message if the counter is used on a map that isn't perfectly ideal for clan counter or that clan counter can't be used on. It will say the reason for why this isn't ideal" }
+            }, str => { var hold = GetFormatClan(str, out string errorStr, false); return (hold, errorStr); },
+            new Dictionary<char, object>()
+            {
+                { (char)1, true },
+                { (char)2, true },
+                { 'p', 543.21f },
+                { 'x', (-69.42f).ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT) },
+                { 'c', new Func<string>(() => "<color=#0F0>") },
+                { 'o', 654.32f },
+                { 'y', 42.69f.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT) },
+                { 'f', new Func<string>(() => "<color=#F00>") },
+                { 'l', " PP" },
+                { 'e', 1 },
+                { 't', "Person" },
+                { 'm', new Func<string>(() => "<Insert formatted message here>") }
+            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT
+            );
+        internal static readonly FormatRelation WeightedFormatRelation = new FormatRelation("Weighted Format", DisplayName,
+            pc.FormatSettings.WeightedTextFormat, str => pc.FormatSettings.WeightedTextFormat = str, WeightedFormatAlias,
+            new Dictionary<string, string>()
+            {
+                { "Mistakes", "The amount of mistakes made in the map. This includes bomb and wall hits" },
+                { "Rank Color", "The color based off of what rank you are out of your clan, must be used inside of a group and will color everything in the group" },
+                { "Rank", "The rank you are in the clan at that current moment" },
+                { "PP Difference", "The modified PP number if the map was FC'ed" },
+                { "PP", "The unmodified PP number" },
+                { "Label", "The label (ex: PP, Tech PP, etc)" },
+                { "FCPP Difference", "The modified PP number if the map was FC'ed" },
+                { "FCPP", "The unmodified PP number if the map was FC'ed" },
+                { "Message", "This will show a message if the counter is used on a map that isn't perfectly ideal for clan counter or that clan counter can't be used on. It will say the reason for why this isn't ideal" }
+            }, str => { var hold = GetFormatWeighted(str, out string errorStr, false); return (hold, errorStr); },
+            new Dictionary<char, object>()
+            {
+                {(char)1, true },
+                {(char)2, true },
+                {(char)3, true },
+                {'e', 1 },
+                {'c', new Func<string>(() => HelpfulFormatter.GetWeightedRankColor(3)) },
+                {'r', 3 },
+                {'x', -69.42f },
+                {'p', 543.21f },
+                {'l', " PP" },
+                {'y', 42.69f },
+                {'o', 654.32f },
+                {'m', "<Insert a message here>" }
+            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT
+            );
+        internal static readonly FormatRelation MessageFormatRelation = new FormatRelation("Custom Message Format", DisplayName,
+            pc.MessageSettings.ClanMessage, str => pc.MessageSettings.ClanMessage = str, MessageFormatAlias,
+            new Dictionary<string, string>()
+            {
+                {"Color", "Must use as a group value, and will color everything inside group" },
+                {"Accuracy", "The accuracy needed to capture the map" },
+                {"Tech PP", "The tech PP needed" },
+                {"Acc PP", "The accuracy PP needed" },
+                {"Pass PP", "The pass PP needed" },
+                {"PP", "The total PP number needed to capture the map" },
+                {"Target", "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" }
+            }, str => { var hold = GetFormatCustom(str, out string errorStr, false); return (hold, errorStr); },
+            new Dictionary<char, object>()
+            {
+                {'c', new Func<string>(() => "<color=#0F0>") },
+                {'a', "95.85" },
+                {'x', 114.14f },
+                {'y', 321.23f },
+                {'z', 69.42f },
+                {'p', 543.21f },
+                {'t', "Person" }
+            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT
+            );
         #endregion
         #region Variables
         public static string DisplayName => "Clan";
@@ -281,8 +323,8 @@ namespace BLPPCounter.Counters
             InitWeighted();
             InitCustom();
         }
-        private static void FormatClan(string format) => clanIniter = GetFormatClan(format);
-        private static Func<Func<Dictionary<char, object>, string>> GetFormatClan(string format, bool applySettings = true)
+        private static void FormatClan(string format) => clanIniter = GetFormatClan(format, out string _);
+        private static Func<Func<Dictionary<char, object>, string>> GetFormatClan(string format, out string errorMessage, bool applySettings = true)
         {
             return HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, DisplayName,
                 formattedTokens =>
@@ -303,12 +345,12 @@ namespace BLPPCounter.Counters
                     if (vals.ContainsKey('m')) HelpfulFormatter.SetText(tokensCopy, 'm', ((Func<string>)vals['m']).Invoke());
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1');
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
-                }, out string _, applySettings);
+                }, out errorMessage, applySettings);
             
         }
-        private static void FormatWeighted(string format) => weightedIniter = GetFormatWeighted(format);
-        private static Func<Func<Dictionary<char, object>, string>> GetFormatWeighted(string format, bool applySettings = true) //settings values are: 0 = displayFC, 1 = totPP, 2 = showRank
-        {
+        private static void FormatWeighted(string format) => weightedIniter = GetFormatWeighted(format, out string _);
+        private static Func<Func<Dictionary<char, object>, string>> GetFormatWeighted(string format, out string errorMessage, bool applySettings = true)
+        {//settings values are: 0 = displayFC, 1 = totPP, 2 = showRank
             return HelpfulFormatter.GetBasicTokenParser(format, WeightedFormatAlias, DisplayName,
                 formattedTokens =>
                 {
@@ -319,11 +361,11 @@ namespace BLPPCounter.Counters
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1'); 
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2'); 
                     if (!(bool)vals[(char)3]) HelpfulFormatter.SetText(tokensCopy, '3'); 
-                }, out string _, applySettings);
+                }, out errorMessage, applySettings);
             
         }
-        private static void FormatCustom(string format) => customIniter = GetFormatCustom(format);
-        private static Func<Func<Dictionary<char, object>, string>> GetFormatCustom(string format, bool applySettings = true)
+        private static void FormatCustom(string format) => customIniter = GetFormatCustom(format, out string _);
+        private static Func<Func<Dictionary<char, object>, string>> GetFormatCustom(string format, out string errorMessage, bool applySettings = true)
         {
             return HelpfulFormatter.GetBasicTokenParser(format, MessageFormatAlias, DisplayName,
                 formattedTokens =>
@@ -335,7 +377,7 @@ namespace BLPPCounter.Counters
                 (tokens, tokensCopy, priority, vals) =>
                 {
                     if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<string>)vals['c']).Invoke()}", "</color>");
-                }, out string _, applySettings);
+                }, out errorMessage, applySettings);
         }
         private static void InitClan()
         {

@@ -180,6 +180,7 @@
     <Compile Include="Utils\CustomAlias.cs" />
     <Compile Include="Utils\CustomTarget.cs" />
     <Compile Include="Utils\List Settings\FormatListInfo.cs" />
+    <Compile Include="Utils\List Settings\FormatRelation.cs" />
     <Compile Include="Utils\Map.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="BLPPCounterController.cs" />

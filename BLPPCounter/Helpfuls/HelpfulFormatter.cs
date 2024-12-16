@@ -68,6 +68,7 @@ namespace BLPPCounter.Helpfuls
             Dictionary<(char, int), string> tokens = new Dictionary<(char, int), string>();
             Dictionary<(char, int), string[]> extraArgs = new Dictionary<(char, int), string[]>();
             Dictionary<int, char> priority = new Dictionary<int, char>();
+            aliasConverter = new Dictionary<string, char>(aliasConverter); //so that it doesn't edit the original
 
             foreach (var e in GLOBAL_ALIASES) aliasConverter.TryAdd(e.Key, e.Value);
             CustomAlias.ApplyAliases(PluginConfig.Instance.TokenSettings.TokenAliases, aliasConverter, counterName);

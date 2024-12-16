@@ -15,6 +15,7 @@ using System.Linq;
 using System.Reflection;
 using ModestTree;
 using static GameplayModifiers;
+using BLPPCounter.Utils.List_Settings;
 namespace BLPPCounter
 {
 
@@ -35,6 +36,7 @@ namespace BLPPCounter
         private static readonly HttpClient client = new HttpClient();
         public static Dictionary<string, Map> Data { get; private set; }
         public static string DisplayName => "Main";
+        private static PluginConfig pc => PluginConfig.Instance;
         private static bool dataLoaded = false, fullDisable = false;
         private static MapSelection lastMap;
         public static IMyCounters theCounter { get; private set; }
@@ -44,8 +46,8 @@ namespace BLPPCounter
         public static Dictionary<string, string> DisplayNameToCounter { get; private set; }
         public static string[] ValidDisplayNames { get; private set; }
         private static Func<bool, bool, float, float, int, string, string> displayFormatter;
-        public static Func<string, string, string> TargetFormatter;
-        public static Func<Func<string>, float, float, float, float, float, string> PercentNeededFormatter;
+        internal static Func<string, string, string> TargetFormatter;
+        internal static Func<Func<string>, float, float, float, float, float, string> PercentNeededFormatter;
         private static Func<Func<Dictionary<char, object>, string>> displayIniter, targetIniter, percentNeededIniter;
         public static string[] Labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
 
@@ -69,38 +71,65 @@ namespace BLPPCounter
         {
             {"Color", 'c' },
             {"Accuracy", 'a' },
-            {"TechPP", 'x' },
-            {"AccPP", 'y' },
-            {"PassPP", 'z' },
+            {"Tech PP", 'x' },
+            {"Acc PP", 'y' },
+            {"Pass PP", 'z' },
             {"PP", 'p' }
         };
-        public static readonly Dictionary<char, object> FormatDefaultValues = new Dictionary<char, object>()
-        {
-            {(char)1, true },
-            {(char)2, true },
-            {'x', 543.21f },
-            {'y', 654.32f },
-            {'e', 2 },
-            {'l', " PP" }
-        };
-        public static readonly Dictionary<char, object> FormatTargetValues = new Dictionary<char, object>()
-        {
-            {'t', "Person" },
-            {'m', "SF" }
-        };
-        public static readonly Dictionary<char, object> FormatPercentNeededValues = new Dictionary<char, object>()
-        {
-            {'c', new Func<string>(() => "<color=#0F0>") },
-            {'a', "95.85" },
-            {'x', 114.14f },
-            {'y', 321.23f },
-            {'z', 69.42f },
-            {'p', 543.21f },
-            {'t', "Person" },
-        };
-        public static Func<string, string> QuickFormatDefault => format => GetTheFormat(format, out string errorStr)?.Invoke().Invoke(FormatDefaultValues) ?? errorStr;
-        public static Func<string, string> QuickFormatTarget => format => GetFormatTarget(format, out string errorStr)?.Invoke().Invoke(FormatTargetValues) ?? errorStr;
-        public static Func<string, string> QuickFormatPercentNeeded => format => GetFormatPercentNeeded(format, out string errorStr)?.Invoke().Invoke(FormatPercentNeededValues) ?? errorStr;
+        internal static readonly FormatRelation DefaultFormatRelation = new FormatRelation("Main Format", DisplayName, 
+            pc.FormatSettings.DefaultTextFormat, str => pc.FormatSettings.DefaultTextFormat = str, FormatAlias, 
+            new Dictionary<string, string>()
+            {
+                { "PP", "The unmodified PP number" },
+                { "FCPP", "The unmodified PP number if the map was FC'ed" },
+                { "Mistakes", "The amount of mistakes made in the map. This includes bomb and wall hits" },
+                { "Label", "The label (ex: PP, Tech PP, etc)" }
+            }, str => { var hold = GetTheFormat(str, out string errorStr); return (hold, errorStr); },
+            new Dictionary<char, object>()
+            {
+                {(char)1, true },
+                {(char)2, true },
+                {'x', 543.21f },
+                {'y', 654.32f },
+                {'e', 2 },
+                {'l', " PP" }
+            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT
+            );
+        internal static readonly FormatRelation TargetFormatRelation = new FormatRelation("Target Format", DisplayName,
+            pc.MessageSettings.TargetingMessage, str => pc.MessageSettings.TargetingMessage = str, TargetAlias,
+            new Dictionary<string, string>()
+            {
+                {"Target", "The name of the person being targeted" },
+                {"Mods", "The mods used by the person you are targeting" }
+            }, str => { var hold = GetFormatTarget(str, out string errorStr); return (hold, errorStr); },
+            new Dictionary<char, object>()
+            {
+                {'t', "Person" },
+                {'m', "SF" }
+            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT
+            );
+        internal static readonly FormatRelation PercentNeededFormatRelation = new FormatRelation("Percent Needed Format", DisplayName,
+            pc.MessageSettings.PercentNeededMessage, str => pc.MessageSettings.PercentNeededMessage = str, PercentNeededAlias,
+            new Dictionary<string, string>()
+            {
+                {"Color", "Must use as a group value, and will color everything inside group" },
+                {"Accuracy", "The accuracy needed to capture the map" },
+                {"Tech PP", "The tech PP needed" },
+                {"Acc PP", "The accuracy PP needed" },
+                {"Pass PP", "The pass PP needed" },
+                {"PP", "The total PP number needed to capture the map" }
+            }, str => { var hold = GetFormatPercentNeeded(str, out string errorStr); return (hold, errorStr); },
+            new Dictionary<char, object>()
+            {
+                {'c', new Func<string>(() => "<color=#0F0>") },
+                {'a', "95.85" },
+                {'x', 114.14f },
+                {'y', 321.23f },
+                {'z', 69.42f },
+                {'p', 543.21f },
+                {'t', "Person" }
+            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT
+            );
         #endregion
         #region Variables
         private TMP_Text display;
@@ -113,7 +142,7 @@ namespace BLPPCounter
         #endregion
         #region Inits & Overrides
 
-        public static void InitCounterStatic() 
+        internal static void InitCounterStatic() 
         {
             updateFormat = false;
             SettingsHandler.NewInstance += (handler) => handler.PropertyChanged += (a,b) => updateFormat = true;
@@ -124,9 +153,7 @@ namespace BLPPCounter
             StaticProperties = new Dictionary<string, Type>()
             { {"DisplayName", typeof(string) }, {"OrderNumber", typeof(int) }, {"DisplayHandler", typeof(string) } };
 
-            if (FormatTheFormat(PluginConfig.Instance.FormatSettings.DefaultTextFormat)) InitFormat();
-            if (FormatTarget(PluginConfig.Instance.MessageSettings.TargetingMessage)) InitTarget();
-            if (FormatPercentNeeded(PluginConfig.Instance.MessageSettings.PercentNeededMessage)) InitPercentNeeded();
+            GetMethodFromTypes("InitFormat", typeof(TheCounter)); //Call this by itself because it is not a chooseable counter.
 
             try
             {
@@ -134,13 +161,13 @@ namespace BLPPCounter
                 Dictionary<string, object> methodOutp = GetMethodFromTypes("InitFormat", validTypes);
                 for (int i = validTypes.Length - 1; i >= 0; i--)
                 {
-                    if (methodOutp[validTypes[i].Name] is bool v)
+                    if (methodOutp[validTypes[i].FullName] is bool v)
                         if (!v) validTypes[i] = null;
                 }
                 ValidCounters = validTypes.Where(a => a != null).ToArray();
                 Dictionary<string, object> propertyOutp = GetPropertyFromTypes("DisplayName", ValidCounters);
                 foreach (var toCheck in GetPropertyFromTypes("DisplayHandler", ValidCounters).Where(a => (a.Value as string).Equals(DisplayName)))
-                    if (!FormatTheFormat(PluginConfig.Instance.FormatSettings.DefaultTextFormat, propertyOutp[toCheck.Key] as string))
+                    if (!FormatTheFormat(pc.FormatSettings.DefaultTextFormat, propertyOutp[toCheck.Key] as string))
                     {
                         ValidCounters[ValidCounters.IndexOf(ValidCounters.First(a => a.Name.Equals(propertyOutp[toCheck.Key] as string)))] = null;
                         propertyOutp.Remove(toCheck.Key);
@@ -164,8 +191,8 @@ namespace BLPPCounter
             }
             if (ValidDisplayNames.Length > 0)
             {
-                if (!ValidDisplayNames.Contains(PluginConfig.Instance.PPType))
-                    PluginConfig.Instance.PPType = ValidDisplayNames[0];
+                if (!ValidDisplayNames.Contains(pc.PPType))
+                    pc.PPType = ValidDisplayNames[0];
             } else
             {
                 Plugin.Log.Critical("No counter is in working order!!! Shutting down this counter as it will only cause issues.");
@@ -173,6 +200,17 @@ namespace BLPPCounter
                 ValidDisplayNames = new string[] { "There are none" };
             }
 
+        }
+        public static bool InitFormat()
+        {
+            bool success = FormatTheFormat(pc.FormatSettings.DefaultTextFormat), hold;
+            if (success) InitDisplayFormat();
+            hold = FormatTarget(pc.MessageSettings.TargetingMessage);
+            success &= hold;
+            if (hold) InitTarget();
+            hold = FormatPercentNeeded(pc.MessageSettings.PercentNeededMessage);
+            if (hold) InitPercentNeeded();
+            return success && hold;
         }
         public override void CounterDestroy() {
             if (enabled) ChangeNotifiers(false);
@@ -204,18 +242,18 @@ namespace BLPPCounter
                 if (enabled)
                 {
                     display = CanvasUtility.CreateTextFromSettings(Settings);
-                    display.fontSize = (float)PluginConfig.Instance.FontSize;
+                    display.fontSize = (float)pc.FontSize;
                     display.text = "";
                     ChangeNotifiers(true);
                     loadedEvents = true;
                     //string hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
                     string hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
-                    bool counterChange = theCounter != null && !theCounter.Name.Equals(PluginConfig.Instance.PPType.Split(' ')[0]);
+                    bool counterChange = theCounter != null && !theCounter.Name.Equals(pc.PPType.Split(' ')[0]);
                     if (counterChange)
                         if ((GetPropertyFromTypes("DisplayHandler", theCounter.GetType()).Values.First() as string).Equals(DisplayName))
                             //Need to recall this one so that it implements the current counter's wants properly
-                            if (FormatTheFormat(PluginConfig.Instance.FormatSettings.DefaultTextFormat)) InitFormat();
-                    if (counterChange || lastMap.Equals(default) || hash != lastMap.Hash || PluginConfig.Instance.PPType.Equals("Progressive") || lastTarget != PluginConfig.Instance.Target)
+                            if (FormatTheFormat(pc.FormatSettings.DefaultTextFormat)) InitDisplayFormat();
+                    if (counterChange || lastMap.Equals(default) || hash != lastMap.Hash || pc.PPType.Equals("Progressive") || lastTarget != pc.Target)
                     {
                         Data.TryGetValue(hash, out Map m);
                         if (m == null) 
@@ -231,7 +269,7 @@ namespace BLPPCounter
                     }
                     else
                         APIAvoidanceMode();
-                    lastTarget = PluginConfig.Instance.Target;
+                    lastTarget = pc.Target;
                     if (updateFormat) { theCounter.UpdateFormat(); updateFormat = false; }
                     theCounter.UpdateCounter(1, 0, 0, 0);
                 } else
@@ -376,7 +414,7 @@ namespace BLPPCounter
             percentNeededIniter = GetFormatPercentNeeded(format, out string _);
             return percentNeededIniter != null;
         }
-        private static void InitFormat()
+        private static void InitDisplayFormat()
         {
             var simple = displayIniter.Invoke();
             displayFormatter = (fc, totPp, pp, fcpp, mistakes, label) => simple.Invoke(new Dictionary<char, object>()
@@ -397,7 +435,7 @@ namespace BLPPCounter
         {
             List<Type> counters = new List<Type>();
             //The line below adapted from: https://stackoverflow.com/questions/26733/getting-all-types-that-implement-an-interface
-            var types = System.Reflection.Assembly.GetExecutingAssembly().GetTypes().Where(mytype => mytype.GetInterfaces().Contains(typeof(IMyCounters)));
+            var types = Assembly.GetExecutingAssembly().GetTypes().Where(mytype => mytype.GetInterfaces().Contains(typeof(IMyCounters)));
             foreach (Type t in types)
             {
                 var methods = t.GetMethods(BindingFlags.Public | BindingFlags.Static);
@@ -448,8 +486,8 @@ namespace BLPPCounter
             Dictionary<string, object> outp = new Dictionary<string, object>();
             foreach (Type t in types)
             {
-                var method = t.GetMethods(flags).SkipWhile(a => !a.Name.Equals(methodName)).First();
-                outp.Add(t.Name, method.Invoke(null, null));
+                var method = t.GetMethods(flags).First(a => a.Name.Equals(methodName));
+                outp.Add(t.FullName, method.Invoke(null, null));
             }
             return outp;
         }
@@ -461,8 +499,8 @@ namespace BLPPCounter
             Dictionary<string, object> outp = new Dictionary<string, object>();
             foreach (Type t in types)
             {
-                var method = (hasFlags ? t.GetProperties(flags) : t.GetProperties()).SkipWhile(a => !a.Name.Equals(propertyName)).First();
-                outp.Add(t.Name, method.GetValue(null));
+                var method = (hasFlags ? t.GetProperties(flags) : t.GetProperties()).First(a => a.Name.Equals(propertyName));
+                outp.Add(t.FullName, method.GetValue(null));
             }
             return outp;
         }
@@ -470,7 +508,7 @@ namespace BLPPCounter
         #region Init
         private bool InitCounter()
         {
-            var outpCounter = InitCounter(PluginConfig.Instance.PPType, display);
+            var outpCounter = InitCounter(pc.PPType, display);
             if (outpCounter == null) return false;
             theCounter = outpCounter;
             return true;
@@ -599,13 +637,13 @@ namespace BLPPCounter
         
         public static void UpdateText(bool displayFc, TMP_Text display, float[] ppVals, int mistakes)
         {
-            if (PluginConfig.Instance.SplitPPVals) {
+            if (pc.SplitPPVals) {
                 string outp = "";
                 for (int i=0;i<4;i++)
-                    outp += displayFormatter.Invoke(displayFc, PluginConfig.Instance.ExtraInfo && i == 3, ppVals[i], ppVals[i + 4], mistakes, Labels[i]) + "\n";
+                    outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + 4], mistakes, Labels[i]) + "\n";
                 display.text = outp;
             } else
-                display.text = displayFormatter.Invoke(displayFc, PluginConfig.Instance.ExtraInfo, ppVals[3], ppVals[7], mistakes, Labels[3]);
+                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[3], ppVals[7], mistakes, Labels[3]);
         }
         #endregion
     }

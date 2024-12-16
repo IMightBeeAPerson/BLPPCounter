@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using static GameplayModifiers;
 using System.Text.RegularExpressions;
+using BLPPCounter.Utils.List_Settings;
 
 namespace BLPPCounter.Counters
 {
@@ -18,6 +19,13 @@ namespace BLPPCounter.Counters
     {
         #region Static Variables
         private static readonly HttpClient client = new HttpClient();
+        public static int OrderNumber => 2;
+        public static string DisplayName => "Relative";
+        public static string DisplayHandler => DisplayName;
+        private static Func<bool, bool, int, float, string, string, float, string, string, float, float, string, string> displayFormatter;
+        public static Type[] FormatterTypes => displayFormatter.GetType().GetGenericArguments();
+        private static Func<Func<Dictionary<char, object>, string>> displayIniter;
+        private static PluginConfig pc => PluginConfig.Instance;
         public static readonly Dictionary<string, char> FormatAlias = new Dictionary<string, char>()
                 {
                     { "Acc Difference", 'd' },
@@ -32,34 +40,40 @@ namespace BLPPCounter.Counters
                     { "Target", 't' },
                     { "Mistakes", 'e' }
                 };
-        public static readonly string[] FormatOptionDescriptions = new string[] {
-            "Shows when player is no longer has a full combo",
-            "Shows if player has the option Show Messages on"
-        };
-        public static readonly Dictionary<char, object> FormatDefaultVals = new Dictionary<char, object>()
-        {
-            {(char)1, true },
-            {(char)2, true },
-            {'e', 1 },
-            {'d', 0.1f },
-            {'c', "<color=\"green\">" },
-            {'x', (-30.5f).ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT) },
-            {'p', 543.21f },
-            {'f', "<color=\"red\">" },
-            {'y', 21.21f.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT) },
-            {'o', 654.32f },
-            {'a', 99.54f },
-            {'l', " PP" },
-            {'t', "Targeting <color=red>Person</color>" }
-        };
-        public static Func<string, string> QuickFormat => format => GetTheFormat(format, false).Invoke()?.Invoke(FormatDefaultVals);
-        public static int OrderNumber => 2;
-        public static string DisplayName => "Relative";
-        public static string DisplayHandler => DisplayName;
-        private static Func<bool, bool, int, float, string, string, float, string, string, float, float, string, string> displayFormatter;
-        public static Type[] FormatterTypes => displayFormatter.GetType().GetGenericArguments();
-        private static Func<Func<Dictionary<char, object>, string>> displayIniter;
-        private static PluginConfig pc => PluginConfig.Instance;
+        internal static readonly FormatRelation DefaultFormatRelation = new FormatRelation("Main Format", DisplayName,
+            pc.FormatSettings.RelativeTextFormat, str => pc.FormatSettings.RelativeTextFormat = str, FormatAlias,
+            new Dictionary<string, string>()
+            {
+                { "Acc Difference", "This will show the difference in percentage at the current moment between you and the replay you're comparing against" },
+                { "Accuracy", "This is the accuracy needed to beat your or your target's previous score" },
+                { "PP", "The unmodified PP number" },
+                { "PP Difference", "The modified PP number (plus/minus value)" },
+                { "Color", "Must use as a group value, and will color everything inside group" },
+                { "FCPP", "The unmodified PP number if the map was FC'ed" },
+                { "FCPP Difference", "The modified PP number if the map was FC'ed" },
+                { "FC Color", "Must use as a group value, and will color everything inside group" },
+                { "Label", "The label (ex: PP, Tech PP, etc)" },
+                { "Mistakes", "The amount of mistakes made in the map. This includes bomb and wall hits" },
+                { "Target", "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" }
+            }, str => { var hold = GetTheFormat(str, out string errorStr, false); return (hold, errorStr); },
+            new Dictionary<char, object>()
+            {
+                {(char)1, true },
+                {(char)2, true },
+                {'e', 1 },
+                {'d', 0.1f },
+                {'c', "<color=\"green\">" },
+                {'x', (-30.5f).ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT) },
+                {'p', 543.21f },
+                {'f', "<color=\"red\">" },
+                {'y', 21.21f.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT) },
+                {'o', 654.32f },
+                {'a', 99.54f },
+                {'l', " PP" },
+                {'t', "Targeting <color=red>Person</color>" }
+            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT
+            );
+
         #endregion
         #region Variables
         public string Name => DisplayName;
@@ -212,7 +226,7 @@ namespace BLPPCounter.Counters
         }
         #endregion
         #region Helper Functions
-        public static Func<Func<Dictionary<char, object>, string>> GetTheFormat(string format, bool applySettings = true)
+        public static Func<Func<Dictionary<char, object>, string>> GetTheFormat(string format, out string errorMessage, bool applySettings = true)
         {
             return HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, DisplayName,
                 formattedTokens =>
@@ -232,9 +246,9 @@ namespace BLPPCounter.Counters
                     HelpfulFormatter.SurroundText(tokensCopy, 'f', $"{vals['f']}", "</color>");
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1');
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
-                }, out string _, applySettings);//this is one line of code lol
+                }, out errorMessage, applySettings);//this is one line of code lol
         }
-        public static void FormatTheFormat(string format) => displayIniter = GetTheFormat(format);
+        public static void FormatTheFormat(string format) => displayIniter = GetTheFormat(format, out string _);
         public static void InitDefaultFormat()
         {
             var simple = displayIniter.Invoke();

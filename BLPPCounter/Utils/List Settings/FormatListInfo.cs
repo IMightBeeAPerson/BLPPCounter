@@ -26,7 +26,7 @@ namespace BLPPCounter.Utils
 
         private static readonly string AliasRegex = string.Format("(?<Token>{0}.|{0}{1}[^{1}]+{1}){2}(?<Params>[^{3}]+){3}|(?<Token>{0}{1}[^{1}]+{1}|{0}.)", Regex.Escape($"{ESCAPE_CHAR}"), Regex.Escape($"{ALIAS}"), Regex.Escape($"{PARAM_OPEN}"), Regex.Escape($"{PARAM_CLOSE}"));
         //(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)\)|(?<Token>&'[^']+'|&.)
-        private static readonly string RegularTextRegex = "[^" + RegexAllSpecialChars.Substring(1) + "+"; //[^&*,[\]$<>()']+
+        private static readonly string RegularTextRegex = "[^" + RegexSpecialChars.Substring(1) + "+"; //[^&*[\]<>]+
         private static readonly string EscapedCharRegex = $"{Regex.Escape(""+ESCAPE_CHAR)}{RegexSpecialChars}"; //&[&*[\]<>]
         internal static readonly Regex CollectiveRegex = GetRegexForAllChunks();
 
@@ -214,13 +214,13 @@ namespace BLPPCounter.Utils
                 outp += $"(?<{ct}>{GetRegexForChunk(ct)})|";
             //Plugin.Log.Info(outp.Substring(0, outp.Length - 1) + ")");
             return new Regex(outp.Substring(0, outp.Length - 1) + ")");
-            // \G(?:(?<Insert_Group_Value>\$)|(?<Group_Open>(?<Alias>\['[^']+')|(?<Token>\[[^']))|(?<Regular_Text>[^&*,[\]$<>]+)|(?<Escaped_Character>&[&*,[\]$<>])|(?<Escaped_Token>(?<Token>&.|&'[^']+?')\((?<Params>[^\)]+)\)|(?<Token>&'[^']+'|&.))|(?<Capture_Open><\d+)|(?<Capture_Close>>)|(?<Group_Close>])|(?<Rich_Text_Open>\*(?<Param1>[^,]+),(?<Param2>[^\*]+)\*|<(?<Key>[^=]+)=(?<Value>[^>]+)>)|(?<Rich_Text_Close>\*|<[^>]+>))
+            // \G(?:(?<Insert_Group_Value>\$)|(?<Group_Open>(?<Alias>\['[^']+')|(?<Token>\[[^']))|(?<Regular_Text>[^&*[\]<>]+)|(?<Escaped_Character>&[&*[\]<>])|(?<Escaped_Token>(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)\)|(?<Token>&'[^']+'|&.))|(?<Capture_Open><\d+)|(?<Capture_Close>>)|(?<Group_Close>])|(?<Rich_Text_Open>\*(?<Key>[^,]+),(?<Value>[^\*]+)\*|<(?<Key>[^=]+)=(?<Value>[^>]+)>)|(?<Rich_Text_Close>\*|<[^>]+>))
         }
         internal static string GetRegexForChunk(ChunkType ct)
         {
             switch (ct)
             {
-                case Regular_Text: return RegularTextRegex;//[^&*,[\]$<>()']+
+                case Regular_Text: return RegularTextRegex;//[^&*[\]<>]+
                 case Escaped_Character: return EscapedCharRegex;//&[&*[\]<>]
                 case Escaped_Token: return AliasRegex;//(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)\)|(?<Token>&'[^']+'|&.)
                 case Capture_Open: return $"{Regex.Escape(CAPTURE_OPEN+"")}\\d+"; //<\d+
@@ -392,6 +392,7 @@ namespace BLPPCounter.Utils
             {
                 Choicer.Values = ChoiceOptions;
                 if (!Choicer.Values.Contains(Text)) { Choicer.Value = Choicer.Values[0]; Text = Choicer.Values[0] as string; }
+                else Choicer.Value = Text;
                 Choicer.UpdateChoices();
                 ChoiceContainer.SetActive(true);
             } else ChoiceContainer.SetActive(false);
