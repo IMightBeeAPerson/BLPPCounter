@@ -16,7 +16,7 @@ using System.Reflection;
 
 namespace BLPPCounter.Utils
 {
-    public class FormatListInfo: INotifyPropertyChanged
+    public class FormatListInfo : INotifyPropertyChanged
     {
 #pragma warning disable IDE0044, CS0649, CS0414
         #region Static Variables
@@ -27,7 +27,7 @@ namespace BLPPCounter.Utils
         private static readonly string AliasRegex = string.Format("(?<Token>{0}.|{0}{1}[^{1}]+{1}){2}(?<Params>[^{3}]+){3}|(?<Token>{0}{1}[^{1}]+{1}|{0}.)", Regex.Escape($"{ESCAPE_CHAR}"), Regex.Escape($"{ALIAS}"), Regex.Escape($"{PARAM_OPEN}"), Regex.Escape($"{PARAM_CLOSE}"));
         //(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)\)|(?<Token>&'[^']+'|&.)
         private static readonly string RegularTextRegex = "[^" + RegexSpecialChars.Substring(1) + "+"; //[^&*[\]<>]+
-        private static readonly string EscapedCharRegex = $"{Regex.Escape(""+ESCAPE_CHAR)}{RegexSpecialChars}"; //&[&*[\]<>]
+        private static readonly string EscapedCharRegex = $"{Regex.Escape("" + ESCAPE_CHAR)}{RegexSpecialChars}"; //&[&*[\]<>]
         internal static readonly Regex CollectiveRegex = GetRegexForAllChunks();
 
         public static FormatListInfo DefaultVal => new FormatListInfo("Default Text", false);
@@ -38,10 +38,10 @@ namespace BLPPCounter.Utils
         [UIValue(nameof(ChoiceOptions))] private List<object> ChoiceOptions = new List<object>();
 
         [UIValue(nameof(ChunkStr))] private string ChunkStr
-        { 
+        {
             get => Chunk.ToString().Replace('_', ' ');
-            set 
-            { 
+            set
+            {
                 Chunk = (ChunkType)Enum.Parse(typeof(ChunkType), value.Replace(' ', '_'));
                 UpdateView();
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Chunk)));
@@ -56,10 +56,10 @@ namespace BLPPCounter.Utils
         [UIValue(nameof(Text))] private string Text { get => _Text; set { _Text = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Text))); } }
         [UIValue(nameof(Text2))] private string Text2 { get => _Text2; set { _Text2 = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Text2))); } }
 
-        [UIValue(nameof(ShowTextComp))] private bool ShowTextComp = true;
-        [UIValue(nameof(ShowText2Comp))] private bool ShowText2Comp = false;
-        [UIValue(nameof(ShowIncrement))] private bool ShowIncrement = false;
-        [UIValue(nameof(ShowChoice))] private bool ShowChoice = false;
+        [UIValue(nameof(ShowTextComp))] private bool ShowTextComp;
+        [UIValue(nameof(ShowText2Comp))] private bool ShowText2Comp;
+        [UIValue(nameof(ShowIncrement))] private bool ShowIncrement;
+        [UIValue(nameof(ShowChoice))] private bool ShowChoice;
         [UIValue(nameof(TextCompLabel))] private string TextCompLabel = "Input Text";
         [UIValue(nameof(ChoiceText))] private string ChoiceText = "Choose Token";
         [UIValue(nameof(IncrementText))] private string IncrementText = "Capture ID";
@@ -82,63 +82,71 @@ namespace BLPPCounter.Utils
         private bool hasChild = false;
         #endregion
         #region Inits
-        private FormatListInfo(bool isTokenValue, string name, string[] tokenParams)
-        {
-            Chunk = isTokenValue ? Escaped_Token : Escaped_Character;
-            Text = isTokenValue ? ConvertFromAlias(name) : name;
-            Text2 = default;
-            ChoiceOptions = isTokenValue ? AliasConverter.Keys.Cast<object>().ToList() : SPECIAL_CHARS.Select(c => "" + c).Cast<object>().ToList();
-            TokenParams = tokenParams;
-            ShowTextComp = false;
-            ShowChoice = true;
-            if (!isTokenValue) ChoiceText = "Choose Escaped Character";
-            PropertyChanged += DoSomethingOnPropertyChange;
-        }
-        private FormatListInfo(bool isOpen, string token, ChunkType ct) 
+        private FormatListInfo(ChunkType ct = default, string text = "", string text2 = "", string[] tokenParams = null,
+            bool textComp = false, bool text2Comp = false, bool increment = false, bool choice = false)
         {
             Chunk = ct;
-            Text = ct == Group_Open ? ConvertFromAlias(token) : token;
-            Text2 = token;
-            TokenParams = null;
-            ShowTextComp = false;
-            if (isOpen) if (ct == Capture_Open) ShowIncrement = true; else ShowChoice = true;
+            _Text = text;
+            _Text2 = text2;
+            TokenParams = tokenParams;
             PropertyChanged += DoSomethingOnPropertyChange;
+
+            ShowTextComp = textComp;
+            ShowText2Comp = text2Comp;
+            ShowIncrement = increment;
+            ShowChoice = choice;
         }
-        private FormatListInfo(bool isOpen, string richTextKey, string richTextValue)
+        private FormatListInfo(bool isTokenValue, string name, string[] tokenParams) :
+            this(
+                  ct: isTokenValue ? Escaped_Token : Escaped_Character,
+                  text: isTokenValue ? ConvertFromAlias(name) : name,
+                  tokenParams: tokenParams,
+                  choice: true
+                  )
         {
-            Chunk = isOpen ? Rich_Text_Open : Rich_Text_Close;
-            Text = RICH_SHORTHANDS.TryGetValue(richTextKey, out string val) ? val : richTextKey;
-            Text2 = richTextValue;
-            TokenParams = null;
-            if (isOpen)
-            {
-                ShowText2Comp = true;
-                TextCompLabel = "Enter Key";
-            }
-            else ShowTextComp = false;
-            PropertyChanged += DoSomethingOnPropertyChange;
+            ChoiceOptions = isTokenValue ? AliasConverter.Keys.Cast<object>().ToList() : SPECIAL_CHARS.Select(c => "" + c).Cast<object>().ToList();
+            if (!isTokenValue) ChoiceText = "Choose Escaped Character";
         }
-        private FormatListInfo(string text, bool isInsertSelf)
+        private FormatListInfo(bool isOpen, string token, ChunkType ct) :
+            this(
+                ct: ct,
+                text: ct == Group_Open ? ConvertFromAlias(token) : token,
+                text2: token,
+                increment: ct == Capture_Open,
+                choice: ct == Group_Open
+                )
         {
-            Chunk = isInsertSelf ? Insert_Group_Value : Regular_Text;
-            Text = text;
-            Text2 = default;
-            TokenParams = null;
-            if (isInsertSelf) ShowTextComp = false;
-            PropertyChanged += DoSomethingOnPropertyChange;
+            if (ct == Group_Open) ChoiceOptions = AliasConverter.Keys.Cast<object>().ToList();
         }
-        private FormatListInfo(string name, int index)
+        private FormatListInfo(bool isOpen, string richTextKey, string richTextValue) :
+            this(
+                ct: isOpen ? Rich_Text_Open : Rich_Text_Close,
+                text: RICH_SHORTHANDS.TryGetValue(richTextKey, out string val) ? val : richTextKey,
+                text2: richTextValue,
+                textComp: isOpen,
+                text2Comp: isOpen
+                )
         {
-            Chunk = Parameter;
-            Text = name; //Don't need to worry about the alias here because the function using this initializer takes care of it.
-            Text2 = $"{index + 1}"; //plus one because the average person doesn't use zero indexing and this number will be displayed.
-            TokenParams = null;
-            ShowTextComp = false;
-            ShowChoice = true;
+            if (isOpen) TextCompLabel = "Enter Key";
+        }
+        private FormatListInfo(string text, bool isInsertSelf) :
+            this(
+                ct: isInsertSelf ? Insert_Group_Value : Regular_Text,
+                text: text,
+                textComp: !isInsertSelf
+                )
+        {}
+        private FormatListInfo(string name, int index) :
+            this(
+                ct: Parameter,
+                text: name, //Don't need to worry about the alias here because the function using this initializer takes care of it.
+                text2: $"{index + 1}", //plus one because the average person doesn't use zero indexing and this number will be displayed.
+                increment: true,
+                choice: true
+                )
+        {
             ChoiceOptions = AliasConverter.Keys.Cast<object>().ToList();
-            ShowIncrement = true;
             IncrementText = "Parameter Index";
-            PropertyChanged += DoSomethingOnPropertyChange;
         }
         #endregion
         #region Static Functions
@@ -360,7 +368,7 @@ namespace BLPPCounter.Utils
         {
             if (e.PropertyName.Equals(nameof(Text))) SetParentToken();
             if (e.PropertyName.Equals(nameof(AboveInfo))) TellParentTheyHaveAChild();
-            UpdatePreview?.Invoke();
+            else UpdatePreview?.Invoke(); //All other properties, when changed, affect the preview.
         }
         private void UpdateView()
         {

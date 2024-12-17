@@ -230,10 +230,9 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
             PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : "Can not format.";
             RawPreviewDisplay.text = colorOutp;
-            rawFormat = outp;
+            rawFormat = outp.Replace("\\n", "\n");
             FormatEditor.TableView.ClearSelection();
             UpdateSaveButton();
-            UpdateAliasTable();
         }
         private void UpdateSaveButton()
         {
@@ -242,10 +241,15 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private void UpdateAliasTable()
         {
-            string outp = "<align=\"center\">Tokens | Descriptions\n-----------------------------</align>\n";
-            string formatString = $"| {{0,-{CurrentFormatInfo.Descriptions.Keys.Aggregate(0, (a, b) => Math.Max(a, b.Length))}}} | {{1}}\n";
+            float maxLength = CurrentFormatInfo.Descriptions.Keys.Aggregate(0.0f, (a, b) => Math.Max(a, AliasTable.GetPreferredValues(b).x));
+            string outp = $"Tokens<space={maxLength - AliasTable.GetPreferredValues("| Tokens").x}px>  | Descriptions\n";
+            float maxLineLength = maxLength + CurrentFormatInfo.Descriptions.Values.Aggregate(0.0f, (a, b) => Math.Max(a, AliasTable.GetPreferredValues("  | " + b).x));
+            for (int i = (int)Math.Ceiling(maxLineLength / AliasTable.GetPreferredValues("-").x); i > 0; i--)
+                outp += '-';
+            outp += '\n';
+            string formatString = "| {0}<space={2}px>  | {1}\n";
             foreach (var val in CurrentFormatInfo.Descriptions)
-                outp += string.Format(formatString, val.Key, val.Value);
+                outp += string.Format(formatString, val.Key, val.Value, maxLength - AliasTable.GetPreferredValues(val.Key).x);
             AliasTable.text = outp;
         }
         [UIAction(nameof(SelectedCell))]
@@ -292,6 +296,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             FormatChunks.AddRange(FormatListInfo.InitAllFromChunks(FormatListInfo.ChunkItAll(currentFormat)).Cast<object>());
             //Plugin.Log.Info("THE CHUNKS\n" + string.Join("\n", FormatChunks));
             UpdateFormatTable(true);
+            UpdateAliasTable();
         }
         [UIAction(nameof(SaveFormatToConfig))]
         private void SaveFormatToConfig()
