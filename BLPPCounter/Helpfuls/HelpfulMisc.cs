@@ -8,6 +8,7 @@ using static GameplayModifiers;
 using System.Drawing;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
@@ -105,5 +106,18 @@ namespace BLPPCounter.Helpfuls
             dict.ContainsValue(val) ? dict.First(kvp => kvp.Value.Equals(val)).Key : default;
         public static string GetKeyFromDictionary<V>(Dictionary<string, V> dict, V val) =>
             GetKeyFromDictionary<string, V>(dict, val) ?? val.ToString();
+        public static PropertyInfo[] GetAllPropertiesUsingAttribute(Type theClass, Type theAttribute, BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public) =>
+            theClass.GetProperties(bindingFlags).Where(p => Attribute.IsDefined(p, theAttribute)).ToArray();
+        public static FieldInfo[] GetAllFieldsUsingAttribute(Type theClass, Type theAttribute, BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public) =>
+            theClass.GetFields(bindingFlags).Where(p => Attribute.IsDefined(p, theAttribute)).ToArray();
+        public static MemberInfo[] GetAllVariablesUsingAttribute(Type theClass, Type theAttribute, BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public) =>
+            GetAllPropertiesUsingAttribute(theClass, theAttribute, bindingFlags).Cast<MemberInfo>()
+            .Union(GetAllFieldsUsingAttribute(theClass, theAttribute, bindingFlags)).ToArray();
+        public static bool IsNumber(Type t)
+        {
+            TypeCode tc = Type.GetTypeCode(t);
+            return tc > TypeCode.Char && tc < TypeCode.DateTime;
+        }
+        public static bool IsNumber(object o) => IsNumber(o.GetType());
     }
 }

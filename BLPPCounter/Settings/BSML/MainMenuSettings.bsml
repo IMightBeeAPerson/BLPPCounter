@@ -62,16 +62,28 @@
           <vertical anchor-pos-x='120' vertical-fit='PreferredSize' horizontal-fit='PreferredSize' pref-width='100' bg='round-rect-panel' bg-color='#CCC'>
             <text id='RawPreviewDisplay' rich-text='true' text='' align='Center' word-wrapping='true'/>
             <text id='PreviewDisplay' rich-text='true' text='' align='Center'/>
-            <text id='SaveMessage' rich-text='true' align='Center' interactable='false'/>
+            <text id='SaveMessage' rich-text='true' align='Center'/>
           </vertical>
           <vertical anchor-pos-x='-225' vertical-fit='PreferredSize' horizontal-fit='PreferredSize' pref-width='200' bg='round-rect-panel' bg-color='#CCC'>
             <text id='AliasTable' text='No Table Loaded!' align='Left' word-wrapping='true' rich-text='true'/>
           </vertical>
         </settings-submenu>
-        <settings-submenu text='Edit Values' align='Center'>
-          <horizontal>
-            <button text='Go Back' align='Left' click-event='back'/>
-          </horizontal>
+        <settings-submenu text='Edit Values' align='Center' on-click='ParseValues'>
+          <vertical anchor-pos-x='0' spacing='1'>
+            <horizontal>
+              <button text='Go Back' align='Left' click-event='back'/>
+            </horizontal>
+            <custom-list id='ValueEditor' contents='FormatValues' show-scrollbar='true' pref-width='100' cell-size='8'>
+              <vertical horizontal-fit='Unconstrained'>
+                <checkbox-setting id='Toggle' text='~ValueName' apply-on-change='true' value='GivenValueBool' active='~ShowToggle'/>
+                <string-setting id='TextBox' text='~ValueName' apply-on-change='true' value='GivenValueString' formatter='Formatterer' active='~ShowTextBox'/>
+                <increment-setting id='Increment' text='~ValueName' apply-on-change='true' value='GivenValueNumber' formatter='Formatterer' integer-only='~IsInteger' min='~MinVal' max='~MaxVal' increment='~IncrementVal' active='~ShowIncrement'/>
+              </vertical>
+            </custom-list>
+          </vertical>
+          <vertical anchor-pos-x='120' vertical-fit='PreferredSize' pref-width='100' bg='round-rect-panel' bg-color='#CCC'>
+            <text id='ValuePreviewDisplay' rich-text='true' align='Center'/>
+          </vertical>
         </settings-submenu>
         <text id='RawFormatText' rich-text='true' word-wrapping='true'/>
         <text id='FormattedText' align='Center'/>

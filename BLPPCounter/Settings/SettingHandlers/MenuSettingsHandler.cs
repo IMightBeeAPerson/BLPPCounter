@@ -109,29 +109,6 @@ namespace BLPPCounter.Settings.SettingHandlers
         #endregion
         #region Format Settings Editor
         #region Misc Variables
-        /*KEYS: string #1: Name of message, string #2: Name of counter
-        //VALUES: string #1: Format string, action #1: SaveFormat, dictionary #1: aliases, dictionary #2: descriptions
-        //function #1: GetFormattedFormat, function #2: GetParamAmounts
-        private readonly Dictionary<(string, string), (string, Action<string>, Dictionary<string, char>, Dictionary<string, string>, Func<string, string>, Func<char, int>)> AllFormatInfo =
-            new Dictionary<(string, string), (string, Action<string>, Dictionary<string, char>, Dictionary<string, string>, Func<string, string>, Func<char, int>)>()
-        {
-            {("Main Format", TheCounter.DisplayName), (pc.FormatSettings.DefaultTextFormat, str => pc.FormatSettings.DefaultTextFormat = str,
-                    TheCounter.FormatAlias, TheCounter.FormatDescriptions, TheCounter.QuickFormatDefault, GLOBAL_PARAM_AMOUNT) },
-            {("Target Format", TheCounter.DisplayName), (pc.MessageSettings.TargetingMessage, str => pc.MessageSettings.TargetingMessage = str, 
-                    TheCounter.TargetAlias, null, TheCounter.QuickFormatTarget, GLOBAL_PARAM_AMOUNT) },
-            {("Percent Needed Format", TheCounter.DisplayName), (pc.MessageSettings.PercentNeededMessage, str => pc.MessageSettings.PercentNeededMessage = str, 
-                    TheCounter.PercentNeededAlias, null, TheCounter.QuickFormatPercentNeeded, GLOBAL_PARAM_AMOUNT) },
-            {("Main Format", ClanCounter.DisplayName), (pc.FormatSettings.ClanTextFormat,  str => pc.FormatSettings.ClanTextFormat = str,
-                    ClanCounter.FormatAlias, null, ClanCounter.QuickFormatClan, GLOBAL_PARAM_AMOUNT) },
-            {("Weighted Format", ClanCounter.DisplayName), (pc.FormatSettings.WeightedTextFormat,  str => pc.FormatSettings.WeightedTextFormat = str,
-                    ClanCounter.WeightedFormatAlias, null, ClanCounter.QuickFormatWeighted, GLOBAL_PARAM_AMOUNT) },
-            {("Custom Format", ClanCounter.DisplayName), (pc.MessageSettings.ClanMessage, str => pc.MessageSettings.ClanMessage = str, 
-                    ClanCounter.MessageFormatAlias, null, ClanCounter.QuickFormatMessage, GLOBAL_PARAM_AMOUNT) },
-            {("Main Format", RelativeCounter.DisplayName), (pc.FormatSettings.RelativeTextFormat,  str => pc.FormatSettings.RelativeTextFormat = str,
-                    RelativeCounter.FormatAlias, null, RelativeCounter.QuickFormat, GLOBAL_PARAM_AMOUNT) }
-        };
-        private (string, Action<string>, Dictionary<string, char>, Dictionary<string, string>, Func<string, string>, Func<char, int>) CurrentFormatInfo => AllFormatInfo[(_FormatName, _Counter)];
-        //*/
         private readonly Dictionary<(string, string), FormatRelation> AllFormatInfo = new Dictionary<(string, string), FormatRelation>()
         {
             { TheCounter.DefaultFormatRelation.GetKey, TheCounter.DefaultFormatRelation },
@@ -170,10 +147,15 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(AliasTable))]
         private TextMeshProUGUI AliasTable;
         #endregion
+        #region Value Editor
+        [UIComponent(nameof(ValueEditor))]
+        private CustomCellListTableData ValueEditor;
+        [UIComponent(nameof(ValuePreviewDisplay))]
+        private TextMeshProUGUI ValuePreviewDisplay;
+        #endregion
         #endregion
         #region UI Values
-        [UIValue(nameof(FormatChunks))]
-        public List<object> FormatChunks { get; } = new List<object>();
+        #region Main Menu
         [UIValue(nameof(Counter))]
         private string Counter { get => _Counter; set { _Counter = value; UpdateFormatOptions(); } }
         private string _Counter;
@@ -185,6 +167,15 @@ namespace BLPPCounter.Settings.SettingHandlers
             .Append(TheCounter.DisplayName).Cast<object>().ToList();
         [UIValue(nameof(FormatNames))]
         private List<object> FormatNames = new List<object>();
+        #endregion
+        #region Format Editor
+        [UIValue(nameof(FormatChunks))]
+        public List<object> FormatChunks { get; } = new List<object>();
+        #endregion
+        #region Value Editor
+        [UIValue(nameof(FormatValues))]
+        private List<object> FormatValues { get; } = new List<object>();
+        #endregion
         #endregion
         #region UI Actions & UI Called Functions
         #region Main Menu
@@ -262,8 +253,8 @@ namespace BLPPCounter.Settings.SettingHandlers
             saveable = true;
             foreach (FormatListInfo fli in FormatChunks.Cast<FormatListInfo>())
             {
-                outp += string.Format(selectedFli.Equals(fli) ? $"{richStart}{{0}}{richEnd}" : "{0}", fli.GetDisplay());
-                colorOutp += string.Format(selectedFli.Equals(fli) ? $"{richStart}{{0}}{richEnd}" : "{0}", fli.GetColorDisplay());
+                outp += selectedFli.Equals(fli) ? $"{richStart}{fli.GetDisplay()}{richEnd}" : fli.GetDisplay();
+                colorOutp += selectedFli.Equals(fli) ? $"{richStart}{fli.GetColorDisplay()}{richEnd}" : fli.GetColorDisplay();
                 saveable &= fli.Updatable();
             }
             //PreviewDisplay.text = saveable ? CurrentFormatInfo.Item4.Invoke(outp.Replace("\\n", "\n").Replace(richStart,$"{RICH_SHORT}mark{DELIMITER}{pc.HighlightColor.ToArgb():X8}{RICH_SHORT}").Replace(richEnd,""+RICH_SHORT)) : "Can not format.";
@@ -308,6 +299,37 @@ namespace BLPPCounter.Settings.SettingHandlers
             counter.GetMethods(BindingFlags.Public | BindingFlags.Static).First(a => a.Name.Equals("InitFormat")).Invoke(null, null);
             SaveMessage.text = "<color=green>Format saved successfully!</color>";
             TheSaveButton.interactable = false;
+        }
+        #endregion
+        #region Value Editor
+        private void UpdatePreviewForValue(bool forceUpdate = false)
+        {
+            if (!forceUpdate && !pc.UpdatePreview) return;
+            Dictionary<char, object> newVals = ValueListInfo.GetNewTestVals(FormatValues.Cast<ValueListInfo>());
+            ValuePreviewDisplay.text = CurrentFormatInfo.GetQuickFormat(newVals);
+        }
+        [UIAction(nameof(ParseValues))]
+        private void ParseValues()
+        {
+            List<ValueListInfo> outp = new List<ValueListInfo>();
+            Dictionary<char, object> testVals = CurrentFormatInfo.TestValues;
+            IEnumerable<char> tokens = testVals.Keys;
+            foreach (char token in tokens)
+            {
+                bool isWrapper = testVals[token].GetType().IsGenericType;
+                Plugin.Log.Info("IsWrapper: " + isWrapper);
+                outp.Add(new ValueListInfo(
+                    isWrapper ? (testVals[token] as Func<object>).Invoke() : testVals[token],
+                    token,
+                    CurrentFormatInfo.GetName(token) ?? (token < 'a' ? "Option Number " + (int)token : ""),
+                    isWrapper,
+                    CurrentFormatInfo.GetTestValFormatter(token),
+                    CurrentFormatInfo.GetExtraTestParams(token)));
+            }
+            FormatValues.Clear();
+            FormatValues.AddRange(outp.Cast<object>());
+            ValueEditor.TableView.ReloadData();
+            UpdatePreviewForValue(true);
         }
         #endregion
         #endregion
