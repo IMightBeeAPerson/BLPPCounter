@@ -1,6 +1,7 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
 using BeatSaberMarkupLanguage.Components.Settings;
 using BLPPCounter.Helpfuls;
+using IPA.Utilities;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -11,22 +12,24 @@ namespace BLPPCounter.Utils.List_Settings
 {
     internal class ValueListInfo : INotifyPropertyChanged
     {
+        //IDE find and replace pattern
+        // \)\s*\n?\s*{\s*\n?\s*([^;]+;)\s*\n?\s*}
+        //) => $+
 #pragma warning disable IDE0044
+        #region Static Variables
+        internal static Action UpdatePreview;
+        #endregion
         #region Variables
         public event PropertyChangedEventHandler PropertyChanged;
         private readonly Type ActualClass;
-        private IncrementInfo incrementInfo = default;
-        private Func<object, bool, string> ValFormatter;
+        private Func<object, bool, object> ValFormatter;
         private object _GivenValue;
         private char GivenToken;
         private object GivenValue {
             get => HasWrapper ? new Func<object>(() => _GivenValue) : _GivenValue;
             set { _GivenValue = value; PropertyChanged.Invoke(this, new PropertyChangedEventArgs(nameof(GivenValue))); }
         }
-        private object FormattedGivenValue { get { 
-                object outp = ValFormatter?.Invoke(_GivenValue, false) ?? _GivenValue;
-                return HasWrapper ? new Func<object>(() => outp) : outp; 
-            } }
+        private object FormattedGivenValue => ValFormatter?.Invoke(GivenValue, false) ?? GivenValue;
         public bool HasWrapper;
         #endregion
         #region UI Variables
@@ -40,25 +43,23 @@ namespace BLPPCounter.Utils.List_Settings
         [UIValue(nameof(ValueName))] private string ValueName;
         [UIValue(nameof(GivenValueBool))] private bool GivenValueBool
         {
-            get => GivenValue is bool outp ? outp : default;
+            get => _GivenValue is bool outp && outp;
             set { if (ActualClass == typeof(bool)) GivenValue = value; }
         }
         [UIValue(nameof(GivenValueString))] private string GivenValueString
         {
-            get => GivenValue is string outp ? outp : GivenValue.ToString();
+            get => _GivenValue is string outp ? outp : _GivenValue.ToString();
             set { if (ActualClass == typeof(string)) GivenValue = value; }
         }
         [UIValue(nameof(GivenValueNumber))] private float GivenValueNumber
         {
-            get => GivenValue is float outp ? outp : default;
-            set { if (HelpfulMisc.IsNumber(ActualClass)) GivenValue = value; }
+            get => IsInteger ? _GivenValue is int i ? i : default : _GivenValue is float outp ? outp : default;
+            set { if (HelpfulMisc.IsNumber(ActualClass)) GivenValue = value.GetType() == ActualClass ? value : Convert.ChangeType(value, ActualClass); }
         }
-
-
-        [UIValue(nameof(IsInteger))] private bool IsInteger { get => incrementInfo.IsInteger; set => incrementInfo.IsInteger = value; }
-        [UIValue(nameof(MinVal))] private float MinVal { get => incrementInfo.MinVal; set => incrementInfo.MinVal = value; }
-        [UIValue(nameof(MaxVal))] private float MaxVal { get => incrementInfo.MaxVal; set => incrementInfo.MaxVal = value; }
-        [UIValue(nameof(IncrementVal))] private float IncrementVal { get => incrementInfo.IncrementVal; set => incrementInfo.IncrementVal = value; }
+        [UIValue(nameof(IsInteger))] private bool IsInteger;
+        [UIValue(nameof(MinVal))] private float MinVal;
+        [UIValue(nameof(MaxVal))] private float MaxVal;
+        [UIValue(nameof(IncrementVal))] private float IncrementVal;
         #endregion
         #region UI Components
         [UIComponent(nameof(TextBox))] private StringSetting TextBox;
@@ -66,7 +67,7 @@ namespace BLPPCounter.Utils.List_Settings
 
         #endregion
         #region Init
-        internal ValueListInfo(object givenValue, char token, string name, bool hasWrapper = false, Func<object, bool, string> valFormat = null,
+        internal ValueListInfo(object givenValue, char token, string name, bool hasWrapper = false, Func<object, bool, object> valFormat = null,
             IEnumerable<(string, object)> extraParams = null)
         {
             HasWrapper = hasWrapper;
@@ -74,8 +75,8 @@ namespace BLPPCounter.Utils.List_Settings
             GivenToken = token;
             ValueName = name;
             ValFormatter = valFormat;
+            //if (valFormat == null) Plugin.Log.Info($"{name} has no formatter!");
             ActualClass = givenValue.GetType();
-            Plugin.Log.Info(ActualClass.ToString());
             switch (ActualClass)
             {
                 case Type v when v == typeof(bool): ShowToggle = true; break;
@@ -91,8 +92,13 @@ namespace BLPPCounter.Utils.List_Settings
                         else continue;
                     }
                 }
-            if (incrementInfo.Equals(default))
-                incrementInfo = new IncrementInfo(true, 0, 10, 1);
+            else
+            {
+                IsInteger = true;
+                MinVal = 0;
+                MaxVal = 10;
+                IncrementVal = 1;
+            }
             PropertyChanged += OnPropertyChanged;
         }
         #endregion
@@ -101,35 +107,19 @@ namespace BLPPCounter.Utils.List_Settings
         private string Formatterer(object input) => $"<align=\"center\">{ValFormatter?.Invoke(input, true) ?? input.ToString()}";
         #endregion
         #region Functions
-        private void OnPropertyChanged(object sender, PropertyChangedEventArgs args)
-        {
-
-        }
+        private void OnPropertyChanged(object sender, PropertyChangedEventArgs args) => UpdatePreview?.Invoke();
+        public override string ToString() => (HasWrapper ?
+            $"Raw: () => {_GivenValue} || Formatted: () => {(ValFormatter?.Invoke(GivenValue, false) as Func<object>)?.Invoke() ?? "null"}" :
+            $"Raw: {_GivenValue} || Formatted: {ValFormatter?.Invoke(GivenValue, false) ?? "null"}") + 
+            " || Val Formatted: " + Formatterer(_GivenValue);
         #endregion
         #region Static Functions
-        internal static Dictionary<char, object> GetNewTestVals(IEnumerable<ValueListInfo> arr, Dictionary<char, object> oldVals = null)
+        internal static Dictionary<char, object> GetNewTestVals(IEnumerable<ValueListInfo> arr, bool formatted = true, Dictionary<char, object> oldVals = null)
         {
             Dictionary<char, object> outp = oldVals ?? new Dictionary<char, object>();
             foreach (ValueListInfo val in arr)
-                outp[val.GivenToken] = val.FormattedGivenValue;
+                outp[val.GivenToken] = formatted ? val.FormattedGivenValue : val.GivenValue;
             return outp;
-        }
-        #endregion
-        #region Inner Classes & Structs
-        private struct IncrementInfo
-        {
-            public bool IsInteger;
-            public float MinVal;
-            public float MaxVal;
-            public float IncrementVal;
-            
-            public IncrementInfo(bool isInteger, float minVal, float maxVal, float incrementVal)
-            {
-                IsInteger = isInteger;
-                MinVal = minVal;
-                MaxVal = maxVal;
-                IncrementVal = incrementVal;
-            }
         }
         #endregion
     }

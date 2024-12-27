@@ -93,7 +93,15 @@ namespace BLPPCounter
                 {'y', 654.32f },
                 {'e', 2 },
                 {'l', " PP" }
-            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT
+            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT, null, null, new Dictionary<char, IEnumerable<(string, object)>>(2)
+            {
+                { 'x', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } },
+                { 'y', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } }
+            }, new List<(char, string)>(2)
+            {
+                ((char)1, "Has a miss"),
+                ((char)2, "Is bottom of text")
+            }
             );
         internal static readonly FormatRelation TargetFormatRelation = new FormatRelation("Target Format", DisplayName,
             pc.MessageSettings.TargetingMessage, str => pc.MessageSettings.TargetingMessage = str, TargetAlias,
@@ -106,8 +114,7 @@ namespace BLPPCounter
             {
                 {'t', "Person" },
                 {'m', "SF" }
-            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT
-            );
+            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT, null, null, null);
         internal static readonly FormatRelation PercentNeededFormatRelation = new FormatRelation("Percent Needed Format", DisplayName,
             pc.MessageSettings.PercentNeededMessage, str => pc.MessageSettings.PercentNeededMessage = str, PercentNeededAlias,
             new Dictionary<string, string>()
@@ -121,15 +128,31 @@ namespace BLPPCounter
             }, str => { var hold = GetFormatPercentNeeded(str, out string errorStr); return (hold, errorStr); },
             new Dictionary<char, object>()
             {
-                {'c', new Func<string>(() => "<color=#0F0>") },
+                {'c', new Func<object>(() => "green") },
                 {'a', "95.85" },
                 {'x', 114.14f },
                 {'y', 321.23f },
                 {'z', 69.42f },
                 {'p', 543.21f },
                 {'t', "Person" }
-            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT
-            );
+            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(3)
+            {
+                {'c', 0 },
+                {'a', 1 },
+                {'t', 2 }
+            }, new Func<object, bool, object>[3]
+            {
+                FormatRelation.CreateFuncWithWrapper("<color={0}>{0}", "<color={0}>"),
+                FormatRelation.CreateFunc("{0}%"),
+                FormatRelation.CreateFunc("Targeting <color=red>{0}</color>")
+            }, new Dictionary<char, IEnumerable<(string, object)>>(5)
+            {
+                { 'a', new List<(string, object)>(3) { ("MinVal", 0), ("MaxVal", 100), ("IncrementVal", 1.5f), } },
+                { 'x', new List<(string, object)>(3) { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
+                { 'y', new List<(string, object)>(3) { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
+                { 'z', new List<(string, object)>(3) { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
+                { 'p', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } }
+            });
         #endregion
         #region Variables
         private TMP_Text display;
@@ -407,7 +430,7 @@ namespace BLPPCounter
             HelpfulFormatter.GetBasicTokenParser(format, PercentNeededAlias, DisplayName, a => { },
                 (tokens, tokensCopy, priority, vals) =>
                 {
-                    if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<string>)vals['c']).Invoke()}", "</color>");
+                    if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<object>)vals['c']).Invoke()}", "</color>");
                 }, out errorStr);
         private static bool FormatPercentNeeded(string format)
         {

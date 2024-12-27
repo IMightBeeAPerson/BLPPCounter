@@ -20,13 +20,13 @@ namespace BLPPCounter.Utils
     {
 #pragma warning disable IDE0044, CS0649, CS0414
         #region Static Variables
-        public static Dictionary<string, char> AliasConverter { get; private set; }
+        public static Dictionary<string, char> AliasConverter { get; internal set; }
         private static List<object> ParentList;
         private static Action UpdateTable, UpdatePreview;
 
         private static readonly string AliasRegex = string.Format("(?<Token>{0}.|{0}{1}[^{1}]+{1}){2}(?<Params>[^{3}]+){3}|(?<Token>{0}{1}[^{1}]+{1}|{0}.)", Regex.Escape($"{ESCAPE_CHAR}"), Regex.Escape($"{ALIAS}"), Regex.Escape($"{PARAM_OPEN}"), Regex.Escape($"{PARAM_CLOSE}"));
         //(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)\)|(?<Token>&'[^']+'|&.)
-        private static readonly string RegularTextRegex = "[^" + RegexSpecialChars.Substring(1) + "+"; //[^&*[\]<>]+
+        private static readonly string RegularTextRegex = "[^" + INSERT_SELF + RegexSpecialChars.Substring(1) + "+"; //[^$&*[\]<>]+
         private static readonly string EscapedCharRegex = $"{Regex.Escape("" + ESCAPE_CHAR)}{RegexSpecialChars}"; //&[&*[\]<>]
         internal static readonly Regex CollectiveRegex = GetRegexForAllChunks();
 
@@ -47,7 +47,7 @@ namespace BLPPCounter.Utils
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Chunk)));
             }
         }
-        private ChunkType Chunk;
+        public ChunkType Chunk { get; private set; }
         [UIValue(nameof(IncrementVal))] private int IncrementVal
         {
             get { if (int.TryParse(Text2, out int outp)) return outp; else return 50; }
@@ -79,7 +79,8 @@ namespace BLPPCounter.Utils
         public FormatListInfo _AboveInfo = null; //This is so that parameters can find their parent.
         private string[] TokenParams; //This will be accessed by other instances other this class.
         private string _Text, _Text2;
-        private bool hasChild = false;
+        public FormatListInfo Child { get; private set; } = null;
+        public bool HasChild => Child != null;
         #endregion
         #region Inits
         private FormatListInfo(ChunkType ct = default, string text = "", string text2 = "", string[] tokenParams = null,
@@ -190,9 +191,8 @@ namespace BLPPCounter.Utils
                 default: return null;
             }
         }
-        internal static void InitStaticActions(Dictionary<string, char> aliasConverter, List<object> parentList, Action updateTable, Action updatePreview)
+        internal static void InitStaticActions(List<object> parentList, Action updateTable, Action updatePreview)
         {
-            AliasConverter = aliasConverter;
             ParentList = parentList;
             UpdateTable = updateTable;
             UpdatePreview = updatePreview;
@@ -217,18 +217,18 @@ namespace BLPPCounter.Utils
         {
             string outp = "\\G(?:";
             List<ChunkType> arr = new List<ChunkType>() { Insert_Group_Value, Group_Open };
-            arr.AddRange((Enum.GetValues(typeof(ChunkType)) as IEnumerable<ChunkType>).Where(ct => !arr.Contains(ct) && !ct.Equals(Parameter)));
+            arr.AddRange((Enum.GetValues(typeof(ChunkType)) as IEnumerable<ChunkType>).Where(ct => !(arr.Contains(ct) || ct.Equals(Parameter))));
             foreach (ChunkType ct in arr)
                 outp += $"(?<{ct}>{GetRegexForChunk(ct)})|";
             //Plugin.Log.Info(outp.Substring(0, outp.Length - 1) + ")");
             return new Regex(outp.Substring(0, outp.Length - 1) + ")");
-            // \G(?:(?<Insert_Group_Value>\$)|(?<Group_Open>(?<Alias>\['[^']+')|(?<Token>\[[^']))|(?<Regular_Text>[^&*[\]<>]+)|(?<Escaped_Character>&[&*[\]<>])|(?<Escaped_Token>(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)\)|(?<Token>&'[^']+'|&.))|(?<Capture_Open><\d+)|(?<Capture_Close>>)|(?<Group_Close>])|(?<Rich_Text_Open>\*(?<Key>[^,]+),(?<Value>[^\*]+)\*|<(?<Key>[^=]+)=(?<Value>[^>]+)>)|(?<Rich_Text_Close>\*|<[^>]+>))
+            // \G(?:(?<Insert_Group_Value>\$)|(?<Group_Open>(?<Alias>\['[^']+')|(?<Token>\[[^']))|(?<Regular_Text>[^$&*[\]<>]+)|(?<Escaped_Character>&[&*[\]<>])|(?<Escaped_Token>(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)\)|(?<Token>&'[^']+'|&.))|(?<Capture_Open><\d+)|(?<Capture_Close>>)|(?<Group_Close>])|(?<Rich_Text_Open>\*(?<Key>[^,]+),(?<Value>[^\*]+)\*|<(?<Key>[^=]+)=(?<Value>[^>]+)>)|(?<Rich_Text_Close>\*|<[^>]+>))
         }
         internal static string GetRegexForChunk(ChunkType ct)
         {
             switch (ct)
             {
-                case Regular_Text: return RegularTextRegex;//[^&*[\]<>]+
+                case Regular_Text: return RegularTextRegex;//[^$&*[\]<>]+
                 case Escaped_Character: return EscapedCharRegex;//&[&*[\]<>]
                 case Escaped_Token: return AliasRegex;//(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)\)|(?<Token>&'[^']+'|&.)
                 case Capture_Open: return $"{Regex.Escape(CAPTURE_OPEN+"")}\\d+"; //<\d+
@@ -246,7 +246,7 @@ namespace BLPPCounter.Utils
             var arr = ChunkItAll(format);
             format = "";
             foreach (var chunk in arr)
-                format += ColorFormatChunk(chunk);
+                    format += ColorFormatChunk(chunk);
             return format;
         }
         public static string ColorFormatChunk((Match, ChunkType) chunk) => ColorFormatChunk(chunk.Item1.Value, chunk.Item2);
@@ -254,9 +254,9 @@ namespace BLPPCounter.Utils
         {
             PluginConfig pc = PluginConfig.Instance;
             string outp;
-            string ColorEscapeToken(string token, char escToken) => token[0] == ALIAS ? 
+            string ColorEscapeToken(string token) => token[0] == ALIAS ? 
                 string.Format(ColorDefaultFormatToColor("'cAlias0'"), ConvertFromAlias(token)) :
-                string.Format(ColorFormatToColor($"{escToken}cAlias0"), GetKeyFromDictionary(AliasConverter, token[0]));
+                string.Format(ColorFormatToColor("'cAlias0'"), GetKeyFromDictionary(AliasConverter, token[0]));
             switch (ct)
             {
                 case Regular_Text:
@@ -271,11 +271,11 @@ namespace BLPPCounter.Utils
                         hold1 = Text.Split(PARAM_OPEN);
                         Text = hold1[0];
                     }
-                    else return ColorEscapeToken(Text, ESCAPE_CHAR);
-                    outp = ColorEscapeToken(Text, ESCAPE_CHAR) + ColorSpecialChar(PARAM_OPEN);
+                    else return ColorSpecialChar(ESCAPE_CHAR) + ColorEscapeToken(Text);
+                    outp = ColorSpecialChar(ESCAPE_CHAR) + ColorEscapeToken(Text) + ColorSpecialChar(PARAM_OPEN);
                     hold1 = hold1[1].Substring(0, hold1[1].Length - 1).Split(DELIMITER);
                     for (int i = 0; i < hold1.Length; i++)
-                        outp += $"{(i != 0 ? ColorSpecialChar(DELIMITER) : "")}{ColorEscapeToken(hold1[i], ESCAPE_CHAR)}";
+                        outp += $"{(i != 0 ? ColorSpecialChar(DELIMITER) : "")}{ColorEscapeToken(hold1[i])}";
                     outp += ColorSpecialChar(PARAM_CLOSE);
                     return outp;
                 case Capture_Open:
@@ -283,7 +283,7 @@ namespace BLPPCounter.Utils
                 case Capture_Close:
                     return ColorSpecialChar(CAPTURE_CLOSE);
                 case Group_Open:
-                    return $"{ColorSpecialChar(GROUP_OPEN)}{ColorEscapeToken(Text.Substring(1), GROUP_OPEN)}";
+                    return $"{ColorSpecialChar(GROUP_OPEN)}{ColorEscapeToken(Text.Substring(1))}";
                 case Group_Close:
                     return ColorSpecialChar(GROUP_CLOSE);
                 case Rich_Text_Open:
@@ -362,7 +362,7 @@ namespace BLPPCounter.Utils
             FormatListInfo parent = AboveInfo;
             ChunkType open = Chunk == Parameter ? Escaped_Token : (ChunkType)((int)Chunk / 2), close = Chunk == Parameter ? Regular_Text : Chunk;
             while (parent != null && ((open | close) & parent.Chunk) == 0) parent = parent.AboveInfo;
-            if (parent != null && parent.Chunk == open) parent.hasChild = !childIsDead;
+            if (parent != null && parent.Chunk == open) parent.Child = childIsDead ? null : this;
         }
         private void DoSomethingOnPropertyChange(object sender, PropertyChangedEventArgs e) 
         {
@@ -413,7 +413,7 @@ namespace BLPPCounter.Utils
         public bool Updatable()
         {
             FormatListInfo parent = AboveInfo;
-            if (((Capture_Open | Group_Open | Rich_Text_Open | Escaped_Token) & Chunk) != 0) return hasChild || (Chunk == Escaped_Token && TokenParams == null);
+            if (((Capture_Open | Group_Open | Rich_Text_Open | Escaped_Token) & Chunk) != 0) return HasChild || (Chunk == Escaped_Token && TokenParams == null);
             if (((Capture_Close | Group_Close | Rich_Text_Close | Parameter) & Chunk) == 0) return true;
             ChunkType open = (ChunkType)((int)Chunk / 2);
             if (Chunk == Group_Close) open |= Capture_Open | Capture_Close;

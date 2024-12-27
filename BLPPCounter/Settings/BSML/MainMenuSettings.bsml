@@ -2,92 +2,11 @@
   <vertical spacing='1' vertical-fit='PreferredSize'>
     <text text='Settings are applied even if the cancel button is hit.' align='Center' bold='true' color='#0F0'/>
     <checkbox-setting text='Simplify Menu UI' apply-on-change='true' value='SimpleUI' hover-hint='If enabled, makes the menu UI much simpler'/>
-    <settings-submenu text='Edit Simple Menu' hover-hint='Click to edit what shows on the simple menu UI' align='Center' on-click='LoadMenu'>
-      <vertical spacing='1'>
-        <horizontal>
-          <button text='Go Back' align='Left' click-event='back'/>
-          <button id='SaveButton' text='Save' align='Right' on-click='SaveChanges'/>
-        </horizontal>
-        <custom-list id='UICustomizer' contents='UISettings' show-scrollbar='true' cell-size='20' pref-width='100'>
-          <vertical spacing='0' bg='round-rect-panel' bg-color='#CCC' horizontal-fit='Unconstrained' pad='2'>
-            <horizontal>
-              <text text='~Text' align='Left'/>
-              <text text='Enabled' align='Right'/>
-            </horizontal>
-            <checkbox-setting text='~Description' apply-on-change='true' value='Usable'/>
-            <text text='~Type' rich-text='true' align='Center'/>
-          </vertical>
-        </custom-list>
-      </vertical>
-    </settings-submenu>
-    <text text='-------------------------------------' align='Center' bold='true'/>
+    <settings-submenu id='SimpleContainer' text='Edit Simple Menu' hover-hint='Click to edit what shows on the simple menu UI' align='Center' on-click='LoadSimpleMenu'/>
+      <text text='-------------------------------------' align='Center' bold='true'/>
     <text text='Format Editor Settings' align='Center'/>
     <checkbox-setting text='Auto Update Preview' apply-on-change='true' value='UpdatePreview' hover-hint='If enabled, updates preview every time there is a change made'/>
-    <settings-submenu text='Edit Format Settings' hover-hint='Edit the format of the counters in game!' align='Center' on-click='LoadMenu2'>
-      <vertical spacing='1' vertical-fit='PreferredSize' horizontal-fit='PreferredSize' pref-width='100'>
-        <horizontal>
-          <button text='Go Back' align='Left' click-event='back'/>
-        </horizontal>
-        <dropdown-list-setting text='Choose Counter' apply-on-change='true' value='Counter' options='CounterNames' hover-hint='A player to compare against while playing'/>
-        <dropdown-list-setting id='ChooseFormat' text='Choose Format' apply-on-change='true' value='FormatName' options='FormatNames' hover-hint='A player to compare against while playing'/>
-        <settings-submenu text='Edit this Format' align='Center' on-click='ParseCurrentFormat'>
-          <vertical spacing='1' anchor-pos-x='0'>
-            <horizontal>
-              <button text='Go Back' align='Left' click-event='back'/>
-              <button id='TheSaveButton' text='Save' align='Center' on-click='SaveFormatToConfig'/>
-              <button text='Update Preview' align='Right' on-click='ForceUpdatePreviewDisplay'/>
-            </horizontal>
-            <custom-list id='FormatEditor' contents='FormatChunks' show-scrollbar='true' pref-width='100' pref-height='60' cell-size='30' select-cell='SelectedCell' clickable-cells='true'>
-              <vertical bg='round-rect-panel' bg-color='#CCC' horizontal-fit='Unconstrained' pad='2'>
-                <dropdown-list-setting text='Choose Type' apply-on-change='true' value='ChunkStr' options='TypesOfChunks' hover-hint='The types of chunks'/>
-                <string-setting id='TextComp' text='~TextCompLabel' apply-on-change='true' value='Text' formatter='Centerer' active='~ShowTextComp'/>
-                <string-setting id='Text2Comp' text='Enter Value' apply-on-change='true' value='Text2' formatter='Centerer' active='~ShowText2Comp'/>
-                <increment-setting id='Incrementer' text='~IncrementText' value='IncrementVal' integer-only='true' min='1' max='50' increment='1' apply-on-change='true' active='~ShowIncrement'/>
-                <horizontal id='ChoiceContainer' active='~ShowChoice'>
-                  <dropdown-list-setting id='Choicer' text='~ChoiceText' apply-on-change='true' value='Text' options='ChoiceOptions'/>
-                </horizontal>
-                <horizontal>
-                  <page-button  align='Left' on-click='MoveChunkUp' direction='Up' scale='0.5'/>
-                  <button text='Remove Chunk' align='Center' face-color='#FF0000' on-click='RemoveChunk'/>
-                  <page-button align='Right' on-click='MoveChunkDown' direction='Down' scale='0.5'/>
-                </horizontal>
-              </vertical>
-            </custom-list>
-            <horizontal>
-              <button text='Scroll Fully Up' align='Left' on-click='ScrollToTop'/>
-              <button text='Add New Chunk' align='Center' on-click='AddDefaultChunk'/>
-              <button text='Scroll Fully Down' align='Right' on-click='ScrollToBottom'/>
-            </horizontal>
-          </vertical>
-          <vertical anchor-pos-x='120' vertical-fit='PreferredSize' horizontal-fit='PreferredSize' pref-width='100' bg='round-rect-panel' bg-color='#CCC'>
-            <text id='RawPreviewDisplay' rich-text='true' text='' align='Center' word-wrapping='true'/>
-            <text id='PreviewDisplay' rich-text='true' text='' align='Center'/>
-            <text id='SaveMessage' rich-text='true' align='Center'/>
-          </vertical>
-          <vertical anchor-pos-x='-225' vertical-fit='PreferredSize' horizontal-fit='PreferredSize' pref-width='200' bg='round-rect-panel' bg-color='#CCC'>
-            <text id='AliasTable' text='No Table Loaded!' align='Left' word-wrapping='true' rich-text='true'/>
-          </vertical>
-        </settings-submenu>
-        <settings-submenu text='Edit Values' align='Center' on-click='ParseValues'>
-          <vertical anchor-pos-x='0' spacing='1'>
-            <horizontal>
-              <button text='Go Back' align='Left' click-event='back'/>
-            </horizontal>
-            <custom-list id='ValueEditor' contents='FormatValues' show-scrollbar='true' pref-width='100' cell-size='8'>
-              <vertical horizontal-fit='Unconstrained'>
-                <checkbox-setting id='Toggle' text='~ValueName' apply-on-change='true' value='GivenValueBool' active='~ShowToggle'/>
-                <string-setting id='TextBox' text='~ValueName' apply-on-change='true' value='GivenValueString' formatter='Formatterer' active='~ShowTextBox'/>
-                <increment-setting id='Increment' text='~ValueName' apply-on-change='true' value='GivenValueNumber' formatter='Formatterer' integer-only='~IsInteger' min='~MinVal' max='~MaxVal' increment='~IncrementVal' active='~ShowIncrement'/>
-              </vertical>
-            </custom-list>
-          </vertical>
-          <vertical anchor-pos-x='120' vertical-fit='PreferredSize' pref-width='100' bg='round-rect-panel' bg-color='#CCC'>
-            <text id='ValuePreviewDisplay' rich-text='true' align='Center'/>
-          </vertical>
-        </settings-submenu>
-        <text id='RawFormatText' rich-text='true' word-wrapping='true'/>
-        <text id='FormattedText' align='Center'/>
-      </vertical>
-    </settings-submenu>
+    <settings-submenu id='FormatContainer' text='Edit Format Settings' hover-hint='Edit the format of the counters in game!' align='Center' on-click='LoadFormatMenu'/>
+    <settings-submenu id='ColorContainer' text='Edit Format Colors' align='Center' on-click='LoadColorMenu'/>
   </vertical>
 </scrollable-settings-container>

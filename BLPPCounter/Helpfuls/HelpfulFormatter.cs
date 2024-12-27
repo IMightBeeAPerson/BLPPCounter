@@ -116,13 +116,25 @@ namespace BLPPCounter.Helpfuls
                 Plugin.Log.Debug("No alias converter given! Thankfully, there are no aliases present so there will not be an error.");
             for (int i = 0; i < format.Length; i++)//[p$ ]&[[c&x]&]<1 / [o$ ]&[[f&y]&] >&l<2\n&m[t\n$]>
             {
-                if (!IsSpecialChar(format[i]) || (format[i] == ESCAPE_CHAR && (IsSpecialChar(format[i + 1]) || format[i + 1] == PARAM_OPEN)))
+                if (Regex.Match(format.Substring(i), "^<(?:(?<Key>[^=]+)=[^>]+>(?=.*?<\\/\\k<Key>>)|\\/[^>]+>)", RegexOptions.Singleline) is Match m && m.Success)
+                {
+                    if (capture)
+                        captureStr += format.Substring(i, m.Length);
+                    else
+                        formatted += format.Substring(i, m.Length);
+                    i += m.Length - 1;
+                    Plugin.Log.Info("Formatted: " + formatted + " || i = " + i);
+                    continue;
+                }
+                if (!IsSpecialChar(format[i]) ||
+                    (format[i] == ESCAPE_CHAR && (IsSpecialChar(format[i + 1]) || format[i + 1] == PARAM_OPEN)))
                 {
                     if (format[i] == ESCAPE_CHAR) i++;
                     if (capture)
-                    { captureStr += format[i]; continue; }
+                        captureStr += format[i];
                     else
-                    { formatted += format[i]; continue; }
+                        formatted += format[i];
+                    continue;
                 }
                 if (format[i] == RICH_SHORT)
                 {
@@ -135,8 +147,24 @@ namespace BLPPCounter.Helpfuls
                 {
                     string bracket = "";
                     char symbol = format[++i];
-                    if (!char.IsLetter(symbol)) 
-                        throw new FormatException($"Invalid group format, must define what letter group corresponds to.\nSyntax: {GROUP_OPEN}<letter> ... {GROUP_CLOSE}");
+                    if (!char.IsLetter(symbol) || symbol == RICH_SHORT)
+                    {
+                        bool isRich = symbol == RICH_SHORT, badFormat = false;
+                        if (isRich || symbol == '<')
+                        {
+                            if (isRich) bracket += ReplaceShorthand(format, richVal, i, out i, out richVal);
+                            else
+                                if (char.IsLetter(format[i + 1]))
+                                {
+                                    while (format[i] != '>') bracket += format[i++];
+                                    bracket += format[i++]; //grabs closing bracket
+                                    Plugin.Log.Info("Formatted: " + bracket + " || i = " + i);
+                            }
+                            else badFormat = true;
+                        }
+                        else badFormat = true;
+                        if (badFormat) throw new FormatException($"Invalid group format, must define what letter group corresponds to.\nSyntax: {GROUP_OPEN}<letter> ... {GROUP_CLOSE}");
+                    }
                     if (i + 1 < format.Length && format[i + 1] == PARAM_OPEN)
                     {
                         var vals = HandleExtraParams(format, i, sortIndex, out i);
@@ -318,6 +346,7 @@ namespace BLPPCounter.Helpfuls
             {
                 errorStr = "Formatting failed! " + e.Message;
                 errorStr += "\nFormatting: " + ToLiteral(format).Replace("\\'", "'");
+                Plugin.Log.Error(errorStr);
                 //throw new FormatException(errorStr);
                 return null;
             }
@@ -366,7 +395,7 @@ namespace BLPPCounter.Helpfuls
                             {
                                 string toTry = null;
                                 char temp = toParse[++j];
-                                while (toTry == null) tokensCopy2.TryGetValue((temp, ++priorityCount + FORMAT_SPLIT), out toTry);
+                                while (!tokensCopy2.TryGetValue((temp, ++priorityCount + FORMAT_SPLIT), out toTry));
                                 newVal += toTry;
                             }
                             else newVal += toParse[j];
@@ -445,13 +474,14 @@ namespace BLPPCounter.Helpfuls
         }
         public static void SurroundText(Dictionary<(char, int), string> tokens, char c, string preText, string postText) 
         {
-            List<(char, int, string)> toModify = new List<(char, int, string)>();
-            foreach (var item in tokens.Keys) if (item.Item1 == c) toModify.Add((c, item.Item2, preText + tokens[item] + postText));
-            foreach (var item in toModify) tokens[(item.Item1, item.Item2)] = item.Item3;
+            IEnumerable<int> keys = new List<int>(tokens.Keys.Where(val => val.Item1 == c).Select(val => val.Item2)); 
+            //The lengths I have to to avoid cocerrent modification exceptions :(
+            foreach (var item in keys)
+                tokens[(c, item)] = preText + tokens[(c, item)] + postText;
         }
         public static bool IsReferenceChar(string s) => s.Length == 1 && char.IsLetter(s[0]) && !IsSpecialChar(s[0]);
         public static bool IsSpecialChar(char c) => SPECIAL_CHARS.Contains(c);
-        public static string NumberToColor(float num) => num > 0 ? "<color=\"green\">" : num == 0 ? "<color=\"yellow\">" : "<color=\"red\">";
+        public static string NumberToColor(float num) => num > 0 ? "<color=green>" : num == 0 ? "<color=yellow>" : "<color=red>";
         public static string EscapeNeededChars(string str)
         {
             string outp = "";

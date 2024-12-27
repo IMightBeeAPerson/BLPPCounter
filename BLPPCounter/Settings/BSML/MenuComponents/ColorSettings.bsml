@@ -1,0 +1,12 @@
+<vertical spacing='1'>
+    <horizontal>
+        <button text='Go Back' align='Left' click-event='back'/>
+        <button id='ColorSaveButton' text='Save' align='Right' on-click='SaveColors' interactable='false'/>
+    </horizontal>
+    <custom-list id='ColorEditor' contents='ColorValues' show-scrollbar='true' pref-width='100' cell-size='15'>
+        <vertical spacing='0'>
+        <color-setting id='ColorBox' text='~ColorName' apply-on-change='true' value='ColorValue'/>
+        <slider-setting text='Alpha Value' apply-on-change='true' value='AlphaValue' integer-only='true' min='0' max='255' increment='1'/>
+        </vertical>
+    </custom-list>
+</vertical>

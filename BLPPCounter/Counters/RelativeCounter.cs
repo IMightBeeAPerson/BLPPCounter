@@ -56,7 +56,7 @@ namespace BLPPCounter.Counters
                 { "Mistakes", "The amount of mistakes made in the map. This includes bomb and wall hits" },
                 { "Target", "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" }
             }, str => { var hold = GetTheFormat(str, out string errorStr, false); return (hold, errorStr); },
-            new Dictionary<char, object>()
+            new Dictionary<char, object>(13)
             {
                 {(char)1, true },
                 {(char)2, true },
@@ -78,30 +78,28 @@ namespace BLPPCounter.Counters
                 {'f', 0 },
                 {'y', 1 },
                 {'a', 2 },
-                {'l', 3 },
-                {'t', 4 }
-            }, new Func<object, bool, string>[5] 
+                {'t', 3 }
+            }, new Func<object, bool, object>[4] 
             { 
-                FormatRelation.CreateFunc<string>("<color=\"{0}\">{0}", "<color=\"{0}\">"),
+                FormatRelation.CreateFunc("<color={0}>{0}", "<color={0}>"),
                 FormatRelation.CreateFunc<float>(
-                    outp => $"<color=\"{(outp > 0 ? "green" : "red")}\">" + outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT),
+                    outp => $"<color={(outp > 0 ? "green" : "red")}>" + outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT),
                     outp => outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT)),
-                FormatRelation.CreateFunc<float>("{0}%"),
-                FormatRelation.CreateFunc<string>(" {0}"),
-                FormatRelation.CreateFunc<string>("Targeting <color=\"red\">{0}</color>")
+                FormatRelation.CreateFunc("{0}%"),
+                FormatRelation.CreateFunc("Targeting <color=red>{0}</color>")
             },
-            new Dictionary<char, IEnumerable<(string, object)>>()
+            new Dictionary<char, IEnumerable<(string, object)>>(6)
             { //default values: IsInteger = false, MinVal = -1.0f, MaxVal = -1.0f, IncrementVal = -1.0f
                 { 'd', new List<(string, object)>(3) { ("MinVal", 0), ("MaxVal", 50), ("IncrementVal", 1.5f), } },
                 { 'x', new List<(string, object)>(3) { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 10), } },
                 { 'p', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } },
                 { 'y', new List<(string, object)>(3) { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 10), } },
                 { 'o', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } },
-                { 'a', new List<(string, object)>(3) { ("MinVal", 10), ("MaxVal", 100), ("IncrementVal", 0.5f), } },
-            }, new List<(char, string)>()
+                { 'a', new List<(string, object)>(3) { ("MinVal", 10), ("MaxVal", 100), ("IncrementVal", 0.5f), } }
+            }, new List<(char, string)>(2)
             {
-                ((char)1, "Has a full combo"),
-                ((char)2, "Is bottom of text"),
+                ((char)1, "Has a miss"),
+                ((char)2, "Is bottom of text")
             }
             );
 
