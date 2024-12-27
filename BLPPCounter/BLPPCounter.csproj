@@ -173,13 +173,19 @@
     <Compile Include="Settings\Configs\PluginConfig.cs" />
     <Compile Include="Settings\Configs\TextFormatSettings.cs" />
     <Compile Include="Settings\Configs\TokenFormatSettings.cs" />
+    <Compile Include="Settings\SettingHandlers\MenuViews\ColorSettingsHandler.cs" />
+    <Compile Include="Settings\SettingHandlers\MenuViews\FormatEditorHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuSettingsHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\SettingsHandler.cs" />
+    <Compile Include="Settings\SettingHandlers\MenuViews\SettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\SimpleSettingsHandler.cs" />
+    <Compile Include="Settings\SettingHandlers\MenuViews\SimpleMenuSettingsHandler.cs" />
     <Compile Include="Utils\ColorMatch.cs" />
     <Compile Include="Utils\CustomAlias.cs" />
     <Compile Include="Utils\CustomTarget.cs" />
+    <Compile Include="Utils\List Settings\ColorListInfo.cs" />
     <Compile Include="Utils\List Settings\FormatListInfo.cs" />
+    <Compile Include="Utils\List Settings\FormatRelation.cs" />
+    <Compile Include="Utils\List Settings\ValueListInfo.cs" />
     <Compile Include="Utils\Map.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="BLPPCounterController.cs" />
@@ -204,6 +210,9 @@
     <EmbeddedResource Include="Settings\BSML\Settings.bsml" />
     <EmbeddedResource Include="Settings\BSML\MainMenuSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\SimpleMenuSettings.bsml" />
+    <EmbeddedResource Include="Settings\BSML\MenuComponents\SimpleSettings.bsml" />
+    <EmbeddedResource Include="Settings\BSML\MenuComponents\MenuFormatSettings.bsml" />
+    <EmbeddedResource Include="Settings\BSML\MenuComponents\ColorSettings.bsml" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BeatSaberModdingTools.Tasks">
@@ -212,5 +221,6 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

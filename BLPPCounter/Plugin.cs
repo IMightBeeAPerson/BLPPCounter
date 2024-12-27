@@ -13,6 +13,10 @@ using BeatSaberMarkupLanguage;
 using System.ComponentModel;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Reflection;
+using System.Linq;
+using System.Drawing;
+using System.Collections.Generic;
 
 namespace BLPPCounter
 {
@@ -49,7 +53,7 @@ namespace BLPPCounter
             //new PlaylistLoader();
             /*ClanCounter.FormatTheFormat();
             var test = ClanCounter.displayClan;
-            Log.Info(test.Invoke(true, () => "<color=\"yellow\">", "0", 1900.00f, () => "<color=\"green\">", "+314.15", 768.69f, "PP"));//*/
+            Log.Info(test.Invoke(true, () => "<color=yellow>", "0", 1900.00f, () => "<color=green>", "+314.15", 768.69f, "PP"));//*/
         }
 
 

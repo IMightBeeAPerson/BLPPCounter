@@ -6,6 +6,12 @@ using System.IO;
 using System.Text.RegularExpressions;
 using static GameplayModifiers;
 using System.Drawing;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using BeatSaberMarkupLanguage.Parser;
+using BeatSaberMarkupLanguage.ViewControllers;
+using BeatSaberMarkupLanguage;
 namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
@@ -97,7 +103,30 @@ namespace BLPPCounter.Helpfuls
                 if (count == 1 && toConvert < 0) { toConvert *= -1; toConvert |= 1 << 30; } //manually shift signed bit over bc unsigned shifting isn't allowed in this version 0.0
             }
         }
-        public static string ConvertColorToHex(Color c) => $"#{(int)c.R:X2}{(int)c.G:X2}{(int)c.B:X2}{(int)c.A:X2}";
+        public static string ConvertColorToHex(Color c) => $"#{ToRgba(c):X8}";
         public static string ConvertColorToMarkup(Color c) => $"<color={ConvertColorToHex(c)}>";
+        public static K GetKeyFromDictionary<K, V>(Dictionary<K, V> dict, V val) => 
+            dict.ContainsValue(val) ? dict.First(kvp => kvp.Value.Equals(val)).Key : default;
+        public static string GetKeyFromDictionary<V>(Dictionary<string, V> dict, V val) =>
+            GetKeyFromDictionary<string, V>(dict, val) ?? val.ToString();
+        public static PropertyInfo[] GetAllPropertiesUsingAttribute(Type theClass, Type theAttribute, BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public) =>
+            theClass.GetProperties(bindingFlags).Where(p => Attribute.IsDefined(p, theAttribute)).ToArray();
+        public static FieldInfo[] GetAllFieldsUsingAttribute(Type theClass, Type theAttribute, BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public) =>
+            theClass.GetFields(bindingFlags).Where(p => Attribute.IsDefined(p, theAttribute)).ToArray();
+        public static MemberInfo[] GetAllVariablesUsingAttribute(Type theClass, Type theAttribute, BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public) =>
+            GetAllPropertiesUsingAttribute(theClass, theAttribute, bindingFlags).Cast<MemberInfo>()
+            .Union(GetAllFieldsUsingAttribute(theClass, theAttribute, bindingFlags)).ToArray();
+        public static bool IsNumber(Type t)
+        {
+            TypeCode tc = Type.GetTypeCode(t);
+            return tc > TypeCode.Char && tc < TypeCode.DateTime;
+        }
+        public static bool IsNumber(object o) => IsNumber(o.GetType());
+        public static string SplitByUppercase(string s) => Regex.Replace(s, "(?!^)[A-Z][^A-Z]*", " $&");
+        public static int ArgbToRgba(int argb) => (argb << 8) + (int)((uint)argb >> 24); //can't use triple shift syntax, so best I can do is casting :(
+        public static int RgbaToArgb(int rgba) => (int)((uint)rgba >> 8) + (rgba << 24);
+        public static int ToRgba(Color c) => ArgbToRgba(c.ToArgb());
+        public static BSMLParserParams AddToComponent(BSMLResourceViewController brvc, UnityEngine.GameObject container) =>
+            BSMLParser.Instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc);
     }
 }

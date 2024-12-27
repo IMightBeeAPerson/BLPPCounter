@@ -41,7 +41,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             List<object> outp = new List<object>();
             MatchCollection mc = Regex.Matches(Utilities.GetResourceContent(System.Reflection.Assembly.GetExecutingAssembly(), resource), regex, RegexOptions.Multiline);
             bool loadData = PluginConfig.Instance.SimpleMenuConfigLength == mc.Count;
-            if (loadData) MenuSettingsHandler.Instance.LoadMenu();
+            if (loadData) SimpleMenuSettingsHandler.Instance.LoadMenu();
             foreach (Match match in mc)
             {
                 string type = match.Groups[1].Value;
@@ -52,7 +52,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                     string[] splitVals = match2.Value.Replace("\"", "").Replace("'", "").Split('=');
                     values.Add(splitVals[0], splitVals[1]);
                 }
-                if (loadData && !MenuSettingsHandler.Instance.UISettings.Any(a => a is SettingToggleInfo sti && sti.Usable && sti.Text.Equals(values["text"])))
+                if (loadData && !SimpleMenuSettingsHandler.Instance.UISettings.Any(a => a is SettingToggleInfo sti && sti.Usable && sti.Text.Equals(values["text"])))
                     continue;
                 SimpleMenuInfo toAdd = null;
                 if (UsableSetting(type))

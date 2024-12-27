@@ -6,6 +6,8 @@ using IPA.Config.Stores.Converters;
 using BLPPCounter.Utils;
 //using UnityEngine;
 using System.Drawing;
+using System.Reflection;
+using System.Linq;
 
 [assembly: InternalsVisibleTo(GeneratedStore.AssemblyVisibilityTarget)]
 namespace BLPPCounter.Settings.Configs
@@ -76,8 +78,15 @@ namespace BLPPCounter.Settings.Configs
         [UseConverter(typeof(SystemColorConverter))] public virtual Color CaptureIdColor { get; set; } = Color.LightBlue;
         [UseConverter(typeof(SystemColorConverter))] public virtual Color GroupColor { get; set; } = Color.FromArgb(27, 40, 224); //#1b28e0
         [UseConverter(typeof(SystemColorConverter))] public virtual Color GroupReplaceColor { get; set; } = Color.FromArgb(255, 75, 43); //#ff4b2b
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color ShorthandColor { get; set; } = Color.DarkMagenta; //#ff4b2b
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color HighlightColor { get; set; } = Color.FromArgb(136, 255, 255, 0); //#ff4b2b
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color ShorthandColor { get; set; } = Color.DarkMagenta;
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color HighlightColor { get; set; } = Color.FromArgb(119, 255, 255, 0); //#77ffff00
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color SecondHighlightColor { get; set; } = Color.FromArgb(119, 18, 252, 255); //#7712fcff
+        [Ignore] private readonly Dictionary<string, PropertyInfo> Colors = new Dictionary<string, PropertyInfo>(
+            typeof(PluginConfig).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.PropertyType.Equals(typeof(Color)))
+                .Select(p => new KeyValuePair<string, PropertyInfo>(p.Name.Substring(0, p.Name.Length - 5), p)));
+        public Color GetColorFromName(string name) => (Color)Colors[name].GetValue(this);
+        [Ignore] public IEnumerable<PropertyInfo> ColorInfos => Colors.Values;
         #endregion
         #endregion
         #endregion

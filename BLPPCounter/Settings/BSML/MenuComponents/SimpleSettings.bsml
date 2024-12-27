@@ -1,0 +1,16 @@
+<vertical spacing='1'>
+  <horizontal>
+    <button text='Go Back' align='Left' click-event='back'/>
+    <button id='SaveButton' text='Save' align='Right' on-click='SaveChanges'/>
+  </horizontal>
+  <custom-list id='UICustomizer' contents='UISettings' show-scrollbar='true' cell-size='20' pref-width='100'>
+    <vertical spacing='0' bg='round-rect-panel' bg-color='#CCC' horizontal-fit='Unconstrained' pad='2'>
+      <horizontal>
+        <text text='~Text' align='Left'/>
+        <text text='Enabled' align='Right'/>
+      </horizontal>
+      <checkbox-setting text='~Description' apply-on-change='true' value='Usable'/>
+      <text text='~Type' rich-text='true' align='Center'/>
+    </vertical>
+  </custom-list>
+</vertical>
