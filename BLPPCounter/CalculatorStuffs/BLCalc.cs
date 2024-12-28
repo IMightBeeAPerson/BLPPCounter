@@ -49,10 +49,8 @@ namespace BLPPCounter.CalculatorStuffs
         public static (float, float, float) GetPp(float accuracy, float accRating, float passRating, float techRating)
         {
             float passPP = 15.2f * (float)Math.Exp(Math.Pow(passRating, 1 / 2.62f)) - 30f;
-            if (float.IsNaN(accuracy) || float.IsNegativeInfinity(accuracy))
+            if (float.IsNaN(accuracy))
                 accuracy = 0;
-            if (float.IsInfinity(accuracy))
-                accuracy = 1;
             accuracy = (float)Math.Max(0,Math.Min(1,accuracy));
             if (float.IsInfinity(passPP) || float.IsNaN(passPP) || float.IsNegativeInfinity(passPP) || passPP < 0)
             {
