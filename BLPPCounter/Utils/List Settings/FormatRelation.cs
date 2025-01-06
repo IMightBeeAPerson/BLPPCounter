@@ -14,9 +14,10 @@ namespace BLPPCounter.Utils.List_Settings
         public readonly string CounterName;
         public string Format { get => _Format; set { _Format = value; FormatSetter.Invoke(value); } }
         private string _Format;
+        private readonly Dictionary<char, ValueListInfo.ValueType> ValTypes;
         private readonly Action<string> FormatSetter;
         internal readonly Dictionary<string, char> Alias;
-        internal readonly Dictionary<string, string> Descriptions;
+        internal readonly Dictionary<char, string> Descriptions;
         private readonly Func<char, int> ParamAmounts;
         private readonly Func<string, (Func<Func<Dictionary<char, object>, string>>, string)> GetFormat;
         internal readonly Dictionary<char, object> TestValues;
@@ -26,13 +27,15 @@ namespace BLPPCounter.Utils.List_Settings
         private readonly Dictionary<char, string> TokenToName;
         public (string, string) GetKey => (Name, CounterName);
         public string GetName(char token) => TokenToName.TryGetValue(token, out string name) ? name : null;
+        public ValueListInfo.ValueType GetValueType(char token) =>
+            (ValTypes?.TryGetValue(token, out var outp) ?? false) ? outp : ValueListInfo.ValueType.Inferred;
         public int GetParamAmount(char token) => ParamAmounts(token);
 
         internal FormatRelation(string name, string counterName, string format, Action<string> formatSetter, Dictionary<string, char> alias,
-            Dictionary<string, string> descriptions, Func<string, (Func<Func<Dictionary<char, object>, string>>, string)> getFormat,
+            Dictionary<char, string> descriptions, Func<string, (Func<Func<Dictionary<char, object>, string>>, string)> getFormat,
             Dictionary<char, object> testValues, Func<char, int> paramAmounts, Dictionary<char, int> testValueFormatIndex,
             Func<object, bool, object>[] testValueFormats, Dictionary<char, IEnumerable<(string, object)>> testValueParams,
-            IEnumerable<KeyValuePair<char, string>> extraNames = null)
+            IEnumerable<KeyValuePair<char, string>> extraNames = null, IEnumerable<KeyValuePair<char, ValueListInfo.ValueType>> valTypes = null)
         {
             Name = name;
             CounterName = counterName;
@@ -46,17 +49,19 @@ namespace BLPPCounter.Utils.List_Settings
             TestValueFormatIndex = testValueFormatIndex;
             TestValueFormats = testValueFormats;
             TestValueParams = testValueParams;
+            if (valTypes != null) ValTypes = new Dictionary<char, ValueListInfo.ValueType>(valTypes);
             var hold = alias.Select(kvp => new KeyValuePair<char, string>(kvp.Value, kvp.Key));
             if (extraNames != null) hold = hold.Union(extraNames);
             TokenToName = new Dictionary<char, string>(hold);
         }
         internal FormatRelation(string name, string counterName, string format, Action<string> formatSetter, Dictionary<string, char> alias,
-            Dictionary<string, string> descriptions, Func<string, (Func<Func<Dictionary<char, object>, string>>, string)> getFormat,
+            Dictionary<char, string> descriptions, Func<string, (Func<Func<Dictionary<char, object>, string>>, string)> getFormat,
             Dictionary<char, object> testValues, Func<char, int> paramAmounts, Dictionary<char, int> testValueFormatIndex,
             Func<object, bool, object>[] testValueFormats, Dictionary<char, IEnumerable<(string, object)>> testValueParams,
-            IEnumerable<(char, string)> extraNames) :
+            IEnumerable<(char, string)> extraNames, IEnumerable<(char, ValueListInfo.ValueType)> valTypes = null) :
             this(name, counterName, format, formatSetter, alias, descriptions, getFormat, testValues, paramAmounts, testValueFormatIndex, testValueFormats,
-                testValueParams, extraNames.Select(a => new KeyValuePair<char, string>(a.Item1, a.Item2)))
+                testValueParams, extraNames?.Select(a => new KeyValuePair<char, string>(a.Item1, a.Item2)), 
+                valTypes?.Select(a => new KeyValuePair<char, ValueListInfo.ValueType>(a.Item1, a.Item2)))
         { }
         private string GetQuickFormat(string rawFormat, bool useFormatsOnTestVals, Dictionary<char, object> givenTestVals = null)
         {

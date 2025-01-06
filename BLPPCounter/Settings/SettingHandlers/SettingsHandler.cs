@@ -9,15 +9,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using TMPro;
-using UnityEngine;
-using BeatSaberMarkupLanguage.Components;
-using BeatSaberMarkupLanguage.Parser;
-using BeatSaberMarkupLanguage.Settings;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
-using System.Text.RegularExpressions;
-using BeatSaberMarkupLanguage;
-using static BLPPCounter.Utils.SimpleMenuInfo;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {

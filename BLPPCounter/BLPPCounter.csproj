@@ -174,14 +174,16 @@
     <Compile Include="Settings\Configs\TextFormatSettings.cs" />
     <Compile Include="Settings\Configs\TokenFormatSettings.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\ColorSettingsHandler.cs" />
+    <Compile Include="Settings\SettingHandlers\MenuViews\CustomAliasHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\FormatEditorHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\MenuSettingsHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\MenuViews\SettingsHandler.cs" />
+    <Compile Include="Settings\SettingHandlers\MenuViews\MenuSettingsHandler.cs" />
+    <Compile Include="Settings\SettingHandlers\SettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\SimpleSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\SimpleMenuSettingsHandler.cs" />
     <Compile Include="Utils\ColorMatch.cs" />
     <Compile Include="Utils\CustomAlias.cs" />
     <Compile Include="Utils\CustomTarget.cs" />
+    <Compile Include="Utils\List Settings\AliasListInfo.cs" />
     <Compile Include="Utils\List Settings\ColorListInfo.cs" />
     <Compile Include="Utils\List Settings\FormatListInfo.cs" />
     <Compile Include="Utils\List Settings\FormatRelation.cs" />
@@ -213,6 +215,7 @@
     <EmbeddedResource Include="Settings\BSML\MenuComponents\SimpleSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\MenuComponents\MenuFormatSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\MenuComponents\ColorSettings.bsml" />
+    <EmbeddedResource Include="Settings\BSML\MenuComponents\AliasSettings.bsml" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BeatSaberModdingTools.Tasks">

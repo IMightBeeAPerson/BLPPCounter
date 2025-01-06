@@ -65,6 +65,7 @@ namespace BLPPCounter.Settings.Configs
         #endregion
         #region Format Settings
         public virtual bool UpdatePreview { get; set; } = true;
+        public virtual bool AutoUpdateRefs { get; set; } = true;
 
         #region Colors
         [UseConverter(typeof(SystemColorConverter))] public virtual Color EscapeCharacterColor { get; set; } = Color.FromArgb(235, 33, 235); //#eb21eb

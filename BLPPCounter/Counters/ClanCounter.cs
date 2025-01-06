@@ -61,18 +61,18 @@ namespace BLPPCounter.Counters
         };
         internal static readonly FormatRelation ClanFormatRelation = new FormatRelation("Main Format", DisplayName,
             pc.FormatSettings.ClanTextFormat, str => pc.FormatSettings.ClanTextFormat = str, FormatAlias,
-            new Dictionary<string, string>()
+            new Dictionary<char, string>()
             {
-                { "PP", "The unmodified PP number" },
-                { "PP Difference", "The modified PP number (plus/minus value)" },
-                { "Color", "Must use as a group value, and will color everything inside group" },
-                { "FCPP", "The unmodified PP number if the map was FC'ed" },
-                { "FCPP Difference", "The modified PP number if the map was FC'ed" },
-                { "FC Color", "Must use as a group value, and will color everything inside group" },
-                { "Label", "The label (ex: PP, Tech PP, etc)" },
-                { "Mistakes", "The amount of mistakes made in the map. This includes bomb and wall hits" },
-                { "Target", "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" },
-                { "Message", "This shows either the clan message or percent needed message depending on user settings. The idea of this message is to show what percent is needed to capture the map." }
+                { 'p', "The unmodified PP number" },
+                { 'x', "The modified PP number (plus/minus value)" },
+                { 'c', "Must use as a group value, and will color everything inside group" },
+                { 'o', "The unmodified PP number if the map was FC'ed" },
+                { 'y', "The modified PP number if the map was FC'ed" },
+                { 'f', "Must use as a group value, and will color everything inside group" },
+                { 'l', "The label (ex: PP, Tech PP, etc)" },
+                { 'e', "The amount of mistakes made in the map. This includes bomb and wall hits" },
+                { 't', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" },
+                { 'm', "This shows either the clan message or percent needed message depending on user settings. The idea of this message is to show what percent is needed to capture the map." }
             }, str => { var hold = GetFormatClan(str, out string errorStr, false); return (hold, errorStr); },
             new Dictionary<char, object>()
             {
@@ -106,12 +106,12 @@ namespace BLPPCounter.Counters
                 FormatRelation.CreateFuncWithWrapper("{0}%", "Get {0}% for ___ PP!")
             }, new Dictionary<char, IEnumerable<(string, object)>>(5)
             {
-                { 'p', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
-                { 'o', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
-                { 'x', new List<(string, object)>(3) { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
-                { 'y', new List<(string, object)>(3) { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
-                { 'm', new List<(string, object)>(3) { ("MinVal", 10), ("MaxVal", 100), ("IncrementVal", 1) } }
-            }, new List<(char, string)>(2)
+                { 'p', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
+                { 'o', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
+                { 'x', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
+                { 'y', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
+                { 'm', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 100), ("IncrementVal", 1) } }
+            }, new (char, string)[2]
             {
                 ((char)1, "Has a miss"),
                 ((char)2, "Is bottom of text")
@@ -119,17 +119,17 @@ namespace BLPPCounter.Counters
             );
         internal static readonly FormatRelation WeightedFormatRelation = new FormatRelation("Weighted Format", DisplayName,
             pc.FormatSettings.WeightedTextFormat, str => pc.FormatSettings.WeightedTextFormat = str, WeightedFormatAlias,
-            new Dictionary<string, string>()
+            new Dictionary<char, string>()
             {
-                { "Mistakes", "The amount of mistakes made in the map. This includes bomb and wall hits" },
-                { "Rank Color", "The color based off of what rank you are out of your clan, must be used inside of a group and will color everything in the group" },
-                { "Rank", "The rank you are in the clan at that current moment" },
-                { "PP Difference", "The modified PP number if the map was FC'ed" },
-                { "PP", "The unmodified PP number" },
-                { "Label", "The label (ex: PP, Tech PP, etc)" },
-                { "FCPP Difference", "The modified PP number if the map was FC'ed" },
-                { "FCPP", "The unmodified PP number if the map was FC'ed" },
-                { "Message", "This will show a message if the counter is used on a map that isn't perfectly ideal for the weighted counter or that the weighted counter can't be used on. The message will say the reason for why this isn't ideal" }
+                { 'e', "The amount of mistakes made in the map. This includes bomb and wall hits" },
+                { 'c', "The color based off of what rank you are out of your clan, must be used inside of a group and will color everything in the group" },
+                { 'r', "The rank you are in the clan at that current moment" },
+                { 'x', "The modified PP number if the map was FC'ed" },
+                { 'p', "The unmodified PP number" },
+                { 'l', "The label (ex: PP, Tech PP, etc)" },
+                { 'y', "The modified PP number if the map was FC'ed" },
+                { 'o', "The unmodified PP number if the map was FC'ed" },
+                { 'm', "This will show a message if the counter is used on a map that isn't perfectly ideal for the weighted counter or that the weighted counter can't be used on. The message will say the reason for why this isn't ideal" }
             }, str => { var hold = GetFormatWeighted(str, out string errorStr, false); return (hold, errorStr); },
             new Dictionary<char, object>(12)
             {
@@ -161,13 +161,13 @@ namespace BLPPCounter.Counters
                     outp => outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT))
             }, new Dictionary<char, IEnumerable<(string, object)>>(5)
             {
-                { 'c', new List<(string, object)>(3) { ("IsInteger", true), ("MinVal", 1), ("MaxVal", 100), ("IncrementVal", 1) } },
-                { 'r', new List<(string, object)>(3) { ("IsInteger", true), ("MinVal", 1), ("MaxVal", 100), ("IncrementVal", 1) } },
-                { 'p', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
-                { 'o', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
-                { 'x', new List<(string, object)>(3) { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
-                { 'y', new List<(string, object)>(3) { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
-            }, new List<(char, string)>(3)
+                { 'c', new (string, object)[4] { ("IsInteger", true), ("MinVal", 1), ("MaxVal", 100), ("IncrementVal", 1) } },
+                { 'r', new (string, object)[4] { ("IsInteger", true), ("MinVal", 1), ("MaxVal", 100), ("IncrementVal", 1) } },
+                { 'p', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
+                { 'o', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
+                { 'x', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
+                { 'y', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
+            }, new (char, string)[3]
             {
                 ((char)1, "Has a miss"),
                 ((char)2, "Is bottom of text"),
@@ -176,15 +176,15 @@ namespace BLPPCounter.Counters
             );
         internal static readonly FormatRelation MessageFormatRelation = new FormatRelation("Custom Message Format", DisplayName,
             pc.MessageSettings.ClanMessage, str => pc.MessageSettings.ClanMessage = str, MessageFormatAlias,
-            new Dictionary<string, string>()
+            new Dictionary<char, string>()
             {
-                {"Color", "Must use as a group value, and will color everything inside group" },
-                {"Accuracy", "The accuracy needed to capture the map" },
-                {"Tech PP", "The tech PP needed" },
-                {"Acc PP", "The accuracy PP needed" },
-                {"Pass PP", "The pass PP needed" },
-                {"PP", "The total PP number needed to capture the map" },
-                {"Target", "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" }
+                { 'c', "Must use as a group value, and will color everything inside group" },
+                { 'a', "The accuracy needed to capture the map" },
+                { 'x', "The tech PP needed" },
+                { 'y', "The accuracy PP needed" },
+                { 'z', "The pass PP needed" },
+                { 'p', "The total PP number needed to capture the map" },
+                { 't', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" }
             }, str => { var hold = GetFormatCustom(str, out string errorStr, false); return (hold, errorStr); },
             new Dictionary<char, object>(7)
             {
@@ -207,11 +207,11 @@ namespace BLPPCounter.Counters
                 FormatRelation.CreateFunc("Targeting <color=red>{0}</color>", "{0}")
             }, new Dictionary<char, IEnumerable<(string, object)>>(5)
             {
-                { 'a', new List<(string, object)>(3) { ("MinVal", 0), ("MaxVal", 100), ("IncrementVal", 1.5f), } },
-                { 'x', new List<(string, object)>(3) { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
-                { 'y', new List<(string, object)>(3) { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
-                { 'z', new List<(string, object)>(3) { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
-                { 'p', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } }
+                { 'a', new (string, object)[3] { ("MinVal", 0), ("MaxVal", 100), ("IncrementVal", 1.5f), } },
+                { 'x', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
+                { 'y', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
+                { 'z', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
+                { 'p', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } }
             }
             );
         #endregion

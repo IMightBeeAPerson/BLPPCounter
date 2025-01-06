@@ -42,19 +42,19 @@ namespace BLPPCounter.Counters
                 };
         internal static readonly FormatRelation DefaultFormatRelation = new FormatRelation("Main Format", DisplayName,
             pc.FormatSettings.RelativeTextFormat, str => pc.FormatSettings.RelativeTextFormat = str, FormatAlias,
-            new Dictionary<string, string>()
+            new Dictionary<char, string>()
             {
-                { "Acc Difference", "This will show the difference in percentage at the current moment between you and the replay you're comparing against" },
-                { "Accuracy", "This is the accuracy needed to beat your or your target's previous score" },
-                { "PP", "The unmodified PP number" },
-                { "PP Difference", "The modified PP number (plus/minus value)" },
-                { "Color", "Must use as a group value, and will color everything inside group" },
-                { "FCPP", "The unmodified PP number if the map was FC'ed" },
-                { "FCPP Difference", "The modified PP number if the map was FC'ed" },
-                { "FC Color", "Must use as a group value, and will color everything inside group" },
-                { "Label", "The label (ex: PP, Tech PP, etc)" },
-                { "Mistakes", "The amount of mistakes made in the map. This includes bomb and wall hits" },
-                { "Target", "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" }
+                { 'd', "This will show the difference in percentage at the current moment between you and the replay you're comparing against" },
+                { 'c', "This is the accuracy needed to beat your or your target's previous score" },
+                { 'x', "The unmodified PP number" },
+                { 'p', "The modified PP number (plus/minus value)" },
+                { 'l', "Must use as a group value, and will color everything inside group" },
+                { 'f', "The unmodified PP number if the map was FC'ed" },
+                { 'y', "The modified PP number if the map was FC'ed" },
+                { 'o', "Must use as a group value, and will color everything inside group" },
+                { 'a', "The label (ex: PP, Tech PP, etc)" },
+                { 't', "The amount of mistakes made in the map. This includes bomb and wall hits" },
+                { 'e', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" }
             }, str => { var hold = GetTheFormat(str, out string errorStr, false); return (hold, errorStr); },
             new Dictionary<char, object>(13)
             {
@@ -90,13 +90,13 @@ namespace BLPPCounter.Counters
             },
             new Dictionary<char, IEnumerable<(string, object)>>(6)
             { //default values: IsInteger = false, MinVal = -1.0f, MaxVal = -1.0f, IncrementVal = -1.0f
-                { 'd', new List<(string, object)>(3) { ("MinVal", 0), ("MaxVal", 50), ("IncrementVal", 1.5f), } },
-                { 'x', new List<(string, object)>(3) { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 10), } },
-                { 'p', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } },
-                { 'y', new List<(string, object)>(3) { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 10), } },
-                { 'o', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } },
-                { 'a', new List<(string, object)>(3) { ("MinVal", 10), ("MaxVal", 100), ("IncrementVal", 0.5f), } }
-            }, new List<(char, string)>(2)
+                { 'd', new (string, object)[3] { ("MinVal", 0), ("MaxVal", 50), ("IncrementVal", 1.5f), } },
+                { 'x', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 10), } },
+                { 'p', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } },
+                { 'y', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 10), } },
+                { 'o', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } },
+                { 'a', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 100), ("IncrementVal", 0.5f), } }
+            }, new (char, string)[2]
             {
                 ((char)1, "Has a miss"),
                 ((char)2, "Is bottom of text")

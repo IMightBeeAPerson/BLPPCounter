@@ -38,7 +38,7 @@ namespace BLPPCounter
             PluginConfig.Instance = config.Generated<PluginConfig>();
             Instance = this;
             Log = logger;
-        }
+        }// '<" = &#60; '>' = &#62;
         private void AddMenuStuff()
         {
             BSMLSettings.Instance.AddSettingsMenu("BL PP Counter", HelpfulPaths.SETTINGS_BSML, MenuSettingsHandler.Instance);
