@@ -6,8 +6,31 @@ It's a counters+ counter. Mostly self-explainatory, just drag the file into your
 This is a counter for beatleader PP. It has various options for how to do this, from just the standard counter to competing against your own scores or sniping other people's scores. It even has functionality for clan wars, where it can tell you what percent you'd need to get on a map to capture it. It does account for all modifiers, and below is 2 methods on how to completely customize the data shown. There is an in game way and config way, with both being a bit of a mess. The counter works fine if you never want to mess with it.
 
 **Side note:** This is just a project done for fun, and is my first time coding a mod and in general stuff that relies on APIs and other libraries. If you decide to use this, remember that it may not work perfectly. However, feel free to inform me of any bugs you find.
-## Customizing format in game
-TODO
+## In game settings
+### Overview
+Inside of the game, there are a lot of settings that aren't just directly for the counter. If you go to mod settings for this mod, there are a lot of submenus and options, and therefore need a lot of explanations. This will go in order, from top to bottom. Note that the ui works fine in FPFC mode if you would prefer to edit it outside of VR.
+### Simple menu
+This refers to the first checkbox setting and the submenu below it. The checkbox setting will toggle on/off whether in the information from the submenu will be used in the tab setting menu on the song select screen. If it is toggled off, the menu in the song select screen will show almost all options for the counter that can be found in the counters+ menu. If it is toggled on, then within the submenu you can choose which settings to show in the song select menu. That way, if you would like on certain settings to be able to be changed on short notice, you can do so.
+### Format Editor
+This is by far the most complex part of this menu. This is about completely customizing any part of this counter to look however you want. It also is optional, so feel free to skip over this. 
+#### Auto Update Preview
+This checkbox setting will toggle on/off if preview shown should be updated every time a change is made to the format. (This is outside the submenu, but everything else stated is inside the "edit format settings" menu)
+#### Dropdown Choices
+There are 2 dropdown boxes that allow you to find which specific format you want to edit. The first is which counter to edit, and the second one is which format inside this counter to edit (Note that not all counters are shown here because not all counters have editable formats).
+#### Format Displays
+Below the dropdown choices, there are 2 submenus, which will be explained below this. Below the submenus, there are 2 displays, one shown the raw code (color coded for your convenience), while the other showing what the format looks like with some dummy values in it. To understand how the code works, see [This section](#customizing-format-in-config).
+#### Format Editor Menu
+This is the first of 2 submenus, and is where the actual editing of the format takes place. There are six buttons, with all of them saying exactly what they do. There is a list in the middle what breaks up the format into several tokens, with the arrows on each block moving that block up or down. If you want to know where that block is located on the code and format to the right, clicking on it will highlight where it is. If is a group or capture, then it will use the secondary highlight color to highlight what is inside the group/capture. If you look to your left, there is a table showing all the aliases and descriptions for this format. If you have [auto update preview](#auto-update-preview) disabled, then you will need to click the update preview button in the top right to see changes made.
+#### Value Editor Menu
+This is the second submenu, and is used to edit the dummy values used in the format displays. These changes cannot be saved to config or anything, but will persist until you close the game. The save button is needed to be hit for changes to been seen outside of the menu.
+### Color Editor
+This is a simple menu to edit the colors used inside of the format editor. Inside there is a list of color settings with an alpha slider below to fully customize the coloring in the format editor. 
+### Alias Editor
+This is a way to edit the names used in formats to whatever you want. To understand more about how aliases work, see [this](#making-custom-aliases).
+#### Update References
+This is a checkbox setting for whether or not to update format references when adding aliases. If aliases are added directly to the config, you must do it manually, but if you add them through the menu and have this enabled, then the formats will have their references updated automatically.
+#### Alias Editor Menu
+This menu is pretty simple. There is the double dropdown menu to specify which counter and format you would like to add an alias for, and when you hit the 'Add New Alias' button, a popup appears. In this popup, you specify which alias you would like to replace, and what to replace it with. Then hit save, and it will be added to the list. If you want to get rid if it, you just simply hit the delete button.
 ## Customizing format in config
 ### Overview
 In the config for this counter, you will find the text format strings. These are what format the counter to look the way it does in game. Here's some examples of these strings:
