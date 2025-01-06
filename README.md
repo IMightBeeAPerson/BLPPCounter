@@ -1,12 +1,14 @@
 # Beatleader PP Counter
 ### Description
-#### How do I use this?
+#### How do I install this?
 It's a counters+ counter. Mostly self-explainatory, just drag the file into your plugins folder and put it on with counters+.
 #### What is this?
-This is a counter for beatleader PP. It has various options for how to do this, from just the standard counter to competing against your own scores or sniping other people's scores. It even has functionality for clan wars, where it can tell you what percent you'd need to get on a map to capture it. It does account for all modifiers except for ghost notes (I still need to figure out how they affect pp, just haven't gotten around to it yet). Below is how to completely customize the data shown. It is a bit of a mess, so feel free to completely ignore it, the counter will work fine without any intervention.
+This is a counter for beatleader PP. It has various options for how to do this, from just the standard counter to competing against your own scores or sniping other people's scores. It even has functionality for clan wars, where it can tell you what percent you'd need to get on a map to capture it. It does account for all modifiers, and below is 2 methods on how to completely customize the data shown. There is an in game way and config way, with both being a bit of a mess. The counter works fine if you never want to mess with it.
 
 **Side note:** This is just a project done for fun, and is my first time coding a mod and in general stuff that relies on APIs and other libraries. If you decide to use this, remember that it may not work perfectly. However, feel free to inform me of any bugs you find.
-## Customizing format
+## Customizing format in game
+TODO
+## Customizing format in config
 ### Overview
 In the config for this counter, you will find the text format strings. These are what format the counter to look the way it does in game. Here's some examples of these strings:
 ```json
@@ -44,20 +46,34 @@ This is done by going to the bottom of "TokenSettings" and inserting information
 ```json
     "TokenAliases": [
       {
-        "CounterName": "Normal",
-        "AliasCharacter": "x",
-        "AliasName": "The pp"
+        "CounterName": "Relative",
+        "FormatName": "Main Format",
+        "AliasCharacter": "d",
+        "AliasName": "hi",
+        "OldAlias": "Acc Difference"
       }
     ]
 ```
-What the above example does is for specifically the normal counter, replace the "x" character's alias, "PP", with the new alias "The pp". There are 3 parameters for custom aliases, each of which serve to do something. Below is a table of each with a description:
+What the above example does is for specifically the normal counter, replace the "d" character's alias, "Acc Difference", with the new alias "hi". There are 5 parameters for custom aliases, each of which serve to do something. Below is a table of each with a description:
 | Parameter | Description |
 | --------- | ----------- |
 | CounterName | The counter you wish to change the character on. If you want to change the character on all counters (that have that character), just leave it blank by putting "" with nothing inside of it. |
-| AliasCharacter | This is the character you wish to change, you can either put the character or the default alias that goes with the character, both will be parsed correctly. |
+| FormatName | This refers to what specific format inside of the counter to use. "Main Format" will always refer to the main format usually shown in a counter, but there is a table below showing what each format name is |
+| AliasCharacter | This is the character you wish to change, you must put the character, which is provided below for all counters (this was changed from previous versions to better work with the in game ui). |
 | AliasName | The new alias name for the given AliasCharacter. Any character is allowed except for the ones used in token settings. If you do use one of those characters, it may or may not work, depending on how the parser handles it. Best practice would be to avoid using them at all. |
+| OldAlias | For parsing reasons, the old alias that this is to replace is required to be provided. Just copy and paste it from below |
 
 Every character has a default alias that works perfectly fine without any changes, so if this feels too complicated and you just want to use what is given, feel free to do so. 
+### Counter & Format Names
+| Counter | Format Name | Explanation |
+| ------- | ----------- | ----------- |
+| Default | Main Format | This is the generic counter that default counter and progressive counter use as their counter. |
+| Default | Target Format | This is the format for the target message shown in relative counter |
+| Default | Percent Needed Format | This is a backup format for clan counter and relative counter that will display the percent needed to capture a map or beat a score |
+| Clan Counter | Main Format | This is the main format displayed when trying to capture a map |
+| Clan Counter | Weighted Format | This is the format for the weighted counter, which will display if a map cannot be captured for some reason |
+| Clan Counter | Custom Message Format | This is a custom message to replace the percent needed format specifically for clan counter |
+| Relative Counter | Main Format | The main format displayed for relative counter |
 ### Global escape letters
 These are letters that share the same functionality through all formatted messages and counters.
 | Letter | Alias | Parameters | Description |
