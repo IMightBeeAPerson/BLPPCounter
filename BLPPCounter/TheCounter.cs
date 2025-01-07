@@ -385,6 +385,7 @@ namespace BLPPCounter
                 return false;
             }
         }
+        public static bool CalAPI(string path) => CallAPI(path, out _);
         #endregion
         #region Helper Methods
         private void ChangeNotifiers(bool a)
@@ -542,7 +543,9 @@ namespace BLPPCounter
         public static IMyCounters InitCounter(string name, TMP_Text display)
         {
             if (!DisplayNameToCounter.TryGetValue(name, out string displayName)) return null;
-            Type counterType = ValidCounters.First(a => a.Name.Equals(displayName));
+            Type counterType = ValidCounters.FirstOrDefault(a => a.FullName.Equals(displayName));
+            if (counterType == default) 
+                throw new ArgumentException($"Name '{displayName}' is not a counter! Valid counter names are:\n{string.Join("\n", ValidCounters as IEnumerable<Type>)}");
             IMyCounters outp = (IMyCounters)Activator.CreateInstance(counterType, display, lastMap);
             outp.UpdateFormat();
             return outp;

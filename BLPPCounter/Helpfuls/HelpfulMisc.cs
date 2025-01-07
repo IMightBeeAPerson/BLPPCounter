@@ -14,6 +14,7 @@ using BeatSaberMarkupLanguage.ViewControllers;
 using BeatSaberMarkupLanguage;
 using TMPro;
 using HarmonyLib;
+using UnityEngine.TextCore;
 namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
@@ -231,5 +232,12 @@ namespace BLPPCounter.Helpfuls
         }
         public static Dictionary<V, K> Swap<K, V>(this Dictionary<K, V> dict) =>
             dict.ToDictionary(kvp => kvp.Value, kvp => kvp.Key);
+        public static void MakeSpacesHaveSpace(this TMP_FontAsset font)
+        {//This somehow worked first try. All it does is make the mark rich text actually highlight trailing spaces.
+            Glyph g = font.characterLookupTable[' '].glyph;
+            GlyphMetrics gm = g.metrics;
+            gm.width = gm.horizontalAdvance;
+            g.metrics = gm;
+        }
     }
 }

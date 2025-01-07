@@ -44,7 +44,8 @@ namespace BLPPCounter.Settings.SettingHandlers
                 { ClanCounter.ClanFormatRelation.GetKey, ClanCounter.ClanFormatRelation },
                 { ClanCounter.WeightedFormatRelation.GetKey, ClanCounter.WeightedFormatRelation },
                 { ClanCounter.MessageFormatRelation.GetKey, ClanCounter.MessageFormatRelation },
-                { RelativeCounter.DefaultFormatRelation.GetKey, RelativeCounter.DefaultFormatRelation }
+                { RelativeCounter.DefaultFormatRelation.GetKey, RelativeCounter.DefaultFormatRelation },
+                { RankCounter.MainRelation.GetKey, RankCounter.MainRelation }
             };
             CustomAlias.ApplyAliases(PC.TokenSettings.TokenAliases, AllFormatInfo);
         }

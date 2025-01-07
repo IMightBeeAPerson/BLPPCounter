@@ -113,6 +113,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             ValueListInfo.UpdatePreview = () => UpdatePreviewForValue();
             FormatListInfo.InitStaticActions(FormatChunks, () => UpdateFormatTable(), () => UpdatePreviewDisplay());
             Counter = CounterNames[0] as string;
+            RawPreviewDisplay.font.MakeSpacesHaveSpace(); //Only have to do this for one display because all of them use the same font.
         }
         #endregion
         #region Format Editor
@@ -177,6 +178,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (endFli == null) colorOutp += richEnd; //if endFli is null, then this is not a saveable format, therefore outp doesn't need to be updated.
             PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : "Can not format.";
             RawPreviewDisplay.text = colorOutp;
+            Plugin.Log.Debug(colorOutp);
             UpdateSaveButton();
         }
         [UIAction(nameof(AddDefaultChunk))]
@@ -250,7 +252,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                     CurrentFormatInfo.GetTestValFormatter(token),
                     CurrentFormatInfo.GetExtraTestParams(token),
                     CurrentFormatInfo.GetValueType(token)));
-                Plugin.Log.Info(outp.Last().ToString());
+                //Plugin.Log.Info(outp.Last().ToString());
             }
             FormatValues.Clear();
             FormatValues.AddRange(outp.Cast<object>());

@@ -3,6 +3,7 @@ using BLPPCounter.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 
 namespace BLPPCounter.CalculatorStuffs
 {
@@ -45,22 +46,36 @@ namespace BLPPCounter.CalculatorStuffs
                 (0.0, 0.000), };
         private static readonly float CLANWAR_WEIGHT_COEFFICIENT = 0.8f; 
         #region PP Math
-        /*returns pass, acc, tech pp in that order.*/
-        public static (float, float, float) GetPp(float accuracy, float accRating, float passRating, float techRating)
+        public static (float Pass, float Acc, float Tech) GetPp(float accuracy, float accRating, float passRating, float techRating)
         {
-            float passPP = 15.2f * (float)Math.Exp(Math.Pow(passRating, 1 / 2.62f)) - 30f;
+            float passPP = 15.2f * Mathf.Exp(Mathf.Pow(passRating, 1 / 2.62f)) - 30f;
             if (float.IsNaN(accuracy))
                 accuracy = 0;
-            accuracy = (float)Math.Max(0,Math.Min(1,accuracy));
-            if (float.IsInfinity(passPP) || float.IsNaN(passPP) || float.IsNegativeInfinity(passPP) || passPP < 0)
+            accuracy = Mathf.Max(0, Mathf.Min(1,accuracy));
+            if (float.IsInfinity(passPP) || float.IsNaN(passPP) || passPP < 0)
             {
                 passPP = 0;
             }
             //float accPP = context == LeaderboardContexts.Golf ? accuracy * accRating * 42f : Curve2(accuracy) * accRating * 34f;
             float accPP = Curve2(accuracy) * accRating * 34f;
-            float techPP = (float)Math.Exp(1.9f * accuracy) * 1.08f * techRating;
+            float techPP = Mathf.Exp(1.9f * accuracy) * 1.08f * techRating;
 
             return (passPP, accPP, techPP);
+        }
+        public static (float Pass, float Acc, float Tech) GetPp(float accuracy, float accRating, float passRating, float techRating, int precision)
+        {
+            var (Pass, Acc, Tech) = GetPp(accuracy, accRating, passRating, techRating);
+            return ((float)Math.Round(Pass, precision), (float)Math.Round(Acc, precision), (float)Math.Round(Tech, precision));
+        }
+        public static (float Pass, float Acc, float Tech, float Total) GetSummedPp(float accuracy, float accRating, float passRating, float techRating)
+        {
+            var (Pass, Acc, Tech) = GetPp(accuracy, accRating, passRating, techRating);
+            return (Pass, Acc, Tech, Inflate(Pass + Acc + Tech));
+        }
+        public static (float Pass, float Acc, float Tech, float Total) GetSummedPp(float accuracy, float accRating, float passRating, float techRating, int precision)
+        {
+            var (Pass, Acc, Tech) = GetPp(accuracy, accRating, passRating, techRating, precision);
+            return (Pass, Acc, Tech, (float)Math.Round(Inflate(Pass + Acc + Tech), precision));
         }
         public static float GetPpSum(float accuracy, float accRating, float passRating, float techRating)
         {
