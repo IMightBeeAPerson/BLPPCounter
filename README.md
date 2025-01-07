@@ -166,6 +166,24 @@ This is a special counter that will appear when the clan counter fails because t
 | 2 | This capture is linked to the 'enable messages' option and should be used for messages and other info |
 | 3 | This capture is will enable/disable based off if you enable showing your placement in settings |
 
+### Rank Counter
+This counter will show what rank you are on the leaderboard if the map were to end at that moment.
+| Letter | Alias | Description |
+| ------ | ----- | ----------- |
+| x | PP | The unmodified PP number |
+| y | FCPP | The unmodified PP number if the map was FC'ed |
+| r | Rank | The rank you would be on the leaderboard if the map ended right then |
+| d | PP Difference | The modified PP number, shows how much pp to go up one rank on the leaderboard |
+| l | Label | The label (ex: PP, Tech PP, etc) |
+| c | Rank Color | The color of the rank (set in settings) |
+
+| Number | Description |
+| ------ | ----------- |
+| 1 | This capture will enable and disable based off if the player is FC'ing the map or not |
+| 2 | This capture is linked to the 'enable messages' option and should be used for messages and other info |
+| 3 | This will be shown if the rank is not 1 |
+| 4 | This will be shown if the rank is 1 |
+
 ### Message Specific Syntax
 Messages are things that appear in the counter when something to change the counter from normal happens. Sometimes these take in values, sometimes they do not.
 
