@@ -45,7 +45,8 @@ namespace BLPPCounter.Helpfuls
         public static float GetMultiAmount(JToken data, string name)
         {
             MatchCollection mc = Regex.Matches(data["modifierValues"].ToString(), "^\\s*\"(.+?)\": *(-?\\d(?:\\.\\d+)?).*$", RegexOptions.Multiline);
-            return mc.Any(m => m.Value.Contains(name)) ? float.Parse(mc.First(m => m.Groups[1].Value.Equals(name)).Groups[2].Value) : 0;
+            string val = mc.FirstOrDefault(m => m.Groups[1].Value.Equals(name))?.Groups[2].Value;
+            return val is null ? 0 : float.Parse(val);
         }
         public static float GetMultiAmounts(JToken data, string[] names) 
         { 

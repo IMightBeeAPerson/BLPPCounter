@@ -1,4 +1,5 @@
-﻿using BLPPCounter.Settings;
+﻿using BeatmapSaveDataVersion4;
+using BLPPCounter.Settings;
 using BLPPCounter.Utils;
 using System;
 using System.Collections.Generic;
@@ -43,24 +44,21 @@ namespace BLPPCounter.CalculatorStuffs
                 (0.7, 0.345),
                 (0.65, 0.296),
                 (0.6, 0.256),
-                (0.0, 0.000), };
-        private static readonly float CLANWAR_WEIGHT_COEFFICIENT = 0.8f; 
+                (0.0, 0.000)
+        };
+        private static readonly float CLANWAR_WEIGHT_COEFFICIENT = 0.8f;
         #region PP Math
+        public static float GetPassPp(float passRating) => 15.2f * Mathf.Exp(Mathf.Pow(passRating, 1 / 2.62f)) - 30f;
+        public static float GetAccPp(float acc, float accRating) => Curve2(acc) * accRating * 34f;
+        public static float GetTechPp(float acc, float techRating) => Mathf.Exp(1.9f * acc) * 1.08f * techRating;
         public static (float Pass, float Acc, float Tech) GetPp(float accuracy, float accRating, float passRating, float techRating)
         {
-            float passPP = 15.2f * Mathf.Exp(Mathf.Pow(passRating, 1 / 2.62f)) - 30f;
-            if (float.IsNaN(accuracy))
-                accuracy = 0;
-            accuracy = Mathf.Max(0, Mathf.Min(1,accuracy));
-            if (float.IsInfinity(passPP) || float.IsNaN(passPP) || passPP < 0)
-            {
-                passPP = 0;
-            }
+            float passPP = GetPassPp(passRating);
+            if (float.IsNaN(accuracy)) accuracy = 0;
+            else accuracy = Mathf.Max(0, Mathf.Min(1,accuracy));
+            if (float.IsInfinity(passPP) || float.IsNaN(passPP) || passPP < 0) passPP = 0;
             //float accPP = context == LeaderboardContexts.Golf ? accuracy * accRating * 42f : Curve2(accuracy) * accRating * 34f;
-            float accPP = Curve2(accuracy) * accRating * 34f;
-            float techPP = Mathf.Exp(1.9f * accuracy) * 1.08f * techRating;
-
-            return (passPP, accPP, techPP);
+            return (passPP, GetAccPp(accuracy, accRating), GetTechPp(accuracy, techRating));
         }
         public static (float Pass, float Acc, float Tech) GetPp(float accuracy, float accRating, float passRating, float techRating, int precision)
         {
@@ -83,30 +81,20 @@ namespace BLPPCounter.CalculatorStuffs
             (a,b,c) = GetPp(accuracy, accRating, passRating, techRating);
             return a + b + c;
         }
-        public static float GetPpSum(float accuracy, MapSelection map) => GetPpSum(accuracy, map.AccRating, map.PassRating, map.TechRating);
-        public static float GetAcc(float accRating, float passRating, float techRating, float inflatedPp)
+        public static float GetPartPpSum(float accuracy, float accRating = -1, float passRating = -1, float techRating = -1)
         {
-            float pp = Deflate(inflatedPp);
-            //gonna guess and check cuz it's too much work to reverse engineer the math
-            float theAcc = 0.0f;
-            float mult = 10.0f;
-            for (; mult >= 0.0001f; mult /= 10.0f)
-            {
-                for (int i = 9; i >= 0; i--)
-                {
-                    float currentVal = GetPpSum((theAcc + mult * i) / 100.0f, accRating, passRating, techRating);
-                    if (pp >= currentVal) {
-                        theAcc += mult * i;
-                        break;
-                    }
-                }
-            }
-            Plugin.Log.Info("THE ACC: " + theAcc);
-            return theAcc / 100.0f;
+            float sum = 0;
+            if (accRating > -1) sum += GetAccPp(accuracy, accRating);
+            if (passRating > -1) sum += GetPassPp(passRating);
+            if (techRating > -1) sum += GetTechPp(accuracy, techRating);
+            return sum;
         }
+        public static float GetPpSum(float accuracy, MapSelection map) => GetPpSum(accuracy, map.AccRating, map.PassRating, map.TechRating);
+        public static float GetAcc(float accRating, float passRating, float techRating, float inflatedPp) =>
+            CalculateX(Deflate(inflatedPp) - GetPassPp(passRating), techRating, accRating);
         public static float Inflate(float peepee)
         {
-            return (650f * (float)Math.Pow(peepee, 1.3f)) / (float)Math.Pow(650f, 1.3f);
+            return 650f * (float)Math.Pow(peepee, 1.3f) / (float)Math.Pow(650f, 1.3f);
         }
         public static float Deflate(float pp)
         {
@@ -114,23 +102,50 @@ namespace BLPPCounter.CalculatorStuffs
         }
         public static float Curve2(float acc)
         {
-            int i = 0;
-            for (; i < pointList2.Count; i++)
-            {
-                if (pointList2[i].Item1 <= acc)
-                {
-                    break;
-                }
-            }
-
-            if (i == 0)
-            {
-                i = 1;
-            }
-
+            int i = 1;
+            while (i < pointList2.Count && pointList2[i].Item1 > acc) i++;
             double middle_dis = (acc - pointList2[i - 1].Item1) / (pointList2[i].Item1 - pointList2[i - 1].Item1);
             return (float)(pointList2[i - 1].Item2 + middle_dis * (pointList2[i].Item2 - pointList2[i - 1].Item2));
         }
+        public static float InvertCurve2(double curve2Output)
+        {
+            int i = 1;
+            while (i < pointList2.Count && pointList2[i].Item2 > curve2Output) i++;
+
+            double middle_dis = (curve2Output - pointList2[i - 1].Item2) / (pointList2[i].Item2 - pointList2[i - 1].Item2);
+            return (float)(pointList2[i - 1].Item1 + middle_dis * (pointList2[i].Item1 - pointList2[i - 1].Item1));
+        }
+        public static float Curve2Derivative(double acc)
+        {
+            acc = (float)Math.Min(1, Math.Max(0, acc));
+            int i = 1;
+            while (i < pointList2.Count && pointList2[i].Item1 > acc) i++;
+            return (float)((pointList2[i].Item2 - pointList2[i - 1].Item2) / (pointList2[i].Item1 - pointList2[i - 1].Item1));
+        }
+        private static float CalculateX(float y, float t, float a, float initialGuess = 1.0f, float tolerance = 0.0001f, int maxIterations = 100)
+        {
+            float x = initialGuess;
+            double error = 1.0;
+            int iterations = 0;
+
+            // Iterative method (Newton's Method or other root-finding techniques)
+            while (error > tolerance && iterations < maxIterations)
+            {
+                // Compute the current value of the equation
+                double currentValue = 1.08 * t * Math.Exp(1.9 * x) + 34 * a * Curve2(x);
+                double difference = currentValue - y;
+
+                // Adjust x using a basic Newton's method approach (derivative of f(x) can be more sophisticated)
+                double derivative = 1.08 * t * Math.Exp(1.9 * x) + 34 * a * Curve2Derivative(x); // Modify this for actual derivative
+                x -= (float)(difference / derivative);
+
+                // Calculate the error
+                error = Math.Abs(difference);
+                iterations++;
+            }
+            Plugin.Log.Info("THE ACC: " + x * 100.0f);
+            return x;
+        }//Yes this is chatGPT code.
         #endregion
         #region Replay Math
         private const float MinBeforeCutScore = 0.0f;

@@ -44,7 +44,7 @@ namespace BLPPCounter.Utils
                     {
                         JEnumerable<JToken> diffs = song["difficulties"].Children();
                         foreach (JToken diff in diffs)
-                            outp.Add(new MapSelection(m, $"{char.ToUpper(diff["Name"].ToString()[0])}{diff["Name"].ToString().Substring(1)}", diff["characteristic"].ToString()));
+                            outp.Add(new MapSelection(m, Map.FromValue((int)diff["value"]), diff["characteristic"].ToString()));
                     }
             } 
             catch (Exception e) { Plugin.Log.Info("Error loading playlists\n" + e); }

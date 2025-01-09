@@ -32,7 +32,7 @@ namespace BLPPCounter.Settings.Configs
         public virtual string PPType { get; set; } = "Normal";
         #endregion
         #region Clan Counter Settings
-        public virtual bool ShowClanMessage { get; set; } = false;
+        public virtual bool ShowClanMessage { get; set; } = true;
         public virtual int MapCache { get; set; } = 10;
         public virtual double ClanPercentCeil { get; set; } = 99;
         public virtual bool CeilEnabled { get; set; } = true;

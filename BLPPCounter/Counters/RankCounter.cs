@@ -110,7 +110,7 @@ namespace BLPPCounter.Counters
                 (float)Math.Round(BLCalc.Inflate(BLCalc.GetPpSum((int)a["modifiedScore"] / maxScore, acc, pass, tech)), precision)).ToArray();
             }
             Array.Sort(mapPP);//, (a,b) => (int)(b - a));
-            //Plugin.Log.Debug($"[{string.Join(", ", mapPP)}]");
+            Plugin.Log.Debug($"[{string.Join(", ", mapPP)}]");
         }
         public void ReinitCounter(TMP_Text display) => this.display = display;
         public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating)
@@ -176,7 +176,7 @@ namespace BLPPCounter.Counters
             if (displayFc)
                 (ppVals[4], ppVals[5], ppVals[6], ppVals[7]) = BLCalc.GetSummedPp(fcPercent, accRating, passRating, techRating, precision);
             int rank = GetRank(ppVals[3]);
-            float ppDiff = (float)Math.Abs(Math.Round(mapPP[mapPP.Length + 1 - Math.Min(2, Math.Max(rank, mapPP.Length + 1))] - ppVals[3], precision));
+            float ppDiff = (float)Math.Abs(Math.Round(mapPP[mapPP.Length + 1 - Math.Max(2, Math.Min(rank, mapPP.Length + 1))] - ppVals[3], precision));
             string color = HelpfulFormatter.GetWeightedRankColor(rank);
             string text = "";
             if (pc.SplitPPVals)

@@ -8,16 +8,16 @@ namespace BLPPCounter.Utils
     {
 #pragma warning restore CS0659
         public Map Map { get; private set; }
-        public string Difficulty { get; private set; }
+        public BeatmapDifficulty Difficulty { get; private set; }
         public string Mode { get; private set; }
         public float PassRating { get; private set; }
         public float AccRating { get; private set; }
         public float TechRating { get; private set; }
         public (string, JToken) MapData => Map.Get(Mode, Difficulty);
-        public bool IsRanked => ((int)MapData.Item2["status"]) == 3;
+        public bool IsRanked { get { int status = (int)MapData.Item2["status"]; return status == 3 || status == 2; } }
         public string Hash => Map.Hash;
 
-        public MapSelection(Map map = default, string diff = default, string mode = default, float passRating = default, float accRating = default, float techRating = default)
+        public MapSelection(Map map = default, BeatmapDifficulty diff = default, string mode = default, float passRating = default, float accRating = default, float techRating = default)
         {
             Map = map;
             Difficulty = diff;

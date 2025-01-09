@@ -150,7 +150,7 @@ namespace BLPPCounter.Counters
         {
             try
             {
-                string check = RequestScore(Targeter.TargetID, map.Map.Hash, map.Difficulty, map.Mode);
+                string check = RequestScore(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), map.Mode);
                 if (check != default && check.Length > 0)
                 {
                     JToken playerData = JObject.Parse(check);
@@ -162,7 +162,7 @@ namespace BLPPCounter.Counters
                     {
                         string[] hold = ((string)playerData["modifiers"]).ToUpper().Split(',');
                         //Ignore how janky this line is below, i'll fix later if I feel like it.
-                        string modName = hold.Length == 0 ? "" : hold.Any(a => a.Equals("SF") || a.Equals("FS") || a.Equals("SS")) ? hold.First(a => a.Equals("SF") || a.Equals("FS") || a.Equals("SS")) : "";
+                        string modName = hold.Length == 0 ? "" : hold.FirstOrDefault(a => a.Equals("SF") || a.Equals("FS") || a.Equals("SS")) ?? "";
                         float acc = (float)playerData["accuracy"];
                         playerData = playerData["difficulty"];
                         modName = modName.ToLower();
