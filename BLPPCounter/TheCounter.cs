@@ -369,7 +369,7 @@ namespace BLPPCounter
                 return "";
             }
         }
-        public static bool CallAPI(string path, out string output)
+        public static bool CallAPI(string path, out string output, bool quiet = false)
         {
             path = HelpfulPaths.BLAPI + path;
             try
@@ -379,10 +379,13 @@ namespace BLPPCounter
             }
             catch (Exception e)
             {
-                Plugin.Log.Error($"Beat Leader API request failed\nPath: {path}\nError: {e.Message}");
-                Plugin.Log.Debug(e);
-                output = "";
-                return false;
+                if (!quiet) 
+                { 
+                    Plugin.Log.Error($"Beat Leader API request failed\nPath: {path}\nError: {e.Message}");
+                    Plugin.Log.Debug(e);
+                }
+            output = "";
+            return false;
             }
         }
         #endregion

@@ -17,6 +17,7 @@ using System.Reflection;
 using System.Linq;
 using System.Drawing;
 using System.Collections.Generic;
+using HarmonyLib;
 
 namespace BLPPCounter
 {
@@ -26,6 +27,7 @@ namespace BLPPCounter
         internal static Plugin Instance { get; private set; }
         internal static IPALogger Log { get; private set; }
         internal static bool BLInstalled => true;
+        internal static Harmony harmony { get; private set; }
         internal static string Name => "PPCounter";
         [Init]
         /// <summary>
@@ -42,6 +44,7 @@ namespace BLPPCounter
         private void AddMenuStuff()
         {
             BSMLSettings.Instance.AddSettingsMenu("BL PP Counter", HelpfulPaths.SETTINGS_BSML, MenuSettingsHandler.Instance);
+            GameplaySetup.Instance.AddTab("PP Calculator", HelpfulPaths.PP_CALC_BSML, PpInfoTabHandler.Instance);
             SimpleSettingsHandler.Instance.ChangeMenuTab(false);
         }
 
@@ -50,6 +53,8 @@ namespace BLPPCounter
             Targeter.GenerateClanNames(); //async
             BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing += AddMenuStuff; //async (kinda)
             TheCounter.InitCounterStatic();
+            harmony = new Harmony("Person.BLPPCounter");
+            harmony.PatchAll(Assembly.GetExecutingAssembly());
             //new PlaylistLoader();
             /*ClanCounter.FormatTheFormat();
             var test = ClanCounter.displayClan;
@@ -61,6 +66,7 @@ namespace BLPPCounter
         public void OnDisable() 
         { 
             GameplaySetup.Instance.RemoveTab("BL PP Counter");
+            GameplaySetup.Instance.RemoveTab("PP Calculator");
             BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing -= AddMenuStuff;
             BSMLSettings.Instance.RemoveSettingsMenu(SettingsHandler.Instance);
         }

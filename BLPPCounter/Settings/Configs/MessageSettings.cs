@@ -10,5 +10,8 @@ namespace BLPPCounter.Settings.Configs
         public virtual string LoadFailedMessage { get; set; } = "<color=\"red\">Load Failed</color>";
         public virtual string TargetingMessage { get; set; } = "Targeting *c,red*&t*";
         public virtual string PercentNeededMessage { get; set; } = "Aiming for [c&a%]";
+        #region UI Messages
+        public virtual string RelativeCalcInfo { get; set; } = "To beat your target, *c,red*&t*, you need *c,green*&a*% accuracy[m with the mod(s)\n*c,yellow*$*]";
+        #endregion
     }
 }

@@ -13,8 +13,8 @@ using BeatSaberMarkupLanguage.Parser;
 using BeatSaberMarkupLanguage.ViewControllers;
 using BeatSaberMarkupLanguage;
 using TMPro;
-using HarmonyLib;
 using UnityEngine.TextCore;
+using Newtonsoft.Json.Linq;
 namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
@@ -51,9 +51,24 @@ namespace BLPPCounter.Helpfuls
             }
         }
         public static string AddModifier(string name, SongSpeed modifier) => 
-            modifier == SongSpeed.Normal ? name : GetModifierShortname(modifier) + name.Substring(0, 1).ToUpper() + name.Substring(1);
+            modifier == SongSpeed.Normal ? name : GetModifierShortname(modifier) + char.ToUpper(name[0]) + name.Substring(1);
         public static string AddModifier(string name, string modifierName) =>
-            modifierName.Equals("") ? name : modifierName + name.Substring(0, 1).ToUpper() + name.Substring(1);
+            modifierName.Equals("") ? name : modifierName + char.ToUpper(name[0]) + name.Substring(1);
+        public static (float accRating, float passRating, float techRating) GetRatings(JToken diffData, SongSpeed speed, float modMult = 1.0f)
+        {
+            if (speed != SongSpeed.Normal) diffData = diffData["modifiersRating"];
+            return (
+                (float)diffData[AddModifier("accRating", speed)] * modMult,
+                (float)diffData[AddModifier("passRating", speed)] * modMult,
+                (float)diffData[AddModifier("techRating", speed)] * modMult
+                );
+        }
+        public static (float accRating, float passRating, float techRating, float starRating) GetRatingsAndStar(JToken diffData, SongSpeed speed, float modMult = 1.0f)
+        {
+            (float accRating, float passRating, float techRating) = GetRatings(diffData, speed, modMult);
+            if (speed != SongSpeed.Normal) diffData = diffData["modifiersRating"];
+            return (accRating, passRating, techRating, (float)diffData[AddModifier("stars", speed)] * modMult);
+        }
         public static string ToLiteral(string input)
         {
             using (var writer = new StringWriter())
@@ -85,7 +100,7 @@ namespace BLPPCounter.Helpfuls
         public static void ConvertInt16ToBools(bool[] toLoad, short toConvert)
         {
             int count = 0;
-            while (toConvert > 0)
+            while (toConvert != 0)
             {
                 if (toLoad.Length > count)
                     toLoad[count++] = toConvert % 2 == 1;
@@ -97,7 +112,7 @@ namespace BLPPCounter.Helpfuls
         public static void ConvertInt32ToBools(bool[] toLoad, int toConvert)
         {
             int count = 0;
-            while (toConvert > 0)
+            while (toConvert != 0)
             {
                 if (toLoad.Length > count)
                     toLoad[count++] = toConvert % 2 == 1;
@@ -239,5 +254,6 @@ namespace BLPPCounter.Helpfuls
             gm.width = gm.horizontalAdvance;
             g.metrics = gm;
         }
+        public static string AddSpaces(string str) => Regex.Replace(str, "(?<=[a-z])([A-Z])", " $+");
     }
 }

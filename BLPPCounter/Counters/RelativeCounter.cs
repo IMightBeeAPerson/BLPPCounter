@@ -169,8 +169,8 @@ namespace BLPPCounter.Counters
                         float passStar = HelpfulPaths.GetRating(playerData, PPType.Pass, modName);
                         float techStar = HelpfulPaths.GetRating(playerData, PPType.Tech, modName);
                         float accStar = HelpfulPaths.GetRating(playerData, PPType.Acc, modName);
-                        var moreHold = BLCalc.GetPp(acc, accStar, passStar, techStar);
-                        accToBeat = (float)Math.Round(BLCalc.GetAcc(accRating, passRating, techRating, BLCalc.Inflate(moreHold.Item1 + moreHold.Item2 + moreHold.Item3)) * 100.0f, pc.DecimalPrecision);
+                        var moreHold = BLCalc.GetPpSum(acc, accStar, passStar, techStar);
+                        accToBeat = (float)Math.Round(BLCalc.GetAccDeflated(accRating, passRating, techRating, moreHold) * 100.0f, pc.DecimalPrecision);
                     }
                 }
             }
@@ -239,19 +239,10 @@ namespace BLPPCounter.Counters
             }
         }
         //https://api.beatleader.xyz/score/8/76561198306905129/98470c673d1702c5030487085120ad6f24828d6c/Expert/Standard
-        private string RequestScore(string id, string hash, string diff, string mode) => RequestData($"https://api.beatleader.xyz/score/8/{id}/{hash}/{diff}/{mode}");
-        private string RequestData(string path)
+        internal static string RequestScore(string id, string hash, string diff, string mode, bool quiet = false) //player id
         {
-            try
-            {
-                return client.GetStringAsync(new Uri(path)).Result;
-            }
-            catch (HttpRequestException e)
-            {
-                Plugin.Log.Warn($"Beat Leader API request failed!\nPath: {path}\nError: {e.Message}");
-                Plugin.Log.Debug(e);
-                return "";
-            }
+            TheCounter.CallAPI($"score/8/{id}/{hash}/{diff}/{mode}", out string outp, quiet);
+            return outp;
         }
         #endregion
         #region Helper Functions

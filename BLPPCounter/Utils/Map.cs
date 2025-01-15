@@ -30,6 +30,7 @@ namespace BLPPCounter.Utils
         }
         public (string, JToken) Get(string mode, BeatmapDifficulty difficulty) => data[mode][difficulty];
         public static BeatmapDifficulty FromValue(int value) => (BeatmapDifficulty)((value + 1) / 2 - 1);
+        public static int FromDiff(BeatmapDifficulty value) => ((int)value + 1) * 2 - 1;
         public Dictionary<string, (string, JToken)> Get(BeatmapDifficulty difficulty)
         {
             /*Dictionary<string, (string, JToken)> outp = new Dictionary<string, (string, JToken)>();

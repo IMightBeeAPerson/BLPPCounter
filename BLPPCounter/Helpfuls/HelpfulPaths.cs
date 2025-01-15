@@ -28,6 +28,7 @@ namespace BLPPCounter.Helpfuls
         public static readonly string MENU_BSML = HOST_NAME + ".Settings.BSML.MenuSettings.bsml";
         public static readonly string SIMPLE_MENU_BSML = HOST_NAME + ".Settings.BSML.SimpleMenuSettings.bsml";
         public static readonly string SETTINGS_BSML = HOST_NAME + ".Settings.BSML.MainMenuSettings.bsml";
+        public static readonly string PP_CALC_BSML = HOST_NAME + ".Settings.BSML.PpInfo.bsml";
         #endregion
         #region Json Paths
         public static float GetRating(JToken data, PPType type, SongSpeed mod = SongSpeed.Normal)

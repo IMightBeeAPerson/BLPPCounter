@@ -1,0 +1,50 @@
+<bg child-control-height='false' 
+  xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:noNamespaceSchemaLocation='https://monkeymanboy.github.io/BSML-Docs/BSMLSchema.xsd'>
+  
+    <tab-selector tab-tag='tabs' id='TabSelector'/>
+    <tab tags='tabs' tab-name='Info'>
+      <settings-container mask-overflow='true' pref-height='70' anchor-pos-y='-5'>
+        <vertical spacing='0' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' pref-width='100'>
+          <horizontal>
+            <button text='Refresh Contents' on-click='Refresh'/>
+            <button text='Refresh Mods' on-click='RefreshMods'/>
+          </horizontal>
+          <horizontal>
+            <text id='MapName' text='~BeatmapName' align='Left'/>
+            <text id='MapID' text='~BeatmapID' align='Right'/>
+          </horizontal>
+          <horizontal>
+            <text text='&#60;color=blue&#62;Acc&#60;/color&#62; Stars' align='Left'/>
+            <text id='AccStarText' text='0.00&#9733;' align='Right'/>
+          </horizontal>
+          <horizontal>
+            <text text='&#60;color=green&#62;Tech&#60;/color&#62; Stars' align='Left'/>
+            <text id='TechStarText' text='0.00&#9733;' align='Right'/>
+          </horizontal>
+          <horizontal>
+            <text text='&#60;color=red&#62;Pass&#60;/color&#62; Stars' align='Left'/>
+            <text id='PassStarText' text='0.00&#9733;' align='Right'/>
+          </horizontal>
+          <horizontal>
+            <text text='&#60;color=yellow&#62;Total&#60;/color&#62; Stars' align='Left'/>
+            <text id='StarText' text='0.00&#9733;' align='Right'/>
+          </horizontal>
+          <horizontal>
+            <text text='&#60;color=#0099DD&#62;Speed&#60;/color&#62; Mod' align='Left'/>
+            <text id='SpeedModText' text='&#60;color=green&#62;None' align='Right'/>
+          </horizontal>
+          <horizontal>
+            <text text='&#60;color=#009900&#62;Mod&#60;/color&#62; Multiplier' align='Left'/>
+            <text id='ModMultText' text='&#60;color=white&#62;x1.00' align='Right'/>
+          </horizontal>
+        </vertical>
+      </settings-container>
+    </tab>
+    <tab tags='tabs' tab-name='Precentages'>
+      <settings-container mask-overflow='true' pref-height='70' anchor-pos-y='-5'>
+        <vertical spacing='0' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' pref-width='100'>
+          <text id='RelativeText' text='' word-wrapping='true'/>
+        </vertical>
+      </settings-container>
+    </tab>
+</bg>

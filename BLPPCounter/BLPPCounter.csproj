@@ -170,8 +170,11 @@
     <Compile Include="Helpfuls\HelpfulMisc.cs" />
     <Compile Include="Helpfuls\HelpfulPaths.cs" />
     <Compile Include="Helpfuls\HelpfulFormatter.cs" />
+    <Compile Include="Patches\MenuLevelPatch.cs" />
+    <Compile Include="Patches\MenuModifierPatch.cs" />
     <Compile Include="Settings\Configs\MessageSettings.cs" />
     <Compile Include="Settings\Configs\PluginConfig.cs" />
+    <Compile Include="Settings\SettingHandlers\PpInfoTabHandler.cs" />
     <Compile Include="Settings\Configs\TextFormatSettings.cs" />
     <Compile Include="Settings\Configs\TokenFormatSettings.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\ColorSettingsHandler.cs" />
@@ -217,6 +220,7 @@
     <EmbeddedResource Include="Settings\BSML\MenuComponents\MenuFormatSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\MenuComponents\ColorSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\MenuComponents\AliasSettings.bsml" />
+    <EmbeddedResource Include="Settings\BSML\PpInfo.bsml" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BeatSaberModdingTools.Tasks">

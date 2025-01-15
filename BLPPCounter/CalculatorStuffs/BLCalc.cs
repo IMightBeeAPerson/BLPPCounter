@@ -1,10 +1,14 @@
 ﻿using BeatmapSaveDataVersion4;
+using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings;
 using BLPPCounter.Utils;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Permissions;
 using UnityEngine;
+using static AlphabetScrollInfo;
 
 namespace BLPPCounter.CalculatorStuffs
 {
@@ -90,8 +94,25 @@ namespace BLPPCounter.CalculatorStuffs
             return sum;
         }
         public static float GetPpSum(float accuracy, MapSelection map) => GetPpSum(accuracy, map.AccRating, map.PassRating, map.TechRating);
-        public static float GetAcc(float accRating, float passRating, float techRating, float inflatedPp) =>
-            CalculateX(Deflate(inflatedPp) - GetPassPp(passRating), techRating, accRating);
+        public static float GetAcc(float accRating, float passRating, float techRating, float inflatedPp, int precision = -1) =>
+            GetAccDeflated(accRating, passRating, techRating, Deflate(inflatedPp), precision);
+        public static float GetAcc((float acc, float pass, float tech) ratings, float inflatedPp, int precision = -1) =>
+            GetAccDeflated(ratings.acc, ratings.pass, ratings.tech, Deflate(inflatedPp), precision);
+        public static float GetAcc(float inflatedPp, JToken diffData, GameplayModifiers.SongSpeed speed, float modMult = 1.0f, int precision = -1) =>
+            GetAccDeflated(Deflate(inflatedPp), diffData, speed, modMult, precision);
+        public static float GetAccDeflated(float accRating, float passRating, float techRating, float deflatedPp, int precision = -1)
+        {
+            if (deflatedPp > GetPpSum(1.0f, accRating, passRating, techRating)) return 1.0f;
+            float outp = CalculateX(deflatedPp - GetPassPp(passRating), techRating, accRating);
+            return precision >= 0 ? (float)Math.Round(outp * 100.0f, precision) : outp;
+        }
+        public static float GetAccDeflated((float acc, float pass, float tech) ratings, float deflatedPp, int precision = -1) =>
+            GetAccDeflated(ratings.acc, ratings.pass, ratings.tech, deflatedPp, precision);
+        public static float GetAccDeflated(float deflatedPp, JToken diffData, GameplayModifiers.SongSpeed speed, float modMult = 1.0f, int precision = -1)
+        {
+            float outp = GetAccDeflated(HelpfulMisc.GetRatings(diffData, speed, modMult), deflatedPp);
+            return precision >= 0 ? (float)Math.Round(outp * 100.0f, precision) : outp;
+        }
         public static float Inflate(float peepee)
         {
             return 650f * (float)Math.Pow(peepee, 1.3f) / (float)Math.Pow(650f, 1.3f);
@@ -111,13 +132,11 @@ namespace BLPPCounter.CalculatorStuffs
         {
             int i = 1;
             while (i < pointList2.Count && pointList2[i].Item2 > curve2Output) i++;
-
             double middle_dis = (curve2Output - pointList2[i - 1].Item2) / (pointList2[i].Item2 - pointList2[i - 1].Item2);
             return (float)(pointList2[i - 1].Item1 + middle_dis * (pointList2[i].Item1 - pointList2[i - 1].Item1));
         }
         public static float Curve2Derivative(double acc)
         {
-            acc = (float)Math.Min(1, Math.Max(0, acc));
             int i = 1;
             while (i < pointList2.Count && pointList2[i].Item1 > acc) i++;
             return (float)((pointList2[i].Item2 - pointList2[i - 1].Item2) / (pointList2[i].Item1 - pointList2[i - 1].Item1));
@@ -135,8 +154,8 @@ namespace BLPPCounter.CalculatorStuffs
                 double currentValue = 1.08 * t * Math.Exp(1.9 * x) + 34 * a * Curve2(x);
                 double difference = currentValue - y;
 
-                // Adjust x using a basic Newton's method approach (derivative of f(x) can be more sophisticated)
-                double derivative = 1.08 * t * Math.Exp(1.9 * x) + 34 * a * Curve2Derivative(x); // Modify this for actual derivative
+                // Adjust x using a basic Newton's method approach
+                double derivative = 1.08 * t * Math.Exp(1.9 * x) + 34 * a * Curve2Derivative(x);
                 x -= (float)(difference / derivative);
 
                 // Calculate the error
@@ -145,7 +164,7 @@ namespace BLPPCounter.CalculatorStuffs
             }
             Plugin.Log.Info("THE ACC: " + x * 100.0f);
             return x;
-        }//Yes this is chatGPT code.
+        }//Yes this is chatGPT code, modified to work properly with my code.
         #endregion
         #region Replay Math
         private const float MinBeforeCutScore = 0.0f;
