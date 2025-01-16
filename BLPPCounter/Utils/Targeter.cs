@@ -14,8 +14,10 @@ namespace BLPPCounter.Utils
         private static PluginConfig pc => PluginConfig.Instance;
         public static List<object> theTargets;
         public static Dictionary<string, string> nameToId;
-        public static string playerID;
-        public static string TargetID => pc.Target.Equals(NO_TARGET) ? playerID : nameToId[pc.Target];
+        public static string PlayerID { get; private set; }
+        public static string PlayerName { get; private set; }
+        public static string TargetID => pc.Target.Equals(NO_TARGET) ? PlayerID : nameToId[pc.Target];
+        public static string TargetName => pc.Target.Equals(NO_TARGET) ? PlayerName : pc.Target;
 
         public static async void GenerateClanNames()
         {
@@ -46,9 +48,10 @@ namespace BLPPCounter.Utils
         {
             try
             {
-                Targeter.playerID = playerID;
-                string playerData = client.GetStringAsync($"https://api.beatleader.xyz/player/{playerID}").Result;
-                string clan = new Regex("(?<=clanOrder...)[A-z]+").Match(playerData).Value.ToLower();
+                PlayerID = playerID;
+                JToken playerData = JToken.Parse(client.GetStringAsync($"https://api.beatleader.xyz/player/{playerID}").Result);
+                PlayerName = playerData["name"].ToString();
+                string clan = playerData["clanOrder"].ToString().Split(',')[0];
                 return client.GetStringAsync($"https://api.beatleader.xyz/clan/{clan}?count=100").Result;
             }
             catch (HttpRequestException e)

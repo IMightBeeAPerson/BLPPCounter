@@ -5,16 +5,11 @@ using BLPPCounter.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using TMPro;
-using Zenject;
-using BeatLeader;
 using Newtonsoft.Json.Linq;
 using BLPPCounter.Counters;
 using UnityEngine;
 using BLPPCounter.CalculatorStuffs;
-using static AlphabetScrollInfo;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -32,17 +27,20 @@ namespace BLPPCounter.Settings.SettingHandlers
         private float CurrentModMultiplier = 1f;
         private BeatmapKey CurrentMap;
         private JToken CurrentDiff;
-        #region Formatting
         #region Relative Counter
         private static Func<string, float, string, string> RelativeFormatter;
 
         private float TargetPP = 0;
         private bool TargetHasScore = false;
         #endregion
+        #region Clan Counter
+        private float PPToCapture = 0;
         #endregion
         #endregion
         #region UI Variables & components
         [UIComponent(nameof(RelativeText))] private TextMeshProUGUI RelativeText;
+        [UIComponent(nameof(ClanTable))] private TextMeshProUGUI ClanTable;
+
         [UIComponent(nameof(AccStarText))] private TextMeshProUGUI AccStarText;
         [UIComponent(nameof(TechStarText))] private TextMeshProUGUI TechStarText;
         [UIComponent(nameof(PassStarText))] private TextMeshProUGUI PassStarText;
@@ -141,6 +139,16 @@ namespace BLPPCounter.Settings.SettingHandlers
             return outp;
         }
         #endregion
+        #region Clan Table
+        private void BuildTable()
+        {
+            string[][] arr = HelpfulMisc.RowToColumn(new string[] { "Slower", "Normal", "Faster", "Super Fast" }, 2);
+            float[] ratings = HelpfulPaths.GetAllRatings(CurrentDiff); //ss-sf, [acc, pass, tech, star]
+            for (int i = 0; i < arr.Length; i++) 
+                arr[i][1] = BLCalc.GetAcc(ratings[i * 4], ratings[i * 4 + 1], ratings[i * 4 + 2], PPToCapture, PC.DecimalPrecision) + "%";
+            HelpfulMisc.SetupTable(ClanTable, 50, arr, "Speed", "Acc to Cap");
+        }
+        #endregion
         private static string Grammarize(string mods) //this is very needed :)
         {
             if (mods.Count(c => c == ',') < 2) return mods;
@@ -188,15 +196,19 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
             SpeedModText.text = "<color=green>" + HelpfulMisc.AddSpaces(Gmpc.gameplayModifiers.songSpeed.ToString());
             ModMultText.text = $"x{Math.Round(CurrentModMultiplier, 2):N2}";
-            string target = PC.Target;
-            if (target.Equals(Targeter.NO_TARGET)) target = "You";
-            RelativeText.text = TargetHasScore ? RelativeFormatter.Invoke(target, GetAccToBeatTarget(), CurrentMods) : $"<color=red>{target}</color> doesn't have a score on this map.";
+            RelativeText.text = TargetHasScore ? RelativeFormatter.Invoke(Targeter.PlayerName, GetAccToBeatTarget(), CurrentMods) : $"<color=red>{Targeter.PlayerName}</color> doesn't have a score on this map.";
+            PPToCapture = ClanCounter.LoadNeededPp(_BeatmapID, out _)?[0] ?? 0;
+            BuildTable();
         }
         private void UpdateDiff()
         {
             if (!TheCounter.CallAPI("leaderboards/hash/" + Sldvc.beatmapLevel.levelID.Split('_')[2].ToUpper(), out string dataStr)) return;
             int val = Map.FromDiff(Sldvc.beatmapKey.difficulty);
-            CurrentDiff = JToken.Parse(dataStr)["leaderboards"].Children().First(t => ((int)t["difficulty"]["value"]) == val)["difficulty"];
+            CurrentDiff = JToken.Parse(dataStr);
+            BeatmapName = CurrentDiff["song"]["name"].ToString();
+            CurrentDiff = CurrentDiff["leaderboards"].Children().First(t => ((int)t["difficulty"]["value"]) == val);
+            BeatmapID = CurrentDiff["id"].ToString();
+            CurrentDiff = CurrentDiff["difficulty"];
         }
         #endregion
     }

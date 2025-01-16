@@ -16,7 +16,6 @@ namespace BLPPCounter.Counters
     public class ClanCounter: IMyCounters
     {
         #region Static Variables
-        private static readonly HttpClient client = new HttpClient();
         private static int playerClanId = -1;
         private static readonly List<(MapSelection, float[])> mapCache = new List<(MapSelection, float[])>(); //Map, clan pp vals, acc vals
         private static PluginConfig pc => PluginConfig.Instance;
@@ -254,7 +253,10 @@ namespace BLPPCounter.Counters
             neededPPs[3] = GetCachedPP(map);
             if (neededPPs[3] <= 0)
             {
-                float[] ppVals = LoadNeededPp(songId, out bool mapCaptured);
+                float[] ppVals = LoadNeededPp(songId, out bool mapCaptured, ref playerClanId);
+                neededPPs = new float[6];
+                neededPPs[3] = ppVals[0];
+                clanPPs = ppVals.Skip(1).ToArray();
                 if (mapCaptured)
                 {
                     Plugin.Log.Debug("Map already captured! No need to do anything else.");
@@ -267,8 +269,11 @@ namespace BLPPCounter.Counters
             neededPPs[4] = BLCalc.GetAcc(accRating, passRating, techRating, neededPPs[3]);
             (neededPPs[0], neededPPs[1], neededPPs[2]) = BLCalc.GetPp(neededPPs[4], nmAccRating, nmPassRating, nmTechRating);
             neededPPs[5] = (float)Math.Round(neededPPs[4] * 100.0f, 2);
-            if (mapCache.Count > pc.MapCache) Plugin.Log.Debug("Cache full! Making room..."); 
-            while (mapCache.Count > pc.MapCache) mapCache.RemoveAt(0);
+            if (mapCache.Count > pc.MapCache)
+            {
+                Plugin.Log.Debug("Cache full! Making room...");
+                do mapCache.RemoveAt(0); while (mapCache.Count > pc.MapCache);
+            }
             if (pc.CeilEnabled && neededPPs[5] >= pc.ClanPercentCeil) setupStatus = 4;
         theEnd:
             switch (setupStatus)
@@ -280,7 +285,7 @@ namespace BLPPCounter.Counters
             }
             showRank = pc.ShowRank && setupStatus != 1 && setupStatus != 3;
         }
-        public float[] LoadNeededPp(string mapId, out bool mapCaptured)
+        /*public static float[] LoadNeededPp(string mapId, out bool mapCaptured)
         {
             string id = Targeter.TargetID, check;
             mapCaptured = false;
@@ -309,7 +314,41 @@ namespace BLPPCounter.Counters
             Array.Sort(clanPPs, (a, b) => (int)Math.Round(b - a));
             neededPPs[3] = mapCaptured ? 0.0f : BLCalc.GetNeededPlay(actualPpVals, pp, playerScore);
             return clanPPs.Prepend(neededPPs[3]).ToArray();
+        }*/
+        public static float[] LoadNeededPp(string mapId, out bool mapCaptured, ref int playerClanId)
+        {
+            string id = Targeter.TargetID, check;
+            mapCaptured = false;
+            check = TheCounter.CallAPI($"https://api.beatleader.xyz/player/{id}", addDomain: false);
+            if (playerClanId < 0 && check.Length > 0) playerClanId = ParseId(JToken.Parse(check));
+            check = TheCounter.CallAPI($"{HelpfulPaths.BLAPI_CLAN}{mapId}?page=1&count=1", addDomain: false);
+            if (check.Length <= 0) return null;
+            JToken clanData = JToken.Parse(check);
+            if ((int)clanData["difficulty"]["status"] != 3) return null; //Map isn't ranked
+            clanData = clanData["clanRanking"].Children().First();
+            int clanId = -1;
+            if (clanData.Count() > 0) clanId = (int)clanData["clan"]["id"]; else return null;
+            mapCaptured = clanId <= 0 || clanId == playerClanId;
+            float pp = (float)clanData["pp"];
+            check = RequestClanLeaderboard(id, mapId, playerClanId);
+            if (check.Length == 0) return new float[1] { pp }; //No scores are set, so player must capture it by themselves.
+            JEnumerable<JToken> scores = JToken.Parse(check)["associatedScores"].Children();
+            List<float> actualPpVals = new List<float>();
+            float playerScore = 0.0f;
+            foreach (JToken score in scores)
+            {
+                if (score["playerId"].ToString().Equals(id))
+                    playerScore = (float)score["pp"];
+                actualPpVals.Add((float)score["pp"]);
+            }
+            List<float> clone = new List<float>(actualPpVals);
+            clone.Remove(playerScore);
+            float[] clanPPs = clone.ToArray();
+            Array.Sort(clanPPs, (a, b) => (int)Math.Round(b - a));
+            float neededPp = mapCaptured ? 0.0f : BLCalc.GetNeededPlay(actualPpVals, pp, playerScore);
+            return clanPPs.Prepend(neededPp).ToArray();
         }
+        public static float[] LoadNeededPp(string mapId, out bool mapCaptured) { int no = -1; return LoadNeededPp(mapId, out mapCaptured, ref no); }
         public void ReinitCounter(TMP_Text display) { this.display = display; }
         public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating) { 
             this.display = display;
@@ -332,32 +371,10 @@ namespace BLPPCounter.Counters
         }
         #endregion
         #region API Requests
-        private string RequestClanLeaderboard(string id, string mapId)
+        private static string RequestClanLeaderboard(string id, string mapId, int playerClanId)
         {
-            try
-            {
-                int clanId = playerClanId > 0 ? playerClanId : ParseId(JToken.Parse(client.GetStringAsync($"https://api.beatleader.xyz/player/{id}").Result));
-                return client.GetStringAsync($"https://api.beatleader.xyz/leaderboard/clanRankings/{mapId}/clan/{clanId}?count=100&page=1").Result;
-            }
-            catch (Exception e)
-            {
-                Plugin.Log.Warn($"Beat Leader API request failed! This is very sad.\nError: {e.Message}\nMap ID: {mapId}\tPlayer ID: {id}");
-                Plugin.Log.Debug(e);
-                return "";
-            }
-        }
-        private static string RequestData(string path)
-        {
-            try
-            {
-                return client.GetStringAsync(new Uri(path)).Result;
-            }
-            catch (Exception e)
-            {
-                Plugin.Log.Warn($"Beat Leader API request in ClanCounter failed!\nPath: {path}\nError: {e.Message}");
-                Plugin.Log.Debug(e);
-                return "";
-            }
+            int clanId = playerClanId > 0 ? playerClanId : ParseId(TheCounter.CallAPI($"player/{id}"));
+            return TheCounter.CallAPI($"leaderboard/clanRankings/{mapId}/clan/{clanId}?count=100&page=1");
         }
         #endregion
         #region Helper Functions

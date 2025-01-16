@@ -43,6 +43,11 @@ namespace BLPPCounter.Helpfuls
             string path = HelpfulMisc.AddModifier(HelpfulMisc.PPTypeToRating(type), modName);
             return (float)data[path];
         }
+        public static float[] GetAllRatingsOfSpeed(JToken data, SongSpeed mod = SongSpeed.Normal) =>
+            new float[4] { GetRating(data, PPType.Acc, mod), GetRating(data, PPType.Pass, mod), GetRating(data, PPType.Tech, mod), GetRating(data, PPType.Star, mod) };
+        public static float[] GetAllRatings(JToken data) =>
+            GetAllRatingsOfSpeed(data, SongSpeed.Slower).Union(GetAllRatingsOfSpeed(data, SongSpeed.Normal)).Union(GetAllRatingsOfSpeed(data, SongSpeed.Faster)).Union(GetAllRatingsOfSpeed(data, SongSpeed.SuperFast)).ToArray();
+
         public static float GetMultiAmount(JToken data, string name)
         {
             MatchCollection mc = Regex.Matches(data["modifierValues"].ToString(), "^\\s*\"(.+?)\": *(-?\\d(?:\\.\\d+)?).*$", RegexOptions.Multiline);

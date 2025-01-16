@@ -369,9 +369,9 @@ namespace BLPPCounter
                 return "";
             }
         }
-        public static bool CallAPI(string path, out string output, bool quiet = false)
+        public static bool CallAPI(string path, out string output, bool quiet = false, bool addDomain = true)
         {
-            path = HelpfulPaths.BLAPI + path;
+            if (addDomain) path = HelpfulPaths.BLAPI + path;
             try
             {
                 output = client.GetStringAsync(new Uri(path)).Result;
@@ -387,6 +387,11 @@ namespace BLPPCounter
             output = "";
             return false;
             }
+        }
+        public static string CallAPI(string path, bool quiet = false, bool addDomain = true) 
+        {
+            CallAPI(path, out string outp, quiet, addDomain);
+            return outp;
         }
         #endregion
         #region Helper Methods

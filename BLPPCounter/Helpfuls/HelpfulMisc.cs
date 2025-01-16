@@ -255,5 +255,15 @@ namespace BLPPCounter.Helpfuls
             g.metrics = gm;
         }
         public static string AddSpaces(string str) => Regex.Replace(str, "(?<=[a-z])([A-Z])", " $+");
+        public static T[][] RowToColumn<T>(IEnumerable<T> arr, int rowLengths = 0)
+        {
+            int len = arr.Count();
+            return arr.Select(s =>
+            {
+                T[] newArr = new T[rowLengths > 0 ? rowLengths : len];
+                newArr[0] = s;
+                return newArr;
+            }).ToArray();
+        }
     }
 }
