@@ -285,36 +285,6 @@ namespace BLPPCounter.Counters
             }
             showRank = pc.ShowRank && setupStatus != 1 && setupStatus != 3;
         }
-        /*public static float[] LoadNeededPp(string mapId, out bool mapCaptured)
-        {
-            string id = Targeter.TargetID, check;
-            mapCaptured = false;
-            neededPPs = new float[6];
-            check = RequestData($"https://api.beatleader.xyz/player/{id}");
-            if (playerClanId < 0 && check.Length > 0) playerClanId = ParseId(JToken.Parse(check));
-            check = RequestData($"{HelpfulPaths.BLAPI_CLAN}{mapId}?page=1&count=1");
-            if (check.Length <= 0) return null;
-            JToken clanData = JToken.Parse(check)["clanRanking"].Children().First();
-            int clanId = -1;
-            if (clanData.Count() > 0) clanId = (int)clanData["clan"]["id"]; else return null;
-            mapCaptured = clanId <= 0 || clanId == playerClanId;
-            float pp = (float)clanData["pp"];
-            JEnumerable<JToken> scores = JToken.Parse(RequestClanLeaderboard(id, mapId))["associatedScores"].Children();
-            List<float> actualPpVals = new List<float>();
-            float playerScore = 0.0f;
-            foreach (JToken score in scores)
-            {
-                if (score["playerId"].ToString().Equals(id))
-                    playerScore = (float)score["pp"];
-                actualPpVals.Add((float)score["pp"]);
-            }
-            List<float> clone = new List<float>(actualPpVals);
-            clone.Remove(playerScore);
-            clanPPs = clone.ToArray();
-            Array.Sort(clanPPs, (a, b) => (int)Math.Round(b - a));
-            neededPPs[3] = mapCaptured ? 0.0f : BLCalc.GetNeededPlay(actualPpVals, pp, playerScore);
-            return clanPPs.Prepend(neededPPs[3]).ToArray();
-        }*/
         public static float[] LoadNeededPp(string mapId, out bool mapCaptured, ref int playerClanId)
         {
             string id = Targeter.TargetID, check;

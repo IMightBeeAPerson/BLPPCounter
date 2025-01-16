@@ -164,7 +164,7 @@ namespace BLPPCounter.CalculatorStuffs
                 error = Math.Abs(difference);
                 iterations++;
             }
-            Plugin.Log.Info("THE ACC: " + x * 100.0f);
+            //Plugin.Log.Info("THE ACC: " + x * 100.0f);
             return x;
         }//Yes this is chatGPT code, modified to work properly with my code.
         #endregion

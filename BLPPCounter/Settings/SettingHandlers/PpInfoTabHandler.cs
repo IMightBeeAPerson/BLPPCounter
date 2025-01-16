@@ -75,6 +75,8 @@ namespace BLPPCounter.Settings.SettingHandlers
             TargetPP = UpdateTargetPP();
             UpdateInfo();
         }
+        [UIAction(nameof(RefreshTable))]
+        private void RefreshTable() => BuildTable();
         #endregion
         #region Inits
         static PpInfoTabHandler()
@@ -111,7 +113,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             CurrentDiff == null ? 0.0f : BLCalc.GetAcc(TargetPP, CurrentDiff, Gmpc.gameplayModifiers.songSpeed, CurrentModMultiplier, PC.DecimalPrecision);
         private float UpdateTargetPP()
         {
-            Plugin.Log.Info("Content Changed");
+            //Plugin.Log.Info("Content Changed");
             CurrentMap = Sldvc.beatmapKey;
             CurrentDiff = null;
             if (!Sldvc.beatmapLevel.levelID.Substring(0, 6).Equals("custom")) return 0.0f; //means the level selected is not custom
@@ -142,11 +144,15 @@ namespace BLPPCounter.Settings.SettingHandlers
         #region Clan Table
         private void BuildTable()
         {
-            string[][] arr = HelpfulMisc.RowToColumn(new string[] { "Slower", "Normal", "Faster", "Super Fast" }, 2);
+            string[][] arr = HelpfulMisc.RowToColumn(new string[] { "<color=red>Slower</color>", "<color=#aaa>Normal</color>", "<color=#0F0>Faster</color>", "<color=#FFD700>Super Fast</color>" }, 3);
             float[] ratings = HelpfulPaths.GetAllRatings(CurrentDiff); //ss-sf, [acc, pass, tech, star]
+            float gnMult = (float)CurrentDiff["modifierValues"]["gn"] + 1.0f;
             for (int i = 0; i < arr.Length; i++) 
-                arr[i][1] = BLCalc.GetAcc(ratings[i * 4], ratings[i * 4 + 1], ratings[i * 4 + 2], PPToCapture, PC.DecimalPrecision) + "%";
-            HelpfulMisc.SetupTable(ClanTable, 50, arr, "Speed", "Acc to Cap");
+                arr[i][1] = "<color=#0c0>" + BLCalc.GetAcc(ratings[i * 4], ratings[i * 4 + 1], ratings[i * 4 + 2], PPToCapture, PC.DecimalPrecision) + "</color>%";
+            if (gnMult > 1.0f) for (int i = 0; i < arr.Length; i++)
+                    arr[i][2] = "<color=#77cc77cc>" + BLCalc.GetAcc(ratings[i * 4] * gnMult, ratings[i * 4 + 1] * gnMult, ratings[i * 4 + 2] * gnMult, PPToCapture, PC.DecimalPrecision) + "</color>%";
+            else for (int i = 0; i < arr.Length; i++) arr[i][2] = "0." + new string('0', PC.DecimalPrecision) + "%";
+            HelpfulMisc.SetupTable(ClanTable, 0, arr, true, true, "<color=blue>Speed</color>", "<color=#0D0>Acc</color> to Cap", "With <color=#666>GN</color>");
         }
         #endregion
         private static string Grammarize(string mods) //this is very needed :)

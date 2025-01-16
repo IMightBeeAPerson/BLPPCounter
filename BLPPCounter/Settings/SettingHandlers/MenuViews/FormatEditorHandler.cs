@@ -113,7 +113,6 @@ namespace BLPPCounter.Settings.SettingHandlers
             ValueListInfo.UpdatePreview = () => UpdatePreviewForValue();
             FormatListInfo.InitStaticActions(FormatChunks, () => UpdateFormatTable(), () => UpdatePreviewDisplay());
             Counter = CounterNames[0] as string;
-            RawPreviewDisplay.font.MakeSpacesHaveSpace(); //Only have to do this for one display because all of them use the same font.
         }
         #endregion
         #region Format Editor

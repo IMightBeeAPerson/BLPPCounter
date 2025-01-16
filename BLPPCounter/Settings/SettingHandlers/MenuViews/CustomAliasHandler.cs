@@ -129,6 +129,8 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                 InfoTable,
                 200,
                 CurrentFormatInfo.Descriptions.Select(kvp => new string[3] { reversedAlias[kvp.Key], kvp.Key+"", kvp.Value }).ToArray(),
+                false,
+                false,
                 keys.Split(' ')
                 );
             AliasNames = CurrentFormatInfo.Alias.Keys.Cast<object>().ToList();

@@ -169,38 +169,56 @@ namespace BLPPCounter.Helpfuls
             System.Drawing.Color.FromArgb((int)Math.Round(color.a * 0xFF), (int)Math.Round(color.r * 0xFF), (int)Math.Round(color.g * 0xFF), (int)Math.Round(color.b * 0xFF));
         public static BSMLParserParams AddToComponent(BSMLResourceViewController brvc, UnityEngine.GameObject container) =>
             BSMLParser.Instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc);
-        public static void SetupTable(TextMeshProUGUI table, int maxWidth, string[][] values, int spaces, params string[] names)
+        public static void SetupTable(TextMeshProUGUI table, int maxWidth, string[][] values, int spaces, bool haveEndColumn, bool centerText, params string[] names)
         {
+            //for some reason spaces in fonts won't have an actual size, so the line below will add the size to font if it doesn't have one.
+            if (table.font.characterLookupTable[' '].glyph.metrics.width == 0) table.font.MakeSpacesHaveSpace();
             string space = new string(' ', spaces);
             float[] maxLengths = new float[names.Length];
             string[] rows = new string[values.Length + 2];
-            string format = $"|{space}{{0}}";
-            for (int i = 1, c = 1; i < names.Length; i++)
-                format += $"<space={{{c++}}}px>{space}|{space}{{{c++}}}";
+            string format = centerText ? $"|{space}<space={{1}}px>{{0}}" : $"|{space}{{0}}";
+            float GetLen(string str) => table.GetPreferredValues(Regex.Replace(str, "<[^>]+>", "")).x;
+            float GetLenWithSpacers(string str) {
+                MatchCollection mc = Regex.Matches(str, "(?<=<space=)[^p]+");
+                float addedSpace = mc.Aggregate(0.0f, (total, match) => total + float.Parse(match.Value));
+                return GetLen(str) + addedSpace;
+            }
+            int centerTextInc = centerText ? 3 : 2; //weird var, but is an attempt to make this less jank
+            for (int i = 1, c = centerTextInc - 1; i < names.Length; i++, c += centerTextInc) //this is so jank
+                format += $"<space={{{c}}}px>{space}|{space}" + (centerText ? $"<space={{{c + 2}}}px>{{{c + 1}}}" : $"{{{c + 1}}}");
             for (int i = 0; i < maxLengths.Length; i++)
-                maxLengths[i] = Math.Max(values.Aggregate(0.0f, (total, strArr) => Math.Max(total, table.GetPreferredValues(strArr[i]).x)), table.GetPreferredValues(names[i]).x);
+                maxLengths[i] = Math.Max(values.Aggregate(0.0f, (total, strArr) => Math.Max(total, GetLen(strArr[i]))), GetLen(names[i]));
             object[] GetFormatVals(string[] row) {
-                object[] outArr = new object[row.Length * 2 - 1];
-                for (int i = 0, c = 0; i < row.Length; i++, c += 2)
+                object[] outArr = new object[row.Length * 2 - 1 + (centerText ? row.Length : 0)];
+                for (int i = 0, c = 0; i < row.Length; i++, c += centerTextInc)
                 { 
-                    outArr[c] = row[i]; 
-                    if (i < row.Length - 1) outArr[c + 1] = maxLengths[i] - table.GetPreferredValues(row[i]).x; 
+                    outArr[c] = row[i];
+                    if (i < row.Length - 1) if (centerText) { outArr[c + 1] = (maxLengths[i] - GetLen(row[i])) / 2; outArr[c + 2] = outArr[c + 1]; }
+                        else outArr[c + 1] = maxLengths[i] - GetLen(row[i]);
                 }    
                 return outArr;
             }
-            rows[0] = string.Format(format, GetFormatVals(names)) + '\n';
+            rows[0] = string.Format(format, GetFormatVals(names));
             for (int i = 0; i < values.Length; i++)
                 rows[i + 2] = string.Format(format, GetFormatVals(values[i]));
+            float spacerSize = table.GetPreferredValues(space + "|").x;
             int dashCount = maxWidth > 0 ?
-                (int)Math.Ceiling(maxWidth / table.GetPreferredValues("-").x) :
-                (int)Math.Ceiling(rows.Skip(2).Aggregate(0.0f, (total, str) => Math.Max(total, table.GetPreferredValues(str).x)) / table.GetPreferredValues("-").x);
-            rows[1] = new string('-', dashCount);
+                (int)Math.Ceiling((maxWidth - spacerSize) / table.GetPreferredValues("-").x) :
+                (int)Math.Ceiling((rows.Skip(2).Aggregate(0.0f, (total, str) => Math.Max(total, GetLenWithSpacers(str))) - spacerSize) / table.GetPreferredValues("-").x);
+            rows[1] = "|" + space + new string('-', dashCount);
+            if (haveEndColumn)
+            {
+                float dashLength = table.GetPreferredValues(rows[1]).x;
+                for (int i = 0; i < rows.Length; i++)
+                    rows[i] += $"<space={dashLength - GetLenWithSpacers(rows[i])}px>{space}|";
+            }
+            rows[0] += '\n';
             table.text = rows.Aggregate((total, str) => total + str + "\n");
         }
-        public static void SetupTable(TextMeshProUGUI table, int maxWidth, string[][] values, params string[] names) =>
-            SetupTable(table, maxWidth, values, 2, names);
-        public static void SetupTable(TextMeshProUGUI table, int maxWidth, IEnumerable<KeyValuePair<string, string>> values, string key, string value, int spaces = 2) =>
-            SetupTable(table, maxWidth, values.Select(kvp => new string[2] { kvp.Key, kvp.Value }).ToArray(), spaces, key, value);
+        public static void SetupTable(TextMeshProUGUI table, int maxWidth, string[][] values, bool haveEndColumn, bool centerText, params string[] names) =>
+            SetupTable(table, maxWidth, values, 2, haveEndColumn, centerText, names);
+        public static void SetupTable(TextMeshProUGUI table, int maxWidth, IEnumerable<KeyValuePair<string, string>> values, string key, string value, int spaces = 2, bool haveEndColumn = false, bool centerText = false) =>
+            SetupTable(table, maxWidth, values.Select(kvp => new string[2] { kvp.Key, kvp.Value }).ToArray(), spaces, haveEndColumn, centerText, key, value);
 
         public static IEnumerable<T> GetDuplicates<T, V>(this IEnumerable<T> arr, Func<T, V> valToCompare)
         {
@@ -264,6 +282,13 @@ namespace BLPPCounter.Helpfuls
                 newArr[0] = s;
                 return newArr;
             }).ToArray();
+        }
+        public static string MatrixToPrintable<T>(T[][] matrix) where T : class
+        {
+            string outp = "";
+            foreach (T[] arr in matrix)
+                outp += arr.Aggregate("", (total, current) => total + " | " + current).Substring(1) + " |\n";
+            return outp;
         }
     }
 }

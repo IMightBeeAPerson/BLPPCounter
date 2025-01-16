@@ -47,12 +47,19 @@
         </vertical>
       </settings-container>
     </tab>
-    <tab tags='tabs' tab-name='Precentages'>
-      <scrollable-settings-container mask-overflow='true' pref-height='70' anchor-pos-y='-5'>
+    <tab tags='tabs' tab-name='Capture Values'>
+      <settings-container mask-overflow='true' pref-height='70' anchor-pos-y='-5'>
         <vertical spacing='1' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' pref-width='100'>
-          <text id='RelativeText' text='hi' word-wrapping='true'/>
-          <text id='ClanTable' text='hey'/>
+          <text id='ClanTable' text='' align='Center'/>
+          <button text='Refresh Table' on-click='RefreshTable'/>
         </vertical>
-      </scrollable-settings-container>
+      </settings-container>
     </tab>
+   <tab tags='tabs' tab-name='Misc Values'>
+    <settings-container mask-overflow='true' pref-height='70' anchor-pos-y='-5'>
+      <vertical spacing='1' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' pref-width='100'>
+        <text id='RelativeText' text='hi' word-wrapping='true'/>
+      </vertical>
+    </settings-container>
+  </tab>
 </bg>
