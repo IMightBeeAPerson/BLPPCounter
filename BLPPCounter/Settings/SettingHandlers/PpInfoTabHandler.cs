@@ -10,6 +10,10 @@ using Newtonsoft.Json.Linq;
 using BLPPCounter.Counters;
 using UnityEngine;
 using BLPPCounter.CalculatorStuffs;
+using System.Threading.Tasks;
+using System.Threading;
+using BeatSaberMarkupLanguage.ViewControllers;
+using System.Collections;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -32,6 +36,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 
         private float TargetPP = 0;
         private bool TargetHasScore = false;
+        private object RefreshLock = new object();
         #endregion
         #region Clan Counter
         private float PPToCapture = 0;
@@ -68,13 +73,6 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void ForceRefresh() { if (Sldvc != null && Gmpc != null) Refresh(true); }
         [UIAction(nameof(RefreshMods))]
         private void RefreshMods() { if (Sldvc != null && Gmpc != null) { UpdateMods(); UpdateInfo(); } }
-        public void Refresh(bool forceRefresh = false)
-        {
-            if (!forceRefresh && Sldvc.beatmapKey.Equals(CurrentMap)) return;
-            UpdateMods();
-            TargetPP = UpdateTargetPP();
-            UpdateInfo();
-        }
         [UIAction(nameof(RefreshTable))]
         private void RefreshTable() => BuildTable();
         #endregion
@@ -84,7 +82,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             InitRelativeFormatter();
             Instance = new PpInfoTabHandler();
         }
-        internal void SldvcInit() { Sldvc.didChangeContentEvent += (a, b) => Refresh(); Sldvc.didChangeDifficultyBeatmapEvent += a => Refresh(); }
+        internal void SldvcInit() { Sldvc.didChangeContentEvent += (a, b) => RefreshAsync(); Sldvc.didChangeDifficultyBeatmapEvent += a => RefreshAsync(); }
         //internal void GmpcInit() { Gmpc.didChangeGameplayModifiersEvent += UpdateMods; UpdateMods(); }
         #endregion
         #region Formatting
@@ -130,7 +128,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             BeatmapID = targetScore["leaderboardId"].ToString();
             BeatmapName = targetScore["song"]["name"].ToString();
             float outp = (float)targetScore["pp"];
-            if (Mathf.Approximately(outp, 0.0f)) //If the score set doesn't have a pp value, calculate one manually
+            if (outp == 0.0f) //If the score set doesn't have a pp value, calculate one manually
             {
                 int maxScore = (int)targetScore["difficulty"]["maxScore"], playerScore = (int)targetScore["modifiedScore"];
                 targetScore = targetScore["difficulty"];
@@ -204,7 +202,11 @@ namespace BLPPCounter.Settings.SettingHandlers
             ModMultText.text = $"x{Math.Round(CurrentModMultiplier, 2):N2}";
             RelativeText.text = TargetHasScore ? RelativeFormatter.Invoke(Targeter.PlayerName, GetAccToBeatTarget(), CurrentMods) : $"<color=red>{Targeter.PlayerName}</color> doesn't have a score on this map.";
             PPToCapture = ClanCounter.LoadNeededPp(_BeatmapID, out _)?[0] ?? 0;
-            BuildTable();
+            IEnumerator BuildTableRoutine() {
+                yield return new WaitForEndOfFrame();
+                BuildTable();
+            }
+            Sldvc.StartCoroutine(BuildTableRoutine()); //this is done so that the game doesn't crash ;-;
         }
         private void UpdateDiff()
         {
@@ -216,6 +218,36 @@ namespace BLPPCounter.Settings.SettingHandlers
             BeatmapID = CurrentDiff["id"].ToString();
             CurrentDiff = CurrentDiff["difficulty"];
         }
+        private void RefreshAsync() => Task.Run(() => Refresh());
+        public void Refresh(bool forceRefresh = false)
+        {
+            if (!forceRefresh && Sldvc.beatmapKey.Equals(CurrentMap)) return;
+            if (Monitor.TryEnter(RefreshLock))
+            {
+                try
+                {
+                    UpdateMods();
+                    TargetPP = UpdateTargetPP();
+                    UpdateInfo();
+                }
+                finally { Monitor.Exit(RefreshLock); }
+            }
+        }
+        /*private void ChangeTextDisplay(bool show)
+        {
+            RelativeText.gameObject.SetActive(show);
+            ClanTable.gameObject.SetActive(show);
+
+            AccStarText.gameObject.SetActive(show);
+            TechStarText.gameObject.SetActive(show);
+            PassStarText.gameObject.SetActive(show);
+            StarText.gameObject.SetActive(show);
+            SpeedModText.gameObject.SetActive(show);
+            ModMultText.gameObject.SetActive(show);
+
+            MapName.gameObject.SetActive(show);
+            MapID.gameObject.SetActive(show);
+        }*/
         #endregion
     }
 }

@@ -14,7 +14,7 @@ namespace BLPPCounter.Patches
         internal static void Prefix(StandardLevelDetailViewController __instance)
         {
             PpInfoTabHandler.Instance.Sldvc = __instance;
-            Plugin.Log.Info("SLDVC has been set.");
+            //Plugin.Log.Info("SLDVC has been set.");
             if (PpInfoTabHandler.Instance.Gmpc is null) return;
             PpInfoTabHandler.Instance.SldvcInit();
         }

@@ -184,16 +184,20 @@ namespace BLPPCounter.Helpfuls
                 return GetLen(str) + addedSpace;
             }
             int centerTextInc = centerText ? 3 : 2; //weird var, but is an attempt to make this less jank
-            for (int i = 1, c = centerTextInc - 1; i < names.Length; i++, c += centerTextInc) //this is so jank
+            for (int i = 1, c = centerTextInc - 1; i < names.Length; i++, c += centerTextInc)
                 format += $"<space={{{c}}}px>{space}|{space}" + (centerText ? $"<space={{{c + 2}}}px>{{{c + 1}}}" : $"{{{c + 1}}}");
+            if (haveEndColumn) format += $"<space={{{centerTextInc * (names.Length - 2) + centerTextInc + 1}}}px>{space}|";
             for (int i = 0; i < maxLengths.Length; i++)
                 maxLengths[i] = Math.Max(values.Aggregate(0.0f, (total, strArr) => Math.Max(total, GetLen(strArr[i]))), GetLen(names[i]));
             object[] GetFormatVals(string[] row) {
-                object[] outArr = new object[row.Length * 2 - 1 + (centerText ? row.Length : 0)];
+                int outArrLen = row.Length * 2 - 1;
+                if (centerText) outArrLen += row.Length;
+                if (haveEndColumn) outArrLen += centerText ? 2 : 1;
+                object[] outArr = new object[outArrLen];
                 for (int i = 0, c = 0; i < row.Length; i++, c += centerTextInc)
                 { 
                     outArr[c] = row[i];
-                    if (i < row.Length - 1) if (centerText) { outArr[c + 1] = (maxLengths[i] - GetLen(row[i])) / 2; outArr[c + 2] = outArr[c + 1]; }
+                    if (i < row.Length - 1 || haveEndColumn) if (centerText) { outArr[c + 1] = (maxLengths[i] - GetLen(row[i])) / 2; outArr[c + 2] = outArr[c + 1]; }
                         else outArr[c + 1] = maxLengths[i] - GetLen(row[i]);
                 }    
                 return outArr;
@@ -206,12 +210,12 @@ namespace BLPPCounter.Helpfuls
                 (int)Math.Ceiling((maxWidth - spacerSize) / table.GetPreferredValues("-").x) :
                 (int)Math.Ceiling((rows.Skip(2).Aggregate(0.0f, (total, str) => Math.Max(total, GetLenWithSpacers(str))) - spacerSize) / table.GetPreferredValues("-").x);
             rows[1] = "|" + space + new string('-', dashCount);
-            if (haveEndColumn)
+            /*if (haveEndColumn)
             {
                 float dashLength = table.GetPreferredValues(rows[1]).x;
                 for (int i = 0; i < rows.Length; i++)
                     rows[i] += $"<space={dashLength - GetLenWithSpacers(rows[i])}px>{space}|";
-            }
+            }*/
             rows[0] += '\n';
             table.text = rows.Aggregate((total, str) => total + str + "\n");
         }
