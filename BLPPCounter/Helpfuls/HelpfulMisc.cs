@@ -205,17 +205,17 @@ namespace BLPPCounter.Helpfuls
             rows[0] = string.Format(format, GetFormatVals(names));
             for (int i = 0; i < values.Length; i++)
                 rows[i + 2] = string.Format(format, GetFormatVals(values[i]));
-            float spacerSize = table.GetPreferredValues(space + "|").x;
-            int dashCount = maxWidth > 0 ?
-                (int)Math.Ceiling((maxWidth - spacerSize) / table.GetPreferredValues("-").x) :
-                (int)Math.Ceiling((rows.Skip(2).Aggregate(0.0f, (total, str) => Math.Max(total, GetLenWithSpacers(str))) - spacerSize) / table.GetPreferredValues("-").x);
+            float spacerSize = table.GetPreferredValues(space + "|").x, dashSize = table.GetPreferredValues("-").x;
+            if (haveEndColumn) spacerSize *= 2;
+            float maxSpace = maxWidth > 0 ? maxWidth : rows.Skip(2).Aggregate(0.0f, (total, str) => Math.Max(total, GetLenWithSpacers(str)));
+            int dashCount = (int)Math.Ceiling((maxSpace - spacerSize) / dashSize);
             rows[1] = "|" + space + new string('-', dashCount);
-            /*if (haveEndColumn)
+            if (haveEndColumn)
             {
                 float dashLength = table.GetPreferredValues(rows[1]).x;
-                for (int i = 0; i < rows.Length; i++)
-                    rows[i] += $"<space={dashLength - GetLenWithSpacers(rows[i])}px>{space}|";
-            }*/
+                rows[1] += $"<space={maxSpace - table.GetPreferredValues(rows[1]).x - spacerSize / 2}px>{space}|";
+                Plugin.Log.Info(rows[1]);
+            }
             rows[0] += '\n';
             table.text = rows.Aggregate((total, str) => total + str + "\n");
         }
