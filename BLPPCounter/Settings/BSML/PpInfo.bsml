@@ -1,12 +1,12 @@
 <bg child-control-height='false' 
   xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:noNamespaceSchemaLocation='https://monkeymanboy.github.io/BSML-Docs/BSMLSchema.xsd'>
   
-    <tab-selector tab-tag='tabs' id='TabSelector'/>
+    <tab-selector tab-tag='tabs' select-cell='ChangeTab'/>
   
     <tab tags='tabs' tab-name='Info'>
       <settings-container mask-overflow='true' pref-height='70' anchor-pos-y='-5'>
-        <vertical spacing='2' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' pref-width='100'>
-          <vertical spacing='0' horizontal-fit='PreferredSize' pref-width='100'>
+        <vertical spacing='2' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' pref-width='75'>
+          <vertical spacing='0' horizontal-fit='PreferredSize' pref-width='75'>
             <horizontal>
               <button text='Refresh Contents' on-click='Refresh'/>
               <button text='Refresh Mods' on-click='RefreshMods'/>
@@ -16,7 +16,7 @@
               <text id='MapID' text='~BeatmapID' align='Right'/>
             </horizontal>
           </vertical>
-          <vertical spacing='-1' horizontal-fit='PreferredSize' pref-width='100'>
+          <vertical spacing='-1' horizontal-fit='PreferredSize' pref-width='75'>
             <horizontal>
               <text text='&#60;color=blue&#62;Acc&#60;/color&#62; Stars' align='Left'/>
               <text id='AccStarText' text='0.00&#9733;' align='Right'/>
@@ -34,7 +34,7 @@
               <text id='StarText' text='0.00&#9733;' align='Right'/>
             </horizontal>
           </vertical>
-          <vertical spacing='-1' horizontal-fit='PreferredSize' pref-width='100'>
+          <vertical spacing='-1' horizontal-fit='PreferredSize' pref-width='75'>
             <horizontal>
               <text text='&#60;color=#0099DD&#62;Speed&#60;/color&#62; Mod' align='Left'/>
               <text id='SpeedModText' text='&#60;color=green&#62;None' align='Right'/>
@@ -47,6 +47,7 @@
         </vertical>
       </settings-container>
     </tab>
+  
     <tab tags='tabs' tab-name='Capture Values'>
       <settings-container mask-overflow='true' pref-height='70' anchor-pos-y='-5'>
         <vertical spacing='1' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' pref-width='100'>

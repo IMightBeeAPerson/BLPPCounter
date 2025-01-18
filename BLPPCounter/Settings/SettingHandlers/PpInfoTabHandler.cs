@@ -8,12 +8,12 @@ using System.Linq;
 using TMPro;
 using Newtonsoft.Json.Linq;
 using BLPPCounter.Counters;
-using UnityEngine;
 using BLPPCounter.CalculatorStuffs;
 using System.Threading.Tasks;
 using System.Threading;
-using BeatSaberMarkupLanguage.ViewControllers;
-using System.Collections;
+using HMUI;
+using BeatSaberMarkupLanguage.Tags;
+using BeatSaberMarkupLanguage.Components;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -27,10 +27,16 @@ namespace BLPPCounter.Settings.SettingHandlers
         private static PluginConfig PC => PluginConfig.Instance;
         #endregion
         #region Variables
-        private string CurrentMods = "", UnformattedCurrentMods = "";
+        private string CurrentMods = "", UnformattedCurrentMods = "", CurrentTab = "Info";
         private float CurrentModMultiplier = 1f;
         private BeatmapKey CurrentMap;
         private JToken CurrentDiff;
+        private readonly Dictionary<string, (BeatmapKey, Action<PpInfoTabHandler>)> Updates = new Dictionary<string, (BeatmapKey, Action<PpInfoTabHandler>)>()
+        {
+            {"Info", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateInfo())) },
+            {"Capture Values", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateCaptureValues())) },
+            {"Misc Values", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateMiscValues())) }
+        };
         #region Relative Counter
         private static Func<string, float, string, string> RelativeFormatter;
 
@@ -72,9 +78,18 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction(nameof(Refresh))]
         private void ForceRefresh() { if (Sldvc != null && Gmpc != null) Refresh(true); }
         [UIAction(nameof(RefreshMods))]
-        private void RefreshMods() { if (Sldvc != null && Gmpc != null) { UpdateMods(); UpdateInfo(); } }
+        private void RefreshMods() { if (Sldvc != null && Gmpc != null) { UpdateMods(); UpdateTabDisplay(); } }
         [UIAction(nameof(RefreshTable))]
         private void RefreshTable() => BuildTable();
+        [UIAction(nameof(ChangeTab))]
+        private void ChangeTab(SegmentedControl sc, int index)
+        {
+            if (Sldvc != null && Gmpc != null && sc.cells[index] is TextSegmentedControlCell tscc)
+            {
+                CurrentTab = tscc.text;
+                UpdateTabDisplay();
+            }
+        }
         #endregion
         #region Inits
         static PpInfoTabHandler()
@@ -142,7 +157,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         #region Clan Table
         private void BuildTable()
         {
-            string[][] arr = HelpfulMisc.RowToColumn(new string[] { "<color=red>Slower</color>", "<color=#aaa>Normal</color>", "<color=#0F0>Faster</color>", "<color=#FFD700>Super Fast</color>" }, 3);
+            string[][] arr = new string[] { "<color=red>Slower</color>", "<color=#aaa>Normal</color>", "<color=#0F0>Faster</color>", "<color=#FFD700>Super Fast</color>" }.RowToColumn(3);
             float[] ratings = HelpfulPaths.GetAllRatings(CurrentDiff); //ss-sf, [acc, pass, tech, star]
             float gnMult = (float)CurrentDiff["modifierValues"]["gn"] + 1.0f;
             for (int i = 0; i < arr.Length; i++) 
@@ -187,7 +202,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region Misc Functions
-        public void UpdateInfo()
+        public void UpdateTabDisplay() { if (CurrentTab.Length > 0) Updates[CurrentTab].Item2.Invoke(this); }
+        private void UpdateInfo()
         {
             if (CurrentDiff != null)
             {
@@ -200,13 +216,11 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
             SpeedModText.text = "<color=green>" + HelpfulMisc.AddSpaces(Gmpc.gameplayModifiers.songSpeed.ToString());
             ModMultText.text = $"x{Math.Round(CurrentModMultiplier, 2):N2}";
+        }
+        private void UpdateCaptureValues() => BuildTable();
+        private void UpdateMiscValues()
+        {
             RelativeText.text = TargetHasScore ? RelativeFormatter.Invoke(Targeter.PlayerName, GetAccToBeatTarget(), CurrentMods) : $"<color=red>{Targeter.PlayerName}</color> doesn't have a score on this map.";
-            PPToCapture = ClanCounter.LoadNeededPp(_BeatmapID, out _)?[0] ?? 0;
-            IEnumerator BuildTableRoutine() {
-                yield return new WaitForEndOfFrame();
-                BuildTable();
-            }
-            Sldvc.StartCoroutine(BuildTableRoutine()); //this is done so that the game doesn't crash ;-;
         }
         private void UpdateDiff()
         {
@@ -228,7 +242,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 {
                     UpdateMods();
                     TargetPP = UpdateTargetPP();
-                    UpdateInfo();
+                    UpdateTabDisplay();
                 }
                 finally { Monitor.Exit(RefreshLock); }
             }

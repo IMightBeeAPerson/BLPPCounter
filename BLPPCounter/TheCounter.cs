@@ -664,7 +664,6 @@ namespace BLPPCounter
             float outp = 1.0f;
             if (mods.ghostNotes) outp += HelpfulPaths.GetMultiAmount(data, "gn");
             if (mods.noArrows) outp += HelpfulPaths.GetMultiAmount(data, "na");
-            if (mods.noFailOn0Energy) outp += HelpfulPaths.GetMultiAmount(data, "nf");
             if (mods.enabledObstacleType == EnabledObstacleType.NoObstacles) outp += HelpfulPaths.GetMultiAmount(data, "no");
             if (mods.noBombs) outp += HelpfulPaths.GetMultiAmount(data, "nb");
             return outp;

@@ -173,35 +173,43 @@ namespace BLPPCounter.Helpfuls
         {
             //for some reason spaces in fonts won't have an actual size, so the line below will add the size to font if it doesn't have one.
             if (table.font.characterLookupTable[' '].glyph.metrics.width == 0) table.font.MakeSpacesHaveSpace();
+
             string space = new string(' ', spaces);
             float[] maxLengths = new float[names.Length];
             string[] rows = new string[values.Length + 2];
             string format = centerText ? $"|{space}<space={{1}}px>{{0}}" : $"|{space}{{0}}";
-            float GetLen(string str) => table.GetPreferredValues(Regex.Replace(str, "<[^>]+>", "")).x;
-            float GetLenWithSpacers(string str) {
+            int centerTextInc = centerText ? 3 : 2; //weird var, but is an attempt to make this less jank
+            Dictionary<uint, TMP_Character> lookupTable = new Dictionary<uint, TMP_Character>();
+
+            float GetLen(string str) => table.GetPreferredValues(str).x;//table.GetLengthOfText(str);
+            float GetLenWithoutRich(string str) => GetLen(Regex.Replace(str, "<[^>]+>", ""));
+            float GetLenWithSpacers(string str)
+            {
                 MatchCollection mc = Regex.Matches(str, "(?<=<space=)[^p]+");
                 float addedSpace = mc.Aggregate(0.0f, (total, match) => total + float.Parse(match.Value));
-                return GetLen(str) + addedSpace;
+                return GetLenWithoutRich(str) + addedSpace;
             }
-            int centerTextInc = centerText ? 3 : 2; //weird var, but is an attempt to make this less jank
-            for (int i = 1, c = centerTextInc - 1; i < names.Length; i++, c += centerTextInc)
-                format += $"<space={{{c}}}px>{space}|{space}" + (centerText ? $"<space={{{c + 2}}}px>{{{c + 1}}}" : $"{{{c + 1}}}");
-            if (haveEndColumn) format += $"<space={{{centerTextInc * (names.Length - 2) + centerTextInc + 1}}}px>{space}|";
-            for (int i = 0; i < maxLengths.Length; i++)
-                maxLengths[i] = Math.Max(values.Aggregate(0.0f, (total, strArr) => Math.Max(total, GetLen(strArr[i]))), GetLen(names[i]));
-            object[] GetFormatVals(string[] row) {
+            object[] GetFormatVals(string[] row)
+            {
                 int outArrLen = row.Length * 2 - 1;
                 if (centerText) outArrLen += row.Length;
                 if (haveEndColumn) outArrLen += centerText ? 2 : 1;
                 object[] outArr = new object[outArrLen];
                 for (int i = 0, c = 0; i < row.Length; i++, c += centerTextInc)
-                { 
+                {
                     outArr[c] = row[i];
-                    if (i < row.Length - 1 || haveEndColumn) if (centerText) { outArr[c + 1] = (maxLengths[i] - GetLen(row[i])) / 2; outArr[c + 2] = outArr[c + 1]; }
-                        else outArr[c + 1] = maxLengths[i] - GetLen(row[i]);
-                }    
+                    if (i < row.Length - 1 || haveEndColumn) if (centerText) { outArr[c + 1] = (maxLengths[i] - GetLenWithoutRich(row[i])) / 2; outArr[c + 2] = outArr[c + 1]; }
+                        else outArr[c + 1] = maxLengths[i] - GetLenWithoutRich(row[i]);
+                }
                 return outArr;
             }
+
+            for (int i = 1, c = centerTextInc - 1; i < names.Length; i++, c += centerTextInc)
+                format += $"<space={{{c}}}px>{space}|{space}" + (centerText ? $"<space={{{c + 2}}}px>{{{c + 1}}}" : $"{{{c + 1}}}");
+            if (haveEndColumn) format += $"<space={{{centerTextInc * (names.Length - 2) + centerTextInc + 1}}}px>{space}|";
+            for (int i = 0; i < maxLengths.Length; i++)
+                maxLengths[i] = Math.Max(values.Aggregate(0.0f, (total, strArr) => Math.Max(total, GetLenWithoutRich(strArr[i]))), GetLenWithoutRich(names[i]));
+            
             rows[0] = string.Format(format, GetFormatVals(names));
             for (int i = 0; i < values.Length; i++)
                 rows[i + 2] = string.Format(format, GetFormatVals(values[i]));
@@ -214,7 +222,6 @@ namespace BLPPCounter.Helpfuls
             {
                 float dashLength = table.GetPreferredValues(rows[1]).x;
                 rows[1] += $"<space={maxSpace - table.GetPreferredValues(rows[1]).x - spacerSize / 2}px>{space}|";
-                Plugin.Log.Info(rows[1]);
             }
             rows[0] += '\n';
             table.text = rows.Aggregate((total, str) => total + str + "\n");
@@ -277,7 +284,7 @@ namespace BLPPCounter.Helpfuls
             g.metrics = gm;
         }
         public static string AddSpaces(string str) => Regex.Replace(str, "(?<=[a-z])([A-Z])", " $+");
-        public static T[][] RowToColumn<T>(IEnumerable<T> arr, int rowLengths = 0)
+        public static T[][] RowToColumn<T>(this IEnumerable<T> arr, int rowLengths = 0)
         {
             int len = arr.Count();
             return arr.Select(s =>
@@ -287,12 +294,62 @@ namespace BLPPCounter.Helpfuls
                 return newArr;
             }).ToArray();
         }
-        public static string MatrixToPrintable<T>(T[][] matrix) where T : class
+        public static string Print<T>(this T[][] matrix)
         {
             string outp = "";
             foreach (T[] arr in matrix)
                 outp += arr.Aggregate("", (total, current) => total + " | " + current).Substring(1) + " |\n";
             return outp;
         }
+        public static string Print<K, V>(this Dictionary<K, V> dict, string delimiter = ",\n")
+        {
+            string outp = "";
+            foreach (var val in dict)
+                outp += $"[{val.Key}, {val.Value}]{delimiter}";
+            return outp;
+        }
+        public static string Print<K, V>(this Dictionary<K, V> dict, Func<K, string> keyToString, Func<V, string> valToString, string delimiter = ",\n")
+        {
+            string outp = "";
+            foreach (var val in dict)
+                outp += $"[{keyToString(val.Key)}, {valToString(val.Value)}]{delimiter}";
+            return outp;
+        }
+        public static string Print<T>(this IEnumerable<T> arr)
+        {
+            string outp = "";
+            foreach (T item in arr)
+                outp += ", " + item;
+            return $"[{outp.Substring(2)}]";
+        }
+        public static string Print<T>(this IEnumerable<T> arr, Func<T, string> valToString)
+        {
+            string outp = "";
+            foreach (T item in arr)
+                outp += ", " + valToString(item);
+            return $"[{outp.Substring(2)}]";
+        }
+        //TODO, DOESN'T WORK RN
+        public static float GetLengthOfText(this TextMeshProUGUI guiText, string text, Dictionary<uint, TMP_Character> givenLookupTable = null)
+        {
+            float outp = 0;
+            bool hasGivenLookupTable = !(givenLookupTable is null);
+            Dictionary<uint, TMP_Character> lookupTable = hasGivenLookupTable ? givenLookupTable : guiText.font.characterLookupTable;
+            for (int i = 0; i < text.Length; i++)
+            {
+                if (!lookupTable.TryGetValue(text[i], out TMP_Character c))
+                {
+                    List<TMP_FontAsset> backups = guiText.font.fallbackFontAssetTable;
+                    foreach (TMP_FontAsset asset in backups)
+                        if (asset.characterLookupTable.TryGetValue(text[i], out c))
+                            break;
+                    if (hasGivenLookupTable) givenLookupTable.Add(text[i], c);
+                }
+                outp += c.glyph.metrics.width;
+            }
+            Plugin.Log.Info($"Given: {text} || Mine: {outp} || Unity's: {guiText.GetPreferredValues(text).x}");
+            return outp;
+        }
+
     }
 }
