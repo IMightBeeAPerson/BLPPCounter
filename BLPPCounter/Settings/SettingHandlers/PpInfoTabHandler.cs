@@ -14,6 +14,7 @@ using System.Threading;
 using HMUI;
 using BeatSaberMarkupLanguage.Tags;
 using BeatSaberMarkupLanguage.Components;
+using BLPPCounter.Patches;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -235,7 +236,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void RefreshAsync() => Task.Run(() => Refresh());
         public void Refresh(bool forceRefresh = false)
         {
-            if (!forceRefresh && Sldvc.beatmapKey.Equals(CurrentMap)) return;
+            if (!TabSelectionPatch.IsReferenceTabSelected || (!forceRefresh && Sldvc.beatmapKey.Equals(CurrentMap))) return;
             if (Monitor.TryEnter(RefreshLock))
             {
                 try
