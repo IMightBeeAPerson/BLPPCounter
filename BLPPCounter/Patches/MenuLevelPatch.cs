@@ -18,10 +18,8 @@ namespace BLPPCounter.Patches
             if (firstActivation)
             {
                 PpInfoTabHandler.Instance.Sldvc = __instance;
-                //Plugin.Log.Info("SLDVC has been set.");
                 if (PpInfoTabHandler.Instance.Gmpc is null) return;
                 PpInfoTabHandler.Instance.SldvcInit();
-                
             }
         }
     }

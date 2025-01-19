@@ -51,15 +51,38 @@
     <tab tags='tabs' tab-name='Capture Values'>
       <settings-container mask-overflow='true' pref-height='70' anchor-pos-y='-5'>
         <vertical spacing='1' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' pref-width='100'>
+          <text id='ClanTarget' text='' align='Center'/>
           <text id='ClanTable' text='' align='Center'/>
           <button text='Refresh Table' on-click='RefreshTable'/>
         </vertical>
       </settings-container>
     </tab>
+  
    <tab tags='tabs' tab-name='Misc Values'>
     <settings-container mask-overflow='true' pref-height='70' anchor-pos-y='-5'>
       <vertical spacing='1' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' pref-width='100'>
-        <text id='RelativeText' text='hi' word-wrapping='true'/>
+        <text id='RelativeText' text='hi' word-wrapping='true' align='Center'/>
+      </vertical>
+    </settings-container>
+  </tab>
+  <tab tags='tabs' tab-name='Custom Accuracy'>
+    <settings-container mask-overflow='true' pref-height='70' anchor-pos-y='-5'>
+      <vertical spacing='1' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' pref-width='100'>
+        <slider-setting increment='0.05' integer-only='false' min='50' max='100' show-buttons='true' apply-on-change='true' value='TestAcc' formatter='PercentFormat'/>
+        <slider-setting increment='5' integer-only='true' min='100' max='1000' show-buttons='true' apply-on-change='true' value='TestPp' formatter='PPFormat'/>
+        <horizontal horizontal-fit='PreferredSize' pref-width='75'>
+          <text text='Percent Values' align='Left'/>
+          <button text='Apply Values' on-click='UpdateCA' align='Center'/>
+          <text text='PP Values' align='Right'/>
+        </horizontal>
+        <horizontal>
+          <vertical bg='round-rect-panel' bg-color='#CCC'>
+            <text id='PrecentTable' text='' align='Left' font-size='3'/>
+          </vertical>
+          <vertical bg='round-rect-panel' bg-color='#CCC'>
+            <text id='PPTable' text='' align='Right' font-size='3'/>
+          </vertical>
+        </horizontal>
       </vertical>
     </settings-container>
   </tab>

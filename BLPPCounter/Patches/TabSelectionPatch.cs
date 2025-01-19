@@ -3,8 +3,6 @@ using HMUI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BLPPCounter.Patches
 {
@@ -15,14 +13,19 @@ namespace BLPPCounter.Patches
         private static HashSet<int> LoadedObjects = new HashSet<int>();
         public static readonly string REFERENCE_TAB = "PP Calculator";
         public static bool IsReferenceTabSelected = false;
+        public static Action ReferenceTabSelected;
         private static void Postfix(SegmentedControl __instance)
         {
             if (LoadedObjects.Contains(__instance.GetHashCode())) return;
             LoadedObjects.Add(__instance.GetHashCode());
             if (!__instance.name.Equals("BSMLTabSelector")) return;
             if (!__instance.cells.Any(scc => scc is TextSegmentedControlCell tscc && tscc.text.Equals(REFERENCE_TAB))) return;
-            __instance.didSelectCellEvent += 
-                (sc, index) => IsReferenceTabSelected = sc.cells[index] is TextSegmentedControlCell tscc && tscc.text.Equals(REFERENCE_TAB);
+            __instance.didSelectCellEvent +=
+                (sc, index) =>
+                {
+                    IsReferenceTabSelected = sc.cells[index] is TextSegmentedControlCell tscc && tscc.text.Equals(REFERENCE_TAB);
+                    if (IsReferenceTabSelected) ReferenceTabSelected?.Invoke();
+                };
         }
     }
 }

@@ -15,6 +15,9 @@ using HMUI;
 using BeatSaberMarkupLanguage.Tags;
 using BeatSaberMarkupLanguage.Components;
 using BLPPCounter.Patches;
+using UnityEngine.PlayerLoop;
+using UnityEngine;
+using System.Collections;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -36,7 +39,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             {"Info", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateInfo())) },
             {"Capture Values", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateCaptureValues())) },
-            {"Misc Values", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateMiscValues())) }
+            {"Misc Values", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateMiscValues())) },
+            {"Custom Accuracy", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateCustomAccuracy())) }
         };
         #region Relative Counter
         private static Func<string, float, string, string> RelativeFormatter;
@@ -50,8 +54,15 @@ namespace BLPPCounter.Settings.SettingHandlers
         #endregion
         #endregion
         #region UI Variables & components
+        [UIValue(nameof(TestAcc))] private float TestAcc = 95.0f;
+        [UIValue(nameof(TestPp))] private int TestPp = 450;
+        [UIComponent(nameof(PrecentTable))] private TextMeshProUGUI PrecentTable;
+        [UIComponent(nameof(PPTable))] private TextMeshProUGUI PPTable;
+
         [UIComponent(nameof(RelativeText))] private TextMeshProUGUI RelativeText;
+
         [UIComponent(nameof(ClanTable))] private TextMeshProUGUI ClanTable;
+        [UIComponent(nameof(ClanTarget))] private TextMeshProUGUI ClanTarget;
 
         [UIComponent(nameof(AccStarText))] private TextMeshProUGUI AccStarText;
         [UIComponent(nameof(TechStarText))] private TextMeshProUGUI TechStarText;
@@ -81,7 +92,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction(nameof(RefreshMods))]
         private void RefreshMods() { if (Sldvc != null && Gmpc != null) { UpdateMods(); UpdateTabDisplay(); } }
         [UIAction(nameof(RefreshTable))]
-        private void RefreshTable() => BuildTable();
+        private void RefreshTable() => BuildClanTable();
         [UIAction(nameof(ChangeTab))]
         private void ChangeTab(SegmentedControl sc, int index)
         {
@@ -91,12 +102,23 @@ namespace BLPPCounter.Settings.SettingHandlers
                 UpdateTabDisplay();
             }
         }
+        [UIAction(nameof(PercentFormat))]
+        private string PercentFormat(float toFormat) => $"{toFormat:N2}%";
+        [UIAction(nameof(PPFormat))]
+        private string PPFormat(int toFormat) => $"{toFormat:N0} pp";
+        [UIAction(nameof(UpdateCA))]
+        private void UpdateCA() => UpdateCustomAccuracy();
         #endregion
         #region Inits
         static PpInfoTabHandler()
         {
             InitRelativeFormatter();
             Instance = new PpInfoTabHandler();
+            TabSelectionPatch.ReferenceTabSelected += () =>
+            {
+                if (Instance.Sldvc != null && Instance.Gmpc != null)
+                    Instance.Refresh();
+            };
         }
         internal void SldvcInit() { Sldvc.didChangeContentEvent += (a, b) => RefreshAsync(); Sldvc.didChangeDifficultyBeatmapEvent += a => RefreshAsync(); }
         //internal void GmpcInit() { Gmpc.didChangeGameplayModifiersEvent += UpdateMods; UpdateMods(); }
@@ -156,22 +178,33 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region Clan Table
-        private void BuildTable()
+        private void BuildClanTable() => BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, PPToCapture, PC.DecimalPrecision) + "", ClanTable);
+        #endregion
+        #region Custom Accuracy
+        private void BuildPPTable() => BuildTable((acc, pass, tech) => BLCalc.GetSummedPp(TestAcc / 100.0f, acc, pass, tech, PC.DecimalPrecision).Total + "", PPTable, " pp", accLbl: "<color=#0D0>PP</color>");
+        private void BuildPrecentTable() => BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, TestPp, PC.DecimalPrecision) + "", PrecentTable, accLbl: "<color=#0D0>Acc</color>");
+        #endregion
+        private void BuildTable(Func<float, float, float, string> valueCalc, TextMeshProUGUI table,
+            string suffix = "%",
+            string speedLbl = "<color=blue>Speed</color>",
+            string accLbl = "<color=#0D0>Acc</color> to Cap",
+            string gnLbl = "With <color=#666>GN</color>")
         {
             string[][] arr = new string[] { "<color=red>Slower</color>", "<color=#aaa>Normal</color>", "<color=#0F0>Faster</color>", "<color=#FFD700>Super Fast</color>" }.RowToColumn(3);
             float[] ratings = HelpfulPaths.GetAllRatings(CurrentDiff); //ss-sf, [acc, pass, tech, star]
             float gnMult = (float)CurrentDiff["modifierValues"]["gn"] + 1.0f;
-            for (int i = 0; i < arr.Length; i++) 
-                arr[i][1] = "<color=#0c0>" + BLCalc.GetAcc(ratings[i * 4], ratings[i * 4 + 1], ratings[i * 4 + 2], PPToCapture, PC.DecimalPrecision) + "</color>%";
+            for (int i = 0; i < arr.Length; i++)
+                arr[i][1] = "<color=#0c0>" + valueCalc(ratings[i * 4], ratings[i * 4 + 1], ratings[i * 4 + 2]) + "</color>" + suffix;
             if (gnMult > 1.0f) for (int i = 0; i < arr.Length; i++)
-                    arr[i][2] = "<color=#77cc77cc>" + BLCalc.GetAcc(ratings[i * 4] * gnMult, ratings[i * 4 + 1] * gnMult, ratings[i * 4 + 2] * gnMult, PPToCapture, PC.DecimalPrecision) + "</color>%";
-            else for (int i = 0; i < arr.Length; i++) arr[i][2] = "0." + new string('0', PC.DecimalPrecision) + "%";
-            HelpfulMisc.SetupTable(ClanTable, 0, arr, true, true, "<color=blue>Speed</color>", "<color=#0D0>Acc</color> to Cap", "With <color=#666>GN</color>");
+                    arr[i][2] = "<color=#77aa77cc>" + valueCalc(ratings[i * 4] * gnMult, ratings[i * 4 + 1] * gnMult, ratings[i * 4 + 2] * gnMult) + "</color>" + suffix;
+            else for (int i = 0; i < arr.Length; i++) arr[i][2] = "N/A";
+            HelpfulMisc.SetupTable(table, 0, arr, true, true, speedLbl, accLbl, gnLbl);
         }
-        #endregion
         private static string Grammarize(string mods) //this is very needed :)
         {
-            if (mods.Count(c => c == ',') < 2) return mods;
+            int commaCount = mods.Count(c => c == ',');
+            if (commaCount == 0) return mods;
+            if (commaCount == 1) return mods.Replace(", ", " and ");
             return mods.Substring(0, mods.LastIndexOf(',')) + " and" + mods.Substring(mods.LastIndexOf(','));
         }
         private void UpdateMods() //this is why you use bitmasks instead of a billion bools vars
@@ -203,7 +236,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region Misc Functions
-        public void UpdateTabDisplay() { if (CurrentTab.Length > 0) Updates[CurrentTab].Item2.Invoke(this); }
+        public void UpdateTabDisplay() 
+        {
+            if (CurrentTab.Length <= 0 || Updates[CurrentTab].Item1 == CurrentMap) return;
+            Updates[CurrentTab].Item2.Invoke(this);
+            Updates[CurrentTab] = (CurrentMap, Updates[CurrentTab].Item2);
+        }
         private void UpdateInfo()
         {
             if (CurrentDiff != null)
@@ -218,10 +256,24 @@ namespace BLPPCounter.Settings.SettingHandlers
             SpeedModText.text = "<color=green>" + HelpfulMisc.AddSpaces(Gmpc.gameplayModifiers.songSpeed.ToString());
             ModMultText.text = $"x{Math.Round(CurrentModMultiplier, 2):N2}";
         }
-        private void UpdateCaptureValues() => BuildTable();
+        private void UpdateCaptureValues() 
+        {
+            BuildClanTable();
+            ClanTarget.text = $"Capture values for: <color=red>{Targeter.TargetName}</color>";
+        }
         private void UpdateMiscValues()
         {
-            RelativeText.text = TargetHasScore ? RelativeFormatter.Invoke(Targeter.PlayerName, GetAccToBeatTarget(), CurrentMods) : $"<color=red>{Targeter.PlayerName}</color> doesn't have a score on this map.";
+            RelativeText.text = TargetHasScore ? RelativeFormatter.Invoke(Targeter.TargetName, GetAccToBeatTarget(), CurrentMods) : $"<color=red>{Targeter.TargetName}</color> doesn't have a score on this map.";
+        }
+        private void UpdateCustomAccuracy()
+        {
+            if (CurrentDiff is null) return;
+            IEnumerator DelayRoutine() {
+                yield return new WaitForEndOfFrame();
+                BuildPPTable();
+                BuildPrecentTable();
+            };
+            Task.Run(() => Sldvc.StartCoroutine(DelayRoutine()));
         }
         private void UpdateDiff()
         {
@@ -248,21 +300,6 @@ namespace BLPPCounter.Settings.SettingHandlers
                 finally { Monitor.Exit(RefreshLock); }
             }
         }
-        /*private void ChangeTextDisplay(bool show)
-        {
-            RelativeText.gameObject.SetActive(show);
-            ClanTable.gameObject.SetActive(show);
-
-            AccStarText.gameObject.SetActive(show);
-            TechStarText.gameObject.SetActive(show);
-            PassStarText.gameObject.SetActive(show);
-            StarText.gameObject.SetActive(show);
-            SpeedModText.gameObject.SetActive(show);
-            ModMultText.gameObject.SetActive(show);
-
-            MapName.gameObject.SetActive(show);
-            MapID.gameObject.SetActive(show);
-        }*/
         #endregion
     }
 }

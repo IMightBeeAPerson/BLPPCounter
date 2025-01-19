@@ -102,7 +102,7 @@ namespace BLPPCounter.CalculatorStuffs
             GetAccDeflated(Deflate(inflatedPp), diffData, speed, modMult, precision);
         public static float GetAccDeflated(float accRating, float passRating, float techRating, float deflatedPp, int precision = -1)
         {
-            if (deflatedPp > GetPpSum(1.0f, accRating, passRating, techRating)) return 1.0f;
+            if (deflatedPp > GetPpSum(1.0f, accRating, passRating, techRating)) return precision >= 0 ? 100.0f : 1.0f;
             deflatedPp -= GetPassPp(passRating);
             if (deflatedPp <= 0.0f) return 0.0f;
             float outp = CalculateX(deflatedPp, techRating, accRating);
