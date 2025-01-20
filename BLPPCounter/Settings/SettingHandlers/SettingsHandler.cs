@@ -199,7 +199,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         public string Target
         {
             get => pc.Target;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(Target))); pc.Target = value; }
+            set {pc.Target = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(Target))); }
         }
         [UIValue(nameof(ToTarget))]
         public List<object> ToTarget => Targeter.theTargets.Prepend(Targeter.NO_TARGET).ToList();

@@ -142,6 +142,12 @@ namespace BLPPCounter.Settings.SettingHandlers
                 if (Instance.Sldvc != null && Instance.Gmpc != null)
                     Instance.Refresh();
             };
+            SettingsHandler.Instance.PropertyChanged += (parent, args) => {
+                if (!args.PropertyName.Equals("Target")) return;
+                Instance.Updates["Capture Values"] = (default, Instance.Updates["Capture Values"].Item2);
+                Instance.Updates["Relative Values"] = (default, Instance.Updates["Relative Values"].Item2);
+                Instance.CurrentMap = default;
+            };
         }
         internal void SldvcInit() { Sldvc.didChangeContentEvent += (a, b) => RefreshAsync(); Sldvc.didChangeDifficultyBeatmapEvent += a => RefreshAsync(); }
         //internal void GmpcInit() { Gmpc.didChangeGameplayModifiersEvent += UpdateMods; UpdateMods(); }
@@ -288,7 +294,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void UpdateRelativeValues()
         {
             RelativeText.text = TargetHasScore ? GetTarget() : GetNoScoreTarget();
-            BuildTable((acc, tech, pass) => BLCalc.GetAcc(acc, pass, tech, TargetPP, PC.DecimalPrecision) + "", RelativeTable);
+            BuildTable((acc, tech, pass) => BLCalc.GetAcc(acc, pass, tech, TargetPP, PC.DecimalPrecision) + "", RelativeTable, accLbl: "<color=#0D0>Acc</color> to Beat");
         }
         private void UpdateCustomAccuracy()
         {
