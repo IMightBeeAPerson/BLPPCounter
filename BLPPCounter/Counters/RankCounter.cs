@@ -110,7 +110,7 @@ namespace BLPPCounter.Counters
                 (float)Math.Round(BLCalc.Inflate(BLCalc.GetPpSum((int)a["modifiedScore"] / maxScore, acc, pass, tech)), precision)).ToArray();
             }
             Array.Sort(mapPP);//, (a,b) => (int)(b - a));
-            Plugin.Log.Debug($"[{string.Join(", ", mapPP)}]");
+            //Plugin.Log.Debug($"[{string.Join(", ", mapPP)}]");
         }
         public void ReinitCounter(TMP_Text display) => this.display = display;
         public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating)
