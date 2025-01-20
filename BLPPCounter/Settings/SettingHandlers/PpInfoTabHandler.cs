@@ -18,6 +18,7 @@ using BLPPCounter.Patches;
 using UnityEngine.PlayerLoop;
 using UnityEngine;
 using System.Collections;
+using UnityEngine.UIElements;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -35,22 +36,24 @@ namespace BLPPCounter.Settings.SettingHandlers
         private float CurrentModMultiplier = 1f;
         private BeatmapKey CurrentMap;
         private JToken CurrentDiff;
+        private object RefreshLock = new object();
         private readonly Dictionary<string, (BeatmapKey, Action<PpInfoTabHandler>)> Updates = new Dictionary<string, (BeatmapKey, Action<PpInfoTabHandler>)>()
         {
             {"Info", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateInfo())) },
             {"Capture Values", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateCaptureValues())) },
-            {"Misc Values", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateMiscValues())) },
+            {"Relative Values", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateRelativeValues())) },
             {"Custom Accuracy", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateCustomAccuracy())) }
         };
         #region Relative Counter
-        private static Func<string, float, string, string> RelativeFormatter;
-
+        private static Func<string> GetTarget, GetNoScoreTarget;
         private float TargetPP = 0;
         private bool TargetHasScore = false;
-        private object RefreshLock = new object();
         #endregion
         #region Clan Counter
         private float PPToCapture = 0;
+        #endregion
+        #region Custom Accuracy
+        private bool IsPPMode = true;
         #endregion
         #endregion
         #region UI Variables & components
@@ -58,8 +61,14 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIValue(nameof(TestPp))] private int TestPp = 450;
         [UIComponent(nameof(PrecentTable))] private TextMeshProUGUI PrecentTable;
         [UIComponent(nameof(PPTable))] private TextMeshProUGUI PPTable;
+        [UIComponent("ModeButton")] private TextMeshProUGUI ModeButtonText;
+        [UIObject(nameof(CA_PrecentSlider))] private GameObject CA_PrecentSlider;
+        [UIObject(nameof(CA_PPSlider))] private GameObject CA_PPSlider;
+        [UIObject(nameof(PrecentTable_BG))] private GameObject PrecentTable_BG;
+        [UIObject(nameof(PPTable_BG))] private GameObject PPTable_BG;
 
         [UIComponent(nameof(RelativeText))] private TextMeshProUGUI RelativeText;
+        [UIComponent(nameof(RelativeTable))] private TextMeshProUGUI RelativeTable;
 
         [UIComponent(nameof(ClanTable))] private TextMeshProUGUI ClanTable;
         [UIComponent(nameof(ClanTarget))] private TextMeshProUGUI ClanTarget;
@@ -91,15 +100,16 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void ForceRefresh() { if (Sldvc != null && Gmpc != null) Refresh(true); }
         [UIAction(nameof(RefreshMods))]
         private void RefreshMods() { if (Sldvc != null && Gmpc != null) { UpdateMods(); UpdateTabDisplay(); } }
-        [UIAction(nameof(RefreshTable))]
-        private void RefreshTable() => BuildClanTable();
+        [UIAction(nameof(RefreshClanTable))]
+        private void RefreshClanTable() => UpdateCaptureValues();
         [UIAction(nameof(ChangeTab))]
         private void ChangeTab(SegmentedControl sc, int index)
         {
-            if (Sldvc != null && Gmpc != null && sc.cells[index] is TextSegmentedControlCell tscc)
+            if (sc.cells[index] is TextSegmentedControlCell tscc)
             {
                 CurrentTab = tscc.text;
-                UpdateTabDisplay();
+                if (Sldvc != null && Gmpc != null)
+                    UpdateTabDisplay();
             }
         }
         [UIAction(nameof(PercentFormat))]
@@ -108,11 +118,24 @@ namespace BLPPCounter.Settings.SettingHandlers
         private string PPFormat(int toFormat) => $"{toFormat:N0} pp";
         [UIAction(nameof(UpdateCA))]
         private void UpdateCA() => UpdateCustomAccuracy();
+        [UIAction(nameof(ToggleCAMode))]
+        private void ToggleCAMode()
+        {
+            IsPPMode = !IsPPMode;
+            CA_PPSlider.SetActive(IsPPMode);
+            CA_PrecentSlider.SetActive(!IsPPMode);
+            PPTable_BG.SetActive(!IsPPMode);
+            PrecentTable_BG.SetActive(IsPPMode);
+            ModeButtonText.text = IsPPMode ? "<color=#A020F0>Input PP" : "<color=#FFD700>Input Precentage";
+            UpdateCustomAccuracy();
+        }
+        [UIAction(nameof(RefreshRelativeTable))]
+        private void RefreshRelativeTable() => UpdateRelativeValues();
         #endregion
         #region Inits
         static PpInfoTabHandler()
         {
-            InitRelativeFormatter();
+            InitFormatters();
             Instance = new PpInfoTabHandler();
             TabSelectionPatch.ReferenceTabSelected += () =>
             {
@@ -125,25 +148,15 @@ namespace BLPPCounter.Settings.SettingHandlers
         #endregion
         #region Formatting
         #region Relative Counter
-        private static void InitRelativeFormatter()
+        private static void InitFormatters()
         {
-            var simple = HelpfulFormatter.GetBasicTokenParser(PC.MessageSettings.RelativeCalcInfo,
-                new Dictionary<string, char>()
+            var simple = HelpfulFormatter.GetBasicTokenParser(PC.MessageSettings.TargetHasNoScoreMessage,
+                new Dictionary<string, char>() { { "Target", 't' } }, "TargetNoScoreMessage", null, (tokens, tokensCopy, priority, vals) =>
                 {
-                    {"Target", 't' },
-                    {"Accuracy", 'a' },
-                    {"Mods", 'm' }
-                }, "RelativeCalc", null, (tokens, tokensCopy, priority, vals) => {
-                    if (vals['m'] is null || (vals['m'] is string str && str.Length == 0)) HelpfulFormatter.SetText(tokensCopy, 'm');
+                    foreach (char key in vals.Keys) if (vals[key] is null || vals[key].ToString().Length == 0) HelpfulFormatter.SetText(tokensCopy, key);
                 }, out _, false).Invoke();
-            RelativeFormatter = (target, acc, mods) =>
-            {
-                Dictionary<char, object> vals = new Dictionary<char, object>()
-                {
-                    {'t', target }, {'a', acc }, {'m', mods }
-                };
-                return simple.Invoke(vals);
-            };
+            GetNoScoreTarget = () => simple.Invoke(new Dictionary<char, object>() { { 't', Targeter.TargetName } });
+            GetTarget = () => TheCounter.TargetFormatter?.Invoke(Targeter.TargetName, "") ?? "Target formatter is null";
         }
         private float GetAccToBeatTarget() =>
             CurrentDiff == null ? 0.0f : BLCalc.GetAcc(TargetPP, CurrentDiff, Gmpc.gameplayModifiers.songSpeed, CurrentModMultiplier, PC.DecimalPrecision);
@@ -198,7 +211,13 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (gnMult > 1.0f) for (int i = 0; i < arr.Length; i++)
                     arr[i][2] = "<color=#77aa77cc>" + valueCalc(ratings[i * 4] * gnMult, ratings[i * 4 + 1] * gnMult, ratings[i * 4 + 2] * gnMult) + "</color>" + suffix;
             else for (int i = 0; i < arr.Length; i++) arr[i][2] = "N/A";
-            HelpfulMisc.SetupTable(table, 0, arr, true, true, speedLbl, accLbl, gnLbl);
+            IEnumerator DelayRoutine()
+            {
+                yield return new WaitForEndOfFrame();
+                HelpfulMisc.SetupTable(table, 0, arr, true, true, speedLbl, accLbl, gnLbl);
+            };
+            Task.Run(() => Sldvc.StartCoroutine(DelayRoutine())); 
+            //This is done so that the game object is shown before the table is built. Otherwise, the game object gives wrong measurements, which messes up the table.
         }
         private static string Grammarize(string mods) //this is very needed :)
         {
@@ -236,9 +255,9 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region Misc Functions
-        public void UpdateTabDisplay() 
+        public void UpdateTabDisplay(bool forceUpdate = false) 
         {
-            if (CurrentTab.Length <= 0 || Updates[CurrentTab].Item1 == CurrentMap) return;
+            if (CurrentTab.Length <= 0 || (!forceUpdate && Updates[CurrentTab].Item1 == CurrentMap)) return;
             Updates[CurrentTab].Item2.Invoke(this);
             Updates[CurrentTab] = (CurrentMap, Updates[CurrentTab].Item2);
         }
@@ -258,22 +277,23 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private void UpdateCaptureValues() 
         {
-            BuildClanTable();
-            ClanTarget.text = $"Capture values for: <color=red>{Targeter.TargetName}</color>";
+            if (CurrentDiff is null) return;
+            ClanTarget.text = TargetHasScore ? GetTarget() : GetNoScoreTarget();
+            Task.Run(() =>
+            {
+                PPToCapture = ClanCounter.LoadNeededPp(BeatmapID, out _)[0];
+                BuildClanTable();
+            });
         }
-        private void UpdateMiscValues()
+        private void UpdateRelativeValues()
         {
-            RelativeText.text = TargetHasScore ? RelativeFormatter.Invoke(Targeter.TargetName, GetAccToBeatTarget(), CurrentMods) : $"<color=red>{Targeter.TargetName}</color> doesn't have a score on this map.";
+            RelativeText.text = TargetHasScore ? GetTarget() : GetNoScoreTarget();
+            BuildTable((acc, tech, pass) => BLCalc.GetAcc(acc, pass, tech, TargetPP, PC.DecimalPrecision) + "", RelativeTable);
         }
         private void UpdateCustomAccuracy()
         {
             if (CurrentDiff is null) return;
-            IEnumerator DelayRoutine() {
-                yield return new WaitForEndOfFrame();
-                BuildPPTable();
-                BuildPrecentTable();
-            };
-            Task.Run(() => Sldvc.StartCoroutine(DelayRoutine()));
+            if (IsPPMode) BuildPrecentTable(); else BuildPPTable();
         }
         private void UpdateDiff()
         {
@@ -295,8 +315,9 @@ namespace BLPPCounter.Settings.SettingHandlers
                 {
                     UpdateMods();
                     TargetPP = UpdateTargetPP();
-                    UpdateTabDisplay();
+                    UpdateTabDisplay(forceRefresh);
                 }
+                catch (Exception e) { Plugin.Log.Error($"There was an error!\n{e.Message}"); }
                 finally { Monitor.Exit(RefreshLock); }
             }
         }

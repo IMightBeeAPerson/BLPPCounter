@@ -4,86 +4,82 @@
     <tab-selector tab-tag='tabs' select-cell='ChangeTab'/>
   
     <tab tags='tabs' tab-name='Info'>
-      <settings-container mask-overflow='true' pref-height='70' anchor-pos-y='-5'>
-        <vertical spacing='2' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' pref-width='75'>
-          <vertical spacing='0' horizontal-fit='PreferredSize' pref-width='75'>
-            <horizontal>
-              <button text='Refresh Contents' on-click='Refresh'/>
-              <button text='Refresh Mods' on-click='RefreshMods'/>
-            </horizontal>
-            <horizontal>
-              <text id='MapName' text='~BeatmapName' align='Left'/>
-              <text id='MapID' text='~BeatmapID' align='Right'/>
-            </horizontal>
-          </vertical>
-          <vertical spacing='-1' horizontal-fit='PreferredSize' pref-width='75'>
-            <horizontal>
-              <text text='&#60;color=blue&#62;Acc&#60;/color&#62; Stars' align='Left'/>
-              <text id='AccStarText' text='0.00&#9733;' align='Right'/>
-            </horizontal>
-            <horizontal>
-              <text text='&#60;color=green&#62;Tech&#60;/color&#62; Stars' align='Left'/>
-              <text id='TechStarText' text='0.00&#9733;' align='Right'/>
-            </horizontal>
-            <horizontal>
-              <text text='&#60;color=red&#62;Pass&#60;/color&#62; Stars' align='Left'/>
-              <text id='PassStarText' text='0.00&#9733;' align='Right'/>
-            </horizontal>
-            <horizontal>
-              <text text='&#60;color=yellow&#62;Total&#60;/color&#62; Stars' align='Left'/>
-              <text id='StarText' text='0.00&#9733;' align='Right'/>
-            </horizontal>
-          </vertical>
-          <vertical spacing='-1' horizontal-fit='PreferredSize' pref-width='75'>
-            <horizontal>
-              <text text='&#60;color=#0099DD&#62;Speed&#60;/color&#62; Mod' align='Left'/>
-              <text id='SpeedModText' text='&#60;color=green&#62;None' align='Right'/>
-            </horizontal>
-            <horizontal>
-              <text text='&#60;color=#009900&#62;Mod&#60;/color&#62; Multiplier' align='Left'/>
-              <text id='ModMultText' text='&#60;color=white&#62;x1.00' align='Right'/>
-            </horizontal>
-          </vertical>
+      <vertical spacing='2' vertical-fit='PreferredSize' pref-height='50' anchor-pos-y='-2' horizontal-fit='PreferredSize' pref-width='75' child-expand-height='false'>
+        <vertical spacing='0' horizontal-fit='PreferredSize' pref-width='75'>
+          <horizontal>
+            <button text='Refresh Contents' on-click='Refresh'/>
+            <button text='Refresh Mods' on-click='RefreshMods'/>
+          </horizontal>
+          <horizontal>
+            <text id='MapName' text='~BeatmapName' align='Left'/>
+            <text id='MapID' text='~BeatmapID' align='Right'/>
+          </horizontal>
         </vertical>
-      </settings-container>
+        <vertical spacing='-1' horizontal-fit='PreferredSize' pref-width='75'>
+          <horizontal>
+            <text text='&#60;color=blue&#62;Acc&#60;/color&#62; Stars' align='Left'/>
+            <text id='AccStarText' text='0.00&#9733;' align='Right'/>
+          </horizontal>
+          <horizontal>
+            <text text='&#60;color=green&#62;Tech&#60;/color&#62; Stars' align='Left'/>
+            <text id='TechStarText' text='0.00&#9733;' align='Right'/>
+          </horizontal>
+          <horizontal>
+            <text text='&#60;color=red&#62;Pass&#60;/color&#62; Stars' align='Left'/>
+            <text id='PassStarText' text='0.00&#9733;' align='Right'/>
+          </horizontal>
+          <horizontal>
+            <text text='&#60;color=yellow&#62;Total&#60;/color&#62; Stars' align='Left'/>
+            <text id='StarText' text='0.00&#9733;' align='Right'/>
+          </horizontal>
+        </vertical>
+        <vertical spacing='-1' horizontal-fit='PreferredSize' pref-width='75'>
+          <horizontal>
+            <text text='&#60;color=#0099DD&#62;Speed&#60;/color&#62; Mod' align='Left'/>
+            <text id='SpeedModText' text='&#60;color=green&#62;None' align='Right'/>
+          </horizontal>
+          <horizontal>
+            <text text='&#60;color=#009900&#62;Mod&#60;/color&#62; Multiplier' align='Left'/>
+            <text id='ModMultText' text='&#60;color=white&#62;x1.00' align='Right'/>
+          </horizontal>
+        </vertical>
+      </vertical>
     </tab>
   
     <tab tags='tabs' tab-name='Capture Values'>
-      <settings-container mask-overflow='true' pref-height='70' anchor-pos-y='-5'>
-        <vertical spacing='1' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' pref-width='100'>
-          <text id='ClanTarget' text='' align='Center'/>
+      <vertical spacing='1' vertical-fit='PreferredSize' pref-height='50' anchor-pos-y='-2' horizontal-fit='PreferredSize' pref-width='80' child-expand-height='false'>
+        <text id='ClanTarget' text='' align='Center'/>
+        <vertical bg='round-rect-panel' bg-color='#CCC'>
           <text id='ClanTable' text='' align='Center'/>
-          <button text='Refresh Table' on-click='RefreshTable'/>
         </vertical>
-      </settings-container>
+        <button text='Refresh Table' on-click='RefreshClanTable'/>
+      </vertical>
     </tab>
   
-   <tab tags='tabs' tab-name='Misc Values'>
-    <settings-container mask-overflow='true' pref-height='70' anchor-pos-y='-5'>
-      <vertical spacing='1' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' pref-width='100'>
-        <text id='RelativeText' text='hi' word-wrapping='true' align='Center'/>
+   <tab tags='tabs' tab-name='Relative Values'>
+    <vertical spacing='1' vertical-fit='PreferredSize' pref-height='50' anchor-pos-y='-2' horizontal-fit='PreferredSize' pref-width='80' child-expand-height='false'>
+      <text id='RelativeText' text='hi' word-wrapping='true' align='Center'/>
+      <vertical bg='round-rect-panel' bg-color='#CCC'>
+        <text id='RelativeTable' text='' align='Center'/>
       </vertical>
-    </settings-container>
+      <button text='Refresh Table' on-click='RefreshRelativeTable'/>
+    </vertical>
   </tab>
+  
   <tab tags='tabs' tab-name='Custom Accuracy'>
-    <settings-container mask-overflow='true' pref-height='70' anchor-pos-y='-5'>
-      <vertical spacing='1' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' pref-width='100'>
-        <slider-setting increment='0.05' integer-only='false' min='50' max='100' show-buttons='true' apply-on-change='true' value='TestAcc' formatter='PercentFormat'/>
-        <slider-setting increment='5' integer-only='true' min='100' max='1000' show-buttons='true' apply-on-change='true' value='TestPp' formatter='PPFormat'/>
-        <horizontal horizontal-fit='PreferredSize' pref-width='75'>
-          <text text='Percent Values' align='Left'/>
-          <button text='Apply Values' on-click='UpdateCA' align='Center'/>
-          <text text='PP Values' align='Right'/>
-        </horizontal>
-        <horizontal>
-          <vertical bg='round-rect-panel' bg-color='#CCC'>
-            <text id='PrecentTable' text='' align='Left' font-size='3'/>
-          </vertical>
-          <vertical bg='round-rect-panel' bg-color='#CCC'>
-            <text id='PPTable' text='' align='Right' font-size='3'/>
-          </vertical>
-        </horizontal>
+    <vertical spacing='1' vertical-fit='PreferredSize' pref-height='50' anchor-pos-y='-2' horizontal-fit='PreferredSize' pref-width='80' child-expand-height='false'>
+      <horizontal>
+        <button id='ModeButton' text='&#60;color=#A020F0&#62;Input PP' align='Left' on-click='ToggleCAMode'/>
+        <button text='Apply Values' on-click='UpdateCA' align='Right'/>
+      </horizontal>
+      <slider-setting id='CA_PrecentSlider' active='false' text='Percentage' color='#FFD700' increment='0.05' integer-only='false' min='50' max='100' show-buttons='true' apply-on-change='true' value='TestAcc' formatter='PercentFormat'/>
+      <slider-setting id='CA_PPSlider' text='PP Amount' color='#A020F0' increment='5' integer-only='true' min='100' max='1000' show-buttons='true' apply-on-change='true' value='TestPp' formatter='PPFormat'/>
+      <vertical id='PrecentTable_BG' bg='round-rect-panel' bg-color='#CCC'>
+        <text id='PrecentTable' text='&#10;&#10;&#10;&#10;&#10;&#10;' align='Center'/>
       </vertical>
-    </settings-container>
+      <vertical id='PPTable_BG' active='false' bg='round-rect-panel' bg-color='#CCC'>
+        <text id='PPTable' text='&#10;&#10;&#10;&#10;&#10;&#10;' align='Center'/>
+      </vertical>
+    </vertical>
   </tab>
 </bg>

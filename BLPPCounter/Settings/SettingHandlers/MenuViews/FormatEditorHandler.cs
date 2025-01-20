@@ -20,6 +20,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 {
     public class FormatEditorHandler: BSMLResourceViewController
     {
+#pragma warning disable IDE0044
         public override string ResourceName => "BLPPCounter.Settings.BSML.MenuComponents.MenuFormatSettings.bsml";
         public static FormatEditorHandler Instance { get; private set; } = new FormatEditorHandler();
         private static PluginConfig PC => PluginConfig.Instance;

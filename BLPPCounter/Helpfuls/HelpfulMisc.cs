@@ -15,6 +15,8 @@ using BeatSaberMarkupLanguage;
 using TMPro;
 using UnityEngine.TextCore;
 using Newtonsoft.Json.Linq;
+using System.Collections;
+using System.Threading.Tasks;
 namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
