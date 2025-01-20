@@ -165,16 +165,21 @@ namespace BLPPCounter.Counters
             if (displayRank == null && rankIniter != null) InitTheFormat();
             return displayRank != null;
         }
+        public static void ResetFormat() 
+        {
+            rankIniter = null;
+            displayRank = null;
+        }
         private int GetRank(float pp) { int val = Array.BinarySearch(mapPP, pp); return mapPP.Length - (val >= 0 ? val - 1 : Math.Abs(val) - 2); }
         #endregion
         #region Updates
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPrecent)
         {
             bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0;
             float[] ppVals = new float[8];
             (ppVals[0], ppVals[1], ppVals[2], ppVals[3]) = BLCalc.GetSummedPp(acc, accRating, passRating, techRating, precision);
             if (displayFc)
-                (ppVals[4], ppVals[5], ppVals[6], ppVals[7]) = BLCalc.GetSummedPp(fcPercent, accRating, passRating, techRating, precision);
+                (ppVals[4], ppVals[5], ppVals[6], ppVals[7]) = BLCalc.GetSummedPp(fcPrecent, accRating, passRating, techRating, precision);
             int rank = GetRank(ppVals[3]);
             float ppDiff = (float)Math.Abs(Math.Round(mapPP[mapPP.Length + 1 - Math.Max(2, Math.Min(rank, mapPP.Length + 1))] - ppVals[3], precision));
             string color = HelpfulFormatter.GetWeightedRankColor(rank);

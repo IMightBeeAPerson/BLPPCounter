@@ -40,7 +40,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             {
                 { TheCounter.DefaultFormatRelation.GetKey, TheCounter.DefaultFormatRelation },
                 { TheCounter.TargetFormatRelation.GetKey, TheCounter.TargetFormatRelation },
-                { TheCounter.PercentNeededFormatRelation.GetKey, TheCounter.PercentNeededFormatRelation },
+                { TheCounter.PrecentNeededFormatRelation.GetKey, TheCounter.PrecentNeededFormatRelation },
                 { ClanCounter.ClanFormatRelation.GetKey, ClanCounter.ClanFormatRelation },
                 { ClanCounter.WeightedFormatRelation.GetKey, ClanCounter.WeightedFormatRelation },
                 { ClanCounter.MessageFormatRelation.GetKey, ClanCounter.MessageFormatRelation },

@@ -52,9 +52,10 @@ namespace BLPPCounter.Counters
         }
         public void UpdateFormat() { }
         public static bool InitFormat() => TheCounter.FormatUsable;
+        public static void ResetFormat() { }
         #endregion
         #region Updates
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPrecent)
         {
             bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0;
             float[] ppVals = new float[8];
@@ -62,7 +63,7 @@ namespace BLPPCounter.Counters
             ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
             if (displayFc)
             {
-                (ppVals[4], ppVals[5], ppVals[6]) = BLCalc.GetPp(fcPercent, accRating, passRating, techRating);
+                (ppVals[4], ppVals[5], ppVals[6]) = BLCalc.GetPp(fcPrecent, accRating, passRating, techRating);
                 ppVals[7] = BLCalc.Inflate(ppVals[4] + ppVals[5] + ppVals[6]);
             }
             float mult = notes / (float)totalNotes;

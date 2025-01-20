@@ -112,8 +112,8 @@ namespace BLPPCounter.Settings.SettingHandlers
                     UpdateTabDisplay();
             }
         }
-        [UIAction(nameof(PercentFormat))]
-        private string PercentFormat(float toFormat) => $"{toFormat:N2}%";
+        [UIAction(nameof(PrecentFormat))]
+        private string PrecentFormat(float toFormat) => $"{toFormat:N2}%";
         [UIAction(nameof(PPFormat))]
         private string PPFormat(int toFormat) => $"{toFormat:N0} pp";
         [UIAction(nameof(UpdateCA))]
@@ -247,7 +247,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (mods.disappearingArrows) { UnformattedCurrentMods += "da "; newMods += "Disappearing Arrows, "; }
             if (mods.energyType == GameplayModifiers.EnergyType.Battery) newMods += "Four Lifes, ";
             if (mods.noArrows) { UnformattedCurrentMods += "na "; newMods += "No Arrows, "; }
-            if (mods.noFailOn0Energy) { UnformattedCurrentMods += "nf "; newMods += "No Fail, "; }
+            if (mods.noFailOn0Energy) newMods += "No Fail, ";
             if (mods.zenMode) newMods += "Zen Mode (why are you using zen mode), ";
             if (mods.instaFail) newMods += "One Life, ";
             if (mods.noBombs) { UnformattedCurrentMods += "nb "; newMods += "No Bombs, "; }

@@ -71,7 +71,7 @@ namespace BLPPCounter.Counters
                 { 'l', "The label (ex: PP, Tech PP, etc)" },
                 { 'e', "The amount of mistakes made in the map. This includes bomb and wall hits" },
                 { 't', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" },
-                { 'm', "This shows either the clan message or percent needed message depending on user settings. The idea of this message is to show what percent is needed to capture the map." }
+                { 'm', "This shows either the clan message or precent needed message depending on user settings. The idea of this message is to show what precent is needed to capture the map." }
             }, str => { var hold = GetFormatClan(str, out string errorStr, false); return (hold, errorStr); },
             new Dictionary<char, object>()
             {
@@ -274,7 +274,7 @@ namespace BLPPCounter.Counters
                 Plugin.Log.Debug("Cache full! Making room...");
                 do mapCache.RemoveAt(0); while (mapCache.Count > pc.MapCache);
             }
-            if (pc.CeilEnabled && neededPPs[5] >= pc.ClanPercentCeil) setupStatus = 4;
+            if (pc.CeilEnabled && neededPPs[5] >= pc.ClanPrecentCeil) setupStatus = 4;
         theEnd:
             switch (setupStatus)
             {
@@ -337,7 +337,16 @@ namespace BLPPCounter.Counters
         {
             if (clanIniter == null || weightedIniter == null || (pc.ShowClanMessage && customIniter == null)) FormatTheFormat();
             UpdateFormats();
-            return displayClan != null && displayWeighted != null && TheCounter.TargetUsable && TheCounter.PercentNeededUsable && (!pc.ShowClanMessage || displayCustom != null);
+            return displayClan != null && displayWeighted != null && TheCounter.TargetUsable && TheCounter.PrecentNeededUsable && (!pc.ShowClanMessage || displayCustom != null);
+        }
+        public static void ResetFormat()
+        {
+            clanIniter = null;
+            weightedIniter = null; 
+            customIniter = null;
+            displayClan = null;
+            displayWeighted = null;
+            displayCustom = null;
         }
         #endregion
         #region API Requests
@@ -465,11 +474,11 @@ namespace BLPPCounter.Counters
         public static void AddToCache(MapSelection map, float[] vals) => mapCache.Add((map, vals));      
         #endregion
         #region Updates
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPrecent)
         {
             if (setupStatus > 0)
             {
-                UpdateWeightedCounter(acc, mistakes, fcPercent);
+                UpdateWeightedCounter(acc, mistakes, fcPrecent);
                 return;
             }
             bool displayFc = pc.PPFC && mistakes > 0;
@@ -480,7 +489,7 @@ namespace BLPPCounter.Counters
                 ppVals[i + 4] = ppVals[i] - neededPPs[i];
             if (displayFc)
             {
-                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPercent, accRating, passRating, techRating);
+                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPrecent, accRating, passRating, techRating);
                 ppVals[11] = BLCalc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
                 for (int i = 8; i < 12; i++)
                     ppVals[i + 4] = ppVals[i] - neededPPs[i - 8];
@@ -491,7 +500,7 @@ namespace BLPPCounter.Counters
             string color(float num) => pc.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
             string message()
             {
-                var func = pc.ShowClanMessage ? displayCustom : TheCounter.PercentNeededFormatter;
+                var func = pc.ShowClanMessage ? displayCustom : TheCounter.PrecentNeededFormatter;
                 return func.Invoke(() => color(ppVals[3] - neededPPs[3]),
                 neededPPs[5], neededPPs[0], neededPPs[1], neededPPs[2], (float)Math.Round(neededPPs[3], precision));
             }
@@ -507,7 +516,7 @@ namespace BLPPCounter.Counters
                 display.text = displayClan.Invoke(displayFc, pc.ExtraInfo, mistakes, () => color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
                     () => color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3], message) + "\n";
         }
-        private void UpdateWeightedCounter(float acc, int mistakes, float fcPercent)
+        private void UpdateWeightedCounter(float acc, int mistakes, float fcPrecent)
         {
             bool displayFc = pc.PPFC && mistakes > 0;
             float[] ppVals = new float[16]; //default pass, acc, tech, total pp for 0-3, modified for 4-7. Same thing but for fc with 8-15.
@@ -518,7 +527,7 @@ namespace BLPPCounter.Counters
                 ppVals[i + 4] = ppVals[i] * weight;
             if (displayFc)
             {
-                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPercent, accRating, passRating, techRating);
+                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPrecent, accRating, passRating, techRating);
                 ppVals[11] = BLCalc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
                 for (int i = 8; i < 12; i++)
                     ppVals[i + 4] = ppVals[i] * weight;

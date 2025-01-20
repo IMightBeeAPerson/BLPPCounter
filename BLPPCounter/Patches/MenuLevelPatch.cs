@@ -1,6 +1,7 @@
 ﻿using BLPPCounter.Settings.SettingHandlers;
 using HarmonyLib;
 using HMUI;
+using JetBrains.Annotations;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,6 +14,7 @@ namespace BLPPCounter.Patches
     [HarmonyPatch(typeof(StandardLevelDetailViewController), "DidActivate")]
     internal static class MenuLevelPatch
     {
+        [UsedImplicitly]
         internal static void Prefix(StandardLevelDetailViewController __instance, bool firstActivation)
         {
             if (firstActivation)

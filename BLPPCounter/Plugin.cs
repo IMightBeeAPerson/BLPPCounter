@@ -45,7 +45,6 @@ namespace BLPPCounter
         {
             BSMLSettings.Instance.AddSettingsMenu("BL PP Counter", HelpfulPaths.SETTINGS_BSML, MenuSettingsHandler.Instance);
             GameplaySetup.Instance.AddTab("PP Calculator", HelpfulPaths.PP_CALC_BSML, PpInfoTabHandler.Instance);
-            
             SimpleSettingsHandler.Instance.ChangeMenuTab(false);
         }
 

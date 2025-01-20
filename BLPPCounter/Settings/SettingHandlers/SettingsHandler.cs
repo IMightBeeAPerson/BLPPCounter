@@ -107,11 +107,11 @@ namespace BLPPCounter.Settings.SettingHandlers
             get => pc.MapCache;
             set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(MapCache))); pc.MapCache = value; }
         }
-        [UIValue(nameof(ClanPercentCeil))]
-        public double ClanPercentCeil
+        [UIValue(nameof(ClanPrecentCeil))]
+        public double ClanPrecentCeil
         {
-            get => pc.ClanPercentCeil;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(ClanPercentCeil))); pc.ClanPercentCeil = value; }
+            get => pc.ClanPrecentCeil;
+            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(ClanPrecentCeil))); pc.ClanPrecentCeil = value; }
         }
         [UIValue(nameof(CeilEnabled))]
         public bool CeilEnabled

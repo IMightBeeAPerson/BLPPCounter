@@ -214,9 +214,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             CurrentFormatInfo.Format = rawFormat;
             Type counter = _Counter.Equals(TheCounter.DisplayName) ? typeof(TheCounter) : Type.GetType(TheCounter.DisplayNameToCounter[_Counter]);
             if (counter == null) { Plugin.Log.Error("Counter is null"); return; }
-            counter.GetMethods(BindingFlags.Public | BindingFlags.Static).First(a => a.Name.Equals("InitFormat")).Invoke(null, null);
+            MethodInfo[] miArr = counter.GetMethods(BindingFlags.Public | BindingFlags.Static);
+            miArr.First(a => a.Name.Equals("ResetFormat")).Invoke(null, null);
+            miArr.First(a => a.Name.Equals("InitFormat")).Invoke(null, null);
             SaveMessage.text = "<color=green>Format saved successfully!</color>";
             TheSaveButton.interactable = false;
+            UpdateFormatDisplay();
         }
         #endregion
         #region Value Editor

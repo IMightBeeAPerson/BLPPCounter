@@ -44,7 +44,7 @@ namespace BLPPCounter.Counters
             pc.FormatSettings.RelativeTextFormat, str => pc.FormatSettings.RelativeTextFormat = str, FormatAlias,
             new Dictionary<char, string>()
             {
-                { 'd', "This will show the difference in percentage at the current moment between you and the replay you're comparing against" },
+                { 'd', "This will show the difference in precentage at the current moment between you and the replay you're comparing against" },
                 { 'c', "This is the accuracy needed to beat your or your target's previous score" },
                 { 'x', "The unmodified PP number" },
                 { 'p', "The modified PP number (plus/minus value)" },
@@ -85,7 +85,7 @@ namespace BLPPCounter.Counters
                 FormatRelation.CreateFunc<float>(
                     outp => $"<color={(outp > 0 ? "green" : "red")}>" + outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT),
                     outp => outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT)),
-                FormatRelation.CreateFunc("{0}%"),
+                FormatRelation.CreateFunc("{0}%", "{0}"),
                 FormatRelation.CreateFunc("Targeting <color=red>{0}</color>")
             },
             new Dictionary<char, IEnumerable<(string, object)>>(6)
@@ -221,6 +221,11 @@ namespace BLPPCounter.Counters
             if (displayFormatter == null && displayIniter != null) InitDefaultFormat();
             return displayFormatter != null && TheCounter.TargetUsable;
         }
+        public static void ResetFormat()
+        {
+            displayIniter = null;
+            displayFormatter = null;
+        }
         #endregion
         #region API Calls
         private byte[] RequestByteData(string path)
@@ -301,11 +306,11 @@ namespace BLPPCounter.Counters
             (best[0], best[1], best[2]) = BLCalc.GetPp(best[7] / HelpfulMath.MaxScoreForNotes(notes), best[5], best[4], best[6]);
             best[3] = BLCalc.Inflate(best[0] + best[1] + best[2]);
         }
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPrecent)
         {
             if (failed)
             {
-                backup.UpdateCounter(acc, notes, mistakes, fcPercent);
+                backup.UpdateCounter(acc, notes, mistakes, fcPrecent);
                 return;
             }
             bool displayFc = pc.PPFC && mistakes > 0, showLbl = pc.ShowLbl;
@@ -317,7 +322,7 @@ namespace BLPPCounter.Counters
                 ppVals[i + 4] = ppVals[i] - best[i];
             if (displayFc)
             {
-                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPercent, accRating, passRating, techRating);
+                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPrecent, accRating, passRating, techRating);
                 ppVals[11] = BLCalc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
                 for (int i = 8; i < 12; i++)
                     ppVals[i + 4] = ppVals[i] - best[i - 8];
