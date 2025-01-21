@@ -16,10 +16,12 @@ namespace BLPPCounter.Settings.SettingHandlers
 {
     public class SimpleMenuSettingsHandler : BSMLResourceViewController
     {
+#pragma warning disable IDE0044, IDE0051
         public override string ResourceName => "BLPPCounter.Settings.BSML.MenuComponents.SimpleSettings.bsml";
         private static PluginConfig PC => PluginConfig.Instance;
         public static SimpleMenuSettingsHandler Instance { get; private set; } = new SimpleMenuSettingsHandler();
-
+        private int changes = 0;
+        private readonly Action<int, bool> AddChange;
         public SimpleMenuSettingsHandler()
         {
             SettingsToSave = new bool[PC.SimpleMenuConfigLength];
@@ -35,7 +37,6 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIValue("UISettings")]
         public List<object> UISettings { get; } = new List<object>();
         private bool loaded = false;
-#pragma warning disable IDE0051
         [UIAction("#back")] private void GoBack() => MenuSettingsHandler.Instance.GoBack();
         [UIAction("SaveChanges")]
         private void SaveChanges()
@@ -55,7 +56,6 @@ namespace BLPPCounter.Settings.SettingHandlers
             changes = 0;
             UICustomizer.TableView.ReloadData();
         }
-#pragma warning restore IDE0051
         private List<SettingToggleInfo> ConvertMenu()
         {
             const string resource = "BLPPCounter.Settings.BSML.MenuSettings.bsml";
@@ -81,7 +81,6 @@ namespace BLPPCounter.Settings.SettingHandlers
             return outp;
         }
 
-        private int changes = 0;
-        private readonly Action<int, bool> AddChange;
+        
     }
 }
