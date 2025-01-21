@@ -324,6 +324,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void RefreshAsync() => Task.Run(() => Refresh());
         public void Refresh(bool forceRefresh = false)
         {
+            Plugin.Log.Info(TabSelectionPatch.GetIfTabIsSelected(TabName) + "");
             if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && Sldvc.beatmapKey.Equals(CurrentMap))) return;
             if (Monitor.TryEnter(RefreshLock))
             {
@@ -333,7 +334,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                     TargetPP = UpdateTargetPP();
                     UpdateTabDisplay(forceRefresh);
                 }
-                catch (Exception e) { Plugin.Log.Error($"There was an error!\n{e.Message}"); }
+                catch (Exception e) { Plugin.Log.Error($"There was an error!\n{e}"); }
                 finally { Monitor.Exit(RefreshLock); }
             }
         }

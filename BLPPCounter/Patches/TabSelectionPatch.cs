@@ -11,10 +11,10 @@ namespace BLPPCounter.Patches
     public static class TabSelectionPatch
     {
 #pragma warning disable IDE0051, IDE0044
-        private static HashSet<int> LoadedObjects = new HashSet<int>();
+        private static readonly HashSet<int> LoadedObjects = new HashSet<int>();
         private static readonly Dictionary<string, Action> TabGotSelected = new Dictionary<string, Action>();
         private static readonly Dictionary<string, bool> TabIsSelected = new Dictionary<string, bool>();
-        private static HashSet<string> TabNames = new HashSet<string>();
+        private static readonly HashSet<string> TabNames = new HashSet<string>();
         public static bool AllTabsFound => TabNames.Count == 0;
         [UsedImplicitly]
         private static void Postfix(SegmentedControl __instance)
@@ -45,6 +45,11 @@ namespace BLPPCounter.Patches
         {
             if (!TabGotSelected.ContainsKey(tab)) return;
             TabGotSelected[tab] += toAdd;
+        }
+        internal static void ClearData()
+        {
+            TabNames.Clear();
+            foreach (string s in TabGotSelected.Keys) TabNames.Add(s);
         }
     }
 }
