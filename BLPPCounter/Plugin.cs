@@ -18,6 +18,7 @@ using System.Linq;
 using System.Drawing;
 using System.Collections.Generic;
 using HarmonyLib;
+using BLPPCounter.Patches;
 
 namespace BLPPCounter
 {
@@ -52,6 +53,7 @@ namespace BLPPCounter
         public void OnEnable() {
             Targeter.GenerateClanNames(); //async
             BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing += AddMenuStuff; //async (kinda)
+            TabSelectionPatch.AddTabName("PP Calculator");
             TheCounter.InitCounterStatic();
             harmony = new Harmony("Person.BLPPCounter");
             harmony.PatchAll(Assembly.GetExecutingAssembly());

@@ -44,7 +44,7 @@ namespace BLPPCounter.Counters
             pc.FormatSettings.RelativeTextFormat, str => pc.FormatSettings.RelativeTextFormat = str, FormatAlias,
             new Dictionary<char, string>()
             {
-                { 'd', "This will show the difference in precentage at the current moment between you and the replay you're comparing against" },
+                { 'd', "This will show the difference in percentage at the current moment between you and the replay you're comparing against" },
                 { 'c', "This is the accuracy needed to beat your or your target's previous score" },
                 { 'x', "The unmodified PP number" },
                 { 'p', "The modified PP number (plus/minus value)" },

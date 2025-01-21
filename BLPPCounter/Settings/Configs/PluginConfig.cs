@@ -91,5 +91,9 @@ namespace BLPPCounter.Settings.Configs
         #endregion
         #endregion
         #endregion
+        #region BL Calculator Settings
+        public virtual int TestPPAmount { get; set; } = 450;
+        public virtual float TestAccAmount { get; set; } = 95.0f;
+        #endregion
     }
 }

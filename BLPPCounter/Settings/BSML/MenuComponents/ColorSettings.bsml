@@ -6,7 +6,7 @@
     <custom-list id='ColorEditor' contents='ColorValues' show-scrollbar='true' pref-width='100' cell-size='15'>
         <vertical spacing='0'>
         <color-setting id='ColorBox' text='~ColorName' apply-on-change='true' value='ColorValue'/>
-        <slider-setting text='&#60;size=60%&#62;Alpha Value' apply-on-change='true' value='AlphaValue' integer-only='true' min='0' max='255' increment='1'/>
+        <slider-setting text='Alpha Value' font-size='3.5' apply-on-change='true' value='AlphaValue' integer-only='true' min='0' max='255' increment='1' show-buttons='true'/>
         </vertical>
     </custom-list>
 </vertical>

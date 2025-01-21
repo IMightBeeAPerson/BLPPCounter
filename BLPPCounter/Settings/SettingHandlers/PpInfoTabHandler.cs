@@ -30,6 +30,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         internal GameplayModifiersPanelController Gmpc;
         public static PpInfoTabHandler Instance { get; }
         private static PluginConfig PC => PluginConfig.Instance;
+        public static readonly string TabName = "PP Calculator";
         #endregion
         #region Variables
         private string CurrentMods = "", UnformattedCurrentMods = "", CurrentTab = "Info";
@@ -57,8 +58,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         #endregion
         #endregion
         #region UI Variables & components
-        [UIValue(nameof(TestAcc))] private float TestAcc = 95.0f;
-        [UIValue(nameof(TestPp))] private int TestPp = 450;
+        [UIValue(nameof(TestAcc))] private float TestAcc = PC.TestAccAmount;
+        [UIValue(nameof(TestPp))] private int TestPp = PC.TestPPAmount;
         [UIComponent(nameof(PrecentTable))] private TextMeshProUGUI PrecentTable;
         [UIComponent(nameof(PPTable))] private TextMeshProUGUI PPTable;
         [UIComponent("ModeButton")] private TextMeshProUGUI ModeButtonText;
@@ -115,7 +116,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction(nameof(PrecentFormat))]
         private string PrecentFormat(float toFormat) => $"{toFormat:N2}%";
         [UIAction(nameof(PPFormat))]
-        private string PPFormat(int toFormat) => $"{toFormat:N0} pp";
+        private string PPFormat(int toFormat) => $"{toFormat} pp";
         [UIAction(nameof(UpdateCA))]
         private void UpdateCA() => UpdateCustomAccuracy();
         [UIAction(nameof(ToggleCAMode))]
@@ -126,7 +127,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             CA_PrecentSlider.SetActive(!IsPPMode);
             PPTable_BG.SetActive(!IsPPMode);
             PrecentTable_BG.SetActive(IsPPMode);
-            ModeButtonText.text = IsPPMode ? "<color=#A020F0>Input PP" : "<color=#FFD700>Input Precentage";
+            ModeButtonText.text = IsPPMode ? "<color=#A020F0>Input PP" : "<color=#FFD700>Input Percentage";
             UpdateCustomAccuracy();
         }
         [UIAction(nameof(RefreshRelativeTable))]
@@ -137,11 +138,11 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             InitFormatters();
             Instance = new PpInfoTabHandler();
-            TabSelectionPatch.ReferenceTabSelected += () =>
+            TabSelectionPatch.AddToTabSelectedAction(TabName, () =>
             {
                 if (Instance.Sldvc != null && Instance.Gmpc != null)
                     Instance.Refresh();
-            };
+            });
             SettingsHandler.Instance.PropertyChanged += (parent, args) => {
                 if (!args.PropertyName.Equals("Target")) return;
                 Instance.Updates["Capture Values"] = (default, Instance.Updates["Capture Values"].Item2);
@@ -299,7 +300,16 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void UpdateCustomAccuracy()
         {
             if (CurrentDiff is null) return;
-            if (IsPPMode) BuildPrecentTable(); else BuildPPTable();
+            if (IsPPMode)
+            {
+                BuildPrecentTable();
+                PC.TestAccAmount = TestAcc;
+            }
+            else
+            {
+                BuildPPTable();
+                PC.TestPPAmount = TestPp;
+            }
         }
         private void UpdateDiff()
         {
@@ -314,7 +324,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void RefreshAsync() => Task.Run(() => Refresh());
         public void Refresh(bool forceRefresh = false)
         {
-            if (!TabSelectionPatch.IsReferenceTabSelected || (!forceRefresh && Sldvc.beatmapKey.Equals(CurrentMap))) return;
+            if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && Sldvc.beatmapKey.Equals(CurrentMap))) return;
             if (Monitor.TryEnter(RefreshLock))
             {
                 try

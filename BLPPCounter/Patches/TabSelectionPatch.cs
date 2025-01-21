@@ -8,26 +8,43 @@ using System.Linq;
 namespace BLPPCounter.Patches
 {
     [HarmonyPatch(typeof(SegmentedControl), "CreateCells")]
-    internal static class TabSelectionPatch
+    public static class TabSelectionPatch
     {
 #pragma warning disable IDE0051, IDE0044
         private static HashSet<int> LoadedObjects = new HashSet<int>();
-        public static readonly string REFERENCE_TAB = "PP Calculator";
-        public static bool IsReferenceTabSelected = false, IsTabObjectFound = false;
-        public static Action ReferenceTabSelected;
+        private static readonly Dictionary<string, Action> TabGotSelected = new Dictionary<string, Action>();
+        private static readonly Dictionary<string, bool> TabIsSelected = new Dictionary<string, bool>();
+        private static HashSet<string> TabNames = new HashSet<string>();
+        public static bool AllTabsFound => TabNames.Count == 0;
         [UsedImplicitly]
-        internal static void Postfix(SegmentedControl __instance)
+        private static void Postfix(SegmentedControl __instance)
         {
-            if (IsTabObjectFound || LoadedObjects.Contains(__instance.GetHashCode())) return;
+            if (AllTabsFound || LoadedObjects.Contains(__instance.GetHashCode())) return;
             if (!__instance.name.Equals("BSMLTabSelector")) { LoadedObjects.Add(__instance.GetHashCode()); return; }
-            if (!__instance.cells.Any(scc => scc is TextSegmentedControlCell tscc && tscc.text.Equals(REFERENCE_TAB))) return;
-            IsTabObjectFound = true;
-            __instance.didSelectCellEvent +=
-                (sc, index) =>
+            IEnumerable<SegmentedControlCell> cells = __instance.cells.Where(scc => scc is TextSegmentedControlCell tscc && TabNames.Contains(tscc.text));
+            if (!cells.Any()) return;
+            IEnumerable<string> names = cells.Select(scc => ((TextSegmentedControlCell)scc).text);
+            foreach (string s in names)
+            {
+                TabNames.Remove(s);
+                __instance.didSelectCellEvent += (sc, index) =>
                 {
-                    IsReferenceTabSelected = sc.cells[index] is TextSegmentedControlCell tscc && tscc.text.Equals(REFERENCE_TAB);
-                    if (IsReferenceTabSelected) ReferenceTabSelected?.Invoke();
+                    TabIsSelected[s] = sc.cells[index] is TextSegmentedControlCell tscc && tscc.text.Equals(s);
+                    if (TabIsSelected[s]) TabGotSelected[s]?.Invoke();
                 };
+            }
+        }
+        public static void AddTabName(string name, Action TabSelected = null)
+        {
+            TabNames.Add(name);
+            TabGotSelected.Add(name, TabSelected);
+            TabIsSelected.Add(name, false);
+        }
+        public static bool GetIfTabIsSelected(string tab) => TabIsSelected.ContainsKey(tab) && TabIsSelected[tab];
+        public static void AddToTabSelectedAction(string tab, Action toAdd)
+        {
+            if (!TabGotSelected.ContainsKey(tab)) return;
+            TabGotSelected[tab] += toAdd;
         }
     }
 }
