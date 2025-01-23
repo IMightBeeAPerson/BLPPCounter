@@ -332,7 +332,7 @@ namespace BLPPCounter.Helpfuls
             return $"[{outp.Substring(2)}]";
         }
         //TODO, DOESN'T WORK RN
-        public static float GetLengthOfText(this TextMeshProUGUI guiText, string text, Dictionary<uint, TMP_Character> givenLookupTable = null)
+        /*public static float GetLengthOfText(this TextMeshProUGUI guiText, string text, Dictionary<uint, TMP_Character> givenLookupTable = null)
         {
             float outp = 0;
             bool hasGivenLookupTable = !(givenLookupTable is null);
@@ -351,7 +351,12 @@ namespace BLPPCounter.Helpfuls
             }
             Plugin.Log.Info($"Given: {text} || Mine: {outp} || Unity's: {guiText.GetPreferredValues(text).x}");
             return outp;
-        }
-
+        }*/
+        public static int CompareValues<T>(JToken item1, JToken item2, string value, Func<string, T> caster, Func<T, T, int> comparer) =>
+            comparer(caster(item1[value].ToString()), caster(item2[value].ToString()));
+        public static int CompareValues<T>(JToken item1, JToken item2, string value, Func<T, T, int> comparer) where T : class =>
+            comparer(item1[value] as T, item2[value] as T);
+        public static int CompareStructValues<T>(JToken item1, JToken item2, string value, Func<T, T, int> comparer) where T : struct =>
+           comparer((T)Convert.ChangeType(item1[value], typeof(T)), (T)Convert.ChangeType(item2[value], typeof(T)));
     }
 }

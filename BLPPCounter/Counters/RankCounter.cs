@@ -77,32 +77,33 @@ namespace BLPPCounter.Counters
         #region Variables
         public string Name => DisplayName;
         private int precision;
-        private float accRating, passRating, techRating;
+        private float accRating, passRating, techRating, starRating;
         private TMP_Text display;
         private float[] mapPP;
         private int MaxAmountOfPeople => pc.MinRank;
         #endregion
         #region Inits
-        public RankCounter(TMP_Text display, float accRating, float passRating, float techRating)
+        public RankCounter(TMP_Text display, float accRating, float passRating, float techRating, float starRating)
         {
             this.accRating = accRating;
             this.passRating = passRating;
             this.techRating = techRating;
+            this.starRating = starRating;
             this.display = display;
             precision = PluginConfig.Instance.DecimalPrecision;
         }
-        public RankCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(map); }
+        public RankCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating, map.StarRating) { SetupData(map); }
         public void SetupData(MapSelection map)
         {
             string songId = map.MapData.Item1;
             if (map.IsRanked)
             {
-                TheCounter.CallAPI(string.Format(API_PATH, songId), out string data);
+                string data = HelpfulPaths.CallAPI(string.Format(API_PATH, songId)).ReadAsStringAsync().Result;
                 mapPP = JToken.Parse(data).Children().Select(a => (float)Math.Round((double)a["pp"], precision)).ToArray();
             }
             else
             {
-                TheCounter.CallAPI(string.Format(API_PATH2, songId, MaxAmountOfPeople), out string data);
+                string data = HelpfulPaths.CallAPI(string.Format(API_PATH2, songId, MaxAmountOfPeople)).ReadAsStringAsync().Result;
                 JToken mapData = map.MapData.Item2;
                 float maxScore = (int)mapData["maxScore"];
                 float acc = (float)mapData["accRating"], pass = (float)mapData["passRating"], tech = (float)mapData["techRating"];
@@ -113,17 +114,18 @@ namespace BLPPCounter.Counters
             //Plugin.Log.Debug($"[{string.Join(", ", mapPP)}]");
         }
         public void ReinitCounter(TMP_Text display) => this.display = display;
-        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating)
+        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating, float starRating)
         {
             this.display = display;
             this.passRating = passRating;
             this.accRating = accRating;
             this.techRating = techRating;
+            this.starRating = starRating;
             precision = PluginConfig.Instance.DecimalPrecision;
         }
         public void ReinitCounter(TMP_Text display, MapSelection map) 
         { 
-            ReinitCounter(display, map.PassRating, map.AccRating, map.TechRating);
+            ReinitCounter(display, map.PassRating, map.AccRating, map.TechRating, map.StarRating);
             SetupData(map); 
         }
         #endregion

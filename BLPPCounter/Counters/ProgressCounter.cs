@@ -15,28 +15,30 @@ namespace BLPPCounter.Counters
         public string Name => DisplayName;
 
         private TMP_Text display;
-        private float accRating, passRating, techRating;
+        private float accRating, passRating, techRating, starRating;
         private int precision, totalNotes;
         #region Init
-        public ProgressCounter(TMP_Text display, float accRating, float passRating, float techRating)
+        public ProgressCounter(TMP_Text display, float accRating, float passRating, float techRating, float starRating)
         {
             this.accRating = accRating;
             this.passRating = passRating;
             this.techRating = techRating;
+            this.starRating = starRating;
             this.display = display;
             precision = PluginConfig.Instance.DecimalPrecision;
         }
-        public ProgressCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(map); }
+        public ProgressCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating, map.StarRating) { SetupData(map); }
         #endregion
         #region Overrides
         public void ReinitCounter(TMP_Text display) { this.display = display; }
 
-        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating)
+        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating, float starRating)
         {
             this.display = display;
             this.passRating = passRating;
             this.accRating = accRating;
             this.techRating = techRating;
+            this.starRating = starRating;
             precision = PluginConfig.Instance.DecimalPrecision;
         }
 

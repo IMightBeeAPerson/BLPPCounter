@@ -221,22 +221,23 @@ namespace BLPPCounter.Counters
         public string Name => DisplayName;
         public string Mods { get; private set; }
         private TMP_Text display;
-        private float accRating, passRating, techRating, nmAccRating, nmPassRating, nmTechRating;
+        private float accRating, passRating, techRating, starRating, nmAccRating, nmPassRating, nmTechRating;
         private float[] neededPPs, clanPPs;
         private int precision, setupStatus;
         private string message;
         private bool showRank;
         #endregion
         #region Init & Overrides
-        public ClanCounter(TMP_Text display, float accRating, float passRating, float techRating)
+        public ClanCounter(TMP_Text display, float accRating, float passRating, float techRating, float starRating)
         {
             this.accRating = accRating;
             this.passRating = passRating;
             this.techRating = techRating;
+            this.starRating = starRating;
             this.display = display;
             precision = pc.DecimalPrecision;
         }
-        public ClanCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(map); }
+        public ClanCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating, map.StarRating) { SetupData(map); }
         public void SetupData(MapSelection map) //setupStatus key: 0 = success, 1 = Map not ranked, 2 = Map already captured, 3 = load failed, 4 = map too hard to capture
         {
             setupStatus = 0;
@@ -289,9 +290,9 @@ namespace BLPPCounter.Counters
         {
             string id = Targeter.TargetID, check;
             mapCaptured = false;
-            check = TheCounter.CallAPI($"https://api.beatleader.xyz/player/{id}", addDomain: false);
+            check = HelpfulPaths.CallAPI($"https://api.beatleader.xyz/player/{id}").ReadAsStringAsync().Result;
             if (playerClanId < 0 && check.Length > 0) playerClanId = ParseId(JToken.Parse(check));
-            check = TheCounter.CallAPI($"{HelpfulPaths.BLAPI_CLAN}{mapId}?page=1&count=1", addDomain: false);
+            check = HelpfulPaths.CallAPI($"{HelpfulPaths.BLAPI_CLAN}{mapId}?page=1&count=1").ReadAsStringAsync().Result;
             if (check.Length <= 0) return null;
             JToken clanData = JToken.Parse(check);
             if ((int)clanData["difficulty"]["status"] != 3) return null; //Map isn't ranked
@@ -320,11 +321,12 @@ namespace BLPPCounter.Counters
         }
         public static float[] LoadNeededPp(string mapId, out bool mapCaptured) { int no = -1; return LoadNeededPp(mapId, out mapCaptured, ref no); }
         public void ReinitCounter(TMP_Text display) { this.display = display; }
-        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating) { 
+        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating, float starRating) { 
             this.display = display;
             this.passRating = passRating;
             this.accRating = accRating;
             this.techRating = techRating;
+            this.starRating = starRating;
             precision = pc.DecimalPrecision;
             neededPPs[4] = BLCalc.GetAcc(accRating, passRating, techRating, neededPPs[3]);
             (neededPPs[0], neededPPs[1], neededPPs[2]) = BLCalc.GetPp(neededPPs[4], nmAccRating, nmPassRating, nmTechRating);
@@ -352,8 +354,8 @@ namespace BLPPCounter.Counters
         #region API Requests
         private static string RequestClanLeaderboard(string id, string mapId, int playerClanId)
         {
-            int clanId = playerClanId > 0 ? playerClanId : ParseId(TheCounter.CallAPI($"player/{id}"));
-            return TheCounter.CallAPI($"leaderboard/clanRankings/{mapId}/clan/{clanId}?count=100&page=1");
+            int clanId = playerClanId > 0 ? playerClanId : ParseId(HelpfulPaths.CallAPI($"player/{id}").ReadAsStringAsync().Result);
+            return HelpfulPaths.CallAPI($"leaderboard/clanRankings/{mapId}/clan/{clanId}?count=100&page=1").ReadAsStringAsync().Result;
         }
         #endregion
         #region Helper Functions

@@ -18,7 +18,6 @@ namespace BLPPCounter.Counters
     public class RelativeCounter: IMyCounters
     {
         #region Static Variables
-        private static readonly HttpClient client = new HttpClient();
         public static int OrderNumber => 2;
         public static string DisplayName => "Relative";
         public static string DisplayHandler => DisplayName;
@@ -109,7 +108,7 @@ namespace BLPPCounter.Counters
         public string ReplayMods { get; private set; }
 
         private TMP_Text display;
-        private float accRating, passRating, techRating, accToBeat;
+        private float accRating, passRating, techRating, starRating, accToBeat;
         private float[] best; //pass, acc, tech, total, replay pass rating, replay acc rating, replay tech rating, current score, current combo
         private Replay bestReplay;
         private NoteEvent[] noteArray;
@@ -118,21 +117,22 @@ namespace BLPPCounter.Counters
         private bool failed;
         #endregion
         #region Init
-        public RelativeCounter(TMP_Text display, float accRating, float passRating, float techRating)
+        public RelativeCounter(TMP_Text display, float accRating, float passRating, float techRating, float starRating)
         {
             this.accRating = accRating;
             this.passRating = passRating;
             this.techRating = techRating;
+            this.starRating = starRating;
             this.display = display;
             failed = false;
             precision = pc.DecimalPrecision;
         }
-        public RelativeCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(map); }
+        public RelativeCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating, map.StarRating) { SetupData(map); }
         private void SetupReplayData(JToken data)
         {
             //Plugin.Log.Debug(data.ToString());
             string replay = (string)data["replay"];
-            ReplayDecoder.TryDecodeReplay(RequestByteData(replay), out bestReplay);
+            ReplayDecoder.TryDecodeReplay(HelpfulPaths.CallAPI(replay).ReadAsByteArrayAsync().Result, out bestReplay);
             noteArray = bestReplay.notes.ToArray();
             ReplayMods = bestReplay.info.modifiers.ToLower();
             Match hold = Regex.Match(ReplayMods, "(fs|sf|ss),?");
@@ -150,7 +150,7 @@ namespace BLPPCounter.Counters
         {
             try
             {
-                string check = RequestScore(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), map.Mode);
+                string check = HelpfulPaths.CallAPI(string.Format(HelpfulPaths.BLAPI_SCORE, Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), map.Mode), true).ReadAsStringAsync().Result;
                 if (check != default && check.Length > 0)
                 {
                     JToken playerData = JObject.Parse(check);
@@ -201,14 +201,15 @@ namespace BLPPCounter.Counters
             if (!failed && best != null && best.Length >= 9)
                 best[7] = best[8] = 0;
         }
-        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating)
+        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating, float starRating)
         {
             this.display = display;
             this.passRating = passRating;
             this.accRating = accRating;
             this.techRating = techRating;
+            this.starRating = starRating;
             precision = pc.DecimalPrecision;
-            if (failed) backup.ReinitCounter(display, passRating, accRating, techRating);
+            if (failed) backup.ReinitCounter(display, passRating, accRating, techRating, starRating);
             else if (best != null && best.Length >= 9)
                 best[7] = best[8] = 0;
         }
@@ -228,27 +229,7 @@ namespace BLPPCounter.Counters
         }
         #endregion
         #region API Calls
-        private byte[] RequestByteData(string path)
-        {
-            try
-            {
-                HttpResponseMessage hrm = client.GetAsync(new Uri(path)).Result;
-                hrm.EnsureSuccessStatusCode();
-                return hrm.Content.ReadAsByteArrayAsync().Result;
-            }
-            catch (HttpRequestException e)
-            {
-                Plugin.Log.Warn($"Beat Leader API request failed!\nPath: {path}\nError: {e.Message}");
-                Plugin.Log.Debug(e);
-                return null;
-            }
-        }
         //https://api.beatleader.xyz/score/8/76561198306905129/98470c673d1702c5030487085120ad6f24828d6c/Expert/Standard
-        internal static string RequestScore(string id, string hash, string diff, string mode, bool quiet = false) //player id
-        {
-            TheCounter.CallAPI($"score/8/{id}/{hash}/{diff}/{mode}", out string outp, quiet);
-            return outp;
-        }
         #endregion
         #region Helper Functions
         public static Func<Func<Dictionary<char, object>, string>> GetTheFormat(string format, out string errorMessage, bool applySettings = true)

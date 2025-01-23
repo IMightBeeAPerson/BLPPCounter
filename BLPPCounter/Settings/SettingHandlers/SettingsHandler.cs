@@ -31,53 +31,60 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region General Settings
+
+        [UIValue(nameof(UsingSS))]
+        public bool UsingSS
+        {
+            get => pc.UsingSS;
+            set {pc.UsingSS = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UsingSS))); }
+        }
         [UIValue(nameof(DecimalPrecision))]
         public int DecimalPrecision
         {
             get => pc.DecimalPrecision;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(DecimalPrecision))); pc.DecimalPrecision = value; }
+            set {pc.DecimalPrecision = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(DecimalPrecision))); }
         }
         [UIValue(nameof(FontSize))]
         public double FontSize
         {
             get => pc.FontSize;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(FontSize))); pc.FontSize = value; }
+            set {pc.FontSize = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(FontSize))); }
         }
         [UIValue(nameof(ShowLbl))]
         public bool ShowLbl
         {
             get => pc.ShowLbl;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(ShowLbl))); pc.ShowLbl = value; }
+            set {pc.ShowLbl = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ShowLbl))); }
         }
         [UIValue(nameof(PPFC))]
         public bool PPFC
         {
             get => pc.PPFC;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(PPFC))); pc.PPFC = value; }
+            set {pc.PPFC = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(PPFC))); }
         }
         [UIValue(nameof(SplitVals))]
         public bool SplitVals
         {
             get => pc.SplitPPVals;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(SplitVals))); pc.SplitPPVals = value; }
+            set {pc.SplitPPVals = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(SplitVals))); }
         }
         [UIValue(nameof(ExtraInfo))]
         public bool ExtraInfo
         {
             get => pc.ExtraInfo;
-            set { PropertyChanged(this, new PropertyChangedEventArgs(nameof(ExtraInfo))); pc.ExtraInfo = value; }
+            set { pc.ExtraInfo = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ExtraInfo))); }
         }
         [UIValue(nameof(UseGrad))]
         public bool UseGrad
         {
             get => pc.UseGrad;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseGrad))); pc.UseGrad = value; }
+            set {pc.UseGrad = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseGrad))); }
         }
         [UIValue(nameof(GradVal))]
         public int GradVal
         {
             get => pc.GradVal;
-            set { PropertyChanged(this, new PropertyChangedEventArgs(nameof(GradVal))); pc.GradVal = value; }
+            set { pc.GradVal = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(GradVal))); }
         }
         [UIValue(nameof(TypesOfPP))]
         public List<object> TypesOfPP => Plugin.BLInstalled ?
@@ -87,7 +94,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         public string PPType
         {
             get => pc.PPType;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(PPType))); pc.PPType = value; }
+            set {pc.PPType = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(PPType))); }
         }
         #endregion
         #region Misc Settings
@@ -99,25 +106,25 @@ namespace BLPPCounter.Settings.SettingHandlers
         public bool ShowClanMessage
         {
             get => pc.ShowClanMessage;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(ShowClanMessage))); pc.ShowClanMessage = value; }
+            set {pc.ShowClanMessage = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ShowClanMessage))); }
         }
         [UIValue(nameof(MapCache))]
         public int MapCache
         {
             get => pc.MapCache;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(MapCache))); pc.MapCache = value; }
+            set {pc.MapCache = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(MapCache))); }
         }
         [UIValue(nameof(ClanPrecentCeil))]
         public double ClanPrecentCeil
         {
             get => pc.ClanPrecentCeil;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(ClanPrecentCeil))); pc.ClanPrecentCeil = value; }
+            set {pc.ClanPrecentCeil = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ClanPrecentCeil))); }
         }
         [UIValue(nameof(CeilEnabled))]
         public bool CeilEnabled
         {
             get => pc.CeilEnabled;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(CeilEnabled))); pc.CeilEnabled = value; }
+            set {pc.CeilEnabled = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(CeilEnabled))); }
         }
         #endregion
         #region Relative Counter Settings
@@ -126,7 +133,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         public bool ShowRank
         {
             get => pc.ShowRank;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(ShowRank))); pc.ShowRank = value; }
+            set {pc.ShowRank = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ShowRank))); }
         }
         [UIValue(nameof(RelativeDefault))]
         public string RelativeDefault
@@ -137,7 +144,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                         pc.RelativeDefault = (string)RelativeDefaultList[0];
                     else pc.RelativeDefault = Targeter.NO_TARGET; return pc.RelativeDefault;
             }
-            set { PropertyChanged(this, new PropertyChangedEventArgs(nameof(RelativeDefault))); pc.RelativeDefault = value; }
+            set { pc.RelativeDefault = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(RelativeDefault))); }
         }
         [UIValue(nameof(RelativeDefaultList))]
         public List<object> RelativeDefaultList => TypesOfPP.Where(a => a is string b && !RelativeCounter.DisplayName.Equals(b)).ToList();
@@ -147,13 +154,13 @@ namespace BLPPCounter.Settings.SettingHandlers
         public int MinRank
         {
             get => pc.MinRank;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(MinRank))); pc.MinRank = value; }
+            set {pc.MinRank = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(MinRank))); }
         }
         [UIValue(nameof(MaxRank))]
         public int MaxRank
         {
             get => pc.MaxRank;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(MaxRank))); pc.MaxRank = value; }
+            set {pc.MaxRank = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(MaxRank))); }
         }
         #endregion
         #region Target Settings
@@ -193,7 +200,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         public bool ShowEnemy
         {
             get => pc.ShowEnemy;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof(ShowEnemy))); pc.ShowEnemy = value; }
+            set {pc.ShowEnemy = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ShowEnemy))); }
         }
         [UIValue(nameof(Target))]
         public string Target
@@ -209,7 +216,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         public bool LocalReplay
         {
             get => pc.LocalReplay;
-            set {PropertyChanged(this, new PropertyChangedEventArgs(nameof())); pc.LocalReplay = value; }
+            set {pc.LocalReplay = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof())); }
         }
         [UIValue(nameof())]
         public List<object> PlNames => new List<object>(PlaylistLoader.Instance.Names);
@@ -217,7 +224,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         public string ChosenPlaylist
         {
             get => pc.ChosenPlaylist;
-			set {PropertyChanged(this, new PropertyChangedEventArgs(nameof())); pc.ChosenPlaylist = value; }
+			set {pc.ChosenPlaylist = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof())); }
         }
         [UIAction("LoadPlaylist")]
         public void LoadPlaylist() {

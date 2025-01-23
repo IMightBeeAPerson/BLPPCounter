@@ -21,6 +21,7 @@ namespace BLPPCounter.Settings.Configs
         public virtual TextFormatSettings FormatSettings { get; set; } = new TextFormatSettings();
         #endregion
         #region General Settings
+        public virtual bool UsingSS { get; set; } = false;
         public virtual int DecimalPrecision { get; set; } = 2;
         public virtual double FontSize { get; set; } = 3;
         public virtual bool ShowLbl { get; set; } = true;

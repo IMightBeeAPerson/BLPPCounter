@@ -7,6 +7,8 @@ namespace BLPPCounter.Utils
     public class Map
     {
         public string Hash { get; private set; }
+        public static readonly string SS_MODE_NAME = "SS_Diff";
+        private static readonly string TAOH_FORMAT = "{\"name\":{0},\"scoreSaberID\":{1},\"hash\":{2},\"difficulty\":{3},\"characteristic\":{4},\"starScoreSaber\":{5}}";
         private readonly Dictionary<string, Dictionary<BeatmapDifficulty, (string, JToken)>> data;
         public Map(string hash) {
             Hash = hash;
@@ -16,6 +18,12 @@ namespace BLPPCounter.Utils
             Hash = hash;
             this.data = new Dictionary<string, Dictionary<BeatmapDifficulty, (string, JToken)>>();
             Add(songId, data);
+        }
+        public Map(string hash, string mode, BeatmapDifficulty difficulty, string songId, JToken data)
+        {
+            Hash = hash;
+            this.data = new Dictionary<string, Dictionary<BeatmapDifficulty, (string, JToken)>>();
+            Add(mode, difficulty, songId, data);
         }
         public void Add(string songId, JToken data)
         {
@@ -31,17 +39,8 @@ namespace BLPPCounter.Utils
         public (string, JToken) Get(string mode, BeatmapDifficulty difficulty) => data[mode][difficulty];
         public static BeatmapDifficulty FromValue(int value) => (BeatmapDifficulty)((value + 1) / 2 - 1);
         public static int FromDiff(BeatmapDifficulty value) => ((int)value + 1) * 2 - 1;
-        public Dictionary<string, (string, JToken)> Get(BeatmapDifficulty difficulty)
-        {
-            /*Dictionary<string, (string, JToken)> outp = new Dictionary<string, (string, JToken)>();
-            foreach(string key in data.Keys)
-            {
-                if (data[key].ContainsKey(difficulty))
-                    outp[key] = data[key][difficulty];
-            }
-            return outp;//*/
-            return data.Where(kvp => kvp.Value.ContainsKey(difficulty)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value[difficulty]);
-        }
+        public Dictionary<string, (string, JToken)> Get(BeatmapDifficulty difficulty) =>
+            data.Where(kvp => kvp.Value.ContainsKey(difficulty)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value[difficulty]);
         public bool TryGet(string mode, BeatmapDifficulty difficulty, out (string, JToken) value)
         {
             if (data.TryGetValue(mode, out var hold) && hold.TryGetValue(difficulty, out value))
@@ -70,6 +69,12 @@ namespace BLPPCounter.Utils
         {
             m1.Combine(m2);
             return m1;
+        }
+        public static Map ConvertSSToTaoh(string hash, string songId, JToken SSInfo)
+        {
+            int diff = (int)SSInfo["difficulty"]["difficulty"];
+            JToken newToken = JToken.Parse(string.Format(TAOH_FORMAT, SSInfo["songName"].ToString(), songId, hash, diff, SSInfo["difficulty"]["gameMode"].ToString().Replace("Solo", ""), (float)SSInfo["stars"]));
+            return new Map(hash, SS_MODE_NAME, FromValue(diff), songId, newToken);
         }
         public override string ToString()
         {

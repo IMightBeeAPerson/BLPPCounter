@@ -170,6 +170,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CalculatorStuffs\BLCalc.cs" />
+    <Compile Include="CalculatorStuffs\SSCalc.cs" />
     <Compile Include="Counters\ClanCounter.cs" />
     <Compile Include="Counters\IMyCounters.cs" />
     <Compile Include="Counters\NormalCounter.cs" />

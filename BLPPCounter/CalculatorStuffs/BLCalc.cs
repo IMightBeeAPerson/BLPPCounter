@@ -123,13 +123,14 @@ namespace BLPPCounter.CalculatorStuffs
         {
             return (float)Math.Pow(pp * (float)Math.Pow(650f, 1.3f) / 650f, 1.0f / 1.3f);
         }
-        public static float Curve2(float acc)
+        public static float GetCurve(float acc, List<(double, double)> curve)
         {
             int i = 1;
-            while (i < pointList2.Count && pointList2[i].Item1 > acc) i++;
-            double middle_dis = (acc - pointList2[i - 1].Item1) / (pointList2[i].Item1 - pointList2[i - 1].Item1);
-            return (float)(pointList2[i - 1].Item2 + middle_dis * (pointList2[i].Item2 - pointList2[i - 1].Item2));
+            while (i < curve.Count && curve[i].Item1 > acc) i++;
+            double middle_dis = (acc - curve[i - 1].Item1) / (curve[i].Item1 - curve[i - 1].Item1);
+            return (float)(curve[i - 1].Item2 + middle_dis * (curve[i].Item2 - curve[i - 1].Item2));
         }
+        public static float Curve2(float acc) => GetCurve(acc, pointList2);
         public static float InvertCurve2(double curve2Output)
         {
             int i = 1;

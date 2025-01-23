@@ -19,6 +19,7 @@ using UnityEngine.PlayerLoop;
 using UnityEngine;
 using System.Collections;
 using UnityEngine.UIElements;
+using System.Net.Http;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -173,13 +174,13 @@ namespace BLPPCounter.Settings.SettingHandlers
             CurrentMap = Sldvc.beatmapKey;
             CurrentDiff = null;
             if (!Sldvc.beatmapLevel.levelID.Substring(0, 6).Equals("custom")) return 0.0f; //means the level selected is not custom
-            string apiOutput = RelativeCounter.RequestScore(
+            string apiOutput = HelpfulPaths.CallAPI(string.Format(HelpfulPaths.BLAPI_SCORE,
                 Targeter.TargetID,
                 Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(),
                 Sldvc.beatmapKey.difficulty.ToString().Replace("+", "Plus"),
                 Sldvc.beatmapKey.beatmapCharacteristic.serializedName,
                 true
-                );
+                )).ReadAsStringAsync().Result;
             TargetHasScore = !(apiOutput is null || apiOutput.Length == 0);
             if (!TargetHasScore) { UpdateDiff(); return 0.0f; } //target doesn't have a score on this diff.
             JToken targetScore = JToken.Parse(apiOutput);
@@ -313,9 +314,9 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private void UpdateDiff()
         {
-            if (!TheCounter.CallAPI("leaderboards/hash/" + Sldvc.beatmapLevel.levelID.Split('_')[2].ToUpper(), out string dataStr)) return;
+            if (!HelpfulPaths.CallAPI("leaderboards/hash/" + Sldvc.beatmapLevel.levelID.Split('_')[2].ToUpper(), out HttpContent dataStr)) return;
             int val = Map.FromDiff(Sldvc.beatmapKey.difficulty);
-            CurrentDiff = JToken.Parse(dataStr);
+            CurrentDiff = JToken.Parse(dataStr.ReadAsStringAsync().Result);
             BeatmapName = CurrentDiff["song"]["name"].ToString();
             CurrentDiff = CurrentDiff["leaderboards"].Children().First(t => ((int)t["difficulty"]["value"]) == val);
             BeatmapID = CurrentDiff["id"].ToString();
@@ -324,7 +325,6 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void RefreshAsync() => Task.Run(() => Refresh());
         public void Refresh(bool forceRefresh = false)
         {
-            Plugin.Log.Info(TabSelectionPatch.GetIfTabIsSelected(TabName) + "");
             if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && Sldvc.beatmapKey.Equals(CurrentMap))) return;
             if (Monitor.TryEnter(RefreshLock))
             {
@@ -334,7 +334,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                     TargetPP = UpdateTargetPP();
                     UpdateTabDisplay(forceRefresh);
                 }
-                catch (Exception e) { Plugin.Log.Error($"There was an error!\n{e}"); }
+                catch (Exception e) { Plugin.Log.Error("There was an error!\n" + e); }
                 finally { Monitor.Exit(RefreshLock); }
             }
         }

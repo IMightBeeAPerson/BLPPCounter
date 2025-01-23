@@ -16,6 +16,9 @@ using System.Reflection;
 using ModestTree;
 using static GameplayModifiers;
 using BLPPCounter.Utils.List_Settings;
+using IPA.Utilities;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
+using static AlphabetScrollInfo;
 namespace BLPPCounter
 {
 
@@ -33,7 +36,6 @@ namespace BLPPCounter
 #pragma warning restore CS0649
         #endregion
         #region Static Variables
-        private static readonly HttpClient client = new HttpClient();
         public static Dictionary<string, Map> Data { get; private set; }
         public static string DisplayName => "Main";
         private static PluginConfig pc => PluginConfig.Instance;
@@ -160,7 +162,7 @@ namespace BLPPCounter
         #region Variables
         private TMP_Text display;
         private bool enabled;
-        private float passRating, accRating, techRating, stars;
+        private float passRating, accRating, techRating, starRating;
         private int notes, comboNotes, mistakes, totalNotes;
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
@@ -225,7 +227,7 @@ namespace BLPPCounter
                 fullDisable = true;
                 ValidDisplayNames = new string[] { "There are none" };
             }
-
+            LoadSomeTaohableData();
         }
         public static bool InitFormat()
         {
@@ -259,7 +261,6 @@ namespace BLPPCounter
             if (!dataLoaded)
             {
                 Data = new Dictionary<string, Map>();
-                client.Timeout = new TimeSpan(0, 0, 3);
                 lastTarget = Targeter.NO_TARGET;
                 InitData();
             }
@@ -294,12 +295,13 @@ namespace BLPPCounter
                         if (m == null) 
                         {
                             Plugin.Log.Warn("Map not in cache, attempting API call to get map data...");
-                            RequestHashData();
+                            if (pc.UsingSS) AddSSMap(hash);
+                            else AddMap(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.BLAPI_HASH, hash)).ReadAsStringAsync().Result);
                             m = Data[hash];
                         }
                         //lastMap = new MapSelection(m, beatmap.difficulty, mode, passRating, accRating, techRating); // 1.34.2 and below
-                        lastMap = new MapSelection(m, beatmapDiff.difficulty, mode, passRating, accRating, techRating); // 1.37.0 and above
-                        totalNotes = HelpfulMath.NotesForMaxScore((int)lastMap.MapData.Item2["maxScore"]);
+                        lastMap = new MapSelection(m, beatmapDiff.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and above
+                        totalNotes = HelpfulMath.NotesForMaxScore(pc.UsingSS ? (int)JToken.Parse(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(beatmapDiff.difficulty))).ReadAsStringAsync().Result)["maxScore"] : (int)lastMap.MapData.Item2["maxScore"]);
                         if (!InitCounter()) throw new Exception("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
                     }
                     else
@@ -361,47 +363,8 @@ namespace BLPPCounter
         }
         #endregion
         #region API Calls
-        private string RequestHashData()
-        {
-            string path = HelpfulPaths.BLAPI_HASH + beatmap.levelID.Split('_')[2].ToUpper(); // 1.37.0 and above
-            //string path = HelpfulPaths.BLAPI_HASH + beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
-            try
-            {
-                string data = client.GetStringAsync(new Uri(path)).Result;
-                AddMap(data);
-                return data;
-            }
-            catch (HttpRequestException e)
-            {
-                Plugin.Log.Warn($"Beat Leader API request for map info failed!\nPath: {path}\nError: {e.Message}");
-                Plugin.Log.Debug(e);
-                return "";
-            }
-        }
-        public static bool CallAPI(string path, out string output, bool quiet = false, bool addDomain = true)
-        {
-            if (addDomain) path = HelpfulPaths.BLAPI + path;
-            try
-            {
-                output = client.GetStringAsync(new Uri(path)).Result;
-                return true;
-            }
-            catch (Exception e)
-            {
-                if (!quiet) 
-                { 
-                    Plugin.Log.Error($"Beat Leader API request failed\nPath: {path}\nError: {e.Message}");
-                    Plugin.Log.Debug(e);
-                }
-            output = "";
-            return false;
-            }
-        }
-        public static string CallAPI(string path, bool quiet = false, bool addDomain = true) 
-        {
-            CallAPI(path, out string outp, quiet, addDomain);
-            return outp;
-        }
+        private void RequestHashData() => 
+            AddMap(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.BLAPI_HASH, beatmap.levelID.Split('_')[2].ToUpper())).ReadAsStringAsync().Result);
         #endregion
         #region Helper Methods
         private void ChangeNotifiers(bool a)
@@ -422,7 +385,6 @@ namespace BLPPCounter
         public static void ForceLoadMaps()
         {
             if (dataLoaded) return;
-            client.Timeout = new TimeSpan(0, 0, 3);
             Data = new Dictionary<string, Map>();
             InitData();
         }
@@ -570,13 +532,13 @@ namespace BLPPCounter
         {
             Plugin.Log.Debug("API Avoidance mode is functioning (probably)!");
             //MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmap.difficulty, mode, passRating, accRating, techRating); // 1.34.2 and below
-            MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmapDiff.difficulty, mode, passRating, accRating, techRating); // 1.37.0 and above
+            MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmapDiff.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and above
             Plugin.Log.Debug($"Last Map\n-------------------\n{lastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
             bool ratingDiff, diffDiff;
             (ratingDiff, diffDiff) = thisMap.GetDifference(lastMap);
             Plugin.Log.Info($"Rating: {ratingDiff}\tDifficulty: {diffDiff}");
             if (diffDiff) theCounter.ReinitCounter(display, thisMap);
-            else if (ratingDiff) theCounter.ReinitCounter(display, passRating, accRating, techRating);
+            else if (ratingDiff) theCounter.ReinitCounter(display, passRating, accRating, techRating, starRating);
             else theCounter.ReinitCounter(display);
             lastMap = thisMap;
         }
@@ -595,18 +557,45 @@ namespace BLPPCounter
                             Data[map.Hash].Combine(map);
                         else Data[map.Hash] = map;
                     }
-                    dataLoaded = true;
+                    
                     
                 }
                 catch (Exception e)
                 {
                     Plugin.Log.Warn("Error loading bl Cache file: " + e.Message);
                     Plugin.Log.Debug(e);
+                    return;
                 }
             }
+            try
+            {
+                JEnumerable<JToken> results = JToken.Parse(File.ReadAllText(HelpfulPaths.TAOHABLE_DATA)).Children();
+                foreach (JToken result in results)
+                {
+                    if (result is JObject jo && !jo.ContainsKey("starScoreSaber")) continue;
+                    Map map = new Map(result["hash"].ToString(), Map.SS_MODE_NAME, Map.FromValue(int.Parse(result["difficulty"].ToString())), result["scoreSaberID"].ToString(), result);
+                    if (Data.ContainsKey(map.Hash))
+                        Data[map.Hash].Combine(map);
+                    else Data[map.Hash] = map;
+                }
+                dataLoaded = true;
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.Warn("Error loading Taohable Cache file: " + e.Message);
+                Plugin.Log.Debug(e);
+            }
+        }
+        private static void LoadSomeTaohableData()
+        {
+            if (HelpfulPaths.EnsureTaohableDirectoryExists()) return;
+            string filePath = HelpfulPaths.TAOHABLE_DATA;
+            byte[] data = HelpfulPaths.CallAPI(HelpfulPaths.TAOHABLE_API, forceNoHeader: true).ReadAsByteArrayAsync().Result;
+            using (FileStream fs = File.Exists(filePath) ? File.OpenWrite(filePath) : File.Create(filePath))
+                fs.Write(data);
 
         }
-        private static void AddMap(string data)
+        private static void AddMap(string data) 
         {
             try
             {
@@ -628,6 +617,22 @@ namespace BLPPCounter
                 Plugin.Log.Debug(e);
             }
         }
+        private void AddSSMap(string hash)
+        {
+            JEnumerable<JToken> diffs = JToken.Parse(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.SSAPI_DIFFS, hash)).ReadAsStringAsync().Result).Children();
+            Stack<int> ids = new Stack<int>(diffs.Count());
+            foreach (JToken diff in diffs)
+                ids.Push((int)diff["leaderboardId"]);
+            while (ids.Count > 0)
+            {
+                string songId = ids.Pop().ToString();
+                JToken mapInfo = JToken.Parse(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, songId, "info")).ReadAsStringAsync().Result);
+                Map map = Map.ConvertSSToTaoh(hash, songId, mapInfo);
+                if (Data.ContainsKey(hash))
+                    Data[hash].Combine(map);
+                else Data[hash] = map;
+            }
+        }
         private bool SetupMapData()
         {
             JToken data;
@@ -637,11 +642,9 @@ namespace BLPPCounter
             try
             {
                 if (!Data.TryGetValue(hash, out Map theMap)) throw new KeyNotFoundException("The map is not in the loaded cache.");
-                /*Dictionary<string, (string, JToken)> hold = theMap.Get(beatmap.difficulty);
-                mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;// 1.34.2 and below */
-                Dictionary<string, (string, JToken)> hold = theMap.Get(beatmapDiff.difficulty); 
-                mode = beatmapDiff.beatmapCharacteristic.serializedName;// 1.37.0 and above */
-                if (mode == default) mode = "Standard";
+                Dictionary<string, (string, JToken)> hold = theMap.Get(beatmapDiff.difficulty);
+                if (!pc.UsingSS) mode = beatmapDiff.beatmapCharacteristic.serializedName ?? "Standard";
+                else mode = Map.SS_MODE_NAME;
                 if (!hold.TryGetValue(mode, out var holdInfo)) throw new KeyNotFoundException($"The mode '{mode}' doesn't exist.\nKeys: [{string.Join(", ", hold.Keys)}]");
                 data = holdInfo.Item2;
                 songId = holdInfo.Item1;
@@ -659,17 +662,24 @@ namespace BLPPCounter
         private bool SetupMapData(JToken data)
         {
             if (data == null || data.ToString().Length <= 0) return false;
+            if (pc.UsingSS)
+            {
+                starRating = (float)data["starScoreSaber"];
+                Plugin.Log.Info("Stars: " + starRating);
+                return starRating > 0;
+            }
             float multiplier = GetStarMultiplier(data);
             passRating = HelpfulPaths.GetRating(data, PPType.Pass, mods.songSpeed) * multiplier;
             accRating = HelpfulPaths.GetRating(data, PPType.Acc, mods.songSpeed) * multiplier;
             techRating = HelpfulPaths.GetRating(data, PPType.Tech, mods.songSpeed) * multiplier;
-            stars = HelpfulPaths.GetRating(data, PPType.Star, mods.songSpeed);
+            starRating = HelpfulPaths.GetRating(data, PPType.Star, mods.songSpeed);
             string mod = HelpfulMisc.GetModifierShortname(mods.songSpeed).ToUpper();
-            Plugin.Log.Info(mod.Length > 0 ? $"{mod} Stars: {stars}\n{mod} Pass Rating: {passRating}\n{mod} Acc Rating: {accRating}\n{mod} Tech Rating: {techRating}" : $"Stars: {stars}\nPass Rating: {passRating}\nAcc Rating: {accRating}\nTech Rating: {techRating}");
-            return stars > 0;
+            Plugin.Log.Info(mod.Length > 0 ? $"{mod} Stars: {starRating}\n{mod} Pass Rating: {passRating}\n{mod} Acc Rating: {accRating}\n{mod} Tech Rating: {techRating}" : $"Stars: {starRating}\nPass Rating: {passRating}\nAcc Rating: {accRating}\nTech Rating: {techRating}");
+            return starRating > 0;
         }
         private float GetStarMultiplier(JToken data)
         {
+            if (pc.UsingSS) return 1.0f;
             float outp = 1.0f;
             if (mods.ghostNotes) outp += HelpfulPaths.GetMultiAmount(data, "gn");
             if (mods.noArrows) outp += HelpfulPaths.GetMultiAmount(data, "na");
@@ -679,16 +689,16 @@ namespace BLPPCounter
         }
         #endregion
         #region Updates
-        
         public static void UpdateText(bool displayFc, TMP_Text display, float[] ppVals, int mistakes)
         {
-            if (pc.SplitPPVals) {
+            int num = pc.UsingSS ? 3 : 0;
+            if (pc.SplitPPVals && num == 0) {
                 string outp = "";
                 for (int i=0;i<4;i++)
                     outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + 4], mistakes, Labels[i]) + "\n";
                 display.text = outp;
             } else
-                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[3], ppVals[7], mistakes, Labels[3]);
+                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[3 - num], ppVals[7 - num * 2], mistakes, Labels[3]);
         }
         #endregion
     }
