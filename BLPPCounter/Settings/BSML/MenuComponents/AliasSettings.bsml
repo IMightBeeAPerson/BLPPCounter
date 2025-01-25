@@ -1,0 +1,43 @@
+<settings-submenu text='Add Custom Alias' hover-hint='Add your own aliases to use in the format editor' align='Center' on-click='Load'>
+  <vertical spacing='1' anchor-pos-x='0'>
+    <horizontal>
+      <button text='Go Back' click-event='back' align='Left'/>
+    </horizontal>
+    <custom-list id='AliasEditor' contents='AliasInfos' show-scrollbar='true' pref-width='100' pref-height='60' cell-size='15'>
+      <vertical horizontal-fit='Unconstrained' bg='round-rect-panel' bg-color='#CCC'>
+        <horizontal>
+          <text text='~Counter' align='Left'/>
+          <text text='~TokenConversion' align='Right'/>
+        </horizontal>
+        <horizontal>
+          <text text='~Format' align='Left'/>
+          <button text='Delete' align='Center' face-color='#FF0000' on-click='RemoveAlias'/>
+          <text text='~Token' align='Right'/>
+        </horizontal>
+      </vertical>
+    </custom-list>
+    <modal show-event='AddNewAlias' hide-event='CloseWindow' size-delta-x='100' size-delta-y='50'>
+      <vertical spacing='1'>
+        <horizontal>
+          <button text='Back' click-event='CloseWindow' align='Left'/>
+          <button text='Save' on-click='AddAlias' align='Right'/>
+        </horizontal>
+        <text id='CounterText' text='Counter:'/>
+        <text id='FormatText' text='Format:'/>
+        <dropdown-list-setting id='AliasNamePicker' text='Old Alias' apply-on-change='true' value='OldAliasName' options='AliasNames'/>
+        <string-setting id='NewAlias' text='New Alias' value='NewAliasName' apply-on-change='true'/>
+      </vertical>
+    </modal>
+    <horizontal>
+      <button text='Add New Alias' click-event='AddNewAlias' align='Center'/>
+    </horizontal>
+    <dropdown-list-setting text='Counter' apply-on-change='true' value='Counter' options='CounterNames'/>
+    <dropdown-list-setting text='Format' id='ChooseFormat' apply-on-change='true' value='FormatName' options='FormatNames'/>
+  </vertical>
+  <vertical anchor-pos-x='160' anchor-pos-y='5' pref-width='200' spacing='10' horizontal-fit='PreferredSize' bg='round-rect-panel' bg-color='#CCC'>
+    <horizontal bg='panel-top' pad-left='15' pad-right='15' horizontal-fit='PreferredSize'>
+      <text text='Alias Table' align='Center' font-size='8'/>
+    </horizontal>
+    <text id='InfoTable' text='' align='Left' word-wrapping='true'/>
+  </vertical>
+</settings-submenu>

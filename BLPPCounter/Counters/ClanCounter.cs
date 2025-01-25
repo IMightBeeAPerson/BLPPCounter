@@ -16,7 +16,6 @@ namespace BLPPCounter.Counters
     public class ClanCounter: IMyCounters
     {
         #region Static Variables
-        private static readonly HttpClient client = new HttpClient();
         private static int playerClanId = -1;
         private static readonly List<(MapSelection, float[])> mapCache = new List<(MapSelection, float[])>(); //Map, clan pp vals, acc vals
         private static PluginConfig pc => PluginConfig.Instance;
@@ -61,18 +60,18 @@ namespace BLPPCounter.Counters
         };
         internal static readonly FormatRelation ClanFormatRelation = new FormatRelation("Main Format", DisplayName,
             pc.FormatSettings.ClanTextFormat, str => pc.FormatSettings.ClanTextFormat = str, FormatAlias,
-            new Dictionary<string, string>()
+            new Dictionary<char, string>()
             {
-                { "PP", "The unmodified PP number" },
-                { "PP Difference", "The modified PP number (plus/minus value)" },
-                { "Color", "Must use as a group value, and will color everything inside group" },
-                { "FCPP", "The unmodified PP number if the map was FC'ed" },
-                { "FCPP Difference", "The modified PP number if the map was FC'ed" },
-                { "FC Color", "Must use as a group value, and will color everything inside group" },
-                { "Label", "The label (ex: PP, Tech PP, etc)" },
-                { "Mistakes", "The amount of mistakes made in the map. This includes bomb and wall hits" },
-                { "Target", "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" },
-                { "Message", "This shows either the clan message or percent needed message depending on user settings. The idea of this message is to show what percent is needed to capture the map." }
+                { 'p', "The unmodified PP number" },
+                { 'x', "The modified PP number (plus/minus value)" },
+                { 'c', "Must use as a group value, and will color everything inside group" },
+                { 'o', "The unmodified PP number if the map was FC'ed" },
+                { 'y', "The modified PP number if the map was FC'ed" },
+                { 'f', "Must use as a group value, and will color everything inside group" },
+                { 'l', "The label (ex: PP, Tech PP, etc)" },
+                { 'e', "The amount of mistakes made in the map. This includes bomb and wall hits" },
+                { 't', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" },
+                { 'm', "This shows either the clan message or precent needed message depending on user settings. The idea of this message is to show what precent is needed to capture the map." }
             }, str => { var hold = GetFormatClan(str, out string errorStr, false); return (hold, errorStr); },
             new Dictionary<char, object>()
             {
@@ -106,12 +105,12 @@ namespace BLPPCounter.Counters
                 FormatRelation.CreateFuncWithWrapper("{0}%", "Get {0}% for ___ PP!")
             }, new Dictionary<char, IEnumerable<(string, object)>>(5)
             {
-                { 'p', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
-                { 'o', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
-                { 'x', new List<(string, object)>(3) { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
-                { 'y', new List<(string, object)>(3) { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
-                { 'm', new List<(string, object)>(3) { ("MinVal", 10), ("MaxVal", 100), ("IncrementVal", 1) } }
-            }, new List<(char, string)>(2)
+                { 'p', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
+                { 'o', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
+                { 'x', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
+                { 'y', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
+                { 'm', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 100), ("IncrementVal", 1) } }
+            }, new (char, string)[2]
             {
                 ((char)1, "Has a miss"),
                 ((char)2, "Is bottom of text")
@@ -119,17 +118,17 @@ namespace BLPPCounter.Counters
             );
         internal static readonly FormatRelation WeightedFormatRelation = new FormatRelation("Weighted Format", DisplayName,
             pc.FormatSettings.WeightedTextFormat, str => pc.FormatSettings.WeightedTextFormat = str, WeightedFormatAlias,
-            new Dictionary<string, string>()
+            new Dictionary<char, string>()
             {
-                { "Mistakes", "The amount of mistakes made in the map. This includes bomb and wall hits" },
-                { "Rank Color", "The color based off of what rank you are out of your clan, must be used inside of a group and will color everything in the group" },
-                { "Rank", "The rank you are in the clan at that current moment" },
-                { "PP Difference", "The modified PP number if the map was FC'ed" },
-                { "PP", "The unmodified PP number" },
-                { "Label", "The label (ex: PP, Tech PP, etc)" },
-                { "FCPP Difference", "The modified PP number if the map was FC'ed" },
-                { "FCPP", "The unmodified PP number if the map was FC'ed" },
-                { "Message", "This will show a message if the counter is used on a map that isn't perfectly ideal for the weighted counter or that the weighted counter can't be used on. The message will say the reason for why this isn't ideal" }
+                { 'e', "The amount of mistakes made in the map. This includes bomb and wall hits" },
+                { 'c', "The color based off of what rank you are out of your clan, must be used inside of a group and will color everything in the group" },
+                { 'r', "The rank you are in the clan at that current moment" },
+                { 'x', "The modified PP number if the map was FC'ed" },
+                { 'p', "The unmodified PP number" },
+                { 'l', "The label (ex: PP, Tech PP, etc)" },
+                { 'y', "The modified PP number if the map was FC'ed" },
+                { 'o', "The unmodified PP number if the map was FC'ed" },
+                { 'm', "This will show a message if the counter is used on a map that isn't perfectly ideal for the weighted counter or that the weighted counter can't be used on. The message will say the reason for why this isn't ideal" }
             }, str => { var hold = GetFormatWeighted(str, out string errorStr, false); return (hold, errorStr); },
             new Dictionary<char, object>(12)
             {
@@ -161,13 +160,13 @@ namespace BLPPCounter.Counters
                     outp => outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT))
             }, new Dictionary<char, IEnumerable<(string, object)>>(5)
             {
-                { 'c', new List<(string, object)>(3) { ("IsInteger", true), ("MinVal", 1), ("MaxVal", 100), ("IncrementVal", 1) } },
-                { 'r', new List<(string, object)>(3) { ("IsInteger", true), ("MinVal", 1), ("MaxVal", 100), ("IncrementVal", 1) } },
-                { 'p', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
-                { 'o', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
-                { 'x', new List<(string, object)>(3) { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
-                { 'y', new List<(string, object)>(3) { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
-            }, new List<(char, string)>(3)
+                { 'c', new (string, object)[4] { ("IsInteger", true), ("MinVal", 1), ("MaxVal", 100), ("IncrementVal", 1) } },
+                { 'r', new (string, object)[4] { ("IsInteger", true), ("MinVal", 1), ("MaxVal", 100), ("IncrementVal", 1) } },
+                { 'p', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
+                { 'o', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
+                { 'x', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
+                { 'y', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
+            }, new (char, string)[3]
             {
                 ((char)1, "Has a miss"),
                 ((char)2, "Is bottom of text"),
@@ -176,15 +175,15 @@ namespace BLPPCounter.Counters
             );
         internal static readonly FormatRelation MessageFormatRelation = new FormatRelation("Custom Message Format", DisplayName,
             pc.MessageSettings.ClanMessage, str => pc.MessageSettings.ClanMessage = str, MessageFormatAlias,
-            new Dictionary<string, string>()
+            new Dictionary<char, string>()
             {
-                {"Color", "Must use as a group value, and will color everything inside group" },
-                {"Accuracy", "The accuracy needed to capture the map" },
-                {"Tech PP", "The tech PP needed" },
-                {"Acc PP", "The accuracy PP needed" },
-                {"Pass PP", "The pass PP needed" },
-                {"PP", "The total PP number needed to capture the map" },
-                {"Target", "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" }
+                { 'c', "Must use as a group value, and will color everything inside group" },
+                { 'a', "The accuracy needed to capture the map" },
+                { 'x', "The tech PP needed" },
+                { 'y', "The accuracy PP needed" },
+                { 'z', "The pass PP needed" },
+                { 'p', "The total PP number needed to capture the map" },
+                { 't', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" }
             }, str => { var hold = GetFormatCustom(str, out string errorStr, false); return (hold, errorStr); },
             new Dictionary<char, object>(7)
             {
@@ -207,11 +206,11 @@ namespace BLPPCounter.Counters
                 FormatRelation.CreateFunc("Targeting <color=red>{0}</color>", "{0}")
             }, new Dictionary<char, IEnumerable<(string, object)>>(5)
             {
-                { 'a', new List<(string, object)>(3) { ("MinVal", 0), ("MaxVal", 100), ("IncrementVal", 1.5f), } },
-                { 'x', new List<(string, object)>(3) { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
-                { 'y', new List<(string, object)>(3) { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
-                { 'z', new List<(string, object)>(3) { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
-                { 'p', new List<(string, object)>(3) { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } }
+                { 'a', new (string, object)[3] { ("MinVal", 0), ("MaxVal", 100), ("IncrementVal", 1.5f), } },
+                { 'x', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
+                { 'y', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
+                { 'z', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
+                { 'p', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } }
             }
             );
         #endregion
@@ -219,25 +218,27 @@ namespace BLPPCounter.Counters
         public static string DisplayName => "Clan";
         public static string DisplayHandler => DisplayName;
         public static int OrderNumber => 3;
+        public static bool SSUsable => false;
         public string Name => DisplayName;
         public string Mods { get; private set; }
         private TMP_Text display;
-        private float accRating, passRating, techRating, nmAccRating, nmPassRating, nmTechRating;
+        private float accRating, passRating, techRating, starRating, nmAccRating, nmPassRating, nmTechRating;
         private float[] neededPPs, clanPPs;
         private int precision, setupStatus;
         private string message;
         private bool showRank;
         #endregion
         #region Init & Overrides
-        public ClanCounter(TMP_Text display, float accRating, float passRating, float techRating)
+        public ClanCounter(TMP_Text display, float accRating, float passRating, float techRating, float starRating)
         {
             this.accRating = accRating;
             this.passRating = passRating;
             this.techRating = techRating;
+            this.starRating = starRating;
             this.display = display;
             precision = pc.DecimalPrecision;
         }
-        public ClanCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating) { SetupData(map); }
+        public ClanCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating, map.StarRating) { SetupData(map); }
         public void SetupData(MapSelection map) //setupStatus key: 0 = success, 1 = Map not ranked, 2 = Map already captured, 3 = load failed, 4 = map too hard to capture
         {
             setupStatus = 0;
@@ -254,7 +255,10 @@ namespace BLPPCounter.Counters
             neededPPs[3] = GetCachedPP(map);
             if (neededPPs[3] <= 0)
             {
-                float[] ppVals = LoadNeededPp(songId, out bool mapCaptured);
+                float[] ppVals = LoadNeededPp(songId, out bool mapCaptured, out _, ref playerClanId);
+                neededPPs = new float[6];
+                neededPPs[3] = ppVals[0];
+                clanPPs = ppVals.Skip(1).ToArray();
                 if (mapCaptured)
                 {
                     Plugin.Log.Debug("Map already captured! No need to do anything else.");
@@ -267,9 +271,12 @@ namespace BLPPCounter.Counters
             neededPPs[4] = BLCalc.GetAcc(accRating, passRating, techRating, neededPPs[3]);
             (neededPPs[0], neededPPs[1], neededPPs[2]) = BLCalc.GetPp(neededPPs[4], nmAccRating, nmPassRating, nmTechRating);
             neededPPs[5] = (float)Math.Round(neededPPs[4] * 100.0f, 2);
-            if (mapCache.Count > pc.MapCache) Plugin.Log.Debug("Cache full! Making room..."); 
-            while (mapCache.Count > pc.MapCache) mapCache.RemoveAt(0);
-            if (pc.CeilEnabled && neededPPs[5] >= pc.ClanPercentCeil) setupStatus = 4;
+            if (mapCache.Count > pc.MapCache)
+            {
+                Plugin.Log.Debug("Cache full! Making room...");
+                do mapCache.RemoveAt(0); while (mapCache.Count > pc.MapCache);
+            }
+            if (pc.CeilEnabled && neededPPs[5] >= pc.ClanPrecentCeil) setupStatus = 4;
         theEnd:
             switch (setupStatus)
             {
@@ -280,21 +287,26 @@ namespace BLPPCounter.Counters
             }
             showRank = pc.ShowRank && setupStatus != 1 && setupStatus != 3;
         }
-        public float[] LoadNeededPp(string mapId, out bool mapCaptured)
+        public static float[] LoadNeededPp(string mapId, out bool mapCaptured, out string owningClan, ref int playerClanId)
         {
             string id = Targeter.TargetID, check;
             mapCaptured = false;
-            neededPPs = new float[6];
-            check = RequestData($"https://api.beatleader.xyz/player/{id}");
+            owningClan = "None";
+            check = HelpfulPaths.CallAPI($"https://api.beatleader.xyz/player/{id}").ReadAsStringAsync().Result;
             if (playerClanId < 0 && check.Length > 0) playerClanId = ParseId(JToken.Parse(check));
-            check = RequestData($"{HelpfulPaths.BLAPI_CLAN}{mapId}?page=1&count=1");
-            if (check.Length <= 0) return null;
-            JToken clanData = JToken.Parse(check)["clanRanking"].Children().First();
+            check = HelpfulPaths.CallAPI($"{string.Format(HelpfulPaths.BLAPI_CLAN, mapId)}?page=1&count=1").ReadAsStringAsync().Result;
+            if (check.Length == 0) return null;
+            JToken clanData = JToken.Parse(check);
+            if ((int)clanData["difficulty"]["status"] != 3) return null; //Map isn't ranked
+            clanData = clanData["clanRanking"].Children().First();
+            owningClan = clanData["clan"]["tag"].ToString();
             int clanId = -1;
             if (clanData.Count() > 0) clanId = (int)clanData["clan"]["id"]; else return null;
             mapCaptured = clanId <= 0 || clanId == playerClanId;
             float pp = (float)clanData["pp"];
-            JEnumerable<JToken> scores = JToken.Parse(RequestClanLeaderboard(id, mapId))["associatedScores"].Children();
+            check = RequestClanLeaderboard(id, mapId, playerClanId);
+            if (check.Length == 0) return new float[1] { pp }; //No scores are set, so player must capture it by themselves.
+            JEnumerable<JToken> scores = JToken.Parse(check)["associatedScores"].Children();
             List<float> actualPpVals = new List<float>();
             float playerScore = 0.0f;
             foreach (JToken score in scores)
@@ -305,17 +317,19 @@ namespace BLPPCounter.Counters
             }
             List<float> clone = new List<float>(actualPpVals);
             clone.Remove(playerScore);
-            clanPPs = clone.ToArray();
+            float[] clanPPs = clone.ToArray();
             Array.Sort(clanPPs, (a, b) => (int)Math.Round(b - a));
-            neededPPs[3] = mapCaptured ? 0.0f : BLCalc.GetNeededPlay(actualPpVals, pp, playerScore);
-            return clanPPs.Prepend(neededPPs[3]).ToArray();
+            float neededPp = mapCaptured ? 0.0f : BLCalc.GetNeededPlay(actualPpVals, pp, playerScore);
+            return clanPPs.Prepend(neededPp).ToArray();
         }
+        public static float[] LoadNeededPp(string mapId, out bool mapCaptured, out string owningClan) { int no = -1; return LoadNeededPp(mapId, out mapCaptured, out owningClan, ref no); }
         public void ReinitCounter(TMP_Text display) { this.display = display; }
-        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating) { 
+        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating, float starRating) { 
             this.display = display;
             this.passRating = passRating;
             this.accRating = accRating;
             this.techRating = techRating;
+            this.starRating = starRating;
             precision = pc.DecimalPrecision;
             neededPPs[4] = BLCalc.GetAcc(accRating, passRating, techRating, neededPPs[3]);
             (neededPPs[0], neededPPs[1], neededPPs[2]) = BLCalc.GetPp(neededPPs[4], nmAccRating, nmPassRating, nmTechRating);
@@ -328,36 +342,23 @@ namespace BLPPCounter.Counters
         {
             if (clanIniter == null || weightedIniter == null || (pc.ShowClanMessage && customIniter == null)) FormatTheFormat();
             UpdateFormats();
-            return displayClan != null && displayWeighted != null && TheCounter.TargetUsable && TheCounter.PercentNeededUsable && (!pc.ShowClanMessage || displayCustom != null);
+            return displayClan != null && displayWeighted != null && TheCounter.TargetUsable && TheCounter.PrecentNeededUsable && (!pc.ShowClanMessage || displayCustom != null);
+        }
+        public static void ResetFormat()
+        {
+            clanIniter = null;
+            weightedIniter = null; 
+            customIniter = null;
+            displayClan = null;
+            displayWeighted = null;
+            displayCustom = null;
         }
         #endregion
         #region API Requests
-        private string RequestClanLeaderboard(string id, string mapId)
+        private static string RequestClanLeaderboard(string id, string mapId, int playerClanId)
         {
-            try
-            {
-                int clanId = playerClanId > 0 ? playerClanId : ParseId(JToken.Parse(client.GetStringAsync($"https://api.beatleader.xyz/player/{id}").Result));
-                return client.GetStringAsync($"https://api.beatleader.xyz/leaderboard/clanRankings/{mapId}/clan/{clanId}?count=100&page=1").Result;
-            }
-            catch (Exception e)
-            {
-                Plugin.Log.Warn($"Beat Leader API request failed! This is very sad.\nError: {e.Message}\nMap ID: {mapId}\tPlayer ID: {id}");
-                Plugin.Log.Debug(e);
-                return "";
-            }
-        }
-        private static string RequestData(string path)
-        {
-            try
-            {
-                return client.GetStringAsync(new Uri(path)).Result;
-            }
-            catch (Exception e)
-            {
-                Plugin.Log.Warn($"Beat Leader API request in ClanCounter failed!\nPath: {path}\nError: {e.Message}");
-                Plugin.Log.Debug(e);
-                return "";
-            }
+            int clanId = playerClanId > 0 ? playerClanId : ParseId(HelpfulPaths.CallAPI($"player/{id}", forceBLCall: true).ReadAsStringAsync().Result);
+            return HelpfulPaths.CallAPI($"leaderboard/clanRankings/{mapId}/clan/{clanId}?count=100&page=1", forceBLCall: true).ReadAsStringAsync().Result;
         }
         #endregion
         #region Helper Functions
@@ -478,11 +479,11 @@ namespace BLPPCounter.Counters
         public static void AddToCache(MapSelection map, float[] vals) => mapCache.Add((map, vals));      
         #endregion
         #region Updates
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPrecent)
         {
             if (setupStatus > 0)
             {
-                UpdateWeightedCounter(acc, mistakes, fcPercent);
+                UpdateWeightedCounter(acc, mistakes, fcPrecent);
                 return;
             }
             bool displayFc = pc.PPFC && mistakes > 0;
@@ -493,7 +494,7 @@ namespace BLPPCounter.Counters
                 ppVals[i + 4] = ppVals[i] - neededPPs[i];
             if (displayFc)
             {
-                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPercent, accRating, passRating, techRating);
+                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPrecent, accRating, passRating, techRating);
                 ppVals[11] = BLCalc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
                 for (int i = 8; i < 12; i++)
                     ppVals[i + 4] = ppVals[i] - neededPPs[i - 8];
@@ -504,7 +505,7 @@ namespace BLPPCounter.Counters
             string color(float num) => pc.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
             string message()
             {
-                var func = pc.ShowClanMessage ? displayCustom : TheCounter.PercentNeededFormatter;
+                var func = pc.ShowClanMessage ? displayCustom : TheCounter.PrecentNeededFormatter;
                 return func.Invoke(() => color(ppVals[3] - neededPPs[3]),
                 neededPPs[5], neededPPs[0], neededPPs[1], neededPPs[2], (float)Math.Round(neededPPs[3], precision));
             }
@@ -520,7 +521,7 @@ namespace BLPPCounter.Counters
                 display.text = displayClan.Invoke(displayFc, pc.ExtraInfo, mistakes, () => color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
                     () => color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3], message) + "\n";
         }
-        private void UpdateWeightedCounter(float acc, int mistakes, float fcPercent)
+        private void UpdateWeightedCounter(float acc, int mistakes, float fcPrecent)
         {
             bool displayFc = pc.PPFC && mistakes > 0;
             float[] ppVals = new float[16]; //default pass, acc, tech, total pp for 0-3, modified for 4-7. Same thing but for fc with 8-15.
@@ -531,7 +532,7 @@ namespace BLPPCounter.Counters
                 ppVals[i + 4] = ppVals[i] * weight;
             if (displayFc)
             {
-                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPercent, accRating, passRating, techRating);
+                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPrecent, accRating, passRating, techRating);
                 ppVals[11] = BLCalc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
                 for (int i = 8; i < 12; i++)
                     ppVals[i + 4] = ppVals[i] * weight;

@@ -123,7 +123,7 @@ namespace BLPPCounter.Helpfuls
                     else
                         formatted += format.Substring(i, m.Length);
                     i += m.Length - 1;
-                    Plugin.Log.Info("Formatted: " + formatted + " || i = " + i);
+                    //Plugin.Log.Info("Formatted: " + formatted + " || i = " + i);
                     continue;
                 }
                 if (!IsSpecialChar(format[i]) ||

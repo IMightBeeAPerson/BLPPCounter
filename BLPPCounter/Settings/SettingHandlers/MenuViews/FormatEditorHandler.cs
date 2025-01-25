@@ -20,23 +20,14 @@ namespace BLPPCounter.Settings.SettingHandlers
 {
     public class FormatEditorHandler: BSMLResourceViewController
     {
+#pragma warning disable IDE0044
         public override string ResourceName => "BLPPCounter.Settings.BSML.MenuComponents.MenuFormatSettings.bsml";
         public static FormatEditorHandler Instance { get; private set; } = new FormatEditorHandler();
         private static PluginConfig PC => PluginConfig.Instance;
         private FormatEditorHandler() { }
         #region Format Settings Editor
         #region Misc Variables
-        private readonly Dictionary<(string, string), FormatRelation> AllFormatInfo = new Dictionary<(string, string), FormatRelation>()
-        {
-            { TheCounter.DefaultFormatRelation.GetKey, TheCounter.DefaultFormatRelation },
-            { TheCounter.TargetFormatRelation.GetKey, TheCounter.TargetFormatRelation },
-            { TheCounter.PercentNeededFormatRelation.GetKey, TheCounter.PercentNeededFormatRelation },
-            { ClanCounter.ClanFormatRelation.GetKey, ClanCounter.ClanFormatRelation },
-            { ClanCounter.WeightedFormatRelation.GetKey, ClanCounter.WeightedFormatRelation },
-            { ClanCounter.MessageFormatRelation.GetKey, ClanCounter.MessageFormatRelation },
-            { RelativeCounter.DefaultFormatRelation.GetKey, RelativeCounter.DefaultFormatRelation }
-        };
-        private FormatRelation CurrentFormatInfo => AllFormatInfo[(_FormatName, _Counter)];
+        private FormatRelation CurrentFormatInfo => MenuSettingsHandler.AllFormatInfo[(_FormatName, _Counter)];
         private bool loaded = false;
         private string rawFormat;
         private bool saveable = false;
@@ -58,7 +49,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(PreviewDisplay))]
         private TextMeshProUGUI PreviewDisplay;
         [UIComponent(nameof(TheSaveButton))]
-        private UnityEngine.UI.Button TheSaveButton;
+        private Button TheSaveButton;
         [UIComponent(nameof(SaveMessage))]
         private TextMeshProUGUI SaveMessage;
         [UIComponent(nameof(AliasTable))]
@@ -82,7 +73,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private string FormatName { get => _FormatName; set { _FormatName = value; UpdateFormatDisplay(); } }
         private string _FormatName;
         [UIValue(nameof(CounterNames))]
-        private List<object> CounterNames => TheCounter.ValidDisplayNames.Where(a => AllFormatInfo.Any(b => b.Key.Item2.Equals(a)))
+        private List<object> CounterNames => TheCounter.ValidDisplayNames.Where(a => MenuSettingsHandler.AllFormatInfo.Any(b => b.Key.Item2.Equals(a)))
             .Append(TheCounter.DisplayName).Cast<object>().ToList();
         [UIValue(nameof(FormatNames))]
         private List<object> FormatNames = new List<object>();
@@ -101,17 +92,18 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction("#back")] private void GoBack() => MenuSettingsHandler.Instance.GoBack();
         private void UpdateFormatOptions()
         {
-            FormatNames = AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>().ToList();
+            FormatNames = MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>().ToList();
             ChooseFormat.Values = FormatNames;
             if (FormatNames.Count > 0) FormatName = FormatNames[0] as string;
             ChooseFormat.Value = FormatName;
             ChooseFormat.UpdateChoices();
         }
-        private void UpdateFormatDisplay()
+        internal void UpdateFormatDisplay()
         {
             FormatListInfo.AliasConverter = CurrentFormatInfo.Alias;
             foreach (KeyValuePair<string, char> item in GLOBAL_ALIASES) FormatListInfo.AliasConverter[item.Key] = item.Value;
             FormattedText.text = CurrentFormatInfo.GetQuickFormat();
+            if (FormattedText.text.Contains("\nPossible")) FormattedText.text = FormattedText.text.Split("\nPossible")[0]; //This is so that ui doesn't break from a specific error.
             RawFormatText.text = FormatListInfo.ColorFormat(CurrentFormatInfo.Format.Replace("\n", "\\n"));
             //Plugin.Log.Debug(RawFormatText.text);
         }
@@ -143,6 +135,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 saveable &= fli.Updatable();
             }
             PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : "Can not format.";
+            if (PreviewDisplay.text.Contains("\nPossible")) PreviewDisplay.text = PreviewDisplay.text.Split("\nPossible")[0];
             RawPreviewDisplay.text = colorOutp;
             rawFormat = outp.Replace("\\n", "\n");
             FormatEditor.TableView.ClearSelection();
@@ -153,19 +146,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             TheSaveButton.interactable = saveable;
             SaveMessage.text = "";
         }
-        private void UpdateAliasTable()
-        {
-            float maxLength = CurrentFormatInfo.Descriptions.Keys.Aggregate(0.0f, (a, b) => Math.Max(a, AliasTable.GetPreferredValues(b).x));
-            string outp = $"| Tokens<space={maxLength - AliasTable.GetPreferredValues("| Tokens").x}px>  | Descriptions\n";
-            float maxLineLength = maxLength + CurrentFormatInfo.Descriptions.Values.Aggregate(0.0f, (a, b) => Math.Max(a, AliasTable.GetPreferredValues("  | " + b).x));
-            for (int i = (int)Math.Ceiling(maxLineLength / AliasTable.GetPreferredValues("-").x); i > 0; i--)
-                outp += '-';
-            outp += '\n';
-            string formatString = "| {0}<space={2}px>  | {1}\n";
-            foreach (var val in CurrentFormatInfo.Descriptions)
-                outp += string.Format(formatString, val.Key, val.Value, maxLength - AliasTable.GetPreferredValues(val.Key).x);
-            AliasTable.text = outp;
-        }
+        
         [UIAction(nameof(SelectedCell))]
         private void SelectedCell(TableView _, object obj)
         {
@@ -197,6 +178,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (endFli == null) colorOutp += richEnd; //if endFli is null, then this is not a saveable format, therefore outp doesn't need to be updated.
             PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : "Can not format.";
             RawPreviewDisplay.text = colorOutp;
+            Plugin.Log.Debug(colorOutp);
             UpdateSaveButton();
         }
         [UIAction(nameof(AddDefaultChunk))]
@@ -222,7 +204,9 @@ namespace BLPPCounter.Settings.SettingHandlers
             FormatChunks.AddRange(FormatListInfo.InitAllFromChunks(FormatListInfo.ChunkItAll(currentFormat)).Cast<object>());
             //Plugin.Log.Info("THE CHUNKS\n" + string.Join("\n", FormatChunks));
             UpdateFormatTable(true);
-            UpdateAliasTable();
+            //MenuSettingsHandler.UpdateAliasTable(AliasTable, CurrentFormatInfo.Descriptions);
+            Dictionary<char, string> reversedAlias = CurrentFormatInfo.Alias.Swap();
+            HelpfulMisc.SetupTable(AliasTable, -1, CurrentFormatInfo.Descriptions.Select(kvp => new KeyValuePair<string, string>(reversedAlias[kvp.Key], kvp.Value)), "Tokens", "Descriptions");
         }
         [UIAction(nameof(SaveFormatToConfig))]
         private void SaveFormatToConfig()
@@ -230,9 +214,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             CurrentFormatInfo.Format = rawFormat;
             Type counter = _Counter.Equals(TheCounter.DisplayName) ? typeof(TheCounter) : Type.GetType(TheCounter.DisplayNameToCounter[_Counter]);
             if (counter == null) { Plugin.Log.Error("Counter is null"); return; }
-            counter.GetMethods(BindingFlags.Public | BindingFlags.Static).First(a => a.Name.Equals("InitFormat")).Invoke(null, null);
+            MethodInfo[] miArr = counter.GetMethods(BindingFlags.Public | BindingFlags.Static);
+            miArr.First(a => a.Name.Equals("ResetFormat")).Invoke(null, null);
+            miArr.First(a => a.Name.Equals("InitFormat")).Invoke(null, null);
             SaveMessage.text = "<color=green>Format saved successfully!</color>";
             TheSaveButton.interactable = false;
+            UpdateFormatDisplay();
         }
         #endregion
         #region Value Editor
@@ -266,8 +253,9 @@ namespace BLPPCounter.Settings.SettingHandlers
                     CurrentFormatInfo.GetName(token) ?? (token < 'a' ? "Option Number " + (int)token : ""),
                     isWrapper,
                     CurrentFormatInfo.GetTestValFormatter(token),
-                    CurrentFormatInfo.GetExtraTestParams(token)));
-                Plugin.Log.Info(outp.Last().ToString());
+                    CurrentFormatInfo.GetExtraTestParams(token),
+                    CurrentFormatInfo.GetValueType(token)));
+                //Plugin.Log.Info(outp.Last().ToString());
             }
             FormatValues.Clear();
             FormatValues.AddRange(outp.Cast<object>());

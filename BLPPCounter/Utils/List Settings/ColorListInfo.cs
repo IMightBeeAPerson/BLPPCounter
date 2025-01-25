@@ -2,14 +2,9 @@
 using BeatSaberMarkupLanguage.Components.Settings;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
-using IPA.Config.Data;
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BLPPCounter.Utils.List_Settings
 {
@@ -46,7 +41,7 @@ namespace BLPPCounter.Utils.List_Settings
         {
             pcVarRef = colorRef;
             ColorName = HelpfulMisc.SplitByUppercase(colorRef.Name);
-            _ColorValue = ConvertColor((System.Drawing.Color)colorRef.GetValue(PC));
+            _ColorValue = HelpfulMisc.ConvertColor((System.Drawing.Color)colorRef.GetValue(PC));
             CurrentRefVal = _ColorValue;
             PropertyChanged += (a, b) => UpdateSaveButton.Invoke(); 
         }
@@ -54,12 +49,8 @@ namespace BLPPCounter.Utils.List_Settings
         internal void UpdateReferenceValue()
         {
             if (CurrentRefVal == ColorValue) return;
-            pcVarRef.SetValue(PC, ConvertColor(_ColorValue));
+            pcVarRef.SetValue(PC, HelpfulMisc.ConvertColor(_ColorValue));
             CurrentRefVal = _ColorValue;
         }
-        private static UnityEngine.Color ConvertColor(System.Drawing.Color color) =>
-            new UnityEngine.Color(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f);
-        private static System.Drawing.Color ConvertColor(UnityEngine.Color color) =>
-            System.Drawing.Color.FromArgb((int)Math.Round(color.a * 255), (int)Math.Round(color.r * 255), (int)Math.Round(color.g * 255), (int)Math.Round(color.b * 255));
     }
 }

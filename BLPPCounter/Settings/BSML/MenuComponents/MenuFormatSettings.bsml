@@ -51,9 +51,10 @@
         </horizontal>
         <custom-list id='ValueEditor' contents='FormatValues' show-scrollbar='true' pref-width='100' pref-height='60' cell-size='8'>
             <vertical horizontal-fit='Unconstrained'>
-            <checkbox-setting id='Toggle' text='~ValueName' apply-on-change='true' value='GivenValueBool' active='~ShowToggle'/>
-            <string-setting id='TextBox' text='~ValueName' apply-on-change='true' value='GivenValueString' formatter='Formatterer' active='~ShowTextBox'/>
-            <increment-setting id='Increment' text='~ValueName' apply-on-change='true' value='GivenValueNumber' formatter='Formatterer' integer-only='~IsInteger' min='~MinVal' max='~MaxVal' increment='~IncrementVal' active='~ShowIncrement'/>
+              <checkbox-setting id='Toggle' text='~ValueName' apply-on-change='true' value='GivenValueBool' active='~ShowToggle'/>
+              <string-setting id='TextBox' text='~ValueName' apply-on-change='true' value='GivenValueString' formatter='Formatterer' active='~ShowTextBox'/>
+              <increment-setting id='Increment' text='~ValueName' apply-on-change='true' value='GivenValueNumber' formatter='Formatterer' integer-only='~IsInteger' min='~MinVal' max='~MaxVal' increment='~IncrementVal' active='~ShowIncrement'/>
+              <color-setting id='Color' text='~ValueName' apply-on-change='true' value='GivenValueColor' active='~ShowColor'/>
             </vertical>
         </custom-list>
         <text text='Note: Test values are only saved for this instance, restarting the game will reset them.' align='Center'/>

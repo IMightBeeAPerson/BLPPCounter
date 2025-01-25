@@ -60,17 +60,28 @@
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\DataModels.dll</HintPath>
       <SpecificVersion>False</SpecificVersion>
     </Reference>
+    <Reference Include="Interactable, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <Private>False</Private>
+      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\Interactable.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=8.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <Private>False</Private>
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\Newtonsoft.Json.dll</HintPath>
       <SpecificVersion>False</SpecificVersion>
     </Reference>
     <Reference Include="PlatformUserModel, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
+    <Reference Include="SegmentedControl, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <Private>False</Private>
+      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\SegmentedControl.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
     <Reference Include="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\System.Drawing.dll</HintPath>
       <Private>False</Private>
       <SpecificVersion>False</SpecificVersion>
     </Reference>
+    <Reference Include="UnityEngine.TextCoreFontEngineModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
     <Reference Include="Zenject">
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\Zenject.dll</HintPath>
     </Reference>
@@ -159,6 +170,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CalculatorStuffs\BLCalc.cs" />
+    <Compile Include="CalculatorStuffs\SSCalc.cs" />
     <Compile Include="Counters\ClanCounter.cs" />
     <Compile Include="Counters\IMyCounters.cs" />
     <Compile Include="Counters\NormalCounter.cs" />
@@ -169,22 +181,29 @@
     <Compile Include="Helpfuls\HelpfulMisc.cs" />
     <Compile Include="Helpfuls\HelpfulPaths.cs" />
     <Compile Include="Helpfuls\HelpfulFormatter.cs" />
+    <Compile Include="Patches\MenuLevelPatch.cs" />
+    <Compile Include="Patches\MenuModifierPatch.cs" />
+    <Compile Include="Patches\StupidGameplayPatch.cs" />
+    <Compile Include="Patches\TabSelectionPatch.cs" />
     <Compile Include="Settings\Configs\MessageSettings.cs" />
     <Compile Include="Settings\Configs\PluginConfig.cs" />
+    <Compile Include="Settings\SettingHandlers\PpInfoTabHandler.cs" />
     <Compile Include="Settings\Configs\TextFormatSettings.cs" />
     <Compile Include="Settings\Configs\TokenFormatSettings.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\ColorSettingsHandler.cs" />
+    <Compile Include="Settings\SettingHandlers\MenuViews\CustomAliasHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\FormatEditorHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\MenuSettingsHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\MenuViews\SettingsHandler.cs" />
+    <Compile Include="Settings\SettingHandlers\MenuViews\MenuSettingsHandler.cs" />
+    <Compile Include="Settings\SettingHandlers\SettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\SimpleSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\SimpleMenuSettingsHandler.cs" />
     <Compile Include="Utils\ColorMatch.cs" />
     <Compile Include="Utils\CustomAlias.cs" />
     <Compile Include="Utils\CustomTarget.cs" />
+    <Compile Include="Utils\List Settings\AliasListInfo.cs" />
     <Compile Include="Utils\List Settings\ColorListInfo.cs" />
     <Compile Include="Utils\List Settings\FormatListInfo.cs" />
-    <Compile Include="Utils\List Settings\FormatRelation.cs" />
+    <Compile Include="Utils\FormatRelation.cs" />
     <Compile Include="Utils\List Settings\ValueListInfo.cs" />
     <Compile Include="Utils\Map.cs" />
     <Compile Include="Plugin.cs" />
@@ -213,6 +232,8 @@
     <EmbeddedResource Include="Settings\BSML\MenuComponents\SimpleSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\MenuComponents\MenuFormatSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\MenuComponents\ColorSettings.bsml" />
+    <EmbeddedResource Include="Settings\BSML\MenuComponents\AliasSettings.bsml" />
+    <EmbeddedResource Include="Settings\BSML\PpInfo.bsml" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BeatSaberModdingTools.Tasks">

@@ -1,4 +1,5 @@
-﻿using IPA.Utilities;
+﻿using BLPPCounter.Utils.List_Settings;
+using IPA.Utilities;
 using JetBrains.Annotations;
 using System;
 using System.Collections.Generic;
@@ -6,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BLPPCounter.Utils.List_Settings
+namespace BLPPCounter.Utils
 {
     internal class FormatRelation
     {
@@ -14,25 +15,28 @@ namespace BLPPCounter.Utils.List_Settings
         public readonly string CounterName;
         public string Format { get => _Format; set { _Format = value; FormatSetter.Invoke(value); } }
         private string _Format;
+        private readonly Dictionary<char, ValueListInfo.ValueType> ValTypes;
         private readonly Action<string> FormatSetter;
-        internal readonly Dictionary<string, char> Alias;
-        internal readonly Dictionary<string, string> Descriptions;
+        public readonly Dictionary<string, char> Alias;
+        public readonly Dictionary<char, string> Descriptions;
         private readonly Func<char, int> ParamAmounts;
         private readonly Func<string, (Func<Func<Dictionary<char, object>, string>>, string)> GetFormat;
-        internal readonly Dictionary<char, object> TestValues;
+        public readonly Dictionary<char, object> TestValues;
         private readonly Dictionary<char, IEnumerable<(string, object)>> TestValueParams;
         private readonly Dictionary<char, int> TestValueFormatIndex;
         private readonly Func<object, bool, object>[] TestValueFormats;
         private readonly Dictionary<char, string> TokenToName;
         public (string, string) GetKey => (Name, CounterName);
         public string GetName(char token) => TokenToName.TryGetValue(token, out string name) ? name : null;
+        public ValueListInfo.ValueType GetValueType(char token) =>
+            (ValTypes?.TryGetValue(token, out var outp) ?? false) ? outp : ValueListInfo.ValueType.Inferred;
         public int GetParamAmount(char token) => ParamAmounts(token);
 
-        internal FormatRelation(string name, string counterName, string format, Action<string> formatSetter, Dictionary<string, char> alias,
-            Dictionary<string, string> descriptions, Func<string, (Func<Func<Dictionary<char, object>, string>>, string)> getFormat,
+        public FormatRelation(string name, string counterName, string format, Action<string> formatSetter, Dictionary<string, char> alias,
+            Dictionary<char, string> descriptions, Func<string, (Func<Func<Dictionary<char, object>, string>>, string)> getFormat,
             Dictionary<char, object> testValues, Func<char, int> paramAmounts, Dictionary<char, int> testValueFormatIndex,
             Func<object, bool, object>[] testValueFormats, Dictionary<char, IEnumerable<(string, object)>> testValueParams,
-            IEnumerable<KeyValuePair<char, string>> extraNames = null)
+            IEnumerable<KeyValuePair<char, string>> extraNames = null, IEnumerable<KeyValuePair<char, ValueListInfo.ValueType>> valTypes = null)
         {
             Name = name;
             CounterName = counterName;
@@ -46,17 +50,19 @@ namespace BLPPCounter.Utils.List_Settings
             TestValueFormatIndex = testValueFormatIndex;
             TestValueFormats = testValueFormats;
             TestValueParams = testValueParams;
+            if (valTypes != null) ValTypes = new Dictionary<char, ValueListInfo.ValueType>(valTypes);
             var hold = alias.Select(kvp => new KeyValuePair<char, string>(kvp.Value, kvp.Key));
             if (extraNames != null) hold = hold.Union(extraNames);
             TokenToName = new Dictionary<char, string>(hold);
         }
-        internal FormatRelation(string name, string counterName, string format, Action<string> formatSetter, Dictionary<string, char> alias,
-            Dictionary<string, string> descriptions, Func<string, (Func<Func<Dictionary<char, object>, string>>, string)> getFormat,
+        public FormatRelation(string name, string counterName, string format, Action<string> formatSetter, Dictionary<string, char> alias,
+            Dictionary<char, string> descriptions, Func<string, (Func<Func<Dictionary<char, object>, string>>, string)> getFormat,
             Dictionary<char, object> testValues, Func<char, int> paramAmounts, Dictionary<char, int> testValueFormatIndex,
             Func<object, bool, object>[] testValueFormats, Dictionary<char, IEnumerable<(string, object)>> testValueParams,
-            IEnumerable<(char, string)> extraNames) :
+            IEnumerable<(char, string)> extraNames, IEnumerable<(char, ValueListInfo.ValueType)> valTypes = null) :
             this(name, counterName, format, formatSetter, alias, descriptions, getFormat, testValues, paramAmounts, testValueFormatIndex, testValueFormats,
-                testValueParams, extraNames.Select(a => new KeyValuePair<char, string>(a.Item1, a.Item2)))
+                testValueParams, extraNames?.Select(a => new KeyValuePair<char, string>(a.Item1, a.Item2)), 
+                valTypes?.Select(a => new KeyValuePair<char, ValueListInfo.ValueType>(a.Item1, a.Item2)))
         { }
         private string GetQuickFormat(string rawFormat, bool useFormatsOnTestVals, Dictionary<char, object> givenTestVals = null)
         {
@@ -68,7 +74,7 @@ namespace BLPPCounter.Utils.List_Settings
         public string GetQuickFormat(Dictionary<char, object> testVals, string rawFormat = default) =>
             GetQuickFormat(rawFormat == default ? _Format : rawFormat, true, testVals);
         public string GetQuickFormatWithRawTestVals(string rawFormat = default) => GetQuickFormat(rawFormat == default ? _Format : rawFormat, false);
-        internal Dictionary<char, object> GetFormattedTestVals(bool toDisplay)
+        public Dictionary<char, object> GetFormattedTestVals(bool toDisplay)
         {
             Dictionary<char, object> outp = new Dictionary<char, object>(TestValues);
             if (TestValueFormats == null) return outp;
@@ -80,25 +86,25 @@ namespace BLPPCounter.Utils.List_Settings
             (TestValueParams?.TryGetValue(token, out var result) ?? false) ? result : default;
         public Func<object, bool, object> GetTestValFormatter(char token) =>
             (TestValueFormatIndex?.TryGetValue(token, out var result) ?? false) ? TestValueFormats[result] : default;
-        internal static Func<object, bool, object> CreateFunc<T>(Func<T, string> displayFormat, Func<T, string> formatFormat) =>
+        public static Func<object, bool, object> CreateFunc<T>(Func<T, string> displayFormat, Func<T, string> formatFormat) =>
             (obj, isDisplay) => 
             obj is T outp ? //Condition #1
             isDisplay ? //Condition #2
             displayFormat(outp) : //#1: True, #2: True
             formatFormat(outp) :  //#1: True, #2: False
             obj.ToString(); //#1: False
-        internal static Func<object, bool, object> CreateFunc<T>(Func<T, string> format) =>
+        public static Func<object, bool, object> CreateFunc<T>(Func<T, string> format) =>
             (obj, _) => 
             obj is T outp ? //Condition #1
             format(outp) : //#1: True
             obj.ToString(); //#1: False
-        internal static Func<object, bool, object> CreateFunc(string displayFormat, string formatFormat) =>
+        public static Func<object, bool, object> CreateFunc(string displayFormat, string formatFormat) =>
             (obj, isDisplay) =>
             isDisplay ? //Condition #1
             string.Format(displayFormat, obj) : //#1: True
             string.Format(formatFormat, obj); //#1: False
-        internal static Func<object, bool, object> CreateFunc(string format) => (obj, _) => string.Format(format, obj);
-        internal static Func<object, bool, object> CreateFuncWithWrapper<T>(Func<T, string> displayFormat, Func<T, Func<object>> formatFormat) =>
+        public static Func<object, bool, object> CreateFunc(string format) => (obj, _) => string.Format(format, obj);
+        public static Func<object, bool, object> CreateFuncWithWrapper<T>(Func<T, string> displayFormat, Func<T, Func<object>> formatFormat) =>
             (wrapper, isDisplay) => {
                 object obj = wrapper is Func<object> f ? f.Invoke() : wrapper;
                 return obj is T outp ? //Condition #1
@@ -107,7 +113,7 @@ namespace BLPPCounter.Utils.List_Settings
                 formatFormat(outp) : //#1: True, #2: False
                 obj.ToString(); //#1: False
             };
-        internal static Func<object, bool, object> CreateFuncWithWrapper(string displayFormat, string formatFormat) =>
+        public static Func<object, bool, object> CreateFuncWithWrapper(string displayFormat, string formatFormat) =>
             (wrapper, isDisplay) =>
             {
                 object obj = wrapper is Func<object> f ? f.Invoke() : wrapper; //Unwraps the wrapper
@@ -116,7 +122,7 @@ namespace BLPPCounter.Utils.List_Settings
                 new Func<object>(() => string.Format(formatFormat, obj)); //return this if it is to format
             };
             
-        internal static Func<object, bool, object> CreateFuncWithWrapper(string format) => CreateFuncWithWrapper(format, format);
+        public static Func<object, bool, object> CreateFuncWithWrapper(string format) => CreateFuncWithWrapper(format, format);
         public override bool Equals(object obj) => obj is FormatRelation fr && Equals(fr);
         public bool Equals(FormatRelation fr) => !(fr is null) && fr.CounterName.Equals(CounterName) && fr.Name.Equals(Name);
         public override int GetHashCode() => base.GetHashCode();

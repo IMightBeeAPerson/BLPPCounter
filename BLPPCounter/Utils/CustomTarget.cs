@@ -1,6 +1,8 @@
-﻿using Newtonsoft.Json;
+﻿using BLPPCounter.Helpfuls;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Net.Http;
 
 namespace BLPPCounter.Utils
 {
@@ -21,16 +23,17 @@ namespace BLPPCounter.Utils
         {
             if (long.TryParse(str, out long id))
             {
-                if (TheCounter.CallAPI($"player/{id}", out string data)) return new CustomTarget(JObject.Parse(data)["name"].ToString(), id);
+                if (HelpfulPaths.CallAPI($"player/{id}", out HttpContent data)) return new CustomTarget(JObject.Parse(data.ReadAsStringAsync().Result)["name"].ToString(), id);
                 else throw new ArgumentException("The ID provided does not exist.");
             }
             return ConvertToIdAlias(str);
         }
         private static CustomTarget ConvertToIdAlias(string str)
         {
-            if (TheCounter.CallAPI($"player/{str.ToLower()}", out string data))
+            if (HelpfulPaths.CallAPI($"player/{str.ToLower()}", out HttpContent data))
             {
-                JObject parsedData = JObject.Parse(data);
+                string strData = data.ReadAsStringAsync().Result;
+                JObject parsedData = JObject.Parse(strData);
                 if (long.TryParse(parsedData["id"].ToString(), out long id))
                     return new CustomTarget(parsedData["name"].ToString(), id);
                 throw new ArgumentException("Id in api is incorrect. This is very sad :(");

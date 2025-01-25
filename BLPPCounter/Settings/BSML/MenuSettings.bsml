@@ -3,6 +3,7 @@
     <vertical pad='5' vertical-fit='PreferredSize' spacing='1'>
       <text text='General Settings' align='Center'/>
       <vertical spacing='1'>
+        <checkbox-setting text='Use Scoresaber' apply-on-change='true' value='UsingSS' hover-hint='Use Scoresaber instead of beatsaber (this will disable some features!)'/>
         <increment-setting text='Decimal Precision' value='DecimalPrecision' integer-only='true' min='0' max='4' increment='1' apply-on-change='true'/>
         <increment-setting text='Font Size' value='FontSize' integer-only='false' min='0.5' max='5' increment='0.5' apply-on-change='true'/>
         <checkbox-setting text='Show Labels' apply-on-change='true' value='ShowLbl' hover-hint='Whether or not to show label next to PP'/>
@@ -11,7 +12,7 @@
         <checkbox-setting text='Show Messages' apply-on-change='true' value='ExtraInfo' hover-hint='Show extra information and messages under the counter'/>
         <checkbox-setting text='Use Gradient' apply-on-change='true' value='UseGrad' hover-hint='Instead of solid green/red, use a gradient based off of the value'/>
         <increment-setting text='Gradient Threshold' value='GradVal' integer-only='true' min='50' max='300' increment='10' apply-on-change='true'/>
-        <list-setting text='PP Types' apply-on-change='true' value='PPType' options='TypesOfPP' hover-hint='How the counter should count PP'/>
+        <list-setting id='CounterList' text='PP Types' apply-on-change='true' value='PPType' options='TypesOfPP' hover-hint='How the counter should count PP'/>
       </vertical>
       <text text='Misc Settings' align='Center'/>
       <vertical spacing='1'>
@@ -21,13 +22,13 @@
       <vertical spacing='1'>
         <checkbox-setting text='Show Custom Message' value='ShowClanMessage' apply-on-change='true' hover-hint='Show custom clan message instead of the generic message'/>
         <increment-setting text='Map Cache' value='MapCache' integer-only='true' min='0' max='50' increment='5' apply-on-change='true'/>
-        <increment-setting text='Percent Ceiling' value='ClanPercentCeil' integer-only='false' min='90' max='100' increment='0.1' apply-on-change='true'/>
+        <increment-setting text='Precent Ceiling' value='ClanPrecentCeil' integer-only='false' min='90' max='100' increment='0.1' apply-on-change='true'/>
         <checkbox-setting text='Enable Ceiling' apply-on-change='true' value='CeilEnabled' hover-hint='Enable the percentage ceiling'/>
       </vertical>
       <text text='Relative Counter Settings' align='Center'/>
       <vertical spacing='1'>
         <checkbox-setting text='Show Rank' value='ShowRank' apply-on-change='true' hover-hint='Show what place in your clan you are with your current score'/>
-        <list-setting text='Default Counter' value='RelativeDefault' options='RelativeDefaultList' apply-on-change='true' hover-hint='What counter to go to when relative counter cannot be used' />
+        <list-setting id='DefaultCounterList' text='Default Counter' value='RelativeDefault' options='RelativeDefaultList' apply-on-change='true' hover-hint='What counter to go to when relative counter cannot be used' />
       </vertical>
       <text text='Rank Counter Settings' align='Center'/>
       <vertical spacing='1' active='false'>

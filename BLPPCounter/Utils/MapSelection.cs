@@ -8,16 +8,21 @@ namespace BLPPCounter.Utils
     {
 #pragma warning restore CS0659
         public Map Map { get; private set; }
-        public string Difficulty { get; private set; }
+        public BeatmapDifficulty Difficulty { get; private set; }
         public string Mode { get; private set; }
         public float PassRating { get; private set; }
         public float AccRating { get; private set; }
         public float TechRating { get; private set; }
+        public float StarRating { get; private set; }
         public (string, JToken) MapData => Map.Get(Mode, Difficulty);
-        public bool IsRanked => ((int)MapData.Item2["status"]) == 3;
+        public bool IsRanked { get {
+                if (Mode.Equals(Map.SS_MODE_NAME)) return true;
+                int status = (int)MapData.Item2["status"];
+                return status == 3 || status == 2; 
+            } }
         public string Hash => Map.Hash;
 
-        public MapSelection(Map map = default, string diff = default, string mode = default, float passRating = default, float accRating = default, float techRating = default)
+        public MapSelection(Map map = default, BeatmapDifficulty diff = default, string mode = default, float passRating = default, float accRating = default, float techRating = default, float starRating = default)
         {
             Map = map;
             Difficulty = diff;
@@ -25,17 +30,19 @@ namespace BLPPCounter.Utils
             PassRating = passRating;
             AccRating = accRating;
             TechRating = techRating;
+            StarRating = starRating;
         }
 
-        public void FixRates(float passRating = default, float accRating = default, float techRating = default)
+        public void FixRates(float passRating = default, float accRating = default, float techRating = default, float starRating = default)
         {
             if (passRating != default) PassRating = passRating;
             if (accRating != default) AccRating = accRating;
             if (techRating != default) TechRating = techRating;
+            if (starRating != default) StarRating = starRating;
         }
         public (bool, bool) GetDifference(MapSelection other)
         {
-            bool ratingDiff = !Mathf.Approximately(PassRating, other.PassRating) || !Mathf.Approximately(AccRating, other.AccRating) || !Mathf.Approximately(TechRating, other.TechRating);
+            bool ratingDiff = !Mathf.Approximately(PassRating, other.PassRating) || !Mathf.Approximately(AccRating, other.AccRating) || !Mathf.Approximately(TechRating, other.TechRating) || !Mathf.Approximately(StarRating, other.StarRating);
             bool diffDiff = !Difficulty.Equals(other.Difficulty) || !Mode.Equals(other.Mode);
             return (ratingDiff, diffDiff);
         }

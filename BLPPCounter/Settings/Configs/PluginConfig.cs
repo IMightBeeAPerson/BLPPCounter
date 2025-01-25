@@ -21,6 +21,7 @@ namespace BLPPCounter.Settings.Configs
         public virtual TextFormatSettings FormatSettings { get; set; } = new TextFormatSettings();
         #endregion
         #region General Settings
+        public virtual bool UsingSS { get; set; } = false;
         public virtual int DecimalPrecision { get; set; } = 2;
         public virtual double FontSize { get; set; } = 3;
         public virtual bool ShowLbl { get; set; } = true;
@@ -32,9 +33,9 @@ namespace BLPPCounter.Settings.Configs
         public virtual string PPType { get; set; } = "Normal";
         #endregion
         #region Clan Counter Settings
-        public virtual bool ShowClanMessage { get; set; } = false;
+        public virtual bool ShowClanMessage { get; set; } = true;
         public virtual int MapCache { get; set; } = 10;
-        public virtual double ClanPercentCeil { get; set; } = 99;
+        public virtual double ClanPrecentCeil { get; set; } = 99;
         public virtual bool CeilEnabled { get; set; } = true;
         #endregion
         #region Relative Counter Settings
@@ -65,6 +66,7 @@ namespace BLPPCounter.Settings.Configs
         #endregion
         #region Format Settings
         public virtual bool UpdatePreview { get; set; } = true;
+        public virtual bool AutoUpdateRefs { get; set; } = true;
 
         #region Colors
         [UseConverter(typeof(SystemColorConverter))] public virtual Color EscapeCharacterColor { get; set; } = Color.FromArgb(235, 33, 235); //#eb21eb
@@ -89,6 +91,10 @@ namespace BLPPCounter.Settings.Configs
         [Ignore] public IEnumerable<PropertyInfo> ColorInfos => Colors.Values;
         #endregion
         #endregion
+        #endregion
+        #region BL Calculator Settings
+        public virtual int TestPPAmount { get; set; } = 450;
+        public virtual float TestAccAmount { get; set; } = 95.0f;
         #endregion
     }
 }

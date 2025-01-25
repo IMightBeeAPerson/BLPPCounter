@@ -1,12 +1,14 @@
 <scrollable-settings-container>
   <vertical spacing='1' vertical-fit='PreferredSize'>
-    <text text='Settings are applied even if the cancel button is hit.' align='Center' bold='true' color='#0F0'/>
+    <text text='Settings are applied even if the cancel button is hit.' align='Center' bold='true' color='#FF0'/>
     <checkbox-setting text='Simplify Menu UI' apply-on-change='true' value='SimpleUI' hover-hint='If enabled, makes the menu UI much simpler'/>
     <settings-submenu id='SimpleContainer' text='Edit Simple Menu' hover-hint='Click to edit what shows on the simple menu UI' align='Center' on-click='LoadSimpleMenu'/>
-      <text text='-------------------------------------' align='Center' bold='true'/>
-    <text text='Format Editor Settings' align='Center'/>
+    <text text='Format Editor Settings' align='Center' font-size='6.5'/>
     <checkbox-setting text='Auto Update Preview' apply-on-change='true' value='UpdatePreview' hover-hint='If enabled, updates preview every time there is a change made'/>
     <settings-submenu id='FormatContainer' text='Edit Format Settings' hover-hint='Edit the format of the counters in game!' align='Center' on-click='LoadFormatMenu'/>
-    <settings-submenu id='ColorContainer' text='Edit Format Colors' align='Center' on-click='LoadColorMenu'/>
+    <settings-submenu id='ColorContainer' text='Edit Format Colors' hover-hint='Edit the colors used in the format editor' align='Center' on-click='LoadColorMenu'/>
+    <text text='Misc Settings' align='Center' font-size='6.5'/>
+    <checkbox-setting text='Update References' apply-on-change='true' value='AutoUpdateRefs' hover-hint='If enabled, formats will auto update when aliases are added/removed'/>
+    <horizontal id='AliasContainer'/>
   </vertical>
 </scrollable-settings-container>
