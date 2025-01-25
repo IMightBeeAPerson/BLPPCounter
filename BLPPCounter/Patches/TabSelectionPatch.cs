@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 namespace BLPPCounter.Patches
 {
@@ -15,23 +16,45 @@ namespace BLPPCounter.Patches
         private static readonly Dictionary<string, Action> TabGotSelected = new Dictionary<string, Action>();
         private static readonly Dictionary<string, bool> TabIsSelected = new Dictionary<string, bool>();
         private static readonly HashSet<string> TabNames = new HashSet<string>();
+        public static event Action<string> ModTabSelected;
+        internal static Action UpdateLastSegmentControl;
+        public static string LastSelectedModTab { get; private set; } = "";
+        private static bool MobTabFound = false;
         public static bool AllTabsFound => TabNames.Count == 0;
         [UsedImplicitly]
         private static void Postfix(SegmentedControl __instance)
         {
             if (AllTabsFound || LoadedObjects.Contains(__instance.GetHashCode())) return;
             if (!__instance.name.Equals("BSMLTabSelector")) { LoadedObjects.Add(__instance.GetHashCode()); return; }
+            if (!MobTabFound && __instance.cells.Count() == 2 && __instance.cells.Any(scc => scc is TextSegmentedControlCell tscc && tscc.text.Equals("Mods")))
+            {
+                ModTabSelected += str =>
+                {
+                    if (str.Equals("Mods") && LastSelectedModTab.Length != 0) TabGotSelected[LastSelectedModTab]?.Invoke();
+                };
+                __instance.didSelectCellEvent += (sc, index) =>
+                {
+                    if (sc.cells[index] is TextSegmentedControlCell tscc) ModTabSelected?.Invoke(tscc.text);
+                };
+                LoadedObjects.Add(__instance.GetHashCode());
+                MobTabFound = true;
+                return;
+            }
             IEnumerable<SegmentedControlCell> cells = __instance.cells.Where(scc => scc is TextSegmentedControlCell tscc && TabNames.Contains(tscc.text));
             if (!cells.Any()) return;
             IEnumerable<string> names = cells.Select(scc => ((TextSegmentedControlCell)scc).text);
             foreach (string s in names)
             {
                 TabNames.Remove(s);
-                __instance.didSelectCellEvent += (sc, index) =>
+                void CellEvent(SegmentedControl sc, int index)
                 {
+                    LastSelectedModTab = s;
                     TabIsSelected[s] = sc.cells[index] is TextSegmentedControlCell tscc && tscc.text.Equals(s);
                     if (TabIsSelected[s]) TabGotSelected[s]?.Invoke();
-                };
+                }
+                __instance.didSelectCellEvent += CellEvent;
+                CellEvent(__instance, 0);
+                UpdateLastSegmentControl = () => CellEvent(__instance, 0);
             }
         }
         public static void AddTabName(string name, Action TabSelected = null)

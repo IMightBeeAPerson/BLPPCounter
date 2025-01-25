@@ -218,6 +218,7 @@ namespace BLPPCounter.Counters
         public static string DisplayName => "Clan";
         public static string DisplayHandler => DisplayName;
         public static int OrderNumber => 3;
+        public static bool SSUsable => false;
         public string Name => DisplayName;
         public string Mods { get; private set; }
         private TMP_Text display;
@@ -254,7 +255,7 @@ namespace BLPPCounter.Counters
             neededPPs[3] = GetCachedPP(map);
             if (neededPPs[3] <= 0)
             {
-                float[] ppVals = LoadNeededPp(songId, out bool mapCaptured, ref playerClanId);
+                float[] ppVals = LoadNeededPp(songId, out bool mapCaptured, out _, ref playerClanId);
                 neededPPs = new float[6];
                 neededPPs[3] = ppVals[0];
                 clanPPs = ppVals.Skip(1).ToArray();
@@ -286,17 +287,19 @@ namespace BLPPCounter.Counters
             }
             showRank = pc.ShowRank && setupStatus != 1 && setupStatus != 3;
         }
-        public static float[] LoadNeededPp(string mapId, out bool mapCaptured, ref int playerClanId)
+        public static float[] LoadNeededPp(string mapId, out bool mapCaptured, out string owningClan, ref int playerClanId)
         {
             string id = Targeter.TargetID, check;
             mapCaptured = false;
+            owningClan = "None";
             check = HelpfulPaths.CallAPI($"https://api.beatleader.xyz/player/{id}").ReadAsStringAsync().Result;
             if (playerClanId < 0 && check.Length > 0) playerClanId = ParseId(JToken.Parse(check));
-            check = HelpfulPaths.CallAPI($"{HelpfulPaths.BLAPI_CLAN}{mapId}?page=1&count=1").ReadAsStringAsync().Result;
-            if (check.Length <= 0) return null;
+            check = HelpfulPaths.CallAPI($"{string.Format(HelpfulPaths.BLAPI_CLAN, mapId)}?page=1&count=1").ReadAsStringAsync().Result;
+            if (check.Length == 0) return null;
             JToken clanData = JToken.Parse(check);
             if ((int)clanData["difficulty"]["status"] != 3) return null; //Map isn't ranked
             clanData = clanData["clanRanking"].Children().First();
+            owningClan = clanData["clan"]["tag"].ToString();
             int clanId = -1;
             if (clanData.Count() > 0) clanId = (int)clanData["clan"]["id"]; else return null;
             mapCaptured = clanId <= 0 || clanId == playerClanId;
@@ -319,7 +322,7 @@ namespace BLPPCounter.Counters
             float neededPp = mapCaptured ? 0.0f : BLCalc.GetNeededPlay(actualPpVals, pp, playerScore);
             return clanPPs.Prepend(neededPp).ToArray();
         }
-        public static float[] LoadNeededPp(string mapId, out bool mapCaptured) { int no = -1; return LoadNeededPp(mapId, out mapCaptured, ref no); }
+        public static float[] LoadNeededPp(string mapId, out bool mapCaptured, out string owningClan) { int no = -1; return LoadNeededPp(mapId, out mapCaptured, out owningClan, ref no); }
         public void ReinitCounter(TMP_Text display) { this.display = display; }
         public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating, float starRating) { 
             this.display = display;
@@ -354,8 +357,8 @@ namespace BLPPCounter.Counters
         #region API Requests
         private static string RequestClanLeaderboard(string id, string mapId, int playerClanId)
         {
-            int clanId = playerClanId > 0 ? playerClanId : ParseId(HelpfulPaths.CallAPI($"player/{id}").ReadAsStringAsync().Result);
-            return HelpfulPaths.CallAPI($"leaderboard/clanRankings/{mapId}/clan/{clanId}?count=100&page=1").ReadAsStringAsync().Result;
+            int clanId = playerClanId > 0 ? playerClanId : ParseId(HelpfulPaths.CallAPI($"player/{id}", forceBLCall: true).ReadAsStringAsync().Result);
+            return HelpfulPaths.CallAPI($"leaderboard/clanRankings/{mapId}/clan/{clanId}?count=100&page=1", forceBLCall: true).ReadAsStringAsync().Result;
         }
         #endregion
         #region Helper Functions

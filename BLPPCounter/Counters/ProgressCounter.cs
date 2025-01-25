@@ -13,6 +13,7 @@ namespace BLPPCounter.Counters
         public static string DisplayHandler => TheCounter.DisplayName;
         public static int OrderNumber => 1;
         public string Name => DisplayName;
+        public static bool SSUsable => true;
 
         private TMP_Text display;
         private float accRating, passRating, techRating, starRating;
@@ -59,14 +60,24 @@ namespace BLPPCounter.Counters
         #region Updates
         public void UpdateCounter(float acc, int notes, int mistakes, float fcPrecent)
         {
-            bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0;
-            float[] ppVals = new float[8];
-            (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
-            ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
-            if (displayFc)
+            bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0, ss = PluginConfig.Instance.UsingSS;
+            float[] ppVals = new float[ss ? 2 : 8];
+            if (ss)
             {
-                (ppVals[4], ppVals[5], ppVals[6]) = BLCalc.GetPp(fcPrecent, accRating, passRating, techRating);
-                ppVals[7] = BLCalc.Inflate(ppVals[4] + ppVals[5] + ppVals[6]);
+                ppVals[0] = SSCalc.GetPP(acc, starRating);
+                if (displayFc) ppVals[1] = SSCalc.GetPP(fcPrecent, starRating);
+            }
+            else
+            {
+                (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
+                ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
+                if (displayFc)
+                {
+                    (ppVals[4], ppVals[5], ppVals[6]) = BLCalc.GetPp(fcPrecent, accRating, passRating, techRating);
+                    ppVals[7] = BLCalc.Inflate(ppVals[4] + ppVals[5] + ppVals[6]);
+                }
+                for (int i = 0; i < ppVals.Length; i++)
+                    ppVals[i] = (float)Math.Round(ppVals[i], precision);
             }
             float mult = notes / (float)totalNotes;
             mult = Math.Min(1, mult);

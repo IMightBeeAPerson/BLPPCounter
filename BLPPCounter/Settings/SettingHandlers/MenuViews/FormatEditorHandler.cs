@@ -49,7 +49,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(PreviewDisplay))]
         private TextMeshProUGUI PreviewDisplay;
         [UIComponent(nameof(TheSaveButton))]
-        private UnityEngine.UI.Button TheSaveButton;
+        private Button TheSaveButton;
         [UIComponent(nameof(SaveMessage))]
         private TextMeshProUGUI SaveMessage;
         [UIComponent(nameof(AliasTable))]

@@ -11,6 +11,7 @@ namespace BLPPCounter.Counters
         public static string DisplayName => "Normal";
         public static string DisplayHandler => TheCounter.DisplayName;
         public static int OrderNumber => 0;
+        public static bool SSUsable => true;
         public string Name => DisplayName;
         private TMP_Text display;
         private float accRating, passRating, techRating, starRating;
@@ -61,7 +62,6 @@ namespace BLPPCounter.Counters
             if (ss)
             {
                 ppVals[0] = SSCalc.GetPP(acc, starRating);
-                //Plugin.Log.Info($"acc = {acc}, rating = {starRating}, pp = {ppVals[0]}");
                 if (displayFc) ppVals[1] = SSCalc.GetPP(fcPrecent, starRating);
             }
             else

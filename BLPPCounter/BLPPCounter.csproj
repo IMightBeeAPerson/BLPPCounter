@@ -183,6 +183,7 @@
     <Compile Include="Helpfuls\HelpfulFormatter.cs" />
     <Compile Include="Patches\MenuLevelPatch.cs" />
     <Compile Include="Patches\MenuModifierPatch.cs" />
+    <Compile Include="Patches\StupidGameplayPatch.cs" />
     <Compile Include="Patches\TabSelectionPatch.cs" />
     <Compile Include="Settings\Configs\MessageSettings.cs" />
     <Compile Include="Settings\Configs\PluginConfig.cs" />
@@ -202,7 +203,7 @@
     <Compile Include="Utils\List Settings\AliasListInfo.cs" />
     <Compile Include="Utils\List Settings\ColorListInfo.cs" />
     <Compile Include="Utils\List Settings\FormatListInfo.cs" />
-    <Compile Include="Utils\List Settings\FormatRelation.cs" />
+    <Compile Include="Utils\FormatRelation.cs" />
     <Compile Include="Utils\List Settings\ValueListInfo.cs" />
     <Compile Include="Utils\Map.cs" />
     <Compile Include="Plugin.cs" />

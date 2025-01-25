@@ -54,12 +54,14 @@ namespace BLPPCounter.Helpfuls
                 Timeout = new TimeSpan(0, 0, 3)
             };
         }
-        public static bool CallAPI(string path, out HttpContent content, bool quiet = false, bool forceNoHeader = false)
+        public static bool CallAPI(string path, out HttpContent content, bool quiet = false, bool forceNoHeader = false, bool forceBLCall = false)
         {
-            if (PluginConfig.Instance.UsingSS) { if (!(forceNoHeader || !path.Substring(SSAPI.Length).Equals(SSAPI))) path = BLAPI + path; }
-            else if (!(forceNoHeader || !path.Substring(BLAPI.Length).Equals(BLAPI))) path = BLAPI + path;
+            const string LinkHeader = "https://";
+            if (!forceNoHeader && !path.Substring(0, LinkHeader.Length).Equals(LinkHeader)) 
+                path = (!forceBLCall && PluginConfig.Instance.UsingSS ? SSAPI : BLAPI) + path;
             try
             {
+                Plugin.Log.Debug("API Call: " + path);
                 HttpResponseMessage hrm = client.GetAsync(new Uri(path)).Result;
                 hrm.EnsureSuccessStatusCode();
                 content = hrm.Content;
@@ -75,9 +77,9 @@ namespace BLPPCounter.Helpfuls
                 return false;
             }
         }
-        public static HttpContent CallAPI(string path, bool quiet = false, bool forceNoHeader = false)
+        public static HttpContent CallAPI(string path, bool quiet = false, bool forceNoHeader = false, bool forceBLCall = false)
         {
-            CallAPI(path, out HttpContent content, quiet, forceNoHeader);
+            CallAPI(path, out HttpContent content, quiet, forceNoHeader, forceBLCall);
             return content;
         }
         public static bool EnsureTaohableDirectoryExists()
@@ -85,7 +87,7 @@ namespace BLPPCounter.Helpfuls
             string path = Path.Combine(UnityGame.InstallPath, "UserData", "PP Counter");
             if (!Directory.Exists(path)) Directory.CreateDirectory(path);
             path = Path.Combine(path, "TaohableData.json");
-            JToken TaohHeaders = JToken.Parse(CallAPI(TAOHABLE_META, forceNoHeader: true).ReadAsStringAsync().Result);
+            JToken TaohHeaders = JToken.Parse(CallAPI(TAOHABLE_META).ReadAsStringAsync().Result);
             bool headersGood = true;
             if (!File.Exists(HEADERS))
             {
@@ -95,9 +97,14 @@ namespace BLPPCounter.Helpfuls
             {
                 JToken CurrentTaohHeaders = JToken.Parse(File.ReadAllText(HEADERS));
                 int SimpleComparer<T>(T i1, T i2) where T : IComparable => i1.CompareTo(i2);
-                headersGood = HelpfulMisc.CompareStructValues<float>(TaohHeaders, CurrentTaohHeaders, "top10kVersion", SimpleComparer) > 0
-                    && HelpfulMisc.CompareStructValues<float>(TaohHeaders, CurrentTaohHeaders, "songLibraryVersion", SimpleComparer) > 0
-                    && HelpfulMisc.CompareValues(TaohHeaders, CurrentTaohHeaders, "top10kUpdated", item => DateTime.Parse(item), SimpleComparer) > 0;
+                headersGood = HelpfulMisc.CompareStructValues<float>(TaohHeaders, CurrentTaohHeaders, "top10kVersion", SimpleComparer) <= 0
+                    && HelpfulMisc.CompareStructValues<float>(TaohHeaders, CurrentTaohHeaders, "songLibraryVersion", SimpleComparer) <= 0
+                    && HelpfulMisc.CompareValues(TaohHeaders, CurrentTaohHeaders, "top10kUpdated", item => DateTime.Parse(item), SimpleComparer) <= 0;
+                if (!headersGood)
+                {
+                    using (FileStream fs = File.OpenWrite(HEADERS))
+                        fs.Write(Encoding.UTF8.GetBytes(TaohHeaders.ToString()));
+                }
             }
             return headersGood && File.Exists(path);
         }

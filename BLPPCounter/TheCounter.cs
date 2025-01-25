@@ -19,6 +19,8 @@ using BLPPCounter.Utils.List_Settings;
 using IPA.Utilities;
 using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using static AlphabetScrollInfo;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 namespace BLPPCounter
 {
 
@@ -42,11 +44,13 @@ namespace BLPPCounter
         private static bool dataLoaded = false, fullDisable = false;
         private static MapSelection lastMap;
         public static IMyCounters theCounter { get; private set; }
-        public static Dictionary<string, Type> StaticFunctions { get; private set; }
-        public static Dictionary<string, Type> StaticProperties { get; private set; }
+        public static ReadOnlyDictionary<string, Type> StaticFunctions { get; private set; }
+        public static ReadOnlyDictionary<string, Type> StaticProperties { get; private set; }
         public static Type[] ValidCounters { get; private set; }
+        public static string[] ValidSSDisplayNames;
+        public static string[] ValidDisplayNames;
+        public static string[] DisplayNames => pc.UsingSS ? ValidSSDisplayNames : ValidDisplayNames;
         public static Dictionary<string, string> DisplayNameToCounter { get; private set; }
-        public static string[] ValidDisplayNames { get; private set; }
         private static Func<bool, bool, float, float, int, string, string> displayFormatter;
         internal static Func<string, string, string> TargetFormatter;
         internal static Func<Func<string>, float, float, float, float, float, string> PrecentNeededFormatter;
@@ -54,9 +58,9 @@ namespace BLPPCounter
         public static string[] Labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
 
         private static bool updateFormat;
-        public static bool FormatUsable { get => displayFormatter != null && displayIniter != null; }
-        public static bool TargetUsable { get => TargetFormatter != null && targetIniter != null; }
-        public static bool PrecentNeededUsable { get => PrecentNeededFormatter != null && precentNeededIniter != null; }
+        public static bool FormatUsable => displayFormatter != null && displayIniter != null;
+        public static bool TargetUsable => TargetFormatter != null && targetIniter != null;
+        public static bool PrecentNeededUsable => PrecentNeededFormatter != null && precentNeededIniter != null;
         public static readonly Dictionary<string, char> FormatAlias = new Dictionary<string, char>()
         {
             { "PP", 'x' },
@@ -173,13 +177,17 @@ namespace BLPPCounter
         internal static void InitCounterStatic() 
         {
             updateFormat = false;
-            SettingsHandler.NewInstance += (handler) => handler.PropertyChanged += (a,b) => updateFormat = true;
-            SettingsHandler.Instance.PropertyChanged += (a,b) => updateFormat = true;
+            void PropChanged(object o, PropertyChangedEventArgs args)
+            {
+                updateFormat = true;
+            }
+            SettingsHandler.NewInstance += (handler) => handler.PropertyChanged += PropChanged;
+            SettingsHandler.Instance.PropertyChanged += PropChanged;
 
-            StaticFunctions = new Dictionary<string, Type>() 
-            { { "InitFormat", typeof(bool) }, { "ResetFormat", typeof(void) } };
-            StaticProperties = new Dictionary<string, Type>()
-            { {"DisplayName", typeof(string) }, {"OrderNumber", typeof(int) }, {"DisplayHandler", typeof(string) } };
+            StaticFunctions = new ReadOnlyDictionary<string, Type>(new Dictionary<string, Type>() 
+            { { "InitFormat", typeof(bool) }, { "ResetFormat", typeof(void) } });
+            StaticProperties = new ReadOnlyDictionary<string, Type>(new Dictionary<string, Type>()
+            { {"DisplayName", typeof(string) }, {"OrderNumber", typeof(int) }, {"DisplayHandler", typeof(string) }, {"SSUsable", typeof(bool) } });
 
             GetMethodFromTypes("InitFormat", typeof(TheCounter)); //Call this by itself because it is not a chooseable counter.
 
@@ -211,11 +219,19 @@ namespace BLPPCounter
                 foreach (int i in sortedOrderNumbers)
                         displayNames.Add(propertyOutp[propertyOrder[i]] as string);
                 ValidDisplayNames = displayNames.ToArray();
+                HashSet<string> hold = new HashSet<string>(GetPropertyFromTypes("SSUsable", ValidCounters).Where(kvp => kvp.Value is bool b && b).Select(kvp => propertyOutp[kvp.Key]).Cast<string>());
+                ValidSSDisplayNames = displayNames.Where(str => hold.Contains(str)).ToArray();
             } catch (Exception e)
             {
                 Plugin.Log.Error("Oh no! The static check for counters broke somehow :(");
                 Plugin.Log.Error(e.ToString());
                 return;
+            }
+            if (pc.UsingSS && ValidSSDisplayNames.Length == 0)
+            {
+                pc.UsingSS = false;
+                Plugin.Log.Critical("No counter can use score saber! Turning SS mode off.");
+                ValidSSDisplayNames = new string[] { "There are none" };
             }
             if (ValidDisplayNames.Length > 0)
             {
@@ -284,13 +300,14 @@ namespace BLPPCounter
                     loadedEvents = true;
                     //string hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
                     string hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
-                    bool counterChange = theCounter != null && !theCounter.Name.Equals(pc.PPType.Split(' ')[0]);
+                    bool counterChange = theCounter != null && !theCounter.Name.Equals(pc.PPType);
                     if (counterChange)
                         if ((GetPropertyFromTypes("DisplayHandler", theCounter.GetType()).Values.First() as string).Equals(DisplayName))
                             //Need to recall this one so that it implements the current counter's wants properly
                             if (FormatTheFormat(pc.FormatSettings.DefaultTextFormat)) InitDisplayFormat();
-                    if (counterChange || lastMap.Equals(default) || hash != lastMap.Hash || pc.PPType.Equals("Progressive") || lastTarget != pc.Target)
+                    if (counterChange || lastMap.Equals(default) || !hash.Equals(lastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
                     {
+                        //Plugin.Log.Info($"")
                         Data.TryGetValue(hash, out Map m);
                         if (m == null) 
                         {
@@ -589,6 +606,7 @@ namespace BLPPCounter
         private static void LoadSomeTaohableData()
         {
             if (HelpfulPaths.EnsureTaohableDirectoryExists()) return;
+            Plugin.Log.Debug("SS data not up to date! Loading...");
             string filePath = HelpfulPaths.TAOHABLE_DATA;
             byte[] data = HelpfulPaths.CallAPI(HelpfulPaths.TAOHABLE_API, forceNoHeader: true).ReadAsByteArrayAsync().Result;
             using (FileStream fs = File.Exists(filePath) ? File.OpenWrite(filePath) : File.Create(filePath))

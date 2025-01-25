@@ -20,6 +20,7 @@ namespace BLPPCounter.Counters
         #region Static Variables
         public static int OrderNumber => 2;
         public static string DisplayName => "Relative";
+        public static bool SSUsable => false;
         public static string DisplayHandler => DisplayName;
         private static Func<bool, bool, int, float, string, string, float, string, string, float, float, string, string> displayFormatter;
         public static Type[] FormatterTypes => displayFormatter.GetType().GetGenericArguments();

@@ -70,10 +70,13 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIObject(nameof(PPTable_BG))] private GameObject PPTable_BG;
 
         [UIComponent(nameof(RelativeText))] private TextMeshProUGUI RelativeText;
+        [UIComponent(nameof(RelativeTarget))] private TextMeshProUGUI RelativeTarget;
         [UIComponent(nameof(RelativeTable))] private TextMeshProUGUI RelativeTable;
 
         [UIComponent(nameof(ClanTable))] private TextMeshProUGUI ClanTable;
+        [UIComponent(nameof(OwningClan))] private TextMeshProUGUI OwningClan;
         [UIComponent(nameof(ClanTarget))] private TextMeshProUGUI ClanTarget;
+        [UIComponent(nameof(PPTarget))] private TextMeshProUGUI PPTarget;
 
         [UIComponent(nameof(AccStarText))] private TextMeshProUGUI AccStarText;
         [UIComponent(nameof(TechStarText))] private TextMeshProUGUI TechStarText;
@@ -101,7 +104,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction(nameof(Refresh))]
         private void ForceRefresh() { if (Sldvc != null && Gmpc != null) Refresh(true); }
         [UIAction(nameof(RefreshMods))]
-        private void RefreshMods() { if (Sldvc != null && Gmpc != null) { UpdateMods(); UpdateTabDisplay(); } }
+        private void RefreshMods() { if (Sldvc != null && Gmpc != null) { UpdateMods(); UpdateTabDisplay(true); } }
         [UIAction(nameof(RefreshClanTable))]
         private void RefreshClanTable() => UpdateCaptureValues();
         [UIAction(nameof(ChangeTab))]
@@ -145,7 +148,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                     Instance.Refresh();
             });
             SettingsHandler.Instance.PropertyChanged += (parent, args) => {
-                if (!args.PropertyName.Equals("Target")) return;
+                if (!args.PropertyName.Equals(nameof(SettingsHandler.Target))) return;
                 Instance.Updates["Capture Values"] = (default, Instance.Updates["Capture Values"].Item2);
                 Instance.Updates["Relative Values"] = (default, Instance.Updates["Relative Values"].Item2);
                 Instance.CurrentMap = default;
@@ -170,7 +173,6 @@ namespace BLPPCounter.Settings.SettingHandlers
             CurrentDiff == null ? 0.0f : BLCalc.GetAcc(TargetPP, CurrentDiff, Gmpc.gameplayModifiers.songSpeed, CurrentModMultiplier, PC.DecimalPrecision);
         private float UpdateTargetPP()
         {
-            //Plugin.Log.Info("Content Changed");
             CurrentMap = Sldvc.beatmapKey;
             CurrentDiff = null;
             if (!Sldvc.beatmapLevel.levelID.Substring(0, 6).Equals("custom")) return 0.0f; //means the level selected is not custom
@@ -178,9 +180,8 @@ namespace BLPPCounter.Settings.SettingHandlers
                 Targeter.TargetID,
                 Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(),
                 Sldvc.beatmapKey.difficulty.ToString().Replace("+", "Plus"),
-                Sldvc.beatmapKey.beatmapCharacteristic.serializedName,
-                true
-                )).ReadAsStringAsync().Result;
+                Sldvc.beatmapKey.beatmapCharacteristic.serializedName
+                ), true)?.ReadAsStringAsync().Result;
             TargetHasScore = !(apiOutput is null || apiOutput.Length == 0);
             if (!TargetHasScore) { UpdateDiff(); return 0.0f; } //target doesn't have a score on this diff.
             JToken targetScore = JToken.Parse(apiOutput);
@@ -198,9 +199,6 @@ namespace BLPPCounter.Settings.SettingHandlers
             return outp;
         }
         #endregion
-        #region Clan Table
-        private void BuildClanTable() => BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, PPToCapture, PC.DecimalPrecision) + "", ClanTable);
-        #endregion
         #region Custom Accuracy
         private void BuildPPTable() => BuildTable((acc, pass, tech) => BLCalc.GetSummedPp(TestAcc / 100.0f, acc, pass, tech, PC.DecimalPrecision).Total + "", PPTable, " pp", accLbl: "<color=#0D0>PP</color>");
         private void BuildPrecentTable() => BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, TestPp, PC.DecimalPrecision) + "", PrecentTable, accLbl: "<color=#0D0>Acc</color>");
@@ -209,15 +207,14 @@ namespace BLPPCounter.Settings.SettingHandlers
             string suffix = "%",
             string speedLbl = "<color=blue>Speed</color>",
             string accLbl = "<color=#0D0>Acc</color> to Cap",
-            string gnLbl = "With <color=#666>GN</color>")
+            string gnLbl = "With <color=green>Selected Mods</color>")
         {
             string[][] arr = new string[] { "<color=red>Slower</color>", "<color=#aaa>Normal</color>", "<color=#0F0>Faster</color>", "<color=#FFD700>Super Fast</color>" }.RowToColumn(3);
             float[] ratings = HelpfulPaths.GetAllRatings(CurrentDiff); //ss-sf, [acc, pass, tech, star]
-            float gnMult = (float)CurrentDiff["modifierValues"]["gn"] + 1.0f;
             for (int i = 0; i < arr.Length; i++)
                 arr[i][1] = "<color=#0c0>" + valueCalc(ratings[i * 4], ratings[i * 4 + 1], ratings[i * 4 + 2]) + "</color>" + suffix;
-            if (gnMult > 1.0f) for (int i = 0; i < arr.Length; i++)
-                    arr[i][2] = "<color=#77aa77cc>" + valueCalc(ratings[i * 4] * gnMult, ratings[i * 4 + 1] * gnMult, ratings[i * 4 + 2] * gnMult) + "</color>" + suffix;
+            if (!Mathf.Approximately(CurrentModMultiplier, 1.0f)) for (int i = 0; i < arr.Length; i++)
+                    arr[i][2] = "<color=green>" + valueCalc(ratings[i * 4] * CurrentModMultiplier, ratings[i * 4 + 1] * CurrentModMultiplier, ratings[i * 4 + 2] * CurrentModMultiplier) + "</color>" + suffix;
             else for (int i = 0; i < arr.Length; i++) arr[i][2] = "N/A";
             IEnumerator DelayRoutine()
             {
@@ -259,7 +256,13 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (mods.enabledObstacleType == GameplayModifiers.EnabledObstacleType.NoObstacles) { UnformattedCurrentMods += "no "; newMods += "No Walls, "; }
             CurrentMods = newMods.Length > 1 ? Grammarize(newMods.Substring(0, newMods.Length - 2)) : null;
             if (UnformattedCurrentMods.Length > 0) UnformattedCurrentMods = UnformattedCurrentMods.Trim();
+            float modMult = CurrentModMultiplier;
             if (CurrentDiff != null) CurrentModMultiplier = HelpfulPaths.GetMultiAmounts(CurrentDiff, UnformattedCurrentMods.Split(' '));
+            if (!Mathf.Approximately(modMult, CurrentModMultiplier))
+            {
+                Instance.Updates["Capture Values"] = (default, Instance.Updates["Capture Values"].Item2);
+                Instance.Updates["Relative Values"] = (default, Instance.Updates["Relative Values"].Item2);
+            }
         }
         #endregion
         #region Misc Functions
@@ -289,14 +292,17 @@ namespace BLPPCounter.Settings.SettingHandlers
             ClanTarget.text = TargetHasScore ? GetTarget() : GetNoScoreTarget();
             Task.Run(() =>
             {
-                PPToCapture = ClanCounter.LoadNeededPp(BeatmapID, out _)[0];
-                BuildClanTable();
+                PPToCapture = ClanCounter.LoadNeededPp(BeatmapID, out _, out string owningClan)[0];
+                OwningClan.text = $"<color=red>{owningClan}</color> owns this map.";
+                PPTarget.text = $"<color=#0F0>{Math.Round(PPToCapture, PC.DecimalPrecision)}</color> pp";
+                BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, PPToCapture, PC.DecimalPrecision) + "", ClanTable);
             });
         }
         private void UpdateRelativeValues()
         {
             RelativeText.text = TargetHasScore ? GetTarget() : GetNoScoreTarget();
-            BuildTable((acc, tech, pass) => BLCalc.GetAcc(acc, pass, tech, TargetPP, PC.DecimalPrecision) + "", RelativeTable, accLbl: "<color=#0D0>Acc</color> to Beat");
+            RelativeTarget.text = $"<color=#0F0>{Math.Round(TargetPP, PC.DecimalPrecision)}</color> pp";
+            BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, TargetPP, PC.DecimalPrecision) + "", RelativeTable, accLbl: "<color=#0D0>Acc</color> to Beat");
         }
         private void UpdateCustomAccuracy()
         {
@@ -314,7 +320,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private void UpdateDiff()
         {
-            if (!HelpfulPaths.CallAPI("leaderboards/hash/" + Sldvc.beatmapLevel.levelID.Split('_')[2].ToUpper(), out HttpContent dataStr)) return;
+            if (!HelpfulPaths.CallAPI("leaderboards/hash/" + Sldvc.beatmapLevel.levelID.Split('_')[2].ToUpper(), out HttpContent dataStr, forceBLCall: true)) return;
             int val = Map.FromDiff(Sldvc.beatmapKey.difficulty);
             CurrentDiff = JToken.Parse(dataStr.ReadAsStringAsync().Result);
             BeatmapName = CurrentDiff["song"]["name"].ToString();

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using TMPro;
 using BLPPCounter.Utils.List_Settings;
+using BeatLeader.Replayer;
 
 namespace BLPPCounter.Counters
 {
@@ -16,10 +17,11 @@ namespace BLPPCounter.Counters
         #region Static Variables
         public static int OrderNumber => 4;
         public static string DisplayName => "Rank";
+        public static bool SSUsable => false;
         public static string DisplayHandler => DisplayName;
-        public static string API_PATH => "leaderboard/{0}/scoregraph"; //replace 0 with a BL leaderboard idea (ex: a40531)
-        public static string API_PATH2 => "leaderboard/scores/{0}?count={1}"; //replace 0 with a BL leaderboard idea (ex: a40531), replace 1 with the amount of people to request
-        private static PluginConfig pc => PluginConfig.Instance;
+        public static readonly string BLAPI_PATH = "leaderboard/{0}/scoregraph"; //replace 0 with a BL leaderboard idea (ex: a40531)
+        public static readonly string BLAPI_PATH2 = "leaderboard/scores/{0}?count={1}"; //replace 0 with a BL leaderboard idea (ex: a40531), replace 1 with the amount of people to request
+        private static PluginConfig PC => PluginConfig.Instance;
 
         private static Func<bool, bool, bool, float, float, int, float, string, string, string> displayRank;
         private static Func<Func<Dictionary<char, object>, string>> rankIniter;
@@ -34,7 +36,7 @@ namespace BLPPCounter.Counters
             {"Rank Color", 'c' }
         };
         internal static readonly FormatRelation MainRelation = new FormatRelation("Main Format", DisplayName,
-            pc.FormatSettings.RankTextFormat, str => pc.FormatSettings.RankTextFormat = str, MainAlias, 
+            PC.FormatSettings.RankTextFormat, str => PC.FormatSettings.RankTextFormat = str, MainAlias, 
             new Dictionary<char, string>()
             {
                 {'x', "The unmodified PP number" },
@@ -80,7 +82,7 @@ namespace BLPPCounter.Counters
         private float accRating, passRating, techRating, starRating;
         private TMP_Text display;
         private float[] mapPP;
-        private int MaxAmountOfPeople => pc.MinRank;
+        private int MaxAmountOfPeople => PC.MinRank;
         #endregion
         #region Inits
         public RankCounter(TMP_Text display, float accRating, float passRating, float techRating, float starRating)
@@ -98,12 +100,23 @@ namespace BLPPCounter.Counters
             string songId = map.MapData.Item1;
             if (map.IsRanked)
             {
-                string data = HelpfulPaths.CallAPI(string.Format(API_PATH, songId)).ReadAsStringAsync().Result;
-                mapPP = JToken.Parse(data).Children().Select(a => (float)Math.Round((double)a["pp"], precision)).ToArray();
+                if (PC.UsingSS)
+                {
+                    string path = string.Format(HelpfulPaths.SSAPI_HASH, map.Hash, "scores", Map.FromDiff(map.Difficulty));
+                    IEnumerable<float> pps = new List<float>();
+                    string data = HelpfulPaths.CallAPI(path).ReadAsStringAsync().Result;
+                    for (int i = 1; i < 5; i++)
+                        pps = pps.Union(JToken.Parse(HelpfulPaths.CallAPI(path + "&page=" + i).ReadAsStringAsync().Result)["scores"].Children().Select(token => (float)token["pp"]));
+                }
+                else
+                {
+                    string data = HelpfulPaths.CallAPI(string.Format(BLAPI_PATH, songId)).ReadAsStringAsync().Result;
+                    mapPP = JToken.Parse(data).Children().Select(a => (float)Math.Round((double)a["pp"], precision)).ToArray();
+                }
             }
             else
             {
-                string data = HelpfulPaths.CallAPI(string.Format(API_PATH2, songId, MaxAmountOfPeople)).ReadAsStringAsync().Result;
+                string data = HelpfulPaths.CallAPI(string.Format(BLAPI_PATH2, songId, MaxAmountOfPeople)).ReadAsStringAsync().Result;
                 JToken mapData = map.MapData.Item2;
                 float maxScore = (int)mapData["maxScore"];
                 float acc = (float)mapData["accRating"], pass = (float)mapData["passRating"], tech = (float)mapData["techRating"];
@@ -136,7 +149,7 @@ namespace BLPPCounter.Counters
             return HelpfulFormatter.GetBasicTokenParser(format, MainAlias, DisplayName,
                 formattedTokens =>
                 {
-                    if (!pc.ShowLbl) formattedTokens.SetText('l');
+                    if (!PC.ShowLbl) formattedTokens.SetText('l');
                 },
                 (tokens, tokensCopy, priority, vals) =>
                 {
@@ -163,7 +176,7 @@ namespace BLPPCounter.Counters
         public void UpdateFormat() => InitTheFormat();
         public static bool InitFormat()
         {
-            if (rankIniter == null) FormatTheFormat(pc.FormatSettings.RankTextFormat);
+            if (rankIniter == null) FormatTheFormat(PC.FormatSettings.RankTextFormat);
             if (displayRank == null && rankIniter != null) InitTheFormat();
             return displayRank != null;
         }
@@ -186,11 +199,11 @@ namespace BLPPCounter.Counters
             float ppDiff = (float)Math.Abs(Math.Round(mapPP[mapPP.Length + 1 - Math.Max(2, Math.Min(rank, mapPP.Length + 1))] - ppVals[3], precision));
             string color = HelpfulFormatter.GetWeightedRankColor(rank);
             string text = "";
-            if (pc.SplitPPVals)
+            if (PC.SplitPPVals)
                 for (int i = 0; i < 3; i++)
                     text += displayRank(displayFc, false, false, ppVals[i], ppVals[i + 4],
                         rank, ppDiff, color, TheCounter.Labels[i]) + "\n";
-            text += displayRank(displayFc, pc.ExtraInfo, rank == 1, ppVals[3], ppVals[7], rank, ppDiff, color, TheCounter.Labels[3]);
+            text += displayRank(displayFc, PC.ExtraInfo, rank == 1, ppVals[3], ppVals[7], rank, ppDiff, color, TheCounter.Labels[3]);
             display.text = text;
         }
         #endregion

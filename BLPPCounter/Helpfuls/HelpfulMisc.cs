@@ -17,6 +17,8 @@ using UnityEngine.TextCore;
 using Newtonsoft.Json.Linq;
 using System.Collections;
 using System.Threading.Tasks;
+using UnityEngine.UIElements;
+using BeatSaberMarkupLanguage.Components.Settings;
 namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
@@ -358,5 +360,11 @@ namespace BLPPCounter.Helpfuls
             comparer(item1[value] as T, item2[value] as T);
         public static int CompareStructValues<T>(JToken item1, JToken item2, string value, Func<T, T, int> comparer) where T : struct =>
            comparer((T)Convert.ChangeType(item1[value], typeof(T)), (T)Convert.ChangeType(item2[value], typeof(T)));
+        public static void UpdateListSetting(this ListSetting menu, List<string> newValues)
+        {
+            menu.Values = newValues;
+            if (!newValues.Any(str => str.Equals((string)menu.Value))) menu.Value = newValues[0];
+            else menu.Value = menu.Value; //seems stupid but calls the update method.
+        }
     }
 }

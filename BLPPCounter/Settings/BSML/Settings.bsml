@@ -10,7 +10,7 @@
     <checkbox-setting text='Show Messages' apply-on-change='true' value='ExtraInfo' hover-hint='Show extra information and messages under the counter'/>
     <checkbox-setting text='Use Gradient' apply-on-change='true' value='UseGrad' hover-hint='Instead of solid green/red, use a gradient based off of the value'/>
     <increment-setting text='Gradient Threshold' value='GradVal' integer-only='true' min='50' max='300' increment='10' apply-on-change='true'/>
-    <list-setting text='PP Types' apply-on-change='true' value='PPType' options='TypesOfPP' hover-hint='How the counter should count PP'/>
+    <list-setting id='CounterList' text='PP Types' apply-on-change='true' value='PPType' options='TypesOfPP' hover-hint='How the counter should count PP'/>
   </vertical>
   <text text='Misc Settings' align='Center'/>
   <vertical spacing='1'>
@@ -26,7 +26,7 @@
   <text text='Relative Counter Settings' align='Center'/>
   <vertical spacing='1'>
     <checkbox-setting text='Show Rank' value='ShowRank' apply-on-change='true' hover-hint='Show what place in your clan you are with your current score'/>
-    <list-setting text='Default Counter' value='RelativeDefault' options='RelativeDefaultList' apply-on-change='true' hover-hint='What counter to go to when relative counter cannot be used' />
+    <list-setting id='DefaultCounterList' text='Default Counter' value='RelativeDefault' options='RelativeDefaultList' apply-on-change='true' hover-hint='What counter to go to when relative counter cannot be used' />
   </vertical>
   <text text='Rank Counter Settings' align='Center'/>
   <vertical spacing='1'>
