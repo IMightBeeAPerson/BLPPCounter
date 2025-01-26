@@ -37,7 +37,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (loaded) return;
             loaded = true;
             const string resource = "BLPPCounter.Settings.BSML.MenuSettings.bsml";
-            const string regex = "<([^ ]+-setting|text|button)[^>]*\\/>$";
+            const string regex = "<([^ ]+-setting|text|button)[^>]*\\/>(?=[^<]*?$)";
             List<object> outp = new List<object>();
             MatchCollection mc = Regex.Matches(Utilities.GetResourceContent(System.Reflection.Assembly.GetExecutingAssembly(), resource), regex, RegexOptions.Multiline);
             bool loadData = PluginConfig.Instance.SimpleMenuConfigLength == mc.Count;

@@ -59,7 +59,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private List<SettingToggleInfo> ConvertMenu()
         {
             const string resource = "BLPPCounter.Settings.BSML.MenuSettings.bsml";
-            const string regex = "<([^ ]+-setting|text|button)[^>]*(?<=text) *= *(['\"])(.*?)\\2[^>]*?(?:(?<=hover-hint) *= *(['\"])(.*?)\\4[^>]*)?\\/>$";
+            const string regex = @"<([^ ]+-setting|text|button)[^>]*(?<=text) *= *(['""])(.*?)\2[^>]*?(?:(?<=hover-hint) *= *(['""])(.*?)\4[^>]*)?\/>(?=[^<]*?$)";
             List<SettingToggleInfo> outp = new List<SettingToggleInfo>();
             MatchCollection mc = Regex.Matches(Utilities.GetResourceContent(System.Reflection.Assembly.GetExecutingAssembly(), resource), regex, RegexOptions.Multiline);
             if (PC.SimpleMenuConfigLength != mc.Count)
