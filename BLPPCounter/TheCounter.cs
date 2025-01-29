@@ -9,16 +9,11 @@ using BLPPCounter.Utils;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Counters;
 using System.Collections.Generic;
-using System.Net.Http;
 using Newtonsoft.Json.Linq;
 using System.Linq;
 using System.Reflection;
-using ModestTree;
 using static GameplayModifiers;
 using BLPPCounter.Utils.List_Settings;
-using IPA.Utilities;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
-using static AlphabetScrollInfo;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 namespace BLPPCounter
@@ -28,9 +23,9 @@ namespace BLPPCounter
     {
         #region Injects
 #pragma warning disable CS0649, IDE0044
-        [Inject] private BeatmapLevel beatmap;
+        /*[Inject] private BeatmapLevel beatmap;
         [Inject] private BeatmapKey beatmapDiff;// 1.37.0 and above */
-        //[Inject] private IDifficultyBeatmap beatmap; // 1.34.2 and below
+        [Inject] private IDifficultyBeatmap beatmap; // 1.34.2 and below
         [Inject] private GameplayModifiers mods;
         [Inject] private ScoreController sc;
         [Inject] private BeatmapObjectManager bomb;
@@ -170,7 +165,7 @@ namespace BLPPCounter
         private int notes, comboNotes, mistakes, totalNotes;
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
-        private string mode, lastTarget;
+        private string mode, lastTarget = Targeter.NO_TARGET;
         #endregion
         #region Inits & Overrides
 
@@ -277,7 +272,6 @@ namespace BLPPCounter
             if (!dataLoaded)
             {
                 Data = new Dictionary<string, Map>();
-                lastTarget = Targeter.NO_TARGET;
                 InitData();
             }
             bool loadedEvents = false;
@@ -298,16 +292,16 @@ namespace BLPPCounter
                     display.text = "";
                     ChangeNotifiers(true);
                     loadedEvents = true;
-                    //string hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
-                    string hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
+                    string hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
+                    //string hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
                     bool counterChange = theCounter != null && !theCounter.Name.Equals(pc.PPType);
                     if (counterChange)
                         if ((GetPropertyFromTypes("DisplayHandler", theCounter.GetType()).Values.First() as string).Equals(DisplayName))
                             //Need to recall this one so that it implements the current counter's wants properly
                             if (FormatTheFormat(pc.FormatSettings.DefaultTextFormat)) InitDisplayFormat();
+                    //Plugin.Log.Info($"CounterChange = {counterChange}\nNULL CHECKS\nLast map: {lastMap.Equals(default)}, hash: {hash is null}, pc: {pc is null}, PPType: {pc?.PPType is null}, lastTarget: {lastTarget is null}, Target: {pc.Target is null}");
                     if (counterChange || lastMap.Equals(default) || !hash.Equals(lastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
                     {
-                        //Plugin.Log.Info($"")
                         Data.TryGetValue(hash, out Map m);
                         if (m == null) 
                         {
@@ -316,9 +310,12 @@ namespace BLPPCounter
                             else AddMap(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.BLAPI_HASH, hash)).ReadAsStringAsync().Result);
                             m = Data[hash];
                         }
-                        //lastMap = new MapSelection(m, beatmap.difficulty, mode, passRating, accRating, techRating); // 1.34.2 and below
-                        lastMap = new MapSelection(m, beatmapDiff.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and above
-                        totalNotes = HelpfulMath.NotesForMaxScore(pc.UsingSS ? (int)JToken.Parse(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(beatmapDiff.difficulty))).ReadAsStringAsync().Result)["maxScore"] : (int)lastMap.MapData.Item2["maxScore"]);
+                        lastMap = new MapSelection(m, beatmap.difficulty, mode, passRating, accRating, techRating); // 1.34.2 and below
+                        //lastMap = new MapSelection(m, beatmapDiff.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and above
+                        totalNotes = HelpfulMath.NotesForMaxScore(pc.UsingSS ?
+                            (int)JToken.Parse(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(beatmap.difficulty))).ReadAsStringAsync().Result)["maxScore"] : // 1.34.2 and below
+                            //(int)JToken.Parse(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(beatmapDiff.difficulty))).ReadAsStringAsync().Result)["maxScore"] : // 1.37.0 and above
+                            (int)lastMap.MapData.Item2["maxScore"]);
                         if (!InitCounter()) throw new Exception("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
                     }
                     else
@@ -380,8 +377,9 @@ namespace BLPPCounter
         }
         #endregion
         #region API Calls
-        private void RequestHashData() => 
-            AddMap(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.BLAPI_HASH, beatmap.levelID.Split('_')[2].ToUpper())).ReadAsStringAsync().Result);
+        private void RequestHashData() =>
+            //AddMap(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.BLAPI_HASH, beatmap.levelID.Split('_')[2].ToUpper())).ReadAsStringAsync().Result); // 1.37.0 and above
+            AddMap(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.BLAPI_HASH, beatmap.level.levelID.Split('_')[2].ToUpper())).ReadAsStringAsync().Result); // 1.34.2 and below
         #endregion
         #region Helper Methods
         private void ChangeNotifiers(bool a)
@@ -548,12 +546,12 @@ namespace BLPPCounter
         private void APIAvoidanceMode()
         {
             Plugin.Log.Debug("API Avoidance mode is functioning (probably)!");
-            //MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmap.difficulty, mode, passRating, accRating, techRating); // 1.34.2 and below
-            MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmapDiff.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and above
+            MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmap.difficulty, mode, passRating, accRating, techRating); // 1.34.2 and below
+            //MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmapDiff.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and above
             Plugin.Log.Debug($"Last Map\n-------------------\n{lastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
             bool ratingDiff, diffDiff;
             (ratingDiff, diffDiff) = thisMap.GetDifference(lastMap);
-            Plugin.Log.Info($"Rating: {ratingDiff}\tDifficulty: {diffDiff}");
+            Plugin.Log.Info($"DID CHANGE || Rating: {ratingDiff}, Difficulty: {diffDiff}");
             if (diffDiff) theCounter.ReinitCounter(display, thisMap);
             else if (ratingDiff) theCounter.ReinitCounter(display, passRating, accRating, techRating, starRating);
             else theCounter.ReinitCounter(display);
@@ -589,7 +587,8 @@ namespace BLPPCounter
                 JEnumerable<JToken> results = JToken.Parse(File.ReadAllText(HelpfulPaths.TAOHABLE_DATA)).Children();
                 foreach (JToken result in results)
                 {
-                    if (result is JObject jo && !jo.ContainsKey("starScoreSaber")) continue;
+                    //if (result is JObject jo && !jo.ContainsKey("starScoreSaber")) continue; // 1.37.0 and above
+                    if (result is JObject jo && jo.Property("starScoreSaber") != null) continue; // 1.34.0 and below
                     Map map = new Map(result["hash"].ToString(), Map.SS_MODE_NAME, Map.FromValue(int.Parse(result["difficulty"].ToString())), result["scoreSaberID"].ToString(), result);
                     if (Data.ContainsKey(map.Hash))
                         Data[map.Hash].Combine(map);
@@ -610,8 +609,7 @@ namespace BLPPCounter
             string filePath = HelpfulPaths.TAOHABLE_DATA;
             byte[] data = HelpfulPaths.CallAPI(HelpfulPaths.TAOHABLE_API, forceNoHeader: true).ReadAsByteArrayAsync().Result;
             using (FileStream fs = File.Exists(filePath) ? File.OpenWrite(filePath) : File.Create(filePath))
-                fs.Write(data);
-
+                fs.Write(data, 0, data.Length); //For some reason Stream.Write isn't implemented
         }
         private static void AddMap(string data) 
         {
@@ -655,14 +653,16 @@ namespace BLPPCounter
         {
             JToken data;
             string songId;
-            string hash = beatmap.levelID.Split('_')[2].ToUpper(); // 1.37.0 and above
-            //string hash = beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
+            //string hash = beatmap.levelID.Split('_')[2].ToUpper(); // 1.37.0 and above
+            string hash = beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
             try
             {
                 if (!Data.TryGetValue(hash, out Map theMap)) throw new KeyNotFoundException("The map is not in the loaded cache.");
-                Dictionary<string, (string, JToken)> hold = theMap.Get(beatmapDiff.difficulty);
-                if (!pc.UsingSS) mode = beatmapDiff.beatmapCharacteristic.serializedName ?? "Standard";
-                else mode = Map.SS_MODE_NAME;
+                Dictionary<string, (string, JToken)> hold = theMap.Get(beatmap.difficulty);
+                if (!pc.UsingSS) mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName ?? "Standard"; // 1.34.2 and below */
+                /*Dictionary<string, (string, JToken)> hold = theMap.Get(beatmapDiff.difficulty);
+                if (!pc.UsingSS) mode = beatmapDiff.beatmapCharacteristic.serializedName ?? "Standard"; // 1.37.0 and above */
+                else mode = Map.SS_MODE_NAME; 
                 if (!hold.TryGetValue(mode, out var holdInfo)) throw new KeyNotFoundException($"The mode '{mode}' doesn't exist.\nKeys: [{string.Join(", ", hold.Keys)}]");
                 data = holdInfo.Item2;
                 songId = holdInfo.Item1;

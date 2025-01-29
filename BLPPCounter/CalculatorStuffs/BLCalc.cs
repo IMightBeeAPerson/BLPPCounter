@@ -1,14 +1,10 @@
-﻿using BeatmapSaveDataVersion4;
-using BLPPCounter.Helpfuls;
-using BLPPCounter.Settings;
+﻿using BLPPCounter.Helpfuls;
 using BLPPCounter.Utils;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Permissions;
 using UnityEngine;
-using static AlphabetScrollInfo;
 
 namespace BLPPCounter.CalculatorStuffs
 {

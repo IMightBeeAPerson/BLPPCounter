@@ -172,12 +172,12 @@ namespace BLPPCounter.Helpfuls
         public static System.Drawing.Color ConvertColor(UnityEngine.Color color) =>
             System.Drawing.Color.FromArgb((int)Math.Round(color.a * 0xFF), (int)Math.Round(color.r * 0xFF), (int)Math.Round(color.g * 0xFF), (int)Math.Round(color.b * 0xFF));
         public static BSMLParserParams AddToComponent(BSMLResourceViewController brvc, UnityEngine.GameObject container) =>
-            BSMLParser.Instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc);
+            //BSMLParser.Instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc); // 1.37.0 and above
+            BSMLParser.instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc); // 1.34.2 and below
         public static void SetupTable(TextMeshProUGUI table, int maxWidth, string[][] values, int spaces, bool haveEndColumn, bool centerText, params string[] names)
         {
             //for some reason spaces in fonts won't have an actual size, so the line below will add the size to font if it doesn't have one.
             if (table.font.characterLookupTable[' '].glyph.metrics.width == 0) table.font.MakeSpacesHaveSpace();
-
             string space = new string(' ', spaces);
             float[] maxLengths = new float[names.Length];
             string[] rows = new string[values.Length + 2];
@@ -190,7 +190,8 @@ namespace BLPPCounter.Helpfuls
             float GetLenWithSpacers(string str)
             {
                 MatchCollection mc = Regex.Matches(str, "(?<=<space=)[^p]+");
-                float addedSpace = mc.Aggregate(0.0f, (total, match) => total + float.Parse(match.Value));
+                //float addedSpace = mc.Aggregate(0.0f, (total, match) => total + float.Parse(match.Value)); // 1.37.0 and above
+                float addedSpace = mc.OfType<Match>().Aggregate(0.0f, (total, match) => total + float.Parse(match.Value)); // 1.34.2 and below
                 return GetLenWithoutRich(str) + addedSpace;
             }
             object[] GetFormatVals(string[] row)
@@ -362,7 +363,8 @@ namespace BLPPCounter.Helpfuls
            comparer((T)Convert.ChangeType(item1[value], typeof(T)), (T)Convert.ChangeType(item2[value], typeof(T)));
         public static void UpdateListSetting(this ListSetting menu, List<string> newValues)
         {
-            menu.Values = newValues;
+            //menu.Values = newValues; // 1.37.0 and above
+            menu.values = newValues.Cast<object>().ToList(); // 1.34.2 and below
             if (!newValues.Any(str => str.Equals((string)menu.Value))) menu.Value = newValues[0];
             else menu.Value = menu.Value; //seems stupid but calls the update method.
         }

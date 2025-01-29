@@ -40,7 +40,8 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             ColorListInfo.UpdateSaveButton = () => ColorSaveButton.interactable = ColorValues.Cast<ColorListInfo>().Any(cli => cli.HasChanges);
             ColorValues.Clear();
             ColorValues.AddRange(PC.ColorInfos.Select(pi => new ColorListInfo(pi)));
-            ColorEditor.TableView.ReloadData();
+            //ColorEditor.TableView.ReloadData(); // 1.37.0 and above
+            ColorEditor.tableView.ReloadData(); // 1.34.2 and below
             ColorSaveButton.interactable = false;
         }
         [UIAction(nameof(SaveColors))]

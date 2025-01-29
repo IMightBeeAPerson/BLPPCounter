@@ -10,7 +10,8 @@ using System.Threading.Tasks;
 
 namespace BLPPCounter.Patches
 {
-    [HarmonyPatch(typeof(GameplaySetup), "UpdateTabsVisibility")]
+    //[HarmonyPatch(typeof(GameplaySetup), "UpdateTabsVisibility")] // 1.37.0 and above
+    [HarmonyPatch(typeof(GameplaySetup), "ClickedOffModal")] // 1.34.2 and below
     internal static class StupidGameplayPatch //I really hate that I need to do this.
     {
         [UsedImplicitly]

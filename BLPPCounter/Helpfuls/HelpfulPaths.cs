@@ -89,22 +89,27 @@ namespace BLPPCounter.Helpfuls
             path = Path.Combine(path, "TaohableData.json");
             JToken TaohHeaders = JToken.Parse(CallAPI(TAOHABLE_META).ReadAsStringAsync().Result);
             bool headersGood = true;
-            if (!File.Exists(HEADERS))
+            if (!File.Exists(HEADERS)) using (FileStream fs = File.Create(HEADERS))
+                {
+                    byte[] headerInfo = Encoding.UTF8.GetBytes(TaohHeaders.ToString());
+                    fs.Write(headerInfo, 0, headerInfo.Length);
+                } 
+            else
             {
-                using (FileStream fs = File.Create(HEADERS))
-                    fs.Write(Encoding.UTF8.GetBytes(TaohHeaders.ToString()));
-            } else
-            {
-                JToken CurrentTaohHeaders = JToken.Parse(File.ReadAllText(HEADERS));
+                string headerString = File.ReadAllText(HEADERS);
+                if (headerString is null || headerString.Length == 0) using (FileStream fs = File.OpenWrite(HEADERS))
+                    {
+                        byte[] headerInfo = Encoding.UTF8.GetBytes(TaohHeaders.ToString());
+                        fs.Write(headerInfo, 0, headerInfo.Length);
+                        return false;
+                    }
+                JToken CurrentTaohHeaders = JToken.Parse(headerString);
                 int SimpleComparer<T>(T i1, T i2) where T : IComparable => i1.CompareTo(i2);
                 headersGood = HelpfulMisc.CompareStructValues<float>(TaohHeaders, CurrentTaohHeaders, "top10kVersion", SimpleComparer) <= 0
                     && HelpfulMisc.CompareStructValues<float>(TaohHeaders, CurrentTaohHeaders, "songLibraryVersion", SimpleComparer) <= 0
                     && HelpfulMisc.CompareValues(TaohHeaders, CurrentTaohHeaders, "top10kUpdated", item => DateTime.Parse(item), SimpleComparer) <= 0;
-                if (!headersGood)
-                {
-                    using (FileStream fs = File.OpenWrite(HEADERS))
+                if (!headersGood) using (FileStream fs = File.OpenWrite(HEADERS))
                         fs.Write(Encoding.UTF8.GetBytes(TaohHeaders.ToString()));
-                }
             }
             return headersGood && File.Exists(path);
         }
@@ -133,7 +138,8 @@ namespace BLPPCounter.Helpfuls
         public static float GetMultiAmount(JToken data, string name)
         {
             MatchCollection mc = Regex.Matches(data["modifierValues"].ToString(), "^\\s*\"(.+?)\": *(-?\\d(?:\\.\\d+)?).*$", RegexOptions.Multiline);
-            string val = mc.FirstOrDefault(m => m.Groups[1].Value.Equals(name))?.Groups[2].Value;
+            //string val = mc.FirstOrDefault(m => m.Groups[1].Value.Equals(name))?.Groups[2].Value; // 1.37.0 and above
+            string val = mc.OfType<Match>().FirstOrDefault(m => m.Groups[1].Value.Equals(name))?.Groups[2].Value; // 1.34.2 and below
             return val is null ? 0 : float.Parse(val);
         }
         public static float GetMultiAmounts(JToken data, string[] names) 

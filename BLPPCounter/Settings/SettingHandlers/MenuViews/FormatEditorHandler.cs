@@ -93,7 +93,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void UpdateFormatOptions()
         {
             FormatNames = MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>().ToList();
-            ChooseFormat.Values = FormatNames;
+            //ChooseFormat.Values = FormatNames; // 1.37.0 and above
+            ChooseFormat.values = FormatNames; // 1.34.2 and below
             if (FormatNames.Count > 0) FormatName = FormatNames[0] as string;
             ChooseFormat.Value = FormatName;
             ChooseFormat.UpdateChoices();
@@ -103,7 +104,9 @@ namespace BLPPCounter.Settings.SettingHandlers
             FormatListInfo.AliasConverter = CurrentFormatInfo.Alias;
             foreach (KeyValuePair<string, char> item in GLOBAL_ALIASES) FormatListInfo.AliasConverter[item.Key] = item.Value;
             FormattedText.text = CurrentFormatInfo.GetQuickFormat();
-            if (FormattedText.text.Contains("\nPossible")) FormattedText.text = FormattedText.text.Split("\nPossible")[0]; //This is so that ui doesn't break from a specific error.
+            //This is so that ui doesn't break from a specific error.
+            //if (FormattedText.text.Contains("\nPossible")) FormattedText.text = FormattedText.text.Split("\nPossible")[0]; // 1.37.0 and above
+            if (FormattedText.text.Contains("\nPossible")) FormattedText.text = FormattedText.text.Split("\nPossible".ToCharArray())[0]; // 1.34.2 and below
             RawFormatText.text = FormatListInfo.ColorFormat(CurrentFormatInfo.Format.Replace("\n", "\\n"));
             //Plugin.Log.Debug(RawFormatText.text);
         }
@@ -120,7 +123,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void UpdateFormatTable(bool forceUpdate = false)
         {
             if (!forceUpdate && !PC.UpdatePreview) return;
-            FormatEditor.TableView.ReloadData();
+            //FormatEditor.TableView.ReloadData(); // 1.37.0 and above
+            FormatEditor.tableView.ReloadData(); // 1.34.2 and below
             UpdatePreviewDisplay(true);
         }
         public void UpdatePreviewDisplay(bool forceUpdate = false)
@@ -135,10 +139,12 @@ namespace BLPPCounter.Settings.SettingHandlers
                 saveable &= fli.Updatable();
             }
             PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : "Can not format.";
-            if (PreviewDisplay.text.Contains("\nPossible")) PreviewDisplay.text = PreviewDisplay.text.Split("\nPossible")[0];
+            //if (PreviewDisplay.text.Contains("\nPossible")) PreviewDisplay.text = PreviewDisplay.text.Split("\nPossible")[0]; // 1.37.0 and above
+            if (PreviewDisplay.text.Contains("\nPossible")) PreviewDisplay.text = PreviewDisplay.text.Split("\nPossible".ToCharArray())[0]; // 1.34.2 and below
             RawPreviewDisplay.text = colorOutp;
             rawFormat = outp.Replace("\\n", "\n");
-            FormatEditor.TableView.ClearSelection();
+            //FormatEditor.TableView.ClearSelection(); // 1.37.0 and above
+            FormatEditor.tableView.ClearSelection(); // 1.34.2 and below
             UpdateSaveButton();
         }
         private void UpdateSaveButton()
@@ -193,9 +199,11 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void ForceUpdatePreviewDisplay() => UpdatePreviewDisplay(true); //dislike this function's need for existance.
 
         [UIAction(nameof(ScrollToTop))]
-        private void ScrollToTop() => FormatEditor.TableView.ScrollToCellWithIdx(0, TableView.ScrollPositionType.Beginning, false);
+        //private void ScrollToTop() => FormatEditor.TableView.ScrollToCellWithIdx(0, TableView.ScrollPositionType.Beginning, false); // 1.37.0 and above
+        private void ScrollToTop() => FormatEditor.tableView.ScrollToCellWithIdx(0, TableView.ScrollPositionType.Beginning, false); // 1.34.2 and below
         [UIAction(nameof(ScrollToBottom))]
-        private void ScrollToBottom() => FormatEditor.TableView.ScrollToCellWithIdx(FormatChunks.Count - 1, TableView.ScrollPositionType.End, false);
+        //private void ScrollToBottom() => FormatEditor.TableView.ScrollToCellWithIdx(FormatChunks.Count - 1, TableView.ScrollPositionType.End, false); // 1.37.0 and above
+        private void ScrollToBottom() => FormatEditor.tableView.ScrollToCellWithIdx(FormatChunks.Count - 1, TableView.ScrollPositionType.End, false); // 1.34.2 and below
         [UIAction(nameof(ParseCurrentFormat))]
         private void ParseCurrentFormat()
         {
@@ -259,7 +267,8 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
             FormatValues.Clear();
             FormatValues.AddRange(outp.Cast<object>());
-            ValueEditor.TableView.ReloadData();
+            //ValueEditor.TableView.ReloadData(); // 1.37.0 and above
+            ValueEditor.tableView.ReloadData(); // 1.34.2 and below
             UpdatePreviewForValue(true);
             ValueSaveButton.interactable = false;
         }

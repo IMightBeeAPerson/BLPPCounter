@@ -54,7 +54,8 @@ namespace BLPPCounter.Settings.SettingHandlers
             UISettings.AddRange(ConvertMenu().Cast<object>());
             for (int i = 0; i < UISettings.Count; i++) if (UISettings[i] is SettingToggleInfo sti) sti.Usable = SettingsToSave[i];
             changes = 0;
-            UICustomizer.TableView.ReloadData();
+            //UICustomizer.TableView.ReloadData(); // 1.37.0 and above
+            UICustomizer.tableView.ReloadData(); // 1.34.2 and below
         }
         private List<SettingToggleInfo> ConvertMenu()
         {

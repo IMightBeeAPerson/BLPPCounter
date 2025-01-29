@@ -210,7 +210,8 @@ namespace BLPPCounter.Utils
             MatchCollection mc = CollectiveRegex.Matches(format);
             (Match, ChunkType)[] outp = new (Match, ChunkType)[mc.Count];
             for (int i = 0; i < outp.Length; i++)
-                outp[i] = (mc[i], (ChunkType)Enum.Parse(typeof(ChunkType), mc[i].Groups.First(g => g.Success && g.Name.Contains("_")).Name));
+                //outp[i] = (mc[i], (ChunkType)Enum.Parse(typeof(ChunkType), mc[i].Groups.First(g => g.Success && g.Name.Contains("_")).Name)); // 1.37.0 and above
+                outp[i] = (mc[i], (ChunkType)Enum.Parse(typeof(ChunkType), mc[i].Groups.OfType<Group>().First(g => g.Success && g.Name.Contains("_")).Name)); // 1.34.2 and below
             return outp;
         }
         private static Regex GetRegexForAllChunks()
@@ -398,8 +399,10 @@ namespace BLPPCounter.Utils
             }
             if (((Escaped_Token | Escaped_Character | Group_Open | Parameter) & Chunk) > 0)
             {
-                Choicer.Values = ChoiceOptions;
-                if (!Choicer.Values.Contains(Text)) { Choicer.Value = Choicer.Values[0]; Text = Choicer.Values[0] as string; }
+                /*Choicer.Values = ChoiceOptions;
+                if (!Choicer.Values.Contains(Text)) { Choicer.Value = Choicer.Values[0]; Text = Choicer.Values[0] as string; }  //1.37.0 and above */
+                Choicer.values = ChoiceOptions;
+                if (!Choicer.values.Contains(Text)) { Choicer.Value = Choicer.values[0]; Text = Choicer.values[0] as string; }  //1.37.0 and above */
                 else Choicer.Value = Text;
                 Choicer.UpdateChoices();
                 ChoiceContainer.SetActive(true);

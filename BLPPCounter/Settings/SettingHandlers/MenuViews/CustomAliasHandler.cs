@@ -83,13 +83,16 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             {
                 AliasInfos.Remove(ali);
                 ali.Unapply(MenuSettingsHandler.AllFormatInfo);
-                AliasEditor.TableView.ReloadData();
+                //AliasEditor.TableView.ReloadData(); // 1.37.0 and above
+                AliasEditor.tableView.ReloadData(); // 1.34.2 and below
                 PC.TokenSettings.TokenAliases.Remove(ali.Alias);
                 UpdateTable();
                 UpdateRefs(ali.Alias, true);
             };
             AliasInfos.AddRange(PC.TokenSettings.TokenAliases.Select(ca => new AliasListInfo(ca)));
-            AliasEditor.TableView.ReloadData();
+            if (AliasInfos.Count == 0) AliasInfos.Add(""); //this is done because BSML missed a null check. Only needed on 1.34.2 and below
+            //AliasEditor.TableView.ReloadData(); // 1.37.0 and above
+            AliasEditor.tableView.ReloadData(); // 1.34.2 and below
         }
         [UIAction(nameof(AddAlias))]
         private void AddAlias()
@@ -97,9 +100,11 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             if (NewAlias.Text is null || NewAlias.Text.Length == 0) return;
             ParserParams.EmitEvent("CloseWindow");
             AliasListInfo ali = new AliasListInfo(new CustomAlias(_Counter, _FormatName, CurrentFormatInfo.Alias[_OldAliasName], NewAlias.Text, _OldAliasName));
+            if (AliasInfos.Count == 1 && AliasInfos[0].Equals("")) AliasInfos.Remove(""); // 1.34.2 and below
             AliasInfos.Add(ali);
             ali.Apply(CurrentFormatInfo);
-            AliasEditor.TableView.ReloadData();
+            //AliasEditor.TableView.ReloadData(); // 1.37.0 and above
+            AliasEditor.tableView.ReloadData(); // 1.34.2 and below
             PC.TokenSettings.TokenAliases.Add(ali.Alias);
             Plugin.Log.Info(string.Join("\n", AliasInfos));
             UpdateTable();
@@ -116,7 +121,8 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private void UpdateFormatOptions()
         {
             FormatNames = MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>().ToList();
-            ChooseFormat.Values = FormatNames;
+            //ChooseFormat.Values = FormatNames; // 1.37.0 and above
+            ChooseFormat.values = FormatNames; // 1.34.2 and below
             if (FormatNames.Count > 0) FormatName = FormatNames[0] as string;
             ChooseFormat.Value = FormatName;
             ChooseFormat.UpdateChoices();
@@ -134,7 +140,8 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                 keys.Split(' ')
                 );
             AliasNames = CurrentFormatInfo.Alias.Keys.Cast<object>().ToList();
-            AliasNamePicker.Values = AliasNames;
+            //AliasNamePicker.Values = AliasNames; // 1.37.0 and above
+            AliasNamePicker.values = AliasNames; // 1.34.2 and below
             OldAliasName = AliasNames[0] as string;
             AliasNamePicker.UpdateChoices();
         }
