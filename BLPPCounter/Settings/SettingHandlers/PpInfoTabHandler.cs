@@ -278,30 +278,30 @@ namespace BLPPCounter.Settings.SettingHandlers
             {
                 const char Star = (char)9733;
                 var (accRating, passRating, techRating, starRating) = HelpfulMisc.GetRatingsAndStar(CurrentDiff, Gmpc.gameplayModifiers.songSpeed, CurrentModMultiplier);
-                AccStarText.text = Math.Round(accRating, PC.DecimalPrecision) + " " + Star;
-                PassStarText.text = Math.Round(passRating, PC.DecimalPrecision) + " " + Star;
-                TechStarText.text = Math.Round(techRating, PC.DecimalPrecision) + " " + Star;
-                StarText.text = Math.Round(starRating, PC.DecimalPrecision) + " " + Star;
+                AccStarText.SetText(Math.Round(accRating, PC.DecimalPrecision) + " " + Star);
+                PassStarText.SetText(Math.Round(passRating, PC.DecimalPrecision) + " " + Star);
+                TechStarText.SetText(Math.Round(techRating, PC.DecimalPrecision) + " " + Star);
+                StarText.SetText(Math.Round(starRating, PC.DecimalPrecision) + " " + Star);
             }
-            SpeedModText.text = "<color=green>" + HelpfulMisc.AddSpaces(Gmpc.gameplayModifiers.songSpeed.ToString());
-            ModMultText.text = $"x{Math.Round(CurrentModMultiplier, 2):N2}";
+            SpeedModText.SetText("<color=green>" + HelpfulMisc.AddSpaces(Gmpc.gameplayModifiers.songSpeed.ToString()));
+            ModMultText.SetText($"x{Math.Round(CurrentModMultiplier, 2):N2}");
         }
         private void UpdateCaptureValues() 
         {
             if (CurrentDiff is null) return;
-            ClanTarget.text = TargetHasScore ? GetTarget() : GetNoScoreTarget();
+            ClanTarget.SetText(TargetHasScore ? GetTarget() : GetNoScoreTarget());
             Task.Run(() =>
             {
                 PPToCapture = ClanCounter.LoadNeededPp(BeatmapID, out _, out string owningClan)[0];
-                OwningClan.text = $"<color=red>{owningClan}</color> owns this map.";
-                PPTarget.text = $"<color=#0F0>{Math.Round(PPToCapture, PC.DecimalPrecision)}</color> pp";
+                OwningClan.SetText($"<color=red>{owningClan}</color> owns this map.");
+                PPTarget.SetText($"<color=#0F0>{Math.Round(PPToCapture, PC.DecimalPrecision)}</color> pp");
                 BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, PPToCapture, PC.DecimalPrecision) + "", ClanTable);
             });
         }
         private void UpdateRelativeValues()
         {
-            RelativeText.text = TargetHasScore ? GetTarget() : GetNoScoreTarget();
-            RelativeTarget.text = $"<color=#0F0>{Math.Round(TargetPP, PC.DecimalPrecision)}</color> pp";
+            RelativeText.SetText(TargetHasScore ? GetTarget() : GetNoScoreTarget());
+            RelativeTarget.SetText($"<color=#0F0>{Math.Round(TargetPP, PC.DecimalPrecision)}</color> pp");
             BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, TargetPP, PC.DecimalPrecision) + "", RelativeTable, accLbl: "<color=#0D0>Acc</color> to Beat");
         }
         private void UpdateCustomAccuracy()

@@ -14,19 +14,30 @@ namespace BLPPCounter.Patches
 #pragma warning disable IDE0051, IDE0044
         private static readonly HashSet<int> LoadedObjects = new HashSet<int>();
         private static readonly Dictionary<string, Action> TabGotSelected = new Dictionary<string, Action>();
-        private static readonly Dictionary<string, bool> TabIsSelected = new Dictionary<string, bool>();
         private static readonly HashSet<string> TabNames = new HashSet<string>();
         public static event Action<string> ModTabSelected;
         internal static Action UpdateLastSegmentControl;
         public static string LastSelectedModTab { get; private set; } = "";
-        private static bool MobTabFound = false;
+        private static string LastLoadedTabSelector = "";
+        private static bool ModTabFound = false;
         public static bool AllTabsFound => TabNames.Count == 0;
         [UsedImplicitly]
         private static void Postfix(SegmentedControl __instance)
         {
-            if (AllTabsFound || LoadedObjects.Contains(__instance.GetHashCode())) return;
+            if (LoadedObjects.Contains(__instance.GetHashCode())) return;
             if (!__instance.name.Equals("BSMLTabSelector")) { LoadedObjects.Add(__instance.GetHashCode()); return; }
-            if (!MobTabFound && __instance.cells.Count() == 2 && __instance.cells.Any(scc => scc is TextSegmentedControlCell tscc && tscc.text.Equals("Mods")))
+            string tabSelectorCells = __instance.cells.Aggregate("", (total, cell) => cell is TextSegmentedControlCell tscc ? total + ", " + tscc.text : total).Substring(2);
+            if (LastLoadedTabSelector.Equals(tabSelectorCells))
+            {
+                if (__instance.cells[0] is TextSegmentedControlCell tscc && !tscc.text.Equals(LastSelectedModTab))
+                {
+                    TabGotSelected[tscc.text]?.Invoke();
+                    LastSelectedModTab = tscc.text;
+                }
+                return;
+            }
+            LastLoadedTabSelector = tabSelectorCells;
+            if (!ModTabFound && __instance.cells.Count() == 2 && __instance.cells.Any(scc => scc is TextSegmentedControlCell tscc && tscc.text.Equals("Mods")))
             {
                 ModTabSelected += str =>
                 {
@@ -37,7 +48,15 @@ namespace BLPPCounter.Patches
                     if (sc.cells[index] is TextSegmentedControlCell tscc) ModTabSelected?.Invoke(tscc.text);
                 };
                 LoadedObjects.Add(__instance.GetHashCode());
-                MobTabFound = true;
+                ModTabFound = true;
+                return;
+            }
+            //Plugin.Log.Info("Loaded, count = " + __instance.cells.Count() + ", names = [" + tabSelectorCells + "]");
+            if (AllTabsFound && __instance.cells[0] is TextSegmentedControlCell textCell && TabGotSelected.ContainsKey(textCell.text))
+            {
+                string s = textCell.text;
+                TabGotSelected[s]?.Invoke();
+                LastSelectedModTab = s;
                 return;
             }
             IEnumerable<SegmentedControlCell> cells = __instance.cells.Where(scc => scc is TextSegmentedControlCell tscc && TabNames.Contains(tscc.text));
@@ -49,8 +68,7 @@ namespace BLPPCounter.Patches
                 void CellEvent(SegmentedControl sc, int index)
                 {
                     LastSelectedModTab = s;
-                    TabIsSelected[s] = sc.cells[index] is TextSegmentedControlCell tscc && tscc.text.Equals(s);
-                    if (TabIsSelected[s]) TabGotSelected[s]?.Invoke();
+                    if (sc.cells[index] is TextSegmentedControlCell tscc && tscc.text.Equals(s)) TabGotSelected[s]?.Invoke();
                 }
                 __instance.didSelectCellEvent += CellEvent;
                 CellEvent(__instance, 0);
@@ -61,9 +79,8 @@ namespace BLPPCounter.Patches
         {
             TabNames.Add(name);
             TabGotSelected.Add(name, TabSelected);
-            TabIsSelected.Add(name, false);
         }
-        public static bool GetIfTabIsSelected(string tab) => TabIsSelected.ContainsKey(tab) && TabIsSelected[tab];
+        public static bool GetIfTabIsSelected(string tab) => LastSelectedModTab.Equals(tab);
         public static void AddToTabSelectedAction(string tab, Action toAdd)
         {
             if (!TabGotSelected.ContainsKey(tab)) return;
