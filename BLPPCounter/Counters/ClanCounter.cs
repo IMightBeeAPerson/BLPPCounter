@@ -292,9 +292,9 @@ namespace BLPPCounter.Counters
             string id = Targeter.TargetID, check;
             mapCaptured = false;
             owningClan = "None";
-            check = HelpfulPaths.CallAPI($"https://api.beatleader.xyz/player/{id}").ReadAsStringAsync().Result;
+            check = APIHandler.CallAPI_String($"https://api.beatleader.xyz/player/{id}");
             if (playerClanId < 0 && check.Length > 0) playerClanId = ParseId(JToken.Parse(check));
-            check = HelpfulPaths.CallAPI($"{string.Format(HelpfulPaths.BLAPI_CLAN, mapId)}?page=1&count=1").ReadAsStringAsync().Result;
+            check = APIHandler.CallAPI_String($"{string.Format(HelpfulPaths.BLAPI_CLAN, mapId)}?page=1&count=1");
             if (check.Length == 0) return null;
             JToken clanData = JToken.Parse(check);
             if ((int)clanData["difficulty"]["status"] != 3) return null; //Map isn't ranked
@@ -357,8 +357,8 @@ namespace BLPPCounter.Counters
         #region API Requests
         private static string RequestClanLeaderboard(string id, string mapId, int playerClanId)
         {
-            int clanId = playerClanId > 0 ? playerClanId : ParseId(HelpfulPaths.CallAPI($"player/{id}", forceBLCall: true).ReadAsStringAsync().Result);
-            return HelpfulPaths.CallAPI($"leaderboard/clanRankings/{mapId}/clan/{clanId}?count=100&page=1", forceBLCall: true).ReadAsStringAsync().Result;
+            int clanId = playerClanId > 0 ? playerClanId : ParseId(APIHandler.CallAPI_String($"player/{id}", forceBLCall: true));
+            return APIHandler.CallAPI_String($"leaderboard/clanRankings/{mapId}/clan/{clanId}?count=100&page=1", forceBLCall: true);
         }
         #endregion
         #region Helper Functions

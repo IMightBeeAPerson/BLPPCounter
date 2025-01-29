@@ -34,7 +34,7 @@ namespace BLPPCounter.Helpfuls
         public static readonly string BLAPI_HASH = "https://api.beatleader.xyz/leaderboards/hash/{0}"; //hash
         public static readonly string BLAPI_USERID = "https://api.beatleader.xyz/user/id/{0}"; //user_id
         public static readonly string BLAPI_CLAN = "https://api.beatleader.xyz/leaderboard/clanRankings/{0}"; //clan_id
-        public static readonly string BLAPI_SCORE = "https://api.beatleader.xyz/score/8/{0}/{1}/{2}/{3}"; //user_id, hash, diff, mode
+        public static readonly string BLAPI_SCORE = "https://api.beatleader.xyz/score/8/{0}/{1}/{2}/{3}"; //user_id, hash, diff, mode || Ex: https://api.beatleader.xyz/score/8/76561198306905129/a3292aa17b782ee2a229800186324947a4ec9fee/Expert/Standard
 
         public static readonly string SSAPI = "https://scoresaber.com/api/";
         public static readonly string SSAPI_HASH = "https://scoresaber.com/api/leaderboard/by-hash/{0}/{1}?difficulty={2}"; //hash, either "info" or "scores", diff_number
@@ -45,49 +45,13 @@ namespace BLPPCounter.Helpfuls
         public static readonly string TAOHABLE_API = "https://raw.githubusercontent.com/HypersonicSharkz/SmartSongSuggest/master/TaohSongSuggest/Configuration/InitialData/SongLibrary.json";
         public static readonly string TAOHABLE_META = "https://raw.githubusercontent.com/HypersonicSharkz/SmartSongSuggest/master/TaohSongSuggest/Configuration/InitialData/Files.meta";
         #endregion
-        #region API Caller and Static Init
-        private static readonly HttpClient client;
-        static HelpfulPaths()
-        {
-            client = new HttpClient
-            {
-                Timeout = new TimeSpan(0, 0, 3)
-            };
-        }
-        public static bool CallAPI(string path, out HttpContent content, bool quiet = false, bool forceNoHeader = false, bool forceBLCall = false)
-        {
-            const string LinkHeader = "https://";
-            if (!forceNoHeader && !path.Substring(0, LinkHeader.Length).Equals(LinkHeader)) 
-                path = (!forceBLCall && PluginConfig.Instance.UsingSS ? SSAPI : BLAPI) + path;
-            try
-            {
-                Plugin.Log.Debug("API Call: " + path);
-                HttpResponseMessage hrm = client.GetAsync(new Uri(path)).Result;
-                hrm.EnsureSuccessStatusCode();
-                content = hrm.Content;
-                return true;
-            } catch (Exception e)
-            {
-                if (!quiet)
-                {
-                    Plugin.Log.Error($"Beat Leader API request failed\nPath: {path}\nError: {e.Message}");
-                    Plugin.Log.Debug(e);
-                }
-                content = null;
-                return false;
-            }
-        }
-        public static HttpContent CallAPI(string path, bool quiet = false, bool forceNoHeader = false, bool forceBLCall = false)
-        {
-            CallAPI(path, out HttpContent content, quiet, forceNoHeader, forceBLCall);
-            return content;
-        }
+        #region Directory Checks
         public static bool EnsureTaohableDirectoryExists()
         {
             string path = Path.Combine(UnityGame.InstallPath, "UserData", "PP Counter");
             if (!Directory.Exists(path)) Directory.CreateDirectory(path);
             path = Path.Combine(path, "TaohableData.json");
-            JToken TaohHeaders = JToken.Parse(CallAPI(TAOHABLE_META).ReadAsStringAsync().Result);
+            JToken TaohHeaders = JToken.Parse(APIHandler.CallAPI_String(TAOHABLE_META));
             bool headersGood = true;
             if (!File.Exists(HEADERS)) using (FileStream fs = File.Create(HEADERS))
                 {

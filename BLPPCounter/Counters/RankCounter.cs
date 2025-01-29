@@ -104,19 +104,19 @@ namespace BLPPCounter.Counters
                 {
                     string path = string.Format(HelpfulPaths.SSAPI_HASH, map.Hash, "scores", Map.FromDiff(map.Difficulty));
                     IEnumerable<float> pps = new List<float>();
-                    string data = HelpfulPaths.CallAPI(path).ReadAsStringAsync().Result;
+                    string data = APIHandler.CallAPI_String(path);
                     for (int i = 1; i < 5; i++)
-                        pps = pps.Union(JToken.Parse(HelpfulPaths.CallAPI(path + "&page=" + i).ReadAsStringAsync().Result)["scores"].Children().Select(token => (float)token["pp"]));
+                        pps = pps.Union(JToken.Parse(APIHandler.CallAPI_String(path + "&page=" + i))["scores"].Children().Select(token => (float)token["pp"]));
                 }
                 else
                 {
-                    string data = HelpfulPaths.CallAPI(string.Format(BLAPI_PATH, songId)).ReadAsStringAsync().Result;
+                    string data = APIHandler.CallAPI_String(string.Format(BLAPI_PATH, songId));
                     mapPP = JToken.Parse(data).Children().Select(a => (float)Math.Round((double)a["pp"], precision)).ToArray();
                 }
             }
             else
             {
-                string data = HelpfulPaths.CallAPI(string.Format(BLAPI_PATH2, songId, MaxAmountOfPeople)).ReadAsStringAsync().Result;
+                string data = APIHandler.CallAPI_String(string.Format(BLAPI_PATH2, songId, MaxAmountOfPeople));
                 JToken mapData = map.MapData.Item2;
                 float maxScore = (int)mapData["maxScore"];
                 float acc = (float)mapData["accRating"], pass = (float)mapData["passRating"], tech = (float)mapData["techRating"];

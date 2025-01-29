@@ -133,7 +133,7 @@ namespace BLPPCounter.Counters
         {
             //Plugin.Log.Debug(data.ToString());
             string replay = (string)data["replay"];
-            ReplayDecoder.TryDecodeReplay(HelpfulPaths.CallAPI(replay).ReadAsByteArrayAsync().Result, out bestReplay);
+            ReplayDecoder.TryDecodeReplay(APIHandler.CallAPI_Bytes(replay), out bestReplay);
             noteArray = bestReplay.notes.ToArray();
             ReplayMods = bestReplay.info.modifiers.ToLower();
             Match hold = Regex.Match(ReplayMods, "(fs|sf|ss),?");
@@ -151,7 +151,7 @@ namespace BLPPCounter.Counters
         {
             try
             {
-                string check = HelpfulPaths.CallAPI(string.Format(HelpfulPaths.BLAPI_SCORE, Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), map.Mode), true).ReadAsStringAsync().Result;
+                string check = APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_SCORE, Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), map.Mode), true);
                 if (check != default && check.Length > 0)
                 {
                     JToken playerData = JObject.Parse(check);

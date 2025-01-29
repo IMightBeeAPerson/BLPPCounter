@@ -146,17 +146,15 @@ namespace BLPPCounter.Settings.SettingHandlers
                     Instance.Refresh();
             });
             SettingsHandler.Instance.PropertyChanged += (parent, args) => {
-                if (!args.PropertyName.Equals(nameof(SettingsHandler.Target))) return;
-                Instance.Updates["Capture Values"] = (default, Instance.Updates["Capture Values"].Item2);
-                Instance.Updates["Relative Values"] = (default, Instance.Updates["Relative Values"].Item2);
-                Instance.CurrentMap = default;
+                if (!args.PropertyName.Equals(nameof(SettingsHandler.Target)) || Instance.CurrentMap is null) return;
+                Instance.ClearMapTabs();
             };
         }
         internal void SldvcInit() 
         { 
-            Sldvc.didChangeContentEvent += (a, b) => RefreshAsync();
-            //Sldvc.didChangeDifficultyBeatmapEvent += a => RefreshAsync(); // 1.37.0 and above
-            Sldvc.didChangeDifficultyBeatmapEvent += (a,b) => RefreshAsync(); // 1.34.2 and below
+            Sldvc.didChangeContentEvent += (a, b) => Refresh();
+            //Sldvc.didChangeDifficultyBeatmapEvent += a => Refresh(); // 1.37.0 and above
+            Sldvc.didChangeDifficultyBeatmapEvent += (a,b) => Refresh(); // 1.34.2 and below
         }
         //internal void GmpcInit() { Gmpc.didChangeGameplayModifiersEvent += UpdateMods; UpdateMods(); }
         #endregion
@@ -180,14 +178,14 @@ namespace BLPPCounter.Settings.SettingHandlers
             CurrentMap = Sldvc.selectedDifficultyBeatmap; // 1.34.2 and below
             CurrentDiff = null;
             if (!Sldvc.beatmapLevel.levelID.Substring(0, 6).Equals("custom")) return 0.0f; //means the level selected is not custom
-            string apiOutput = HelpfulPaths.CallAPI(string.Format(HelpfulPaths.BLAPI_SCORE,
+            string apiOutput = APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_SCORE,
                 Targeter.TargetID,
                 Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(),
                 /*Sldvc.beatmapKey.difficulty.ToString().Replace("+", "Plus"),
                 Sldvc.beatmapKey.beatmapCharacteristic.serializedName // 1.37.0 and above */
                 Sldvc.selectedDifficultyBeatmap.difficulty.ToString().Replace("+", "Plus"),
                 Sldvc.selectedDifficultyBeatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName // 1.34.2 and below
-                ), true)?.ReadAsStringAsync().Result;
+                ), true);
             TargetHasScore = !(apiOutput is null || apiOutput.Length == 0);
             if (!TargetHasScore) { UpdateDiff(); return 0.0f; } //target doesn't have a score on this diff.
             JToken targetScore = JToken.Parse(apiOutput);
@@ -326,7 +324,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private void UpdateDiff()
         {
-            if (!HelpfulPaths.CallAPI("leaderboards/hash/" + Sldvc.beatmapLevel.levelID.Split('_')[2].ToUpper(), out HttpContent dataStr, forceBLCall: true)) return;
+            if (!APIHandler.CallAPI("leaderboards/hash/" + Sldvc.beatmapLevel.levelID.Split('_')[2].ToUpper(), out HttpContent dataStr, forceBLCall: true)) return;
             //int val = Map.FromDiff(Sldvc.beatmapKey.difficulty); // 1.37.0 and below
             int val = Map.FromDiff(Sldvc.selectedDifficultyBeatmap.difficulty); // 1.34.2 and above
             CurrentDiff = JToken.Parse(dataStr.ReadAsStringAsync().Result);
@@ -335,8 +333,8 @@ namespace BLPPCounter.Settings.SettingHandlers
             BeatmapID = CurrentDiff["id"].ToString();
             CurrentDiff = CurrentDiff["difficulty"];
         }
-        private void RefreshAsync() => Task.Run(() => Refresh());
-        public void Refresh(bool forceRefresh = false)
+        public void Refresh(bool forceRefresh = false) => Task.Run(() => DoRefresh(forceRefresh));
+        private void DoRefresh(bool forceRefresh)
         {
             //if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && Sldvc.beatmapKey.Equals(CurrentMap))) return; // 1.37.0 and above
             if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && Sldvc.beatmapLevel.Equals(CurrentMap))) return; // 1.34.2 and below
@@ -351,6 +349,12 @@ namespace BLPPCounter.Settings.SettingHandlers
                 catch (Exception e) { Plugin.Log.Error("There was an error!\n" + e); }
                 finally { Monitor.Exit(RefreshLock); }
             }
+        }
+        public void ClearMapTabs()
+        {
+            Instance.Updates["Capture Values"] = (default, Instance.Updates["Capture Values"].Item2);
+            Instance.Updates["Relative Values"] = (default, Instance.Updates["Relative Values"].Item2);
+            Instance.CurrentMap = default;
         }
         #endregion
     }

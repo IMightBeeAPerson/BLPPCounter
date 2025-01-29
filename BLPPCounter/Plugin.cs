@@ -63,6 +63,7 @@ namespace BLPPCounter
             TheCounter.InitCounterStatic();
             Harmony = new Harmony("Person.BLPPCounter");
             Harmony.PatchAll(Assembly.GetExecutingAssembly());
+
             //new PlaylistLoader();
             /*ClanCounter.FormatTheFormat();
             var test = ClanCounter.displayClan;

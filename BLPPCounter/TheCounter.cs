@@ -307,14 +307,14 @@ namespace BLPPCounter
                         {
                             Plugin.Log.Warn("Map not in cache, attempting API call to get map data...");
                             if (pc.UsingSS) AddSSMap(hash);
-                            else AddMap(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.BLAPI_HASH, hash)).ReadAsStringAsync().Result);
+                            else AddMap(APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash)));
                             m = Data[hash];
                         }
                         lastMap = new MapSelection(m, beatmap.difficulty, mode, passRating, accRating, techRating); // 1.34.2 and below
                         //lastMap = new MapSelection(m, beatmapDiff.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and above
                         totalNotes = HelpfulMath.NotesForMaxScore(pc.UsingSS ?
-                            (int)JToken.Parse(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(beatmap.difficulty))).ReadAsStringAsync().Result)["maxScore"] : // 1.34.2 and below
-                            //(int)JToken.Parse(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(beatmapDiff.difficulty))).ReadAsStringAsync().Result)["maxScore"] : // 1.37.0 and above
+                            (int)JToken.Parse(APIHandler.CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(beatmap.difficulty))))["maxScore"] : // 1.34.2 and below
+                            //(int)JToken.Parse(APIHandler.CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(beatmapDiff.difficulty))))["maxScore"] : // 1.37.0 and above
                             (int)lastMap.MapData.Item2["maxScore"]);
                         if (!InitCounter()) throw new Exception("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
                     }
@@ -378,8 +378,8 @@ namespace BLPPCounter
         #endregion
         #region API Calls
         private void RequestHashData() =>
-            //AddMap(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.BLAPI_HASH, beatmap.levelID.Split('_')[2].ToUpper())).ReadAsStringAsync().Result); // 1.37.0 and above
-            AddMap(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.BLAPI_HASH, beatmap.level.levelID.Split('_')[2].ToUpper())).ReadAsStringAsync().Result); // 1.34.2 and below
+            //AddMap(APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, beatmap.levelID.Split('_')[2].ToUpper()))); // 1.37.0 and above
+            AddMap(APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, beatmap.level.levelID.Split('_')[2].ToUpper()))); // 1.34.2 and below
         #endregion
         #region Helper Methods
         private void ChangeNotifiers(bool a)
@@ -607,7 +607,7 @@ namespace BLPPCounter
             if (HelpfulPaths.EnsureTaohableDirectoryExists()) return;
             Plugin.Log.Debug("SS data not up to date! Loading...");
             string filePath = HelpfulPaths.TAOHABLE_DATA;
-            byte[] data = HelpfulPaths.CallAPI(HelpfulPaths.TAOHABLE_API, forceNoHeader: true).ReadAsByteArrayAsync().Result;
+            byte[] data = APIHandler.CallAPI_Bytes(HelpfulPaths.TAOHABLE_API, forceNoHeader: true);
             using (FileStream fs = File.Exists(filePath) ? File.OpenWrite(filePath) : File.Create(filePath))
                 fs.Write(data, 0, data.Length); //For some reason Stream.Write isn't implemented
         }
@@ -635,14 +635,14 @@ namespace BLPPCounter
         }
         private void AddSSMap(string hash)
         {
-            JEnumerable<JToken> diffs = JToken.Parse(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.SSAPI_DIFFS, hash)).ReadAsStringAsync().Result).Children();
+            JEnumerable<JToken> diffs = JToken.Parse(APIHandler.CallAPI_String(string.Format(HelpfulPaths.SSAPI_DIFFS, hash))).Children();
             Stack<int> ids = new Stack<int>(diffs.Count());
             foreach (JToken diff in diffs)
                 ids.Push((int)diff["leaderboardId"]);
             while (ids.Count > 0)
             {
                 string songId = ids.Pop().ToString();
-                JToken mapInfo = JToken.Parse(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, songId, "info")).ReadAsStringAsync().Result);
+                JToken mapInfo = JToken.Parse(APIHandler.CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, songId, "info")));
                 Map map = Map.ConvertSSToTaoh(hash, songId, mapInfo);
                 if (Data.ContainsKey(hash))
                     Data[hash].Combine(map);

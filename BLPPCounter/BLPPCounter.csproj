@@ -197,6 +197,7 @@
     <Compile Include="Settings\SettingHandlers\SettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\SimpleSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\SimpleMenuSettingsHandler.cs" />
+    <Compile Include="Utils\APIHandler.cs" />
     <Compile Include="Utils\ColorMatch.cs" />
     <Compile Include="Utils\CustomAlias.cs" />
     <Compile Include="Utils\CustomTarget.cs" />
