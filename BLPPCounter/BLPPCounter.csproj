@@ -187,6 +187,7 @@
     <Compile Include="Patches\TabSelectionPatch.cs" />
     <Compile Include="Settings\Configs\MessageSettings.cs" />
     <Compile Include="Settings\Configs\PluginConfig.cs" />
+    <Compile Include="Settings\FlowCoordinators\FormatEditorCoordinator.cs" />
     <Compile Include="Settings\SettingHandlers\PpInfoTabHandler.cs" />
     <Compile Include="Settings\Configs\TextFormatSettings.cs" />
     <Compile Include="Settings\Configs\TokenFormatSettings.cs" />
@@ -197,6 +198,7 @@
     <Compile Include="Settings\SettingHandlers\SettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\SimpleSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\SimpleMenuSettingsHandler.cs" />
+    <Compile Include="Utils\Special Utils\FilledList.cs" />
     <Compile Include="Utils\APIHandler.cs" />
     <Compile Include="Utils\ColorMatch.cs" />
     <Compile Include="Utils\CustomAlias.cs" />

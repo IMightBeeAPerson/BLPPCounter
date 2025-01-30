@@ -15,6 +15,7 @@ using TMPro;
 using BLPPCounter.Settings.Configs;
 using UnityEngine.UI;
 using static BLPPCounter.Helpfuls.HelpfulFormatter;
+using BLPPCounter.Utils.Special_Utils;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -67,16 +68,17 @@ namespace BLPPCounter.Settings.SettingHandlers
         #region UI Values
         #region Main Menu
         [UIValue(nameof(Counter))]
-        private string Counter { get => _Counter; set { _Counter = value; UpdateFormatOptions(); } }
-        private string _Counter;
+        private string Counter { get => _Counter ?? CounterNames[0] as string; set { _Counter = value; UpdateFormatOptions(); } }
+        private string _Counter = null;
         [UIValue(nameof(FormatName))]
-        private string FormatName { get => _FormatName; set { _FormatName = value; UpdateFormatDisplay(); } }
-        private string _FormatName;
+        private string FormatName { get => _FormatName ?? FormatNameContainer.Value as string; set { _FormatName = value; UpdateFormatDisplay(); } }
+        private string _FormatName = null;
         [UIValue(nameof(CounterNames))]
         private List<object> CounterNames => TheCounter.ValidDisplayNames.Where(a => MenuSettingsHandler.AllFormatInfo.Any(b => b.Key.Item2.Equals(a)))
             .Append(TheCounter.DisplayName).Cast<object>().ToList();
         [UIValue(nameof(FormatNames))]
-        private List<object> FormatNames = new List<object>();
+        private List<object> FormatNames => FormatNameContainer.List;
+        private FilledList FormatNameContainer = new FilledList();
         #endregion
         #region Format Editor
         [UIValue(nameof(FormatChunks))]
@@ -92,7 +94,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction("#back")] private void GoBack() => MenuSettingsHandler.Instance.GoBack();
         private void UpdateFormatOptions()
         {
-            FormatNames = MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>().ToList();
+            FormatNameContainer = new FilledList(MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>().ToList());
+            Plugin.Log.Info($"[{FormatNames.Aggregate("", (total, obj) => ", " + obj.ToString()).Substring(2)}]");
             //ChooseFormat.Values = FormatNames; // 1.37.0 and above
             ChooseFormat.values = FormatNames; // 1.34.2 and below
             if (FormatNames.Count > 0) FormatName = FormatNames[0] as string;
@@ -101,6 +104,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         internal void UpdateFormatDisplay()
         {
+            Plugin.Log.Info($"Counter: {_Counter}, Format: {_FormatName}");
             FormatListInfo.AliasConverter = CurrentFormatInfo.Alias;
             foreach (KeyValuePair<string, char> item in GLOBAL_ALIASES) FormatListInfo.AliasConverter[item.Key] = item.Value;
             FormattedText.text = CurrentFormatInfo.GetQuickFormat();

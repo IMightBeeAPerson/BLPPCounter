@@ -10,6 +10,7 @@ using BLPPCounter.Utils;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
+using BLPPCounter.Utils.Special_Utils;
 
 namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 {
@@ -44,19 +45,19 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         [UIValue(nameof(Counter))]
         private string Counter
         {
-            get => _Counter;
+            get => _Counter ?? CounterNames[0] as string;
             set { _Counter = value; UpdateFormatOptions(); }
         }
-        private string _Counter;
+        private string _Counter = null;
         [UIValue(nameof(FormatName))] private string FormatName
         {
-            get => _FormatName;
+            get => _FormatName ?? FormatNameContainer.Value as string;
             set { _FormatName = value; UpdateTable(); }
         }
-        private string _FormatName;
+        private string _FormatName = null;
         [UIValue(nameof(OldAliasName))] private string OldAliasName
         {
-            get => _OldAliasName;
+            get => _OldAliasName ?? AliasNameContainer.Value as string;
             set { _OldAliasName = value; }
         }
         private string _OldAliasName;
@@ -65,11 +66,14 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private List<object> CounterNames => TheCounter.ValidDisplayNames.Where(a => MenuSettingsHandler.AllFormatInfo.Any(b => b.Key.Item2.Equals(a)))
             .Append(TheCounter.DisplayName).Cast<object>().ToList();
         [UIValue(nameof(FormatNames))]
-        private List<object> FormatNames = new List<object>();
+        private List<object> FormatNames => FormatNameContainer.List;
+        private FilledList FormatNameContainer = new FilledList();
         [UIValue(nameof(AliasNames))]
-        private List<object> AliasNames = new List<object>();
+        private List<object> AliasNames => AliasNameContainer.List;
+        private FilledList AliasNameContainer = new FilledList();
         [UIValue(nameof(AliasInfos))]
-        private readonly List<object> AliasInfos = new List<object>();
+        private List<object> AliasInfos => AliasInfoContainer.List;
+        private readonly FilledList AliasInfoContainer = new FilledList(placeholder: new AliasListInfo(default));
         #endregion
         #region UI Actions
         [UIAction("#back")] private void GoBack() => MenuSettingsHandler.Instance.GoBack();
@@ -90,7 +94,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                 UpdateRefs(ali.Alias, true);
             };
             AliasInfos.AddRange(PC.TokenSettings.TokenAliases.Select(ca => new AliasListInfo(ca)));
-            if (AliasInfos.Count == 0) AliasInfos.Add(""); //this is done because BSML missed a null check. Only needed on 1.34.2 and below
+            //if (AliasInfos.Count == 0) AliasInfos.Add(""); //this is done because BSML missed a null check. Only needed on 1.34.2 and below
             //AliasEditor.TableView.ReloadData(); // 1.37.0 and above
             AliasEditor.tableView.ReloadData(); // 1.34.2 and below
         }
@@ -120,7 +124,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         #region Misc Functions
         private void UpdateFormatOptions()
         {
-            FormatNames = MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>().ToList();
+            FormatNameContainer = new FilledList(MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>().ToList());
             //ChooseFormat.Values = FormatNames; // 1.37.0 and above
             ChooseFormat.values = FormatNames; // 1.34.2 and below
             if (FormatNames.Count > 0) FormatName = FormatNames[0] as string;
@@ -139,7 +143,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                 false,
                 keys.Split(' ')
                 );
-            AliasNames = CurrentFormatInfo.Alias.Keys.Cast<object>().ToList();
+            AliasNameContainer = new FilledList(CurrentFormatInfo.Alias.Keys.Cast<object>().ToList());
             //AliasNamePicker.Values = AliasNames; // 1.37.0 and above
             AliasNamePicker.values = AliasNames; // 1.34.2 and below
             OldAliasName = AliasNames[0] as string;

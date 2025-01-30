@@ -21,6 +21,8 @@ using HarmonyLib;
 using BLPPCounter.Patches;
 using Newtonsoft.Json.Linq;
 using BS_Utils.Utilities;
+using BeatSaberMarkupLanguage.MenuButtons;
+using BLPPCounter.Settings.FlowCoordinators;
 
 namespace BLPPCounter
 {
@@ -32,6 +34,8 @@ namespace BLPPCounter
         internal static bool BLInstalled => true;
         internal static Harmony Harmony { get; private set; }
         internal static string Name => "PPCounter";
+        private static FormatEditorCoordinator FlowThingie;
+        private static readonly MenuButton EditorButton = new MenuButton("BL PP Counter", "Edit BL PP Counter to look however you want!", () => BeatSaberUI.MainFlowCoordinator.PresentFlowCoordinator(FlowThingie));
         [Init]
         /// <summary>
         /// Called when the plugin is first loaded by IPA (either when the game starts or when the plugin is enabled if it starts disabled).
@@ -49,7 +53,9 @@ namespace BLPPCounter
             TabSelectionPatch.ClearData();
             /*BSMLSettings.Instance.AddSettingsMenu("BL PP Counter", HelpfulPaths.SETTINGS_BSML, MenuSettingsHandler.Instance);
             GameplaySetup.Instance.AddTab("PP Calculator", HelpfulPaths.PP_CALC_BSML, PpInfoTabHandler.Instance); // 1.37.0 and above */
-            //BSMLSettings.instance.AddSettingsMenu("BL PP Counter", HelpfulPaths.SETTINGS_BSML, MenuSettingsHandler.Instance); Disabling this for now, needs a lot of fixes bc of BSML
+            //BSMLSettings.instance.AddSettingsMenu("BL PP Counter", HelpfulPaths.SETTINGS_BSML, MenuSettingsHandler.Instance);
+            FlowThingie = BeatSaberUI.CreateFlowCoordinator<FormatEditorCoordinator>();
+            MenuButtons.instance.RegisterButton(EditorButton);
             GameplaySetup.instance.AddTab("PP Calculator", HelpfulPaths.PP_CALC_BSML, PpInfoTabHandler.Instance); // 1.34.2 and below */
             SimpleSettingsHandler.Instance.ChangeMenuTab(false);
         }
@@ -81,6 +87,7 @@ namespace BLPPCounter
             GameplaySetup.instance.RemoveTab("BL PP Counter");
             GameplaySetup.instance.RemoveTab("PP Calculator");
             //BSMLSettings.instance.RemoveSettingsMenu(SettingsHandler.Instance);
+            MenuButtons.instance.UnregisterButton(EditorButton);
             BSEvents.menuSceneActive -= AddMenuStuff; // 1.34.2 and below */
             Harmony.UnpatchSelf();
         }

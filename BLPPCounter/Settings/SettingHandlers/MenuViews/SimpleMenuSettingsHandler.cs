@@ -8,9 +8,7 @@ using BLPPCounter.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -26,7 +24,13 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             SettingsToSave = new bool[PC.SimpleMenuConfigLength];
             HelpfulMisc.ConvertInt32ToBools(SettingsToSave, PC.SimpleMenuConfig);
-            AddChange = (id, newVal) => { if (SettingsToSave[id] == newVal) changes &= ~(1 << id); else changes |= 1 << id; saveButton.interactable = changes > 0; };
+            AddChange = (id, newVal) => 
+            { 
+                if (SettingsToSave[id] == newVal) changes &= ~(1 << id);
+                else changes |= 1 << id;
+                if (!(saveButton is null)) // 1.34.2 and below
+                    saveButton.interactable = changes > 0;
+            };
         }
 
         public bool[] SettingsToSave { get; private set; }
@@ -55,7 +59,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             for (int i = 0; i < UISettings.Count; i++) if (UISettings[i] is SettingToggleInfo sti) sti.Usable = SettingsToSave[i];
             changes = 0;
             //UICustomizer.TableView.ReloadData(); // 1.37.0 and above
-            UICustomizer.tableView.ReloadData(); // 1.34.2 and below
+            UICustomizer?.tableView.ReloadData(); // 1.34.2 and below
         }
         private List<SettingToggleInfo> ConvertMenu()
         {

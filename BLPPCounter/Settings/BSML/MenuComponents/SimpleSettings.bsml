@@ -1,4 +1,4 @@
-<vertical spacing='1'>
+<settings-container spacing='1' pref-height='70' vertical-fit='PreferredSize'>
   <horizontal>
     <button text='Go Back' align='Left' click-event='back'/>
     <button id='SaveButton' text='Save' align='Right' on-click='SaveChanges'/>
@@ -13,4 +13,4 @@
       <text text='~Type' rich-text='true' align='Center'/>
     </vertical>
   </custom-list>
-</vertical>
+</settings-container>
