@@ -127,7 +127,7 @@ namespace BLPPCounter.Utils
             string top = rows.Take(1 + row).Aggregate("", (total, current) => total + current + '\n');
             string selectedRow = rows.Skip(1 + row).Take(1).First();
             selectedRow = selectedRow.Substring(0, selectedRow.IndexOf('|') + 1) + $"<mark=#{HelpfulMisc.ConvertColorToHex(_HighlightColor)}>" + selectedRow.Substring(selectedRow.IndexOf('|') + 1) + "</mark>";
-            Container.text = top + selectedRow + rows.Skip(2 + row).Aggregate("\n", (total, current) => total + current + '\n').Trim();
+            Container.text = top + selectedRow + '\n' + rows.Skip(2 + row).Aggregate("", (total, current) => total + current + '\n').Trim();
         }
         public Task AwaitHighlightRow(int row, int period = 10, int timeout = 3) //timeout is in seconds
         {
