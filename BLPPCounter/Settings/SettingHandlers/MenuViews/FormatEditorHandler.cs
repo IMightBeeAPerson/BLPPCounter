@@ -2,7 +2,6 @@
 using BeatSaberMarkupLanguage.Components.Settings;
 using BeatSaberMarkupLanguage.Components;
 using BeatSaberMarkupLanguage.ViewControllers;
-using BLPPCounter.Counters;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Utils.List_Settings;
 using BLPPCounter.Utils;
@@ -17,13 +16,13 @@ using UnityEngine.UI;
 using static BLPPCounter.Helpfuls.HelpfulFormatter;
 using BLPPCounter.Utils.Special_Utils;
 
-namespace BLPPCounter.Settings.SettingHandlers
+namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 {
     public class FormatEditorHandler: BSMLResourceViewController
     {
 #pragma warning disable IDE0044
         public override string ResourceName => "BLPPCounter.Settings.BSML.MenuComponents.MenuFormatSettings.bsml";
-        public static FormatEditorHandler Instance { get; private set; } = new FormatEditorHandler();
+        public static FormatEditorHandler Instance { get; } = new FormatEditorHandler();
         private static PluginConfig PC => PluginConfig.Instance;
         private FormatEditorHandler() { }
         #region Format Settings Editor
@@ -218,7 +217,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             UpdateFormatTable(true);
             //MenuSettingsHandler.UpdateAliasTable(AliasTable, CurrentFormatInfo.Descriptions);
             Dictionary<char, string> reversedAlias = CurrentFormatInfo.Alias.Swap();
-            HelpfulMisc.SetupTable(AliasTable, -1, CurrentFormatInfo.Descriptions.Select(kvp => new KeyValuePair<string, string>(reversedAlias[kvp.Key], kvp.Value)), "Tokens", "Descriptions");
+            new Table(AliasTable, CurrentFormatInfo.Descriptions.Select(kvp => new KeyValuePair<string, string>(reversedAlias[kvp.Key], kvp.Value)), "Tokens", "Descriptions").UpdateTable();
         }
         [UIAction(nameof(SaveFormatToConfig))]
         private void SaveFormatToConfig()

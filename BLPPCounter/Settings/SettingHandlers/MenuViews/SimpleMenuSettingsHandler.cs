@@ -10,14 +10,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace BLPPCounter.Settings.SettingHandlers
+namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 {
     public class SimpleMenuSettingsHandler : BSMLResourceViewController
     {
 #pragma warning disable IDE0044, IDE0051
         public override string ResourceName => "BLPPCounter.Settings.BSML.MenuComponents.SimpleSettings.bsml";
         private static PluginConfig PC => PluginConfig.Instance;
-        public static SimpleMenuSettingsHandler Instance { get; private set; } = new SimpleMenuSettingsHandler();
+        public static SimpleMenuSettingsHandler Instance { get; } = new SimpleMenuSettingsHandler();
         private int changes = 0;
         private readonly Action<int, bool> AddChange;
         public SimpleMenuSettingsHandler()

@@ -18,7 +18,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
     {
 #pragma warning disable IDE0051, IDE0044
         public override string ResourceName => "BLPPCounter.Settings.BSML.MenuComponents.AliasSettings.bsml";
-        public static CustomAliasHandler Instance { get; private set; } = new CustomAliasHandler();
+        public static CustomAliasHandler Instance { get; } = new CustomAliasHandler();
         private static PluginConfig PC => PluginConfig.Instance;
         private CustomAliasHandler() { }
         private bool loaded = false;
@@ -135,14 +135,15 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         {
             const string keys = "Alias Token Description";
             Dictionary<char, string> reversedAlias = CurrentFormatInfo.Alias.Swap();
-            HelpfulMisc.SetupTable(
+            new Table(
                 InfoTable,
-                200,
-                CurrentFormatInfo.Descriptions.Select(kvp => new string[3] { reversedAlias[kvp.Key], kvp.Key+"", kvp.Value }).ToArray(),
-                false,
-                false,
+                CurrentFormatInfo.Descriptions.Select(kvp => new string[3] { reversedAlias[kvp.Key], kvp.Key + "", kvp.Value }).ToArray(),
                 keys.Split(' ')
-                );
+                )
+            {
+                MaxWidth = 200,
+                CenterText = false
+            };
             AliasNameContainer = new FilledList(CurrentFormatInfo.Alias.Keys.Cast<object>().ToList());
             //AliasNamePicker.Values = AliasNames; // 1.37.0 and above
             AliasNamePicker.values = AliasNames; // 1.34.2 and below

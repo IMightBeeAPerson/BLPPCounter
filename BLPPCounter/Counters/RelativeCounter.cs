@@ -288,11 +288,11 @@ namespace BLPPCounter.Counters
             (best[0], best[1], best[2]) = BLCalc.GetPp(best[7] / HelpfulMath.MaxScoreForNotes(notes), best[5], best[4], best[6]);
             best[3] = BLCalc.Inflate(best[0] + best[1] + best[2]);
         }
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPrecent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
         {
             if (failed)
             {
-                backup.UpdateCounter(acc, notes, mistakes, fcPrecent);
+                backup.UpdateCounter(acc, notes, mistakes, fcPercent);
                 return;
             }
             bool displayFc = pc.PPFC && mistakes > 0, showLbl = pc.ShowLbl;
@@ -304,7 +304,7 @@ namespace BLPPCounter.Counters
                 ppVals[i + 4] = ppVals[i] - best[i];
             if (displayFc)
             {
-                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPrecent, accRating, passRating, techRating);
+                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPercent, accRating, passRating, techRating);
                 ppVals[11] = BLCalc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
                 for (int i = 8; i < 12; i++)
                     ppVals[i + 4] = ppVals[i] - best[i - 8];

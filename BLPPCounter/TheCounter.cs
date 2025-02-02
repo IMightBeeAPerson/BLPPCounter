@@ -48,14 +48,14 @@ namespace BLPPCounter
         public static Dictionary<string, string> DisplayNameToCounter { get; private set; }
         private static Func<bool, bool, float, float, int, string, string> displayFormatter;
         internal static Func<string, string, string> TargetFormatter;
-        internal static Func<Func<string>, float, float, float, float, float, string> PrecentNeededFormatter;
-        private static Func<Func<Dictionary<char, object>, string>> displayIniter, targetIniter, precentNeededIniter;
+        internal static Func<Func<string>, float, float, float, float, float, string> PercentNeededFormatter;
+        private static Func<Func<Dictionary<char, object>, string>> displayIniter, targetIniter, percentNeededIniter;
         public static string[] Labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
 
         private static bool updateFormat;
         public static bool FormatUsable => displayFormatter != null && displayIniter != null;
         public static bool TargetUsable => TargetFormatter != null && targetIniter != null;
-        public static bool PrecentNeededUsable => PrecentNeededFormatter != null && precentNeededIniter != null;
+        public static bool PercentNeededUsable => PercentNeededFormatter != null && percentNeededIniter != null;
         public static readonly Dictionary<string, char> FormatAlias = new Dictionary<string, char>()
         {
             { "PP", 'x' },
@@ -68,7 +68,7 @@ namespace BLPPCounter
             {"Target", 't' },
             {"Mods", 'm' }
         };
-        public static readonly Dictionary<string, char> PrecentNeededAlias = new Dictionary<string, char>()
+        public static readonly Dictionary<string, char> PercentNeededAlias = new Dictionary<string, char>()
         {
             {"Color", 'c' },
             {"Accuracy", 'a' },
@@ -116,8 +116,8 @@ namespace BLPPCounter
                 {'t', "Person" },
                 {'m', "SF" }
             }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT, null, null, null);
-        internal static readonly FormatRelation PrecentNeededFormatRelation = new FormatRelation("Precent Needed Format", DisplayName,
-            pc.MessageSettings.PrecentNeededMessage, str => pc.MessageSettings.PrecentNeededMessage = str, PrecentNeededAlias,
+        internal static readonly FormatRelation PercentNeededFormatRelation = new FormatRelation("Percent Needed Format", DisplayName,
+            pc.MessageSettings.PercentNeededMessage, str => pc.MessageSettings.PercentNeededMessage = str, PercentNeededAlias,
             new Dictionary<char, string>()
             {
                 { 'c', "Must use as a group value, and will color everything inside group" },
@@ -126,7 +126,7 @@ namespace BLPPCounter
                 { 'y', "The accuracy PP needed" },
                 { 'z', "The pass PP needed" },
                 { 'p', "The total PP number needed to capture the map" }
-            }, str => { var hold = GetFormatPrecentNeeded(str, out string errorStr); return (hold, errorStr); },
+            }, str => { var hold = GetFormatPercentNeeded(str, out string errorStr); return (hold, errorStr); },
             new Dictionary<char, object>()
             {
                 {'c', new Func<object>(() => "green") },
@@ -247,8 +247,8 @@ namespace BLPPCounter
             hold = FormatTarget(pc.MessageSettings.TargetingMessage);
             success &= hold;
             if (hold) InitTarget();
-            hold = FormatPrecentNeeded(pc.MessageSettings.PrecentNeededMessage);
-            if (hold) InitPrecentNeeded();
+            hold = FormatPercentNeeded(pc.MessageSettings.PercentNeededMessage);
+            if (hold) InitPercentNeeded();
             return success && hold;
         }
         public static void ResetFormat()
@@ -257,8 +257,8 @@ namespace BLPPCounter
             displayFormatter = null;
             targetIniter = null;
             TargetFormatter = null;
-            precentNeededIniter = null;
-            PrecentNeededFormatter = null;
+            percentNeededIniter = null;
+            PercentNeededFormatter = null;
         }
         public override void CounterDestroy() {
             if (enabled) ChangeNotifiers(false);
@@ -423,16 +423,16 @@ namespace BLPPCounter
             targetIniter = GetFormatTarget(format, out string _);
             return targetIniter != null;
         }
-        private static Func<Func<Dictionary<char, object>, string>> GetFormatPrecentNeeded(string format, out string errorStr) =>
-            HelpfulFormatter.GetBasicTokenParser(format, PrecentNeededAlias, DisplayName, a => { },
+        private static Func<Func<Dictionary<char, object>, string>> GetFormatPercentNeeded(string format, out string errorStr) =>
+            HelpfulFormatter.GetBasicTokenParser(format, PercentNeededAlias, DisplayName, a => { },
                 (tokens, tokensCopy, priority, vals) =>
                 {
                     if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<object>)vals['c']).Invoke()}", "</color>");
                 }, out errorStr);
-        private static bool FormatPrecentNeeded(string format)
+        private static bool FormatPercentNeeded(string format)
         {
-            precentNeededIniter = GetFormatPrecentNeeded(format, out string _);
-            return precentNeededIniter != null;
+            percentNeededIniter = GetFormatPercentNeeded(format, out string _);
+            return percentNeededIniter != null;
         }
         private static void InitDisplayFormat()
         {
@@ -445,10 +445,10 @@ namespace BLPPCounter
             var simple = targetIniter.Invoke();
             TargetFormatter = (name, mods) => simple.Invoke(new Dictionary<char, object>() { { 't', name }, { 'm', mods } });
         }
-        private static void InitPrecentNeeded()
+        private static void InitPercentNeeded()
         {
-            var simple = precentNeededIniter.Invoke();
-            PrecentNeededFormatter = (color, acc, passpp, accpp, techpp, pp) => simple.Invoke(new Dictionary<char, object>()
+            var simple = percentNeededIniter.Invoke();
+            PercentNeededFormatter = (color, acc, passpp, accpp, techpp, pp) => simple.Invoke(new Dictionary<char, object>()
             { { 'c', color }, { 'a', acc }, { 'x', techpp }, { 'y', accpp }, { 'z', passpp }, { 'p', pp } });
         }
         private static Type[] GetValidCounters()

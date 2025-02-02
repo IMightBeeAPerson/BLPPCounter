@@ -3,11 +3,8 @@ using BeatSaberMarkupLanguage.Components;
 using BeatSaberMarkupLanguage.ViewControllers;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.List_Settings;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine.UI;
 
 namespace BLPPCounter.Settings.SettingHandlers.MenuViews
@@ -15,7 +12,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
     public class ColorSettingsHandler: BSMLResourceViewController
     {
         private static PluginConfig PC => PluginConfig.Instance;
-        public static ColorSettingsHandler Instance { get; private set; } = new ColorSettingsHandler();
+        public static ColorSettingsHandler Instance { get; } = new ColorSettingsHandler();
         public override string ResourceName => "BLPPCounter.Settings.BSML.MenuComponents.ColorSettings.bsml";
         private ColorSettingsHandler() { }
 

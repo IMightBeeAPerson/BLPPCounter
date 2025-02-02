@@ -15,9 +15,6 @@ using BeatSaberMarkupLanguage;
 using TMPro;
 using UnityEngine.TextCore;
 using Newtonsoft.Json.Linq;
-using System.Collections;
-using System.Threading.Tasks;
-using UnityEngine.UIElements;
 using BeatSaberMarkupLanguage.Components.Settings;
 namespace BLPPCounter.Helpfuls
 {
@@ -144,10 +141,12 @@ namespace BLPPCounter.Helpfuls
         public static bool IsNumber(object o) => IsNumber(o.GetType());
         public static string SplitByUppercase(string s) => Regex.Replace(s, "(?!^)[A-Z][^A-Z]*", " $&");
         public static string ConvertColorToHex(Color c) => $"#{ToRgba(c):X8}";
+        public static string ConvertColorToHex(UnityEngine.Color c) => $"{ToRgba(c):X8}";
         public static string ConvertColorToMarkup(Color c) => $"<color={ConvertColorToHex(c)}>";
         public static int ArgbToRgba(int argb) => (argb << 8) + (int)((uint)argb >> 24); //can't use triple shift syntax, so best I can do is casting :(
         public static int RgbaToArgb(int rgba) => (int)((uint)rgba >> 8) + (rgba << 24);
         public static int ToRgba(Color c) => ArgbToRgba(c.ToArgb());
+        public static int ToRgba(UnityEngine.Color c) => ((int)Math.Round(c.r * 0xFF) << 24) + ((int)Math.Round(c.g * 0xFF) << 16) + ((int)Math.Round(c.b * 0xFF) << 8) + (int)Math.Round(c.a * 0xFF);
         public static UnityEngine.Color TextToColor(string text)
         {
             if (text[0] == '#')
@@ -174,7 +173,7 @@ namespace BLPPCounter.Helpfuls
         public static BSMLParserParams AddToComponent(BSMLResourceViewController brvc, UnityEngine.GameObject container) =>
             //BSMLParser.Instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc); // 1.37.0 and above
             BSMLParser.instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc); // 1.34.2 and below
-        public static void SetupTable(TextMeshProUGUI table, int maxWidth, string[][] values, int spaces, bool haveEndColumn, bool centerText, params string[] names)
+        /*public static void SetupTable(TextMeshProUGUI table, int maxWidth, string[][] values, int spaces, bool haveEndColumn, bool centerText, params string[] names)
         {
             //for some reason spaces in fonts won't have an actual size, so the line below will add the size to font if it doesn't have one.
             if (table.font.characterLookupTable[' '].glyph.metrics.width == 0) table.font.MakeSpacesHaveSpace();
@@ -234,7 +233,7 @@ namespace BLPPCounter.Helpfuls
         public static void SetupTable(TextMeshProUGUI table, int maxWidth, string[][] values, bool haveEndColumn, bool centerText, params string[] names) =>
             SetupTable(table, maxWidth, values, 2, haveEndColumn, centerText, names);
         public static void SetupTable(TextMeshProUGUI table, int maxWidth, IEnumerable<KeyValuePair<string, string>> values, string key, string value, int spaces = 2, bool haveEndColumn = false, bool centerText = false) =>
-            SetupTable(table, maxWidth, values.Select(kvp => new string[2] { kvp.Key, kvp.Value }).ToArray(), spaces, haveEndColumn, centerText, key, value);
+            SetupTable(table, maxWidth, values.Select(kvp => new string[2] { kvp.Key, kvp.Value }).ToArray(), spaces, haveEndColumn, centerText, key, value);*/
 
         public static IEnumerable<T> GetDuplicates<T, V>(this IEnumerable<T> arr, Func<T, V> valToCompare)
         {

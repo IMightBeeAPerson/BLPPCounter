@@ -44,6 +44,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             {"Relative Values", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateRelativeValues())) },
             {"Custom Accuracy", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateCustomAccuracy())) }
         };
+        private Table ClanTableTable, RelativeTableTable, PPTableTable, PercentTableTable; 
         #region Relative Counter
         private static Func<string> GetTarget, GetNoScoreTarget;
         private float TargetPP = 0;
@@ -59,12 +60,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         #region UI Variables & components
         [UIValue(nameof(TestAcc))] private float TestAcc = PC.TestAccAmount;
         [UIValue(nameof(TestPp))] private int TestPp = PC.TestPPAmount;
-        [UIComponent(nameof(PrecentTable))] private TextMeshProUGUI PrecentTable;
+        [UIComponent(nameof(PercentTable))] private TextMeshProUGUI PercentTable;
         [UIComponent(nameof(PPTable))] private TextMeshProUGUI PPTable;
         [UIComponent("ModeButton")] private TextMeshProUGUI ModeButtonText;
-        [UIObject(nameof(CA_PrecentSlider))] private GameObject CA_PrecentSlider;
+        [UIObject(nameof(CA_PercentSlider))] private GameObject CA_PercentSlider;
         [UIObject(nameof(CA_PPSlider))] private GameObject CA_PPSlider;
-        [UIObject(nameof(PrecentTable_BG))] private GameObject PrecentTable_BG;
+        [UIObject(nameof(PercentTable_BG))] private GameObject PercentTable_BG;
         [UIObject(nameof(PPTable_BG))] private GameObject PPTable_BG;
 
         [UIComponent(nameof(RelativeText))] private TextMeshProUGUI RelativeText;
@@ -115,8 +116,8 @@ namespace BLPPCounter.Settings.SettingHandlers
                     UpdateTabDisplay();
             }
         }
-        [UIAction(nameof(PrecentFormat))]
-        private string PrecentFormat(float toFormat) => $"{toFormat:N2}%";
+        [UIAction(nameof(PercentFormat))]
+        private string PercentFormat(float toFormat) => $"{toFormat:N2}%";
         [UIAction(nameof(PPFormat))]
         private string PPFormat(int toFormat) => $"{toFormat} pp";
         [UIAction(nameof(UpdateCA))]
@@ -126,9 +127,9 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             IsPPMode = !IsPPMode;
             CA_PPSlider.SetActive(IsPPMode);
-            CA_PrecentSlider.SetActive(!IsPPMode);
+            CA_PercentSlider.SetActive(!IsPPMode);
             PPTable_BG.SetActive(!IsPPMode);
-            PrecentTable_BG.SetActive(IsPPMode);
+            PercentTable_BG.SetActive(IsPPMode);
             ModeButtonText.text = IsPPMode ? "<color=#A020F0>Input PP" : "<color=#FFD700>Input Percentage";
             UpdateCustomAccuracy();
         }
@@ -203,11 +204,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             return outp;
         }
         #endregion
-        #region Custom Accuracy
-        private void BuildPPTable() => BuildTable((acc, pass, tech) => BLCalc.GetSummedPp(TestAcc / 100.0f, acc, pass, tech, PC.DecimalPrecision).Total + "", PPTable, " pp", accLbl: "<color=#0D0>PP</color>");
-        private void BuildPrecentTable() => BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, TestPp, PC.DecimalPrecision) + "", PrecentTable, accLbl: "<color=#0D0>Acc</color>");
-        #endregion
-        private void BuildTable(Func<float, float, float, string> valueCalc, TextMeshProUGUI table,
+        private void BuildTable(Func<float, float, float, string> valueCalc, TextMeshProUGUI table, ref Table tableTable,
             string suffix = "%",
             string speedLbl = "<color=blue>Speed</color>",
             string accLbl = "<color=#0D0>Acc</color> to Cap",
@@ -220,12 +217,17 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (!Mathf.Approximately(CurrentModMultiplier, 1.0f)) for (int i = 0; i < arr.Length; i++)
                     arr[i][2] = "<color=green>" + valueCalc(ratings[i * 4] * CurrentModMultiplier, ratings[i * 4 + 1] * CurrentModMultiplier, ratings[i * 4 + 2] * CurrentModMultiplier) + "</color>" + suffix;
             else for (int i = 0; i < arr.Length; i++) arr[i][2] = "N/A";
+            if (tableTable is null)
+                tableTable = new Table(table, arr, speedLbl, accLbl, gnLbl) { HasEndColumn = true };
+            else
+                tableTable.Values = arr;
+            Table tableTableTable = tableTable; //this is done because ref vars are not allowed to be passed into functions (probably something to do with security being compromised).
             IEnumerator DelayRoutine()
             {
                 yield return new WaitForEndOfFrame();
-                HelpfulMisc.SetupTable(table, 0, arr, true, true, speedLbl, accLbl, gnLbl);
+                tableTableTable.UpdateTable();
             };
-            Task.Run(() => Sldvc.StartCoroutine(DelayRoutine())); 
+            Task.Run(() => Sldvc.StartCoroutine(DelayRoutine()));
             //This is done so that the game object is shown before the table is built. Otherwise, the game object gives wrong measurements, which messes up the table.
         }
         private static string Grammarize(string mods) //this is very needed :)
@@ -294,31 +296,32 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             if (CurrentDiff is null) return;
             ClanTarget.SetText(TargetHasScore ? GetTarget() : GetNoScoreTarget());
-            Task.Run(() =>
+            Task.Run(async () =>
             {
                 PPToCapture = ClanCounter.LoadNeededPp(BeatmapID, out _, out string owningClan)[0];
                 OwningClan.SetText($"<color=red>{owningClan}</color> owns this map.");
                 PPTarget.SetText($"<color=#0F0>{Math.Round(PPToCapture, PC.DecimalPrecision)}</color> pp");
-                BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, PPToCapture, PC.DecimalPrecision) + "", ClanTable);
+                BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, PPToCapture, PC.DecimalPrecision) + "", ClanTable, ref ClanTableTable);
+                await ClanTableTable.AwaitHighlightRow(2);
             });
         }
         private void UpdateRelativeValues()
         {
             RelativeText.SetText(TargetHasScore ? GetTarget() : GetNoScoreTarget());
             RelativeTarget.SetText($"<color=#0F0>{Math.Round(TargetPP, PC.DecimalPrecision)}</color> pp");
-            BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, TargetPP, PC.DecimalPrecision) + "", RelativeTable, accLbl: "<color=#0D0>Acc</color> to Beat");
+            BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, TargetPP, PC.DecimalPrecision) + "", RelativeTable, ref RelativeTableTable, accLbl: "<color=#0D0>Acc</color> to Beat");
         }
         private void UpdateCustomAccuracy()
         {
             if (CurrentDiff is null) return;
             if (IsPPMode)
             {
-                BuildPrecentTable();
+                BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, TestPp, PC.DecimalPrecision) + "", PercentTable, ref PercentTableTable, accLbl: "<color=#0D0>Acc</color>");
                 PC.TestAccAmount = TestAcc;
             }
             else
             {
-                BuildPPTable();
+                BuildTable((acc, pass, tech) => BLCalc.GetSummedPp(TestAcc / 100.0f, acc, pass, tech, PC.DecimalPrecision).Total + "", PPTable, ref PPTableTable, " pp", accLbl: "<color=#0D0>PP</color>");
                 PC.TestPPAmount = TestPp;
             }
         }

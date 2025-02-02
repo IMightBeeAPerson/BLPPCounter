@@ -73,7 +73,11 @@ namespace BLPPCounter.Helpfuls
                     && HelpfulMisc.CompareStructValues<float>(TaohHeaders, CurrentTaohHeaders, "songLibraryVersion", SimpleComparer) <= 0
                     && HelpfulMisc.CompareValues(TaohHeaders, CurrentTaohHeaders, "top10kUpdated", item => DateTime.Parse(item), SimpleComparer) <= 0;
                 if (!headersGood) using (FileStream fs = File.OpenWrite(HEADERS))
-                        fs.Write(Encoding.UTF8.GetBytes(TaohHeaders.ToString()));
+                    {
+                        byte[] headerInfo = Encoding.UTF8.GetBytes(TaohHeaders.ToString());
+                        Plugin.Log.Info(TaohHeaders.ToString());
+                        fs.Write(headerInfo, 0, headerInfo.Length);
+                    }
             }
             return headersGood && File.Exists(path);
         }

@@ -4,20 +4,17 @@ using BeatSaberMarkupLanguage.ViewControllers;
 using BLPPCounter.Counters;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Settings.FlowCoordinators;
-using BLPPCounter.Settings.SettingHandlers.MenuViews;
 using BLPPCounter.Utils;
-using BLPPCounter.Utils.List_Settings;
 using System.Collections.Generic;
 using UnityEngine;
-namespace BLPPCounter.Settings.SettingHandlers
+namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 {
     public class MenuSettingsHandler: BSMLResourceViewController
     {
 #pragma warning disable IDE0044, IDE0051
         #region Variables
         private static PluginConfig PC => PluginConfig.Instance;
-        public static MenuSettingsHandler Instance => FormatEditorCoordinator.Instance.MenuSettingsHandler;
+        public static MenuSettingsHandler Instance { get; } = new MenuSettingsHandler();
         public override string ResourceName => "BLPPCounter.Settings.BSML.MainMenuSettings.bsml";
 
         [UIObject(nameof(SimpleContainer))] private GameObject SimpleContainer;
@@ -30,6 +27,25 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction("#post-parse")]
         private void ActivateOthers()
         {
+            /*IEnumerator NoNulls()
+            {
+                Plugin.Log.Info("SimpleMenuSettingsHandler\nWaiting...");
+                yield return new WaitUntil(() => SimpleContainer != null);
+                Plugin.Log.Info("Done!");
+                HelpfulMisc.AddToComponent(SimpleMenuSettingsHandler.Instance, SimpleContainer);
+                Plugin.Log.Info("FormatEditorHandler\nWaiting...");
+                yield return new WaitUntil(() => FormatContainer != null);
+                Plugin.Log.Info("Done!");
+                HelpfulMisc.AddToComponent(FormatEditorHandler.Instance, FormatContainer);
+                Plugin.Log.Info("ColorSettingsHandler\nWaiting...");
+                yield return new WaitUntil(() => ColorContainer != null);
+                Plugin.Log.Info("Done!");
+                HelpfulMisc.AddToComponent(ColorSettingsHandler.Instance, ColorContainer);
+                Plugin.Log.Info("CustomAliasHandler\nWaiting...");
+                yield return new WaitUntil(() => AliasContainer != null);
+                Plugin.Log.Info("Done!");
+                HelpfulMisc.AddToComponent(CustomAliasHandler.Instance, AliasContainer);
+            }*/
             Plugin.Log.Info("SimpleMenuSettingsHandler");
             HelpfulMisc.AddToComponent(SimpleMenuSettingsHandler.Instance, SimpleContainer);
             Plugin.Log.Info("FormatEditorHandler");
@@ -45,7 +61,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             {
                 { TheCounter.DefaultFormatRelation.GetKey, TheCounter.DefaultFormatRelation },
                 { TheCounter.TargetFormatRelation.GetKey, TheCounter.TargetFormatRelation },
-                { TheCounter.PrecentNeededFormatRelation.GetKey, TheCounter.PrecentNeededFormatRelation },
+                { TheCounter.PercentNeededFormatRelation.GetKey, TheCounter.PercentNeededFormatRelation },
                 { ClanCounter.ClanFormatRelation.GetKey, ClanCounter.ClanFormatRelation },
                 { ClanCounter.WeightedFormatRelation.GetKey, ClanCounter.WeightedFormatRelation },
                 { ClanCounter.MessageFormatRelation.GetKey, ClanCounter.MessageFormatRelation },
