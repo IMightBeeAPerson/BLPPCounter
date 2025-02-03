@@ -68,26 +68,12 @@ namespace BLPPCounter.Utils
         public Color _HighlightColor = new Color(1, 1, 0, 0.5f);
 
         private readonly TextMeshProUGUI Container;
-        public string[][] Values 
-        { 
-            get => _Values; 
-            set
-            {
-                _Values = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Values)));
-            }
-        }
-        public string[] Names
-        {
-            get => _Names;
-            set 
-            {
-                _Names = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Names)));
-            }
-        }
-        private string[][] _Values;
-        private string[] _Names;
+        public string[][] Values { private get; set; } //Values given to be in the table.
+        private string[][] ValueMemory; // this is a memory address, just my way to check if the "Values" variable has been changed.
+        private string[] Names; //The top row, names of each column.
+        private float[][] SpacingValues; //The amount of space to make the tables line up for each value. Includes Names, is in pixels.
+        private string[][] TableValues; //Each part of the table, properly formatted. Used when combining to make the final string.
+        private string Prefix, Suffix; //The prefix and suffix for each row.
 
         private bool ValuesReset;
         public bool TableUpdated { get; private set; }
@@ -98,8 +84,16 @@ namespace BLPPCounter.Utils
         {
             Container = container;
             Values = values;
+            ValueMemory = values;
             Names = names;
 
+            SpacingValues = new float[Values.Length + 1][]; //+1 for names lengths
+            TableValues = new string[Values.Length + 1][];
+            for (int i = 0; i < SpacingValues.Length; i++)
+            {
+                SpacingValues[i] = new float[Values[0].Length];
+                TableValues[i] = new string[Values[0].Length];
+            }
             ValuesReset = true;
             TableUpdated = false;
             PropertyChanged += (a,b) => { if (!ValuesReset) ResetValues(); };
@@ -113,12 +107,25 @@ namespace BLPPCounter.Utils
         {
             MaxLengths = null;
             Format = null;
+            Prefix = null;
+            Suffix = null;
             ValuesReset = true;
             TableUpdated = false;
         }
         public void UpdateTable()
         {
             Container.text = ToString();
+        }
+        public void ChangeValue(int row, int column, string newValue)
+        {
+            Values[row][column] = newValue;
+            if (!TableUpdated || ValuesReset) return;
+            float len = GetLen(newValue);
+            if (len < MaxLengths[column])
+            {
+                SpacingValues[row + 1][column] = MaxLengths[column] - len;
+                FormatCell(row + 1, column);
+            }
         }
         public void HighlightRow(int row) //NOT 0 indexed, row 1 IS row 1
         {
@@ -153,43 +160,55 @@ namespace BLPPCounter.Utils
             float addedSpace = mc.OfType<Match>().Aggregate(0.0f, (total, match) => total + float.Parse(match.Value)); // 1.34.2 and below
             return GetLenWithoutRich(str) + addedSpace;
         }
-        private object[] GetFormatVals(string[] row, int centerTextInc)
+        private string FormatRow(int rowIndex)
         {
-            int outArrLen = row.Length * 2 - 1;
-            if (_CenterText) outArrLen += row.Length;
-            if (_HasEndColumn) outArrLen += centerTextInc - 1;
-            object[] outArr = new object[outArrLen];
-            for (int i = 0, c = 0; i < row.Length; i++, c += centerTextInc)
-            {
-                outArr[c] = row[i];
-                if (i < row.Length - 1 || _HasEndColumn) if (_CenterText) { outArr[c + 1] = (MaxLengths[i] - GetLenWithoutRich(row[i])) / 2; outArr[c + 2] = outArr[c + 1]; }
-                    else outArr[c + 1] = MaxLengths[i] - GetLenWithoutRich(row[i]);
-            }
-            return outArr;
+            string[] vals = rowIndex == 0 ? Names : Values[rowIndex - 1];
+            string outp = Prefix;
+            for (int i = 0; i < vals.Length; i++)
+                outp += FormatCell(rowIndex, i);
+            outp = outp.Substring(0, outp.Length - (_Spaces * 2 + 1));
+            if (_CenterText) outp += string.Format(Suffix, SpacingValues[rowIndex].Last());
+            return outp;
+        }
+        private string FormatCell(int row, int column)
+        {
+            string[] vals = row == 0 ? Names : Values[row - 1];
+            TableValues[row][column] = _CenterText ?
+                    string.Format(Format, vals[column], SpacingValues[row][column] / 2, SpacingValues[row][column] / 2) :
+                    string.Format(Format, vals[column], SpacingValues[row][column]);
+            return TableValues[row][column];
+        }
+        private void CalculateRowSpacing(int columnIndex)
+        {
+            float[] columnLengths = Values.Select(arr => GetLenWithoutRich(arr[columnIndex])).Prepend(GetLenWithoutRich(Names[columnIndex])).ToArray();
+            MaxLengths[columnIndex] = columnLengths.Aggregate((total, current) => Math.Max(total, current));
+            for (int j = 0; j < columnLengths.Length; j++) 
+                SpacingValues[j][columnIndex] = MaxLengths[columnIndex] - columnLengths[j];
         }
 
         public override string ToString()
         {
             string space = new string(' ', Spaces);
-            string[] rows = new string[_Values.Length + 2];
+            string[] rows = new string[Values.Length + 2];
             int centerTextInc = _CenterText ? 3 : 2; //weird var, but is an attempt to make this less jank
-            Dictionary<uint, TMP_Character> lookupTable = new Dictionary<uint, TMP_Character>();
-            if (ValuesReset) 
+            if (ValuesReset || ReferenceEquals(Values, ValueMemory)) 
             {
+                ValueMemory = Values; //my way of checking if values was changed externally.
                 MaxLengths = new float[Names.Length];
-                Format = _CenterText ? $"|{space}<space={{1}}px>{{0}}" : $"|{space}{{0}}";
-                for (int i = 1, c = centerTextInc - 1; i < _Names.Length; i++, c += centerTextInc)
-                    Format += $"<space={{{c}}}px>{space}|{space}" + (_CenterText ? $"<space={{{c + 2}}}px>{{{c + 1}}}" : $"{{{c + 1}}}");
-                if (_HasEndColumn) Format += $"<space={{{centerTextInc * (_Names.Length - 2) + centerTextInc + 1}}}px>{space}|";
-                for (int i = 0; i < MaxLengths.Length; i++)
-                    MaxLengths[i] = Math.Max(_Values.Aggregate(0.0f, (total, strArr) => Math.Max(total, GetLenWithoutRich(strArr[i]))), GetLenWithoutRich(_Names[i]));
+                for (int i = 0; i < MaxLengths.Length; i++) 
+                    CalculateRowSpacing(i);
+                Prefix = $"|{space}";
+                Format = (_CenterText ? "<space={1}px>{0}<space={2}px>" : "<space={1}px>{0}") + $"{space}|{space}";
+                Suffix = _CenterText ? $"{space}|" : "";
             }
-            rows[0] = string.Format(Format, GetFormatVals(_Names, centerTextInc));
-            for (int i = 0; i < _Values.Length; i++)
-                rows[i + 2] = string.Format(Format, GetFormatVals(_Values[i], centerTextInc));
+            
+            rows[0] = FormatRow(0);
+            for (int i = 0; i < Values.Length; i++)
+                rows[i + 2] = FormatRow(i + 1);
+
             float spacerSize = GetLen(space + "|"), dashSize = GetLen("-");
-            if (_HasEndColumn) spacerSize *= 2;
-            float maxSpace = _MaxWidth > 0 ? _MaxWidth : rows.Skip(2).Aggregate(0.0f, (total, str) => Math.Max(total, GetLenWithSpacers(str)));
+            if (_HasEndColumn) spacerSize *= 2; //to account for the end column
+            float maxSpace = _MaxWidth > 0 ? _MaxWidth : GetLenWithSpacers(rows[0]);
             int dashCount = (int)Math.Ceiling((maxSpace - spacerSize) / dashSize);
             rows[1] = "|" + space + new string('-', dashCount);
             if (_HasEndColumn)
@@ -198,6 +217,7 @@ namespace BLPPCounter.Utils
                 rows[1] += $"<space={maxSpace - GetLen(rows[1]) - spacerSize / 2}px>{space}|";
             }
             rows[0] += '\n';
+
             ValuesReset = false;
             TableUpdated = true;
             return rows.Aggregate((total, str) => total + str + "\n");

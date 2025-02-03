@@ -280,7 +280,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private void UpdateInfo()
         {
-            if (CurrentDiff != null)
+            if (CurrentDiff != null && HelpfulMisc.StatusIsUsable((int)CurrentDiff["status"]))
             {
                 const char Star = (char)9733;
                 var (accRating, passRating, techRating, starRating) = HelpfulMisc.GetRatingsAndStar(CurrentDiff, Gmpc.gameplayModifiers.songSpeed, CurrentModMultiplier);
@@ -288,6 +288,13 @@ namespace BLPPCounter.Settings.SettingHandlers
                 PassStarText.SetText(Math.Round(passRating, PC.DecimalPrecision) + " " + Star);
                 TechStarText.SetText(Math.Round(techRating, PC.DecimalPrecision) + " " + Star);
                 StarText.SetText(Math.Round(starRating, PC.DecimalPrecision) + " " + Star);
+            } else
+            {
+                const string failText = "Not Found!";
+                AccStarText.SetText(failText);
+                PassStarText.SetText(failText);
+                TechStarText.SetText(failText);
+                StarText.SetText(failText);
             }
             SpeedModText.SetText("<color=green>" + HelpfulMisc.AddSpaces(Gmpc.gameplayModifiers.songSpeed.ToString()));
             ModMultText.SetText($"x{Math.Round(CurrentModMultiplier, 2):N2}");

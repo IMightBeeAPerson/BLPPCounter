@@ -367,5 +367,6 @@ namespace BLPPCounter.Helpfuls
             if (!newValues.Any(str => str.Equals((string)menu.Value))) menu.Value = newValues[0];
             else menu.Value = menu.Value; //seems stupid but calls the update method.
         }
+        public static bool StatusIsUsable(int status) => (status >= 0 && status <= 3) || status == 6;
     }
 }
