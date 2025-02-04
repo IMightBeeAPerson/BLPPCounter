@@ -53,9 +53,15 @@
           <text id='PPTarget' text='' align='Right'/>
         </horizontal>
         <text id='OwningClan' text='' align='Center'/>
-        <vertical bg='round-rect-panel' bg-color='#CCC' pad-left='3'>
+        <horizontal bg='round-rect-panel' bg-color='#CCC' pad-left='3'>
+          <vertical spacing='3.5' pref-height='20' vertical-fit='PreferredSize' pad-top='11'>
+            <button text='Select' pref-height='5' font-size='3' click-event='ChangeModifier'/>
+            <button text='Select' pref-height='5' font-size='3' click-event='ChangeModifier'/>
+            <button text='Select' pref-height='5' font-size='3' click-event='ChangeModifier'/>
+            <button text='Select' pref-height='5' font-size='3' click-event='ChangeModifier'/>
+          </vertical>
           <text id='ClanTable' text='' align='Center' font-size='3.5'/>
-        </vertical>
+        </horizontal>
         <button text='Refresh Table' on-click='RefreshClanTable'/>
       </vertical>
     </tab>

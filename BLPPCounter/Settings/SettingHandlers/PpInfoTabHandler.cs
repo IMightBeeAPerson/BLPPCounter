@@ -220,7 +220,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (tableTable is null)
                 tableTable = new Table(table, arr, speedLbl, accLbl, gnLbl) { HasEndColumn = true };
             else
-                tableTable.Values = arr;
+                tableTable.SetValues(arr);
             Table tableTableTable = tableTable; //this is done because ref vars are not allowed to be passed into functions (probably something to do with security being compromised).
             IEnumerator DelayRoutine()
             {
@@ -303,13 +303,13 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             if (CurrentDiff is null) return;
             ClanTarget.SetText(TargetHasScore ? GetTarget() : GetNoScoreTarget());
-            Task.Run(async () =>
+            Task.Run(() =>
             {
                 PPToCapture = ClanCounter.LoadNeededPp(BeatmapID, out _, out string owningClan)[0];
                 OwningClan.SetText($"<color=red>{owningClan}</color> owns this map.");
                 PPTarget.SetText($"<color=#0F0>{Math.Round(PPToCapture, PC.DecimalPrecision)}</color> pp");
                 BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, PPToCapture, PC.DecimalPrecision) + "", ClanTable, ref ClanTableTable);
-                await ClanTableTable.AwaitHighlightRow(2);
+                ClanTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
             });
         }
         private void UpdateRelativeValues()

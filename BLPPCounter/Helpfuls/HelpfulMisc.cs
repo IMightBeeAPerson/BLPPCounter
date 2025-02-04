@@ -20,6 +20,17 @@ namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
     {
+        public static int OrderSongSpeedCorrectly(SongSpeed ss)
+        {
+            switch (ss)
+            {
+                case SongSpeed.Slower: return 0;
+                case SongSpeed.Normal: return 1;
+                case SongSpeed.Faster: return 2;
+                case SongSpeed.SuperFast: return 3;
+                default: return -1;
+            }
+        }
         public static string PPTypeToRating(PPType type)
         {
             switch (type)
@@ -141,7 +152,7 @@ namespace BLPPCounter.Helpfuls
         public static bool IsNumber(object o) => IsNumber(o.GetType());
         public static string SplitByUppercase(string s) => Regex.Replace(s, "(?!^)[A-Z][^A-Z]*", " $&");
         public static string ConvertColorToHex(Color c) => $"#{ToRgba(c):X8}";
-        public static string ConvertColorToHex(UnityEngine.Color c) => $"{ToRgba(c):X8}";
+        public static string ConvertColorToHex(UnityEngine.Color c) => $"#{ToRgba(c):X8}";
         public static string ConvertColorToMarkup(Color c) => $"<color={ConvertColorToHex(c)}>";
         public static int ArgbToRgba(int argb) => (argb << 8) + (int)((uint)argb >> 24); //can't use triple shift syntax, so best I can do is casting :(
         public static int RgbaToArgb(int rgba) => (int)((uint)rgba >> 8) + (rgba << 24);
@@ -173,68 +184,6 @@ namespace BLPPCounter.Helpfuls
         public static BSMLParserParams AddToComponent(BSMLResourceViewController brvc, UnityEngine.GameObject container) =>
             //BSMLParser.Instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc); // 1.37.0 and above
             BSMLParser.instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc); // 1.34.2 and below
-        /*public static void SetupTable(TextMeshProUGUI table, int maxWidth, string[][] values, int spaces, bool haveEndColumn, bool centerText, params string[] names)
-        {
-            //for some reason spaces in fonts won't have an actual size, so the line below will add the size to font if it doesn't have one.
-            if (table.font.characterLookupTable[' '].glyph.metrics.width == 0) table.font.MakeSpacesHaveSpace();
-            string space = new string(' ', spaces);
-            float[] maxLengths = new float[names.Length];
-            string[] rows = new string[values.Length + 2];
-            string format = centerText ? $"|{space}<space={{1}}px>{{0}}" : $"|{space}{{0}}";
-            int centerTextInc = centerText ? 3 : 2; //weird var, but is an attempt to make this less jank
-            Dictionary<uint, TMP_Character> lookupTable = new Dictionary<uint, TMP_Character>();
-
-            float GetLen(string str) => table.GetPreferredValues(str).x;//table.GetLengthOfText(str);
-            float GetLenWithoutRich(string str) => GetLen(Regex.Replace(str, "<[^>]+>", ""));
-            float GetLenWithSpacers(string str)
-            {
-                MatchCollection mc = Regex.Matches(str, "(?<=<space=)[^p]+");
-                //float addedSpace = mc.Aggregate(0.0f, (total, match) => total + float.Parse(match.Value)); // 1.37.0 and above
-                float addedSpace = mc.OfType<Match>().Aggregate(0.0f, (total, match) => total + float.Parse(match.Value)); // 1.34.2 and below
-                return GetLenWithoutRich(str) + addedSpace;
-            }
-            object[] GetFormatVals(string[] row)
-            {
-                int outArrLen = row.Length * 2 - 1;
-                if (centerText) outArrLen += row.Length;
-                if (haveEndColumn) outArrLen += centerText ? 2 : 1;
-                object[] outArr = new object[outArrLen];
-                for (int i = 0, c = 0; i < row.Length; i++, c += centerTextInc)
-                {
-                    outArr[c] = row[i];
-                    if (i < row.Length - 1 || haveEndColumn) if (centerText) { outArr[c + 1] = (maxLengths[i] - GetLenWithoutRich(row[i])) / 2; outArr[c + 2] = outArr[c + 1]; }
-                        else outArr[c + 1] = maxLengths[i] - GetLenWithoutRich(row[i]);
-                }
-                return outArr;
-            }
-
-            for (int i = 1, c = centerTextInc - 1; i < names.Length; i++, c += centerTextInc)
-                format += $"<space={{{c}}}px>{space}|{space}" + (centerText ? $"<space={{{c + 2}}}px>{{{c + 1}}}" : $"{{{c + 1}}}");
-            if (haveEndColumn) format += $"<space={{{centerTextInc * (names.Length - 2) + centerTextInc + 1}}}px>{space}|";
-            for (int i = 0; i < maxLengths.Length; i++)
-                maxLengths[i] = Math.Max(values.Aggregate(0.0f, (total, strArr) => Math.Max(total, GetLenWithoutRich(strArr[i]))), GetLenWithoutRich(names[i]));
-            
-            rows[0] = string.Format(format, GetFormatVals(names));
-            for (int i = 0; i < values.Length; i++)
-                rows[i + 2] = string.Format(format, GetFormatVals(values[i]));
-            float spacerSize = table.GetPreferredValues(space + "|").x, dashSize = table.GetPreferredValues("-").x;
-            if (haveEndColumn) spacerSize *= 2;
-            float maxSpace = maxWidth > 0 ? maxWidth : rows.Skip(2).Aggregate(0.0f, (total, str) => Math.Max(total, GetLenWithSpacers(str)));
-            int dashCount = (int)Math.Ceiling((maxSpace - spacerSize) / dashSize);
-            rows[1] = "|" + space + new string('-', dashCount);
-            if (haveEndColumn)
-            {
-                float dashLength = table.GetPreferredValues(rows[1]).x;
-                rows[1] += $"<space={maxSpace - table.GetPreferredValues(rows[1]).x - spacerSize / 2}px>{space}|";
-            }
-            rows[0] += '\n';
-            table.text = rows.Aggregate((total, str) => total + str + "\n");
-        }
-        public static void SetupTable(TextMeshProUGUI table, int maxWidth, string[][] values, bool haveEndColumn, bool centerText, params string[] names) =>
-            SetupTable(table, maxWidth, values, 2, haveEndColumn, centerText, names);
-        public static void SetupTable(TextMeshProUGUI table, int maxWidth, IEnumerable<KeyValuePair<string, string>> values, string key, string value, int spaces = 2, bool haveEndColumn = false, bool centerText = false) =>
-            SetupTable(table, maxWidth, values.Select(kvp => new string[2] { kvp.Key, kvp.Value }).ToArray(), spaces, haveEndColumn, centerText, key, value);*/
-
         public static IEnumerable<T> GetDuplicates<T, V>(this IEnumerable<T> arr, Func<T, V> valToCompare)
         {
             Dictionary<V, (T, bool)> firstItems = new Dictionary<V, (T, bool)>();
@@ -368,5 +317,12 @@ namespace BLPPCounter.Helpfuls
             else menu.Value = menu.Value; //seems stupid but calls the update method.
         }
         public static bool StatusIsUsable(int status) => (status >= 0 && status <= 3) || status == 6;
+        public static T[][] CreateSquareMatrix<T>(int rows, int columns)
+        {
+            T[][] outp = new T[rows][];
+            for (int i = 0; i < rows; i++)
+                outp[i] = new T[columns];
+            return outp;
+        }
     }
 }

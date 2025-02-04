@@ -14,6 +14,7 @@ namespace BLPPCounter.Utils
 {
     internal class Table: INotifyPropertyChanged
     {
+#pragma warning disable IDE0051
         public event PropertyChangedEventHandler PropertyChanged;
 
         public int Spaces
@@ -22,6 +23,7 @@ namespace BLPPCounter.Utils
             set
             {
                 _Spaces = value;
+                FormatValueUpdated = false;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Spaces)));
             }
         }
@@ -31,7 +33,8 @@ namespace BLPPCounter.Utils
             set
             {
                 _HasEndColumn = value;
-                //PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasEndColumn)));
+                FormatValueUpdated = false;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasEndColumn)));
             }
         }
         public bool CenterText
@@ -40,6 +43,7 @@ namespace BLPPCounter.Utils
             set
             {
                 _CenterText = value;
+                FormatValueUpdated = false;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CenterText)));
             }
         }
@@ -49,6 +53,7 @@ namespace BLPPCounter.Utils
             set
             {
                 _MaxWidth = value;
+                FormattingUpdated = false;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MaxWidth)));
             }
         }
@@ -58,7 +63,7 @@ namespace BLPPCounter.Utils
             set
             {
                 _HighlightColor = value;
-                //PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HighlightColor)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HighlightColor)));
             }
         }
         public int _Spaces = 2;
@@ -68,58 +73,61 @@ namespace BLPPCounter.Utils
         public Color _HighlightColor = new Color(1, 1, 0, 0.5f);
 
         private readonly TextMeshProUGUI Container;
-        public string[][] Values { private get; set; } //Values given to be in the table.
-        private string[][] ValueMemory; // this is a memory address, just my way to check if the "Values" variable has been changed.
+        private string[][] Values; //Values given to be in the table. Can only be set so that no one can just change a value without notifying this object.
         private string[] Names; //The top row, names of each column.
         private float[][] SpacingValues; //The amount of space to make the tables line up for each value. Includes Names, is in pixels.
-        private string[][] TableValues; //Each part of the table, properly formatted. Used when combining to make the final string.
-        private string Prefix, Suffix; //The prefix and suffix for each row.
+        private readonly string[][] TableValues; //Each part of the table, properly formatted. Used when combining to make the final string.
 
-        private bool ValuesReset;
-        public bool TableUpdated { get; private set; }
-        private float[] MaxLengths;
-        private string Format;
+        public bool FormatValueUpdated { get; private set; } //Whether or not a value that effects formatting has been updated.
+        public bool FormattingUpdated { get; private set; } //whether or not the formatting has been updated (specifically TableValues).
+        private float[] MaxLengths; //The max length in pixels of a column
+        private string Prefix, Format, Spacer, Suffix; //The prefix, formatting, spacer, and suffix for each row. 
+        private readonly HashSet<(int Row, int Column)> HighlightQueue; //This is filled when the highlight method is called and the table hasn't been updated yet. When the table updates, this is used to highlight it while processing.
+        private int HighlightCount; //This is how many cells are highlighted on the board.
 
         public Table(TextMeshProUGUI container, string[][] values, params string[] names)
         {
             Container = container;
             Values = values;
-            ValueMemory = values;
             Names = names;
+            HighlightQueue = new HashSet<(int, int)>();
+            HighlightCount = 0;
 
-            SpacingValues = new float[Values.Length + 1][]; //+1 for names lengths
+            SpacingValues = new float[Values.Length + 1][]; //+1 for Names lengths
             TableValues = new string[Values.Length + 1][];
             for (int i = 0; i < SpacingValues.Length; i++)
             {
-                SpacingValues[i] = new float[Values[0].Length];
-                TableValues[i] = new string[Values[0].Length];
+                SpacingValues[i] = new float[Names.Length];
+                TableValues[i] = new string[Names.Length];
             }
-            ValuesReset = true;
-            TableUpdated = false;
-            PropertyChanged += (a,b) => { if (!ValuesReset) ResetValues(); };
 
+            FormattingUpdated = false;
+            FormatValueUpdated = false;
             if (Container.font.characterLookupTable[' '].glyph.metrics.width == 0) Container.font.MakeSpacesHaveSpace();
         }
         public Table(TextMeshProUGUI container, IEnumerable<KeyValuePair<string, string>> values, string key, string value) 
             : this(container, values.Select(kvp => new string[2] { kvp.Key, kvp.Value }).ToArray(), key, value) {}
-
-        public void ResetValues()
+       
+        public void SetValues(string[][] values)
         {
-            MaxLengths = null;
-            Format = null;
-            Prefix = null;
-            Suffix = null;
-            ValuesReset = true;
-            TableUpdated = false;
+            Values = values;
+            FormattingUpdated = false;
         }
-        public void UpdateTable()
+        public void SetNames(string[] names)
         {
+            Names = names;
+            FormattingUpdated = false;
+        }
+        public void UpdateTable(bool removeHighlights = false)
+        {
+            if (!removeHighlights && FormattingUpdated)
+                RequeueHighlights();
             Container.text = ToString();
         }
         public void ChangeValue(int row, int column, string newValue)
         {
             Values[row][column] = newValue;
-            if (!TableUpdated || ValuesReset) return;
+            if (!FormattingUpdated) return;
             float len = GetLen(newValue);
             if (len < MaxLengths[column])
             {
@@ -127,30 +135,49 @@ namespace BLPPCounter.Utils
                 FormatCell(row + 1, column);
             }
         }
-        public void HighlightRow(int row) //NOT 0 indexed, row 1 IS row 1
+        public void HighlightCell(int row, int column)
         {
-            if (!TableUpdated) return;
-            string[] rows = Container.text.Split('\n');
-            string top = rows.Take(1 + row).Aggregate("", (total, current) => total + current + '\n');
-            string selectedRow = rows.Skip(1 + row).Take(1).First();
-            selectedRow = selectedRow.Substring(0, selectedRow.IndexOf('|') + 1) + $"<mark=#{HelpfulMisc.ConvertColorToHex(_HighlightColor)}>" + selectedRow.Substring(selectedRow.IndexOf('|') + 1) + "</mark>";
-            Container.text = top + selectedRow + '\n' + rows.Skip(2 + row).Aggregate("", (total, current) => total + current + '\n').Trim();
-        }
-        public Task AwaitHighlightRow(int row, int period = 10, int timeout = 3) //timeout is in seconds
-        {
-            int msDelay = 1000 / period, count = 0;
-            timeout *= period;
-            return Task.Run(() =>
+            if (!FormattingUpdated) 
             {
-                while (!TableUpdated)
-                {
-                    Thread.Sleep(msDelay);
-                    if (count++ >= timeout) break;
-                }
-                HighlightRow(row);
-            });
+                HighlightQueue.Add((row, column));
+                return; 
+            }
         }
-
+        private void HighlightCellInternal(int row, int column)
+        {
+            TableValues[row][column] = $"<mark={HelpfulMisc.ConvertColorToHex(_HighlightColor)}>{TableValues[row][column]}</mark>";
+            HighlightCount++;
+        }
+        public void ClearHighlights()
+        {
+            if (!FormattingUpdated)
+            {
+                HighlightCount = 0;
+                HighlightQueue.Clear();
+                return;
+            }
+            Regex r = new Regex("</?mark[^>]*>");
+            for (int row = 0; row < TableValues.Length || HighlightCount > 0; row++)
+                for (int column = 0; column < TableValues[row].Length || HighlightCount > 0; column++)
+                    if (r.IsMatch(TableValues[row][column]))
+                    {
+                        TableValues[row][column] = r.Replace(TableValues[row][column], "");
+                        HighlightCount--;
+                    }
+        }
+        private void RequeueHighlights()
+        {
+            Regex r = new Regex("</?mark[^>]*>");
+            for (int row = 0; row < TableValues.Length || HighlightCount > 0; row++)
+                for (int column = 0; column < TableValues[row].Length || HighlightCount > 0; column++)
+                    if (r.IsMatch(TableValues[row][column]))
+                    {
+                        HighlightCount--;
+                        HighlightQueue.Add((row, column));
+                        TableValues[row][column] = r.Replace(TableValues[row][column], "");
+                    }
+            HighlightCount = HighlightQueue.Count;
+        }
         private float GetLen(string str) => Container.GetPreferredValues(str).x;
         private float GetLenWithoutRich(string str) => GetLen(Regex.Replace(str, "<[^>]+>", ""));
         private float GetLenWithSpacers(string str)
@@ -160,13 +187,15 @@ namespace BLPPCounter.Utils
             float addedSpace = mc.OfType<Match>().Aggregate(0.0f, (total, match) => total + float.Parse(match.Value)); // 1.34.2 and below
             return GetLenWithoutRich(str) + addedSpace;
         }
+        private string GetRow(int rowIndex) => 
+            FormattingUpdated ? Prefix + TableValues[rowIndex].Aggregate((total, current) => total + current + Spacer) + Suffix : FormatRow(rowIndex);
         private string FormatRow(int rowIndex)
         {
             string[] vals = rowIndex == 0 ? Names : Values[rowIndex - 1];
             string outp = Prefix;
             for (int i = 0; i < vals.Length; i++)
-                outp += FormatCell(rowIndex, i);
-            outp = outp.Substring(0, outp.Length - (_Spaces * 2 + 1));
+                outp += FormatCell(rowIndex, i) + Spacer;
+            outp = outp.Substring(0, outp.Length - Spacer.Length);
             if (_CenterText) outp += string.Format(Suffix, SpacingValues[rowIndex].Last());
             return outp;
         }
@@ -176,6 +205,11 @@ namespace BLPPCounter.Utils
             TableValues[row][column] = _CenterText ?
                     string.Format(Format, vals[column], SpacingValues[row][column] / 2, SpacingValues[row][column] / 2) :
                     string.Format(Format, vals[column], SpacingValues[row][column]);
+            if (HighlightQueue.Contains((row, column)))
+            {
+                HighlightCellInternal(row, column);
+                HighlightQueue.Remove((row, column));
+            }
             return TableValues[row][column];
         }
         private void CalculateRowSpacing(int columnIndex)
@@ -185,42 +219,75 @@ namespace BLPPCounter.Utils
             for (int j = 0; j < columnLengths.Length; j++) 
                 SpacingValues[j][columnIndex] = MaxLengths[columnIndex] - columnLengths[j];
         }
+        private void UpdateValues()
+        {
+            if (MaxLengths is null)
+                UpdateMaxLengths(); //This is to make sure there are no null pointer exceptions.
+
+            if (!FormattingUpdated)
+            {
+                //If Values or Names has changed length, update to correct this.
+                if (MaxLengths.Length != Names.Length || SpacingValues.Length != Values.Length + 1)
+                    UpdateMaxLengths();
+                //FormattingUpdated is kept as false so that GetRow knows to fix formatting.
+            }
+
+            if (!FormatValueUpdated)
+            {
+                //If a value that effects formatting has been changed, update format to match.
+                UpdateFormatting();
+                //Set FormatValueUpdated back to true.
+                FormatValueUpdated = true;
+            }
+        }
+        private void UpdateMaxLengths()
+        {
+            if (MaxLengths is null || MaxLengths.Length != Names.Length || Values.Length != SpacingValues.Length - 1)
+            {
+                MaxLengths = new float[Names.Length];
+                SpacingValues = HelpfulMisc.CreateSquareMatrix<float>(Values.Length + 1, Names.Length);
+            }
+            for (int i = 0; i < MaxLengths.Length; i++)
+                CalculateRowSpacing(i);
+        }
+        private void UpdateFormatting()
+        {
+            string space = new string(' ', Spaces);
+            Prefix = $"|{space}";
+            Format = _CenterText ? "<space={1}px>{0}<space={2}px>" : "<space={1}px>{0}";
+            Spacer = $"{space}|{space}";
+            Suffix = _HasEndColumn ? $"{space}|" : "";
+        }
 
         public override string ToString()
         {
-            string space = new string(' ', Spaces);
-            string[] rows = new string[Values.Length + 2];
-            int centerTextInc = _CenterText ? 3 : 2; //weird var, but is an attempt to make this less jank
-            if (ValuesReset || ReferenceEquals(Values, ValueMemory)) 
-            {
-                ValueMemory = Values; //my way of checking if values was changed externally.
-                MaxLengths = new float[Names.Length];
-                for (int i = 0; i < MaxLengths.Length; i++) 
-                    CalculateRowSpacing(i);
-                Prefix = $"|{space}";
-                Format = (_CenterText ? "<space={1}px>{0}<space={2}px>" : "<space={1}px>{0}") + $"{space}|{space}";
-                Suffix = _CenterText ? $"{space}|" : "";
-            }
-            
-            rows[0] = FormatRow(0);
+            string space = new string(' ', Spaces); //Converts Spaces from an int into the actual amount of spaces
+            string[] rows = new string[Values.Length + 2]; //This is the actual rows the table will show, including the dividing dash line.
+
+            UpdateValues(); //Handles if any value has been updated
+
+            //Sets each row of the table to be the proper values and combines each row into a string. The only row not setup is the dashes
+            rows[0] = GetRow(0) + '\n'; //The +\n is done because of the way Aggregate works, it doesn't add the \n to the first index.
             for (int i = 0; i < Values.Length; i++)
-                rows[i + 2] = FormatRow(i + 1);
+                rows[i + 2] = GetRow(i + 1); //Skips over row[1] because that is dash row.
 
-            float spacerSize = GetLen(space + "|"), dashSize = GetLen("-");
-            if (_HasEndColumn) spacerSize *= 2; //to account for the end column
-            float maxSpace = _MaxWidth > 0 ? _MaxWidth : GetLenWithSpacers(rows[0]);
-            int dashCount = (int)Math.Ceiling((maxSpace - spacerSize) / dashSize);
-            rows[1] = "|" + space + new string('-', dashCount);
-            if (_HasEndColumn)
+            float spacerSize = GetLen(Prefix), dashSize = GetLen("-"); //Get sizes of the 2 "objects" that make up row[1], the Prefix (aka spacer) and dash.
+            if (_HasEndColumn) spacerSize *= 2; //since Prefix and Suffix are made up of the same characters, their lengths are the same.
+            float maxSpace = _MaxWidth > 0 ? _MaxWidth : GetLenWithSpacers(rows[0]); //Length of the line in pixels.
+            int dashCount = (int)Math.Ceiling((maxSpace - spacerSize) / dashSize); //The amount of dashes.
+            rows[1] = Prefix+"<space={0}px>" + new string('-', dashCount); //Sets row[1] to the prefix + space tag + the amount of dashes that was calculated
+            float spaceLength = maxSpace - dashSize * dashCount - spacerSize * 2; //The length in pixels that the spacer(s) need to be set to
+            if (_HasEndColumn) //Add last part of there is a Suffix
             {
-                float dashLength = GetLen(rows[1]);
-                rows[1] += $"<space={maxSpace - GetLen(rows[1]) - spacerSize / 2}px>{space}|";
-            }
-            rows[0] += '\n';
+                rows[1] += "<space={1}px>"+Suffix; //Adds the last part, the spacing and the suffix, to row[1].
+                rows[1] = string.Format(rows[1], spaceLength / 2, spaceLength / 2); //Format row[1] with the correct spacing.
+                //rows[1] = string.Format(rows[1], 0, 0);
+            } else
+                rows[1] = string.Format(rows[1], spaceLength); //Format row[1] with the correct spacing.
 
-            ValuesReset = false;
-            TableUpdated = true;
-            return rows.Aggregate((total, str) => total + str + "\n");
+            FormattingUpdated = true; //Make sure this is true, because if it wasn't then formatting has been updated.
+            string outp = rows.Aggregate((total, str) => total + str + '\n'); //Combine rows into one string.
+            return outp; //Return that string
         }
     }
 }
