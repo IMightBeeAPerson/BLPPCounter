@@ -326,6 +326,8 @@ namespace BLPPCounter.Helpfuls
             menu.values = newValues.Cast<object>().ToList(); // 1.34.2 and below
             if (!newValues.Any(str => str.Equals((string)menu.Value))) menu.Value = newValues[0];
             else menu.Value = menu.Value; //seems stupid but calls the update method.
+            Plugin.Log.Info("Front end value = " + (string)menu.Value);
+            menu.ApplyValue(); //Update the actual value
         }
         /// <summary>
         /// Checks if status given by BeatLeader's api is usable. Current usable statuses are listed below:

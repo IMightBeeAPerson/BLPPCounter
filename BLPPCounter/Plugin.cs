@@ -1,5 +1,4 @@
 ﻿using BeatSaberMarkupLanguage.GameplaySetup;
-using BeatSaberMarkupLanguage.Settings;
 using IPA;
 using IPA.Config.Stores;
 using BLPPCounter.Helpfuls;
@@ -11,7 +10,6 @@ using System.Reflection;
 using HarmonyLib;
 using BLPPCounter.Patches;
 using BS_Utils.Utilities;
-using BLPPCounter.Settings.SettingHandlers.MenuViews;
 
 namespace BLPPCounter
 {
@@ -40,7 +38,7 @@ namespace BLPPCounter
             TabSelectionPatch.ClearData();
             /*BSMLSettings.Instance.AddSettingsMenu("BL PP Counter", HelpfulPaths.SETTINGS_BSML, MenuSettingsHandler.Instance);
             GameplaySetup.Instance.AddTab("PP Calculator", HelpfulPaths.PP_CALC_BSML, PpInfoTabHandler.Instance); // 1.37.0 and above */
-            BSMLSettings.instance.AddSettingsMenu("BL PP Counter", HelpfulPaths.SETTINGS_BSML, MenuSettingsHandler.Instance);
+            //BSMLSettings.instance.AddSettingsMenu("BL PP Counter", HelpfulPaths.SETTINGS_BSML, MenuSettingsHandler.Instance);
             GameplaySetup.instance.AddTab("PP Calculator", HelpfulPaths.PP_CALC_BSML, PpInfoTabHandler.Instance); // 1.34.2 and below */
             SimpleSettingsHandler.Instance.ChangeMenuTab(false);
         }
@@ -71,7 +69,7 @@ namespace BLPPCounter
             BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing -= AddMenuStuff; // 1.37.0 and above */
             GameplaySetup.instance.RemoveTab("BL PP Counter");
             GameplaySetup.instance.RemoveTab("PP Calculator");
-            BSMLSettings.instance.RemoveSettingsMenu(SettingsHandler.Instance);
+            //BSMLSettings.instance.RemoveSettingsMenu(SettingsHandler.Instance);
             BSEvents.menuSceneActive -= AddMenuStuff; // 1.34.2 and below */
             Harmony.UnpatchSelf();
         }

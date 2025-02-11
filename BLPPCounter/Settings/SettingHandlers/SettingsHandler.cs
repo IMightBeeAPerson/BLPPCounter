@@ -32,8 +32,10 @@ namespace BLPPCounter.Settings.SettingHandlers
             NewInstance?.Invoke(this);
             TypesOfPPChanged += () =>
             {
-                CounterList?.UpdateListSetting(TypesOfPP.Cast<string>().ToList());
-                DefaultCounterList?.UpdateListSetting(RelativeDefaultList.Cast<string>().ToList());
+                if (CounterList != null) CounterList.UpdateListSetting(TypesOfPP.Cast<string>().ToList());
+                else if (!TypesOfPP.Any(obj => ((string)obj).Equals(PPType))) PPType = (string)TypesOfPP[0];
+                if (DefaultCounterList != null) DefaultCounterList.UpdateListSetting(RelativeDefaultList.Cast<string>().ToList());
+                else if (!RelativeDefaultList.Any(obj => ((string)obj).Equals(RelativeDefault))) RelativeDefault = (string)RelativeDefaultList[0];
             };
             PropertyChanged += (obj, args) =>
             {

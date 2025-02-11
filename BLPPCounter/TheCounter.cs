@@ -310,7 +310,7 @@ namespace BLPPCounter
                             else AddMap(APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash)));
                             m = Data[hash];
                         }
-                        lastMap = new MapSelection(m, beatmap.difficulty, mode, passRating, accRating, techRating); // 1.34.2 and below
+                        lastMap = new MapSelection(m, beatmap.difficulty, mode, passRating, accRating, techRating, starRating); // 1.34.2 and below
                         //lastMap = new MapSelection(m, beatmapDiff.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and above
                         totalNotes = HelpfulMath.NotesForMaxScore(pc.UsingSS ?
                             (int)JToken.Parse(APIHandler.CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(beatmap.difficulty))))["maxScore"] : // 1.34.2 and below
@@ -588,7 +588,7 @@ namespace BLPPCounter
                 foreach (JToken result in results)
                 {
                     //if (result is JObject jo && !jo.ContainsKey("starScoreSaber")) continue; // 1.37.0 and above
-                    if (result is JObject jo && jo.Property("starScoreSaber") != null) continue; // 1.34.0 and below
+                    if (result is JObject jo && jo.Property("starScoreSaber") == null) continue; // 1.34.0 and below
                     Map map = new Map(result["hash"].ToString(), Map.SS_MODE_NAME, Map.FromValue(int.Parse(result["difficulty"].ToString())), result["scoreSaberID"].ToString(), result);
                     if (Data.ContainsKey(map.Hash))
                         Data[map.Hash].Combine(map);
@@ -712,7 +712,7 @@ namespace BLPPCounter
             int num = pc.UsingSS ? 3 : 0;
             if (pc.SplitPPVals && num == 0) {
                 string outp = "";
-                for (int i=0;i<4;i++)
+                for (int i = 0; i < 4; i++) 
                     outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + 4], mistakes, Labels[i]) + "\n";
                 display.text = outp;
             } else
