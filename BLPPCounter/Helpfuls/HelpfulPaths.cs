@@ -75,7 +75,6 @@ namespace BLPPCounter.Helpfuls
                 if (!headersGood) using (FileStream fs = File.OpenWrite(HEADERS))
                     {
                         byte[] headerInfo = Encoding.UTF8.GetBytes(TaohHeaders.ToString());
-                        Plugin.Log.Info(TaohHeaders.ToString());
                         fs.Write(headerInfo, 0, headerInfo.Length);
                     }
             }

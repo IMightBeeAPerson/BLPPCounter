@@ -16,6 +16,9 @@ using BLPPCounter.Patches;
 using UnityEngine;
 using System.Collections;
 using System.Net.Http;
+using static GameplayModifiers;
+using BeatSaberMarkupLanguage.Parser;
+using UnityEngine.UI;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -36,15 +39,23 @@ namespace BLPPCounter.Settings.SettingHandlers
         private IDifficultyBeatmap CurrentMap; // 1.34.2 and below
         private JToken CurrentDiff;
         private object RefreshLock = new object();
-        //private readonly Dictionary<string, (BeatmapKey, Action<PpInfoTabHandler>)> Updates = new Dictionary<string, (BeatmapKey, Action<PpInfoTabHandler>)>() // 1.37.0 and above
-        private readonly Dictionary<string, (IDifficultyBeatmap, Action<PpInfoTabHandler>)> Updates = new Dictionary<string, (IDifficultyBeatmap, Action<PpInfoTabHandler>)>() // 1.34.2 and below
+        //private readonly Dictionary<string, BeatmapKey> TabMapInfo = new Dictionary<string, (BeatmapKey, Action<PpInfoTabHandler>)>() // 1.37.0 and above
+        private readonly Dictionary<string, IDifficultyBeatmap> TabMapInfo = new Dictionary<string, IDifficultyBeatmap>() // 1.34.2 and below
         {
-            {"Info", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateInfo())) },
-            {"Capture Values", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateCaptureValues())) },
-            {"Relative Values", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateRelativeValues())) },
-            {"Custom Accuracy", (default, new Action<PpInfoTabHandler>(pith => pith.UpdateCustomAccuracy())) }
+            { "Info", default },
+            { "Capture Values", default },
+            { "Relative Values", default },
+            { "Custom Accuracy", default }
         };
-        private Table ClanTableTable, RelativeTableTable, PPTableTable, PercentTableTable; 
+        private readonly Dictionary<string, Action<PpInfoTabHandler>> Updates = new Dictionary<string, Action<PpInfoTabHandler>>()
+        {
+            {"Info", new Action<PpInfoTabHandler>(pith => pith.UpdateInfo()) },
+            {"Capture Values", new Action<PpInfoTabHandler>(pith => pith.UpdateCaptureValues()) },
+            {"Relative Values", new Action<PpInfoTabHandler>(pith => pith.UpdateRelativeValues()) },
+            {"Custom Accuracy", new Action<PpInfoTabHandler>(pith => pith.UpdateCustomAccuracy()) }
+        };
+        private static readonly string[] SelectionButtonTags = new string[4] { "SSButton", "NMButton", "FSButton", "SFButton" };
+        private Table ClanTableTable, RelativeTableTable, PPTableTable, PercentTableTable, CurrentTable; 
         #region Relative Counter
         private static Func<string> GetTarget, GetNoScoreTarget;
         private float TargetPP = 0;
@@ -58,6 +69,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         #endregion
         #endregion
         #region UI Variables & components
+        [UIParams] private BSMLParserParams Parser;
+
         [UIValue(nameof(TestAcc))] private float TestAcc = PC.TestAccAmount;
         [UIValue(nameof(TestPp))] private int TestPp = PC.TestPPAmount;
         [UIComponent(nameof(PercentTable))] private TextMeshProUGUI PercentTable;
@@ -104,8 +117,6 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void ForceRefresh() { if (Sldvc != null && Gmpc != null) Refresh(true); }
         [UIAction(nameof(RefreshMods))]
         private void RefreshMods() { if (Sldvc != null && Gmpc != null) { UpdateMods(); UpdateTabDisplay(true); } }
-        [UIAction(nameof(RefreshClanTable))]
-        private void RefreshClanTable() => UpdateCaptureValues();
         [UIAction(nameof(ChangeTab))]
         private void ChangeTab(SegmentedControl sc, int index)
         {
@@ -120,8 +131,6 @@ namespace BLPPCounter.Settings.SettingHandlers
         private string PercentFormat(float toFormat) => $"{toFormat:N2}%";
         [UIAction(nameof(PPFormat))]
         private string PPFormat(int toFormat) => $"{toFormat} pp";
-        [UIAction(nameof(UpdateCA))]
-        private void UpdateCA() => UpdateCustomAccuracy();
         [UIAction(nameof(ToggleCAMode))]
         private void ToggleCAMode()
         {
@@ -132,9 +141,20 @@ namespace BLPPCounter.Settings.SettingHandlers
             PercentTable_BG.SetActive(IsPPMode);
             ModeButtonText.text = IsPPMode ? "<color=#A020F0>Input PP" : "<color=#FFD700>Input Percentage";
             UpdateCustomAccuracy();
+            BuildTable();
         }
-        [UIAction(nameof(RefreshRelativeTable))]
-        private void RefreshRelativeTable() => UpdateRelativeValues();
+        [UIAction(nameof(SelectSS))] private void SelectSS() => SelectMod(SongSpeed.Slower);
+        [UIAction(nameof(SelectNM))] private void SelectNM() => SelectMod(SongSpeed.Normal);
+        [UIAction(nameof(SelectFS))] private void SelectFS() => SelectMod(SongSpeed.Faster);
+        [UIAction(nameof(SelectSF))] private void SelectSF() => SelectMod(SongSpeed.SuperFast);
+        private void SelectMod(SongSpeed speed)
+        {
+            Gmpc.ChangeSongSpeed(speed);
+            UpdateMods();
+            UpdateCurrentTable();
+        }
+        [UIAction("#UpdateCurrentTable")] private void UpdateCurrentTable() => BuildTable();
+        [UIAction("#UpdateCurrentTab")] private void UpdateCurrentTab() => UpdateTabDisplay(true);
         #endregion
         #region Inits
         static PpInfoTabHandler()
@@ -146,6 +166,11 @@ namespace BLPPCounter.Settings.SettingHandlers
                 if (Instance.Sldvc != null && Instance.Gmpc != null)
                     Instance.Refresh();
             });
+            TabSelectionPatch.ModTabSelected += tabName =>
+            {
+                if (tabName.Equals("Mods") && Instance.Sldvc != null && Instance.Gmpc != null)
+                    Instance.Refresh(true);
+            };
             SettingsHandler.Instance.PropertyChanged += (parent, args) => {
                 if (!args.PropertyName.Equals(nameof(SettingsHandler.Target)) || Instance.CurrentMap is null) return;
                 Instance.ClearMapTabs();
@@ -230,6 +255,33 @@ namespace BLPPCounter.Settings.SettingHandlers
             Task.Run(() => Sldvc.StartCoroutine(DelayRoutine()));
             //This is done so that the game object is shown before the table is built. Otherwise, the game object gives wrong measurements, which messes up the table.
         }
+        private void BuildTable()
+        {
+            switch (CurrentTab)
+            {
+                case "Capture Values":
+                    BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, PPToCapture, PC.DecimalPrecision) + "", ClanTable, ref ClanTableTable);
+                    ClanTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
+                    break;
+                case "Relative Values":
+                    BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, TargetPP, PC.DecimalPrecision) + "", RelativeTable, ref RelativeTableTable, accLbl: "<color=#0D0>Acc</color> to Beat");
+                    RelativeTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
+                    break;
+                case "Custom Accuracy":
+                    if (IsPPMode)
+                    {
+                        BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, TestPp, PC.DecimalPrecision) + "", PercentTable, ref PercentTableTable, accLbl: "<color=#0D0>Acc</color>");
+                        PercentTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
+                    }
+                    else
+                    {
+                        BuildTable((acc, pass, tech) => BLCalc.GetSummedPp(TestAcc / 100.0f, acc, pass, tech, PC.DecimalPrecision).Total + "", PPTable, ref PPTableTable, " pp", accLbl: "<color=#0D0>PP</color>");
+                        PPTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
+                    }
+                    break;
+                default: return;
+            }
+        }
         private static string Grammarize(string mods) //this is very needed :)
         {
             int commaCount = mods.Count(c => c == ',');
@@ -244,13 +296,13 @@ namespace BLPPCounter.Settings.SettingHandlers
             GameplayModifiers mods = Gmpc.gameplayModifiers;
             switch (mods.songSpeed)
             {//Speed mods are not added to UnformattedCurrentMods because they are handled in a different way.
-                case GameplayModifiers.SongSpeed.Slower: newMods += "Slower Song, "; break;
-                case GameplayModifiers.SongSpeed.Faster: newMods += "Faster Song, "; break;
-                case GameplayModifiers.SongSpeed.SuperFast: newMods += "Super Fast Song, "; break;
+                case SongSpeed.Slower: newMods += "Slower Song, "; break;
+                case SongSpeed.Faster: newMods += "Faster Song, "; break;
+                case SongSpeed.SuperFast: newMods += "Super Fast Song, "; break;
             }
             if (mods.ghostNotes) { UnformattedCurrentMods += "gn "; newMods += "Ghost Notes, "; }
             if (mods.disappearingArrows) { UnformattedCurrentMods += "da "; newMods += "Disappearing Arrows, "; }
-            if (mods.energyType == GameplayModifiers.EnergyType.Battery) newMods += "Four Lifes, ";
+            if (mods.energyType == EnergyType.Battery) newMods += "Four Lifes, ";
             if (mods.noArrows) { UnformattedCurrentMods += "na "; newMods += "No Arrows, "; }
             if (mods.noFailOn0Energy) newMods += "No Fail, ";
             if (mods.zenMode) newMods += "Zen Mode (why are you using zen mode), ";
@@ -259,24 +311,30 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (mods.proMode) { UnformattedCurrentMods += "pm "; newMods += "Pro Mode, "; }
             if (mods.smallCubes) { UnformattedCurrentMods += "sc "; newMods += "Small Cubes, "; }
             if (mods.strictAngles) { UnformattedCurrentMods += "sa "; newMods += "Strict Angles, "; }
-            if (mods.enabledObstacleType == GameplayModifiers.EnabledObstacleType.NoObstacles) { UnformattedCurrentMods += "no "; newMods += "No Walls, "; }
+            if (mods.enabledObstacleType == EnabledObstacleType.NoObstacles) { UnformattedCurrentMods += "no "; newMods += "No Walls, "; }
             CurrentMods = newMods.Length > 1 ? Grammarize(newMods.Substring(0, newMods.Length - 2)) : null;
             if (UnformattedCurrentMods.Length > 0) UnformattedCurrentMods = UnformattedCurrentMods.Trim();
             float modMult = CurrentModMultiplier;
             if (CurrentDiff != null) CurrentModMultiplier = HelpfulPaths.GetMultiAmounts(CurrentDiff, UnformattedCurrentMods.Split(' '));
             if (!Mathf.Approximately(modMult, CurrentModMultiplier))
             {
-                Instance.Updates["Capture Values"] = (default, Instance.Updates["Capture Values"].Item2);
-                Instance.Updates["Relative Values"] = (default, Instance.Updates["Relative Values"].Item2);
+                TabMapInfo["Capture Values"] = default;
+                TabMapInfo["Relative Values"] = default;
             }
         }
         #endregion
         #region Misc Functions
-        public void UpdateTabDisplay(bool forceUpdate = false) 
+        public void UpdateTabDisplay(bool forceUpdate = false, bool runAsync = true) 
         {
-            if (CurrentTab.Length <= 0 || (!forceUpdate && Updates[CurrentTab].Item1 == CurrentMap)) return;
-            Updates[CurrentTab].Item2.Invoke(this);
-            Updates[CurrentTab] = (CurrentMap, Updates[CurrentTab].Item2);
+            if (CurrentTab.Length <= 0 || (!forceUpdate && TabMapInfo[CurrentTab] == CurrentMap)) return;
+            void Update()
+            {
+                TabMapInfo[CurrentTab] = CurrentMap;
+                Updates[CurrentTab].Invoke(this);
+                BuildTable();
+            }
+            if (runAsync) Task.Run(Update);
+            else Update();
         }
         private void UpdateInfo()
         {
@@ -303,34 +361,20 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             if (CurrentDiff is null) return;
             ClanTarget.SetText(TargetHasScore ? GetTarget() : GetNoScoreTarget());
-            Task.Run(() =>
-            {
-                PPToCapture = ClanCounter.LoadNeededPp(BeatmapID, out _, out string owningClan)[0];
-                OwningClan.SetText($"<color=red>{owningClan}</color> owns this map.");
-                PPTarget.SetText($"<color=#0F0>{Math.Round(PPToCapture, PC.DecimalPrecision)}</color> pp");
-                BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, PPToCapture, PC.DecimalPrecision) + "", ClanTable, ref ClanTableTable);
-                ClanTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
-            });
+            PPToCapture = ClanCounter.LoadNeededPp(BeatmapID, out _, out string owningClan)[0];
+            OwningClan.SetText($"<color=red>{owningClan}</color> owns this map.");
+            PPTarget.SetText($"<color=#0F0>{Math.Round(PPToCapture, PC.DecimalPrecision)}</color> pp");
         }
         private void UpdateRelativeValues()
         {
             RelativeText.SetText(TargetHasScore ? GetTarget() : GetNoScoreTarget());
             RelativeTarget.SetText($"<color=#0F0>{Math.Round(TargetPP, PC.DecimalPrecision)}</color> pp");
-            BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, TargetPP, PC.DecimalPrecision) + "", RelativeTable, ref RelativeTableTable, accLbl: "<color=#0D0>Acc</color> to Beat");
         }
         private void UpdateCustomAccuracy()
         {
             if (CurrentDiff is null) return;
-            if (IsPPMode)
-            {
-                BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, TestPp, PC.DecimalPrecision) + "", PercentTable, ref PercentTableTable, accLbl: "<color=#0D0>Acc</color>");
-                PC.TestAccAmount = TestAcc;
-            }
-            else
-            {
-                BuildTable((acc, pass, tech) => BLCalc.GetSummedPp(TestAcc / 100.0f, acc, pass, tech, PC.DecimalPrecision).Total + "", PPTable, ref PPTableTable, " pp", accLbl: "<color=#0D0>PP</color>");
-                PC.TestPPAmount = TestPp;
-            }
+            if (IsPPMode) PC.TestAccAmount = TestAcc;
+            else PC.TestPPAmount = TestPp;
         }
         private void UpdateDiff()
         {
@@ -347,24 +391,27 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void DoRefresh(bool forceRefresh)
         {
             //if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && Sldvc.beatmapKey.Equals(CurrentMap))) return; // 1.37.0 and above
-            if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && Sldvc.beatmapLevel.Equals(CurrentMap))) return; // 1.34.2 and below
+            if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && Sldvc.selectedDifficultyBeatmap.Equals(CurrentMap))) return; // 1.34.2 and below
             if (Monitor.TryEnter(RefreshLock))
             {
                 try
                 {
                     UpdateMods();
                     TargetPP = UpdateTargetPP();
-                    UpdateTabDisplay(forceRefresh);
+                    UpdateTabDisplay(forceRefresh, false);
                 }
                 catch (Exception e) { Plugin.Log.Error("There was an error!\n" + e); }
-                finally { Monitor.Exit(RefreshLock); }
+                finally 
+                { 
+                    Monitor.Exit(RefreshLock);
+                }
             }
         }
         public void ClearMapTabs()
         {
-            Instance.Updates["Capture Values"] = (default, Instance.Updates["Capture Values"].Item2);
-            Instance.Updates["Relative Values"] = (default, Instance.Updates["Relative Values"].Item2);
-            Instance.CurrentMap = default;
+            TabMapInfo["Capture Values"] = default;
+            TabMapInfo["Relative Values"] = default;
+            CurrentMap = default;
         }
         #endregion
     }

@@ -31,6 +31,17 @@ namespace BLPPCounter.Helpfuls
                 default: return -1;
             }
         }
+        public static SongSpeed OrderSongSpeedCorrectly(int ss)
+        {
+            switch (ss)
+            {
+                case 0: return SongSpeed.Slower;
+                case 1: return SongSpeed.Normal;
+                case 2: return SongSpeed.Faster;
+                case 3: return SongSpeed.SuperFast;
+                default: return default;
+            }
+        }
         public static string PPTypeToRating(PPType type)
         {
             switch (type)
@@ -316,13 +327,66 @@ namespace BLPPCounter.Helpfuls
             if (!newValues.Any(str => str.Equals((string)menu.Value))) menu.Value = newValues[0];
             else menu.Value = menu.Value; //seems stupid but calls the update method.
         }
+        /// <summary>
+        /// Checks if status given by BeatLeader's api is usable. Current usable statuses are listed below:
+        /// <list type="bullet">
+        ///     <item>
+        ///     <term>Unranked</term>
+        ///     <description>Map is unranked. The leaderboard <b>does not</b> show pp. (<paramref name="status"/> = 0)</description>
+        ///     </item>
+        ///     <item>
+        ///     <term>Nominated</term>
+        ///     <description>Map is nominated, 2 steps from being ranked. The leaderboard <b>does not</b> show pp. (<paramref name="status"/> = 1)</description>
+        ///     </item>
+        ///     <item>
+        ///     <term>Qualified</term>
+        ///     <description>Map is qualified, 1 step from being ranked. The leaderboard shows pp. (<paramref name="status"/> = 2)</description>
+        ///     </item>
+        ///     <item>
+        ///     <term>Ranked</term>
+        ///     <description>Map is ranked. The leaderboard shows pp. (<paramref name="status"/> = 3)</description>
+        ///     </item>
+        ///     <item>
+        ///     <term>Event</term>
+        ///     <description>Map is part of event. The leaderboard shows pp. (<paramref name="status"/> = 6)</description>
+        ///     </item>
+        /// </list>
+        /// </summary>
+        /// <param name="status">The status value returned from BeatLeader's api.</param>
+        /// <returns>Whether or not the api will provide enough info to calculate pp.</returns>
         public static bool StatusIsUsable(int status) => (status >= 0 && status <= 3) || status == 6;
+        /// <summary>
+        /// Create a square matrix (a matrix with all arrays inside it being the same size).
+        /// </summary>
+        /// <typeparam name="T">The type of matrix.</typeparam>
+        /// <param name="rows">How many rows to have (amount of arrays).</param>
+        /// <param name="columns">How many columns to have (the lengths of arrays).</param>
+        /// <returns>An empty matrix with all arrays inside of it initialized.</returns>
         public static T[][] CreateSquareMatrix<T>(int rows, int columns)
         {
             T[][] outp = new T[rows][];
             for (int i = 0; i < rows; i++)
                 outp[i] = new T[columns];
             return outp;
+        }
+        /// <summary>
+        /// Checks if a given matrix is a square (all of its arrays are the same length).
+        /// </summary>
+        /// <typeparam name="T">The type of the matrix</typeparam>
+        /// <param name="matrix">The matrix to validate</param>
+        /// <returns>Whether or not the matrix is a square.</returns>
+        public static bool ValidateMatrixAsSquare<T>(T[][] matrix)
+        {
+            int len = matrix[0].Length;
+            foreach (T[] arr in matrix)
+                if (arr.Length != len) return false;
+            return true;
+        }
+        public static void ChangeSongSpeed(this GameplayModifiersPanelController gmpc, SongSpeed speed)
+        {
+            if (gmpc.gameplayModifiers.songSpeed == speed) return; //If the speed is already set to this, no work need to be done.
+            gmpc.SetData(gmpc.gameplayModifiers.CopyWith(songSpeed: speed)); //Copy the current mods while only changing the speed, then set it to be correct.
+            (gmpc as IRefreshable).Refresh(); //Refresh the display so that the new modifier is shown correctly.
         }
     }
 }
