@@ -19,6 +19,7 @@ using System.Net.Http;
 using static GameplayModifiers;
 using BeatSaberMarkupLanguage.Parser;
 using UnityEngine.UI;
+using BeatSaberMarkupLanguage.Components.Settings;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -52,7 +53,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             {"Info", new Action<PpInfoTabHandler>(pith => pith.UpdateInfo()) },
             {"Capture Values", new Action<PpInfoTabHandler>(pith => pith.UpdateCaptureValues()) },
             {"Relative Values", new Action<PpInfoTabHandler>(pith => pith.UpdateRelativeValues()) },
-            {"Custom Accuracy", new Action<PpInfoTabHandler>(pith => pith.UpdateCustomAccuracy()) }
+            {"Custom Accuracy", new Action<PpInfoTabHandler>(pith => pith.UpdateCustomAccuracy()) },
         };
         private static readonly string[] SelectionButtonTags = new string[4] { "SSButton", "NMButton", "FSButton", "SFButton" };
         private Table ClanTableTable, RelativeTableTable, PPTableTable, PercentTableTable, CurrentTable; 
@@ -71,13 +72,52 @@ namespace BLPPCounter.Settings.SettingHandlers
         #region UI Variables & components
         [UIParams] private BSMLParserParams Parser;
 
+        [UIValue(nameof(PercentSliderMin))] private float PercentSliderMin
+        {
+            get => PC.PercentSliderMin;
+            set
+            {
+                PC.PercentSliderMin = value;
+                CA_PercentSliderSlider.slider.minValue = value;
+            }
+        }
+        [UIValue(nameof(PercentSliderMax))] private float PercentSliderMax
+        {
+            get => PC.PercentSliderMax;
+            set
+            {
+                PC.PercentSliderMax = value;
+                CA_PercentSliderSlider.slider.maxValue = value;
+            }
+        }
+        [UIValue(nameof(PPSliderMin))] private int PPSliderMin
+        {
+            get => PC.PPSliderMin;
+            set
+            {
+                PC.PPSliderMin = value;
+                CA_PPSliderSlider.slider.minValue = value;
+            }
+        }
+        [UIValue(nameof(PPSliderMax))] private int PPSliderMax
+        {
+            get => PC.PPSliderMax;
+            set
+            {
+                PC.PPSliderMax = value;
+                CA_PPSliderSlider.slider.maxValue = value;
+            }
+        }
+
         [UIValue(nameof(TestAcc))] private float TestAcc = PC.TestAccAmount;
         [UIValue(nameof(TestPp))] private int TestPp = PC.TestPPAmount;
         [UIComponent(nameof(PercentTable))] private TextMeshProUGUI PercentTable;
         [UIComponent(nameof(PPTable))] private TextMeshProUGUI PPTable;
         [UIComponent("ModeButton")] private TextMeshProUGUI ModeButtonText;
         [UIObject(nameof(CA_PercentSlider))] private GameObject CA_PercentSlider;
+        [UIComponent(nameof(CA_PercentSlider))] private SliderSetting CA_PercentSliderSlider;
         [UIObject(nameof(CA_PPSlider))] private GameObject CA_PPSlider;
+        [UIComponent(nameof(CA_PPSlider))] private SliderSetting CA_PPSliderSlider;
         [UIObject(nameof(PercentTable_BG))] private GameObject PercentTable_BG;
         [UIObject(nameof(PPTable_BG))] private GameObject PPTable_BG;
 
@@ -123,7 +163,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (sc.cells[index] is TextSegmentedControlCell tscc)
             {
                 CurrentTab = tscc.text;
-                if (Sldvc != null && Gmpc != null)
+                if (Sldvc != null && Gmpc != null && !CurrentTab.Equals("Settings"))
                     UpdateTabDisplay();
             }
         }

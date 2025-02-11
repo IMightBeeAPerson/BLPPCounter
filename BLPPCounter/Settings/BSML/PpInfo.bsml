@@ -1,7 +1,7 @@
 <bg child-control-height='false' 
   xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:noNamespaceSchemaLocation='https://monkeymanboy.github.io/BSML-Docs/BSMLSchema.xsd'>
   
-    <tab-selector tab-tag='tabs' select-cell='ChangeTab'/>
+    <tab-selector tab-tag='tabs' select-cell='ChangeTab' anchor-pos-x='-20'/>
   
     <tab tags='tabs' tab-name='Info'>
       <vertical spacing='2' vertical-fit='PreferredSize' pref-height='50' anchor-pos-y='-2' horizontal-fit='PreferredSize' pref-width='75' child-expand-height='false'>
@@ -91,8 +91,8 @@
         <button id='ModeButton' text='&#60;color=#A020F0&#62;Input PP' align='Left' on-click='ToggleCAMode'/>
         <button text='Apply Values' click-event='UpdateCurrentTable' align='Right'/>
       </horizontal>
-      <slider-setting id='CA_PercentSlider' active='false' text='Percentage' color='#FFD700' increment='0.05' integer-only='false' min='50' max='100' show-buttons='true' apply-on-change='true' value='TestAcc' formatter='PercentFormat'/>
-      <slider-setting id='CA_PPSlider' text='PP Amount' color='#A020F0' increment='5' integer-only='true' min='100' max='1000' show-buttons='true' apply-on-change='true' value='TestPp' formatter='PPFormat'/>
+      <slider-setting id='CA_PercentSlider' active='false' text='Percentage' color='#FFD700' increment='0.05' integer-only='false' min='~PercentSliderMin' max='~PercentSliderMax' show-buttons='true' apply-on-change='true' value='TestAcc' formatter='PercentFormat'/>
+      <slider-setting id='CA_PPSlider' text='PP Amount' color='#A020F0' increment='5' integer-only='true' min='~PPSliderMin' max='~PPSliderMax' show-buttons='true' apply-on-change='true' value='TestPp' formatter='PPFormat'/>
       <horizontal id='PercentTable_BG' bg='round-rect-panel' bg-color='#CCC' pad-left='3'>
         <text id='PercentTable' text='&#10;&#10;&#10;&#10;&#10;&#10;' align='Center' font-size='3.5'/>
         <vertical spacing='3.5' pref-height='20' vertical-fit='PreferredSize' pad-top='11'>
@@ -111,6 +111,16 @@
           <button text='Select' pref-height='5' font-size='3' on-click='SelectSF' tags='SFButton'/>
         </vertical>
       </horizontal>
+    </vertical>
+  </tab>
+
+  <tab tags='tabs' tab-name='Settings'>
+    <vertical spacing='1' vertical-fit='PreferredSize' pref-height='55' anchor-pos-y='-5.5' horizontal-fit='PreferredSize' pref-width='80' child-expand-height='false'>
+      <text text='Custom Accuracy Settings' align='Center' font-size='6'/>
+      <slider-setting text='Minimum Accuracy' increment='0.05' integer-only='false' min='0' max='100' show-buttons='true' apply-on-change='true' value='PercentSliderMin' formatter='PercentFormat'/>
+      <slider-setting text='Maximum Accuracy' increment='0.05' integer-only='false' min='0' max='100' show-buttons='true' apply-on-change='true' value='PercentSliderMax' formatter='PercentFormat'/>
+      <slider-setting text='Minimum PP' increment='5' integer-only='true' min='0' max='3000' show-buttons='true' apply-on-change='true' value='PPSliderMin' formatter='PPFormat'/>
+      <slider-setting text='Maximum PP' increment='5' integer-only='true' min='0' max='3000' show-buttons='true' apply-on-change='true' value='PPSliderMax' formatter='PPFormat'/>
     </vertical>
   </tab>
 </bg>
