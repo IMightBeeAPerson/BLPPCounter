@@ -40,20 +40,21 @@ namespace BLPPCounter.Settings.SettingHandlers
         private IDifficultyBeatmap CurrentMap; // 1.34.2 and below
         private JToken CurrentDiff;
         private object RefreshLock = new object();
+        private bool SelectButtonsOn = false;
         //private readonly Dictionary<string, BeatmapKey> TabMapInfo = new Dictionary<string, (BeatmapKey, Action<PpInfoTabHandler>)>() // 1.37.0 and above
         private readonly Dictionary<string, IDifficultyBeatmap> TabMapInfo = new Dictionary<string, IDifficultyBeatmap>() // 1.34.2 and below
         {
             { "Info", default },
-            { "Capture Values", default },
-            { "Relative Values", default },
-            { "Custom Accuracy", default }
+            { "Capture", default },
+            { "Relative", default },
+            { "Custom", default }
         };
         private readonly Dictionary<string, Action<PpInfoTabHandler>> Updates = new Dictionary<string, Action<PpInfoTabHandler>>()
         {
             {"Info", new Action<PpInfoTabHandler>(pith => pith.UpdateInfo()) },
-            {"Capture Values", new Action<PpInfoTabHandler>(pith => pith.UpdateCaptureValues()) },
-            {"Relative Values", new Action<PpInfoTabHandler>(pith => pith.UpdateRelativeValues()) },
-            {"Custom Accuracy", new Action<PpInfoTabHandler>(pith => pith.UpdateCustomAccuracy()) },
+            {"Capture", new Action<PpInfoTabHandler>(pith => pith.UpdateCaptureValues()) },
+            {"Relative", new Action<PpInfoTabHandler>(pith => pith.UpdateRelativeValues()) },
+            {"Custom", new Action<PpInfoTabHandler>(pith => pith.UpdateCustomAccuracy()) },
         };
         private static readonly string[] SelectionButtonTags = new string[4] { "SSButton", "NMButton", "FSButton", "SFButton" };
         private Table ClanTableTable, RelativeTableTable, PPTableTable, PercentTableTable, CurrentTable; 
@@ -74,40 +75,48 @@ namespace BLPPCounter.Settings.SettingHandlers
 
         [UIValue(nameof(PercentSliderMin))] private float PercentSliderMin
         {
-            get => PC.PercentSliderMin;
+            get => _PercentSliderMin;
             set
             {
-                PC.PercentSliderMin = value;
-                CA_PercentSliderSlider.slider.minValue = value;
+                _PercentSliderMin = value;
+                CA_PercentSliderSlider.ChangeMinValue(value);
             }
         }
         [UIValue(nameof(PercentSliderMax))] private float PercentSliderMax
         {
-            get => PC.PercentSliderMax;
+            get => _PercentSliderMax;
             set
             {
-                PC.PercentSliderMax = value;
-                CA_PercentSliderSlider.slider.maxValue = value;
+                _PercentSliderMax = value;
+                CA_PercentSliderSlider.ChangeMaxValue(value);
             }
         }
         [UIValue(nameof(PPSliderMin))] private int PPSliderMin
         {
-            get => PC.PPSliderMin;
+            get => _PPSliderMin;
             set
             {
-                PC.PPSliderMin = value;
-                CA_PPSliderSlider.slider.minValue = value;
+                _PPSliderMin = value;
+                CA_PPSliderSlider.ChangeMinValue(value);
             }
         }
         [UIValue(nameof(PPSliderMax))] private int PPSliderMax
         {
-            get => PC.PPSliderMax;
+            get => _PPSliderMax;
             set
             {
-                PC.PPSliderMax = value;
-                CA_PPSliderSlider.slider.maxValue = value;
+                _PPSliderMax = value;
+                CA_PPSliderSlider.ChangeMaxValue(value);
             }
         }
+        private float _PercentSliderMin = PC.PercentSliderMin;
+        private float _PercentSliderMax = PC.PercentSliderMax;
+        private int _PPSliderMin = PC.PPSliderMin;
+        private int _PPSliderMax = PC.PPSliderMax;
+        [UIComponent(nameof(MinAccSlider))] private SliderSetting MinAccSlider;
+        [UIComponent(nameof(MaxAccSlider))] private SliderSetting MaxAccSlider;
+        [UIComponent(nameof(MinPPSlider))] private SliderSetting MinPPSlider;
+        [UIComponent(nameof(MaxPPSlider))] private SliderSetting MaxPPSlider;
 
         [UIValue(nameof(TestAcc))] private float TestAcc = PC.TestAccAmount;
         [UIValue(nameof(TestPp))] private int TestPp = PC.TestPPAmount;
@@ -162,8 +171,9 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             if (sc.cells[index] is TextSegmentedControlCell tscc)
             {
+                if (CurrentTab.Equals("Settings")) SaveSettings();
                 CurrentTab = tscc.text;
-                if (Sldvc != null && Gmpc != null && !CurrentTab.Equals("Settings"))
+                if (Sldvc != null && Gmpc != null)
                     UpdateTabDisplay();
             }
         }
@@ -180,8 +190,11 @@ namespace BLPPCounter.Settings.SettingHandlers
             PPTable_BG.SetActive(!IsPPMode);
             PercentTable_BG.SetActive(IsPPMode);
             ModeButtonText.text = IsPPMode ? "<color=#A020F0>Input PP" : "<color=#FFD700>Input Percentage";
-            UpdateCustomAccuracy();
-            BuildTable();
+            if (Sldvc != null) 
+            {
+                UpdateCustomAccuracy();
+                BuildTable(); 
+            }
         }
         [UIAction(nameof(SelectSS))] private void SelectSS() => SelectMod(SongSpeed.Slower);
         [UIAction(nameof(SelectNM))] private void SelectNM() => SelectMod(SongSpeed.Normal);
@@ -193,8 +206,23 @@ namespace BLPPCounter.Settings.SettingHandlers
             UpdateMods();
             UpdateCurrentTable();
         }
+        [UIAction(nameof(SaveSettings))] private void SaveSettings()
+        {
+            PC.PercentSliderMin = _PercentSliderMin;
+            PC.PercentSliderMax = _PercentSliderMax;
+            PC.PPSliderMin = _PPSliderMin;
+            PC.PPSliderMax = _PPSliderMax;
+        }
         [UIAction("#UpdateCurrentTable")] private void UpdateCurrentTable() => BuildTable();
         [UIAction("#UpdateCurrentTab")] private void UpdateCurrentTab() => UpdateTabDisplay(true);
+        [UIAction("#post-parse")] private void DoStuff()
+        {
+            HelpfulMisc.CoupleMinMaxSliders(Instance.MinAccSlider, Instance.MaxAccSlider);
+            HelpfulMisc.CoupleMinMaxSliders(Instance.MinPPSlider, Instance.MaxPPSlider);
+            foreach (string s in SelectionButtonTags)
+                foreach (GameObject go in Parser.GetObjectsWithTag(s))
+                    go.SetActive(false);
+        }
         #endregion
         #region Inits
         static PpInfoTabHandler()
@@ -291,6 +319,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             {
                 yield return new WaitForEndOfFrame();
                 tableTableTable.UpdateTable();
+                TurnOnSelectButtons();
             };
             Task.Run(() => Sldvc.StartCoroutine(DelayRoutine()));
             //This is done so that the game object is shown before the table is built. Otherwise, the game object gives wrong measurements, which messes up the table.
@@ -299,15 +328,15 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             switch (CurrentTab)
             {
-                case "Capture Values":
+                case "Capture":
                     BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, PPToCapture, PC.DecimalPrecision) + "", ClanTable, ref ClanTableTable);
                     ClanTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
                     break;
-                case "Relative Values":
+                case "Relative":
                     BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, TargetPP, PC.DecimalPrecision) + "", RelativeTable, ref RelativeTableTable, accLbl: "<color=#0D0>Acc</color> to Beat");
                     RelativeTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
                     break;
-                case "Custom Accuracy":
+                case "Custom":
                     if (IsPPMode)
                     {
                         BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, TestPp, PC.DecimalPrecision) + "", PercentTable, ref PercentTableTable, accLbl: "<color=#0D0>Acc</color>");
@@ -358,15 +387,23 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (CurrentDiff != null) CurrentModMultiplier = HelpfulPaths.GetMultiAmounts(CurrentDiff, UnformattedCurrentMods.Split(' '));
             if (!Mathf.Approximately(modMult, CurrentModMultiplier))
             {
-                TabMapInfo["Capture Values"] = default;
-                TabMapInfo["Relative Values"] = default;
+                TabMapInfo["Capture"] = default;
+                TabMapInfo["Relative"] = default;
             }
+        }
+        private void TurnOnSelectButtons()
+        {
+            if (SelectButtonsOn) return;
+            foreach (string s in SelectionButtonTags)
+                foreach (GameObject go in Parser.GetObjectsWithTag(s))
+                    go.SetActive(true);
+            SelectButtonsOn = true;
         }
         #endregion
         #region Misc Functions
         public void UpdateTabDisplay(bool forceUpdate = false, bool runAsync = true) 
         {
-            if (CurrentTab.Length <= 0 || (!forceUpdate && TabMapInfo[CurrentTab] == CurrentMap)) return;
+            if (CurrentTab.Equals("Settings") || Sldvc is null || CurrentTab.Length == 0 || (!forceUpdate && TabMapInfo[CurrentTab] == CurrentMap)) return;
             void Update()
             {
                 TabMapInfo[CurrentTab] = CurrentMap;
@@ -449,7 +486,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         public void ClearMapTabs()
         {
-            TabMapInfo["Capture Values"] = default;
+            TabMapInfo["Capture"] = default;
             TabMapInfo["Relative Values"] = default;
             CurrentMap = default;
         }

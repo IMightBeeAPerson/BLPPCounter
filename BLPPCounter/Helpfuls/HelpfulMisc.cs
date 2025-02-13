@@ -384,11 +384,34 @@ namespace BLPPCounter.Helpfuls
                 if (arr.Length != len) return false;
             return true;
         }
+        /// <summary>
+        /// Changes the song speed of the gameplay modifier panel to the given song speed.
+        /// </summary>
+        /// <param name="gmpc">the gameplay modifier panel</param>
+        /// <param name="speed">the new speed to set it to</param>
         public static void ChangeSongSpeed(this GameplayModifiersPanelController gmpc, SongSpeed speed)
         {
             if (gmpc.gameplayModifiers.songSpeed == speed) return; //If the speed is already set to this, no work need to be done.
             gmpc.SetData(gmpc.gameplayModifiers.CopyWith(songSpeed: speed)); //Copy the current mods while only changing the speed, then set it to be correct.
             (gmpc as IRefreshable).Refresh(); //Refresh the display so that the new modifier is shown correctly.
+        }
+        public static void ChangeMinValue(this SliderSetting ss, float newVal) => ChangeValue(ss, newVal, true);
+        public static void ChangeMaxValue(this SliderSetting ss, float newVal) => ChangeValue(ss, newVal, false);
+        private static void ChangeValue(SliderSetting ss, float newVal, bool isMinVal)
+        {
+            float currentVal = ss.slider.value;
+            if (isMinVal) ss.slider.minValue = newVal; else ss.slider.maxValue = newVal;
+            ss.slider.numberOfSteps = (int)Math.Round((ss.slider.maxValue - ss.slider.minValue) / ss.increments) + 1;
+            if ((isMinVal && newVal < currentVal) || (!isMinVal && newVal > currentVal)) ss.slider.value = currentVal;
+        }
+        public static void CoupleMinMaxSliders(SliderSetting min, SliderSetting max)
+        {
+            min.slider.valueDidChangeEvent += (slider, newVal) => { if (max.Value < newVal) min.Value = max.Value; };
+            max.slider.valueDidChangeEvent += (slider, newVal) => { if (min.Value > newVal) max.Value = min.Value; };
+        }
+        public static void PrintVars(params (string varName, object value)[] vars)
+        {
+            Plugin.Log.Info(vars.Aggregate("", (total, current) => total + $", {current.varName} = {current.value}").Substring(2));
         }
     }
 }
