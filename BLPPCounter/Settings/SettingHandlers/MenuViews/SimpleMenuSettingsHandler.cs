@@ -17,7 +17,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 #pragma warning disable IDE0044, IDE0051
         public override string ResourceName => "BLPPCounter.Settings.BSML.MenuComponents.SimpleSettings.bsml";
         private static PluginConfig PC => PluginConfig.Instance;
-        public static SimpleMenuSettingsHandler Instance { get; } = new SimpleMenuSettingsHandler();
+        public static SimpleMenuSettingsHandler Instance { get; private set; } = new SimpleMenuSettingsHandler();
         private int changes = 0;
         private readonly Action<int, bool> AddChange;
         public SimpleMenuSettingsHandler()
@@ -28,8 +28,10 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             { 
                 if (SettingsToSave[id] == newVal) changes &= ~(1 << id);
                 else changes |= 1 << id;
+#if !NEW_VERSION
                 if (!(saveButton is null)) // 1.34.2 and below
-                    saveButton.interactable = changes > 0;
+#endif
+                saveButton.interactable = changes > 0;
             };
         }
 
@@ -58,8 +60,11 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             UISettings.AddRange(ConvertMenu().Cast<object>());
             for (int i = 0; i < UISettings.Count; i++) if (UISettings[i] is SettingToggleInfo sti) sti.Usable = SettingsToSave[i];
             changes = 0;
-            //UICustomizer.TableView.ReloadData(); // 1.37.0 and above
+#if NEW_VERSION
+            UICustomizer.TableView.ReloadData(); // 1.37.0 and above
+#else
             UICustomizer?.tableView.ReloadData(); // 1.34.2 and below
+#endif
         }
         private List<SettingToggleInfo> ConvertMenu()
         {
@@ -83,6 +88,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                     count++,
                     AddChange
                     ));
+            //HelpfulMisc.PrintVars((nameof(outp), outp.Count));
             return outp;
         }
 

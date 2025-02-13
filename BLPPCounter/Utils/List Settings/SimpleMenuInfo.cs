@@ -37,8 +37,13 @@ namespace BLPPCounter.Utils
         #region List Vars
         private PropertyInfo OptionVal;
         [UIValue(nameof(Options))]
-        public List<object> Options => OptionVal?.GetValue(SettingObj) as List<object> ?? new List<object>(1) { "" }; //this is done because of BSML .indexOf needing to not return -1
-        #endregion
+        public List<object> Options => OptionVal?.GetValue(SettingObj) as List<object> ??
+#if NEW_VERSION
+            new List<object>();
+#else
+            new List<object>(1) { "" }; //this is done because of BSML .indexOf needing to not return -1
+#endif
+#endregion
         #region Show Events
         [UIValue(nameof(ShowEvent0))] public bool ShowEvent0 { get; private set; } = false;
         [UIValue(nameof(ShowEvent1))] public bool ShowEvent1 { get; private set; } = false;

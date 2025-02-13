@@ -276,7 +276,7 @@ namespace BLPPCounter.Utils
         {
             string space = new string(' ', Spaces); //Set space to the amount of Spaces. 
             Prefix = $"|{space}"; //Sets prefix based on Spaces.
-            Format = _CenterText ? "<space={1}px>{0}<space={2}px>" : "<space={1}px>{0}"; //Sets Format based on CenterText.
+            Format = _CenterText ? "<space={1}px>{0}<space={2}px>" : "{0}<space={1}px>"; //Sets Format based on CenterText.
             Spacer = $"{space}|{space}"; //Sets Spacer based on Spaces.
             Suffix = _HasEndColumn ? $"{space}|" : ""; //Sets Suffix based on Spaces and HasEndColumn.
         }

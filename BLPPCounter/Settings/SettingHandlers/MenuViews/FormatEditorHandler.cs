@@ -29,6 +29,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         #region Misc Variables
         private FormatRelation CurrentFormatInfo => MenuSettingsHandler.AllFormatInfo[(_FormatName, _Counter)];
         private bool loaded = false;
+        public bool IsLoaded => loaded;
         private string rawFormat;
         private bool saveable = false;
         #endregion
@@ -66,20 +67,33 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         #endregion
         #region UI Values
         #region Main Menu
+#if NEW_VERSION
+        [UIValue(nameof(Counter))]
+        private string Counter { get => _Counter; set { _Counter = value; UpdateFormatOptions(); } }
+        private string _Counter;
+        [UIValue(nameof(FormatName))]
+        private string FormatName { get => _FormatName; set { _FormatName = value; UpdateFormatDisplay(); } } 
+        private string _FormatName; // 1.37.0 and above
+#else
         [UIValue(nameof(Counter))]
         private string Counter { get => _Counter ?? CounterNames[0] as string; set { _Counter = value; UpdateFormatOptions(); } }
         private string _Counter = null;
         [UIValue(nameof(FormatName))]
-        private string FormatName { get => _FormatName ?? FormatNameContainer.Value as string; set { _FormatName = value; UpdateFormatDisplay(); } }
-        private string _FormatName = null;
+        private string FormatName { get => _FormatName ?? FormatNameContainer.Value as string; set { _FormatName = value; UpdateFormatDisplay(); } } 
+        private string _FormatName = null; // 1.34.2 and below
+#endif
         [UIValue(nameof(CounterNames))]
         private List<object> CounterNames => TheCounter.ValidDisplayNames.Where(a => MenuSettingsHandler.AllFormatInfo.Any(b => b.Key.Item2.Equals(a)))
             .Append(TheCounter.DisplayName).Cast<object>().ToList();
+#if NEW_VERSION
         [UIValue(nameof(FormatNames))]
+        private List<object> FormatNames = new List<object>(); // 1.37.0 and above
+#else
         private List<object> FormatNames => FormatNameContainer.List;
-        private FilledList FormatNameContainer = new FilledList();
-        #endregion
-        #region Format Editor
+        private FilledList FormatNameContainer = new FilledList(); // 1.34.2 and below
+#endif
+#endregion
+#region Format Editor
         [UIValue(nameof(FormatChunks))]
         public List<object> FormatChunks { get; } = new List<object>();
         #endregion
@@ -87,29 +101,36 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         [UIValue(nameof(FormatValues))]
         private List<object> FormatValues { get; } = new List<object>();
         #endregion
-        #endregion
+#endregion
         #region UI Actions & UI Called Functions
         #region Main Menu
         [UIAction("#back")] private void GoBack() => MenuSettingsHandler.Instance.GoBack();
         private void UpdateFormatOptions()
         {
+#if NEW_VERSION
+            FormatNames = MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>().ToList();
+            ChooseFormat.Values = FormatNames; // 1.37.0 and above
+#else
             FormatNameContainer = new FilledList(MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>().ToList());
             Plugin.Log.Info($"[{FormatNames.Aggregate("", (total, obj) => ", " + obj.ToString()).Substring(2)}]");
-            //ChooseFormat.Values = FormatNames; // 1.37.0 and above
             ChooseFormat.values = FormatNames; // 1.34.2 and below
+#endif
             if (FormatNames.Count > 0) FormatName = FormatNames[0] as string;
             ChooseFormat.Value = FormatName;
             ChooseFormat.UpdateChoices();
         }
         internal void UpdateFormatDisplay()
         {
-            Plugin.Log.Info($"Counter: {_Counter}, Format: {_FormatName}");
+            //Plugin.Log.Info($"Counter: {_Counter}, Format: {_FormatName}");
             FormatListInfo.AliasConverter = CurrentFormatInfo.Alias;
             foreach (KeyValuePair<string, char> item in GLOBAL_ALIASES) FormatListInfo.AliasConverter[item.Key] = item.Value;
             FormattedText.text = CurrentFormatInfo.GetQuickFormat();
             //This is so that ui doesn't break from a specific error.
-            //if (FormattedText.text.Contains("\nPossible")) FormattedText.text = FormattedText.text.Split("\nPossible")[0]; // 1.37.0 and above
+#if NEW_VERSION
+            if (FormattedText.text.Contains("\nPossible")) FormattedText.text = FormattedText.text.Split("\nPossible")[0]; // 1.37.0 and above
+#else
             if (FormattedText.text.Contains("\nPossible")) FormattedText.text = FormattedText.text.Split("\nPossible".ToCharArray())[0]; // 1.34.2 and below
+#endif
             RawFormatText.text = FormatListInfo.ColorFormat(CurrentFormatInfo.Format.Replace("\n", "\\n"));
             //Plugin.Log.Debug(RawFormatText.text);
         }
@@ -126,8 +147,11 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private void UpdateFormatTable(bool forceUpdate = false)
         {
             if (!forceUpdate && !PC.UpdatePreview) return;
-            //FormatEditor.TableView.ReloadData(); // 1.37.0 and above
+#if NEW_VERSION
+            FormatEditor.TableView.ReloadData(); // 1.37.0 and above
+#else
             FormatEditor.tableView.ReloadData(); // 1.34.2 and below
+#endif
             UpdatePreviewDisplay(true);
         }
         public void UpdatePreviewDisplay(bool forceUpdate = false)
@@ -142,12 +166,18 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                 saveable &= fli.Updatable();
             }
             PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : "Can not format.";
-            //if (PreviewDisplay.text.Contains("\nPossible")) PreviewDisplay.text = PreviewDisplay.text.Split("\nPossible")[0]; // 1.37.0 and above
+#if NEW_VERSION
+            if (PreviewDisplay.text.Contains("\nPossible")) PreviewDisplay.text = PreviewDisplay.text.Split("\nPossible")[0]; // 1.37.0 and above
+#else
             if (PreviewDisplay.text.Contains("\nPossible")) PreviewDisplay.text = PreviewDisplay.text.Split("\nPossible".ToCharArray())[0]; // 1.34.2 and below
+#endif
             RawPreviewDisplay.text = colorOutp;
             rawFormat = outp.Replace("\\n", "\n");
-            //FormatEditor.TableView.ClearSelection(); // 1.37.0 and above
+#if NEW_VERSION
+            FormatEditor.TableView.ClearSelection(); // 1.37.0 and above
+#else
             FormatEditor.tableView.ClearSelection(); // 1.34.2 and below
+#endif
             UpdateSaveButton();
         }
         private void UpdateSaveButton()
@@ -187,7 +217,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             if (endFli == null) colorOutp += richEnd; //if endFli is null, then this is not a saveable format, therefore outp doesn't need to be updated.
             PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : "Can not format.";
             RawPreviewDisplay.text = colorOutp;
-            Plugin.Log.Debug(colorOutp);
+            //Plugin.Log.Debug(colorOutp);
             UpdateSaveButton();
         }
         [UIAction(nameof(AddDefaultChunk))]
@@ -202,11 +232,17 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private void ForceUpdatePreviewDisplay() => UpdatePreviewDisplay(true); //dislike this function's need for existance.
 
         [UIAction(nameof(ScrollToTop))]
-        //private void ScrollToTop() => FormatEditor.TableView.ScrollToCellWithIdx(0, TableView.ScrollPositionType.Beginning, false); // 1.37.0 and above
+#if NEW_VERSION
+        private void ScrollToTop() => FormatEditor.TableView.ScrollToCellWithIdx(0, TableView.ScrollPositionType.Beginning, false); // 1.37.0 and above
+#else
         private void ScrollToTop() => FormatEditor.tableView.ScrollToCellWithIdx(0, TableView.ScrollPositionType.Beginning, false); // 1.34.2 and below
+#endif
         [UIAction(nameof(ScrollToBottom))]
-        //private void ScrollToBottom() => FormatEditor.TableView.ScrollToCellWithIdx(FormatChunks.Count - 1, TableView.ScrollPositionType.End, false); // 1.37.0 and above
+#if NEW_VERSION
+        private void ScrollToBottom() => FormatEditor.TableView.ScrollToCellWithIdx(FormatChunks.Count - 1, TableView.ScrollPositionType.End, false); // 1.37.0 and above
+#else
         private void ScrollToBottom() => FormatEditor.tableView.ScrollToCellWithIdx(FormatChunks.Count - 1, TableView.ScrollPositionType.End, false); // 1.34.2 and below
+#endif
         [UIAction(nameof(ParseCurrentFormat))]
         private void ParseCurrentFormat()
         {
@@ -270,13 +306,16 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             }
             FormatValues.Clear();
             FormatValues.AddRange(outp.Cast<object>());
-            //ValueEditor.TableView.ReloadData(); // 1.37.0 and above
+#if NEW_VERSION
+            ValueEditor.TableView.ReloadData(); // 1.37.0 and above
+#else
             ValueEditor.tableView.ReloadData(); // 1.34.2 and below
+#endif
             UpdatePreviewForValue(true);
             ValueSaveButton.interactable = false;
         }
         #endregion
         #endregion
-        #endregion
+#endregion
     }
 }

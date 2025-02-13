@@ -46,13 +46,13 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                 Plugin.Log.Info("Done!");
                 HelpfulMisc.AddToComponent(CustomAliasHandler.Instance, AliasContainer);
             }*/
-            Plugin.Log.Info("SimpleMenuSettingsHandler");
+            //Plugin.Log.Info("SimpleMenuSettingsHandler");
             HelpfulMisc.AddToComponent(SimpleMenuSettingsHandler.Instance, SimpleContainer);
-            Plugin.Log.Info("FormatEditorHandler");
+            //Plugin.Log.Info("FormatEditorHandler");
             HelpfulMisc.AddToComponent(FormatEditorHandler.Instance, FormatContainer);
-            Plugin.Log.Info("ColorSettingsHandler");
+            //Plugin.Log.Info("ColorSettingsHandler");
             HelpfulMisc.AddToComponent(ColorSettingsHandler.Instance, ColorContainer);
-            Plugin.Log.Info("CustomAliasHandler");
+            //Plugin.Log.Info("CustomAliasHandler");
             HelpfulMisc.AddToComponent(CustomAliasHandler.Instance, AliasContainer);
         }
         static MenuSettingsHandler()

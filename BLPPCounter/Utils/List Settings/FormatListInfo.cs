@@ -400,10 +400,13 @@ namespace BLPPCounter.Utils
             }
             if (((Escaped_Token | Escaped_Character | Group_Open | Parameter) & Chunk) > 0)
             {
-                /*Choicer.Values = ChoiceOptions;
+#if NEW_VERSION
+                Choicer.Values = ChoiceOptions;
                 if (!Choicer.Values.Contains(Text)) { Choicer.Value = Choicer.Values[0]; Text = Choicer.Values[0] as string; }  //1.37.0 and above */
+#else
                 Choicer.values = ChoiceOptions;
-                if (!Choicer.values.Contains(Text)) { Choicer.Value = Choicer.values[0]; Text = Choicer.values[0] as string; }  //1.37.0 and above */
+                if (!Choicer.values.Contains(Text)) { Choicer.Value = Choicer.values[0]; Text = Choicer.values[0] as string; }  //1.34.2 and below */
+#endif
                 else Choicer.Value = Text;
                 Choicer.UpdateChoices();
                 ChoiceContainer.SetActive(true);
@@ -496,7 +499,7 @@ namespace BLPPCounter.Utils
                 default: return GetDisplay();
             }
         }//*/
-        #endregion
+#endregion
         #region Overrides
         public override string ToString()
         {

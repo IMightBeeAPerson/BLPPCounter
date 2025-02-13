@@ -36,13 +36,15 @@ namespace BLPPCounter.Settings.SettingHandlers
         #region Variables
         private string CurrentMods = "", UnformattedCurrentMods = "", CurrentTab = "Info";
         private float CurrentModMultiplier = 1f;
-        //private BeatmapKey CurrentMap; // 1.37.0 and above
-        private IDifficultyBeatmap CurrentMap; // 1.34.2 and below
+#if NEW_VERSION
+        private BeatmapKey CurrentMap; // 1.37.0 and above#else
+        private IDifficultyBeatmap CurrentMap; // 1.34.2 and below#endif
         private JToken CurrentDiff;
         private object RefreshLock = new object();
         private bool SelectButtonsOn = false;
-        //private readonly Dictionary<string, BeatmapKey> TabMapInfo = new Dictionary<string, (BeatmapKey, Action<PpInfoTabHandler>)>() // 1.37.0 and above
-        private readonly Dictionary<string, IDifficultyBeatmap> TabMapInfo = new Dictionary<string, IDifficultyBeatmap>() // 1.34.2 and below
+#if NEW_VERSION
+        private readonly Dictionary<string, BeatmapKey> TabMapInfo = new Dictionary<string, BeatmapKey>() // 1.37.0 and above#else
+        private readonly Dictionary<string, IDifficultyBeatmap> TabMapInfo = new Dictionary<string, IDifficultyBeatmap>() // 1.34.2 and below#endif
         {
             { "Info", default },
             { "Capture", default },
@@ -240,15 +242,18 @@ namespace BLPPCounter.Settings.SettingHandlers
                     Instance.Refresh(true);
             };
             SettingsHandler.Instance.PropertyChanged += (parent, args) => {
-                if (!args.PropertyName.Equals(nameof(SettingsHandler.Target)) || Instance.CurrentMap is null) return;
+#if NEW_VERSION
+                if (!args.PropertyName.Equals(nameof(SettingsHandler.Target)) || Instance.CurrentMap == default) return; // 1.37.0 and above#else
+                if (!args.PropertyName.Equals(nameof(SettingsHandler.Target)) || Instance.CurrentMap is null) return; // 1.34.2 and below#endif
                 Instance.ClearMapTabs();
             };
         }
         internal void SldvcInit() 
         { 
             Sldvc.didChangeContentEvent += (a, b) => Refresh();
-            //Sldvc.didChangeDifficultyBeatmapEvent += a => Refresh(); // 1.37.0 and above
-            Sldvc.didChangeDifficultyBeatmapEvent += (a,b) => Refresh(); // 1.34.2 and below
+#if NEW_VERSION
+            Sldvc.didChangeDifficultyBeatmapEvent += a => Refresh(); // 1.37.0 and above#else
+            Sldvc.didChangeDifficultyBeatmapEvent += (a,b) => Refresh(); // 1.34.2 and below#endif
         }
         //internal void GmpcInit() { Gmpc.didChangeGameplayModifiersEvent += UpdateMods; UpdateMods(); }
         #endregion
@@ -268,17 +273,21 @@ namespace BLPPCounter.Settings.SettingHandlers
             CurrentDiff == null ? 0.0f : BLCalc.GetAcc(TargetPP, CurrentDiff, Gmpc.gameplayModifiers.songSpeed, CurrentModMultiplier, PC.DecimalPrecision);
         private float UpdateTargetPP()
         {
-            //CurrentMap = Sldvc.beatmapKey; // 1.37.0 and above
-            CurrentMap = Sldvc.selectedDifficultyBeatmap; // 1.34.2 and below
+#if NEW_VERSION
+            CurrentMap = Sldvc.beatmapKey; // 1.37.0 and above#else
+            CurrentMap = Sldvc.selectedDifficultyBeatmap; // 1.34.2 and below#endif
             CurrentDiff = null;
             if (!Sldvc.beatmapLevel.levelID.Substring(0, 6).Equals("custom")) return 0.0f; //means the level selected is not custom
             string apiOutput = APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_SCORE,
                 Targeter.TargetID,
                 Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(),
-                /*Sldvc.beatmapKey.difficulty.ToString().Replace("+", "Plus"),
-                Sldvc.beatmapKey.beatmapCharacteristic.serializedName // 1.37.0 and above */
+#if NEW_VERSION
+                Sldvc.beatmapKey.difficulty.ToString().Replace("+", "Plus"),
+                Sldvc.beatmapKey.beatmapCharacteristic.serializedName // 1.37.0 and above
+#else
                 Sldvc.selectedDifficultyBeatmap.difficulty.ToString().Replace("+", "Plus"),
                 Sldvc.selectedDifficultyBeatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName // 1.34.2 and below
+#endif
                 ), true);
             TargetHasScore = !(apiOutput is null || apiOutput.Length == 0);
             if (!TargetHasScore) { UpdateDiff(); return 0.0f; } //target doesn't have a score on this diff.
@@ -296,7 +305,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (UnformattedCurrentMods.Length > 0) CurrentModMultiplier = HelpfulPaths.GetMultiAmounts(CurrentDiff, UnformattedCurrentMods.Split(' '));
             return outp;
         }
-        #endregion
+#endregion
         private void BuildTable(Func<float, float, float, string> valueCalc, TextMeshProUGUI table, ref Table tableTable,
             string suffix = "%",
             string speedLbl = "<color=blue>Speed</color>",
@@ -399,7 +408,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                     go.SetActive(true);
             SelectButtonsOn = true;
         }
-        #endregion
+#endregion
         #region Misc Functions
         public void UpdateTabDisplay(bool forceUpdate = false, bool runAsync = true) 
         {
@@ -456,8 +465,11 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void UpdateDiff()
         {
             if (!APIHandler.CallAPI("leaderboards/hash/" + Sldvc.beatmapLevel.levelID.Split('_')[2].ToUpper(), out HttpContent dataStr, forceBLCall: true)) return;
-            //int val = Map.FromDiff(Sldvc.beatmapKey.difficulty); // 1.37.0 and below
-            int val = Map.FromDiff(Sldvc.selectedDifficultyBeatmap.difficulty); // 1.34.2 and above
+#if NEW_VERSION
+            int val = Map.FromDiff(Sldvc.beatmapKey.difficulty); // 1.37.0 and below
+#else
+            int val = Map.FromDiff(Sldvc.selectedDifficultyBeatmap.difficulty); // 1.34.2 and above
+#endif
             CurrentDiff = JToken.Parse(dataStr.ReadAsStringAsync().Result);
             BeatmapName = CurrentDiff["song"]["name"].ToString();
             CurrentDiff = CurrentDiff["leaderboards"].Children().First(t => ((int)t["difficulty"]["value"]) == val);
@@ -467,8 +479,11 @@ namespace BLPPCounter.Settings.SettingHandlers
         public void Refresh(bool forceRefresh = false) => Task.Run(() => DoRefresh(forceRefresh));
         private void DoRefresh(bool forceRefresh)
         {
-            //if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && Sldvc.beatmapKey.Equals(CurrentMap))) return; // 1.37.0 and above
-            if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && Sldvc.selectedDifficultyBeatmap.Equals(CurrentMap))) return; // 1.34.2 and below
+#if NEW_VERSION
+            if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && Sldvc.beatmapKey.Equals(CurrentMap))) return; // 1.37.0 and above
+#else
+            if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && Sldvc.selectedDifficultyBeatmap.Equals(CurrentMap))) return; // 1.34.2 and below
+#endif
             if (Monitor.TryEnter(RefreshLock))
             {
                 try

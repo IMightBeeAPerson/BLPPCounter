@@ -199,8 +199,9 @@ namespace BLPPCounter.Settings.SettingHandlers
                     Targeter.AddTarget(converted.Name, $"{converted.ID}");
                     customTargetText.SetText("<color=\"green\">Success!</color>");
                     customTargetInput.Text = "";
-                    //targetList.Values = ToTarget; // 1.37.0 and above
-                    targetList.values = ToTarget; // 1.34.2 and below
+#if NEW_VERSION
+                    targetList.Values = ToTarget; // 1.37.0 and above#else
+                    targetList.values = ToTarget; // 1.34.2 and below#endif
                     targetList.UpdateChoices();
                 }
                 catch (ArgumentException e)

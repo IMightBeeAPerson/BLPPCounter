@@ -193,8 +193,11 @@ namespace BLPPCounter.Helpfuls
         public static System.Drawing.Color ConvertColor(UnityEngine.Color color) =>
             System.Drawing.Color.FromArgb((int)Math.Round(color.a * 0xFF), (int)Math.Round(color.r * 0xFF), (int)Math.Round(color.g * 0xFF), (int)Math.Round(color.b * 0xFF));
         public static BSMLParserParams AddToComponent(BSMLResourceViewController brvc, UnityEngine.GameObject container) =>
-            //BSMLParser.Instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc); // 1.37.0 and above
+#if NEW_VERSION
+            BSMLParser.Instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc); // 1.37.0 and above
+#else
             BSMLParser.instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc); // 1.34.2 and below
+#endif
         public static IEnumerable<T> GetDuplicates<T, V>(this IEnumerable<T> arr, Func<T, V> valToCompare)
         {
             Dictionary<V, (T, bool)> firstItems = new Dictionary<V, (T, bool)>();
@@ -322,8 +325,11 @@ namespace BLPPCounter.Helpfuls
            comparer((T)Convert.ChangeType(item1[value], typeof(T)), (T)Convert.ChangeType(item2[value], typeof(T)));
         public static void UpdateListSetting(this ListSetting menu, List<string> newValues)
         {
-            //menu.Values = newValues; // 1.37.0 and above
+#if NEW_VERSION
+            menu.Values = newValues; // 1.37.0 and above
+#else
             menu.values = newValues.Cast<object>().ToList(); // 1.34.2 and below
+#endif
             if (!newValues.Any(str => str.Equals((string)menu.Value))) menu.Value = newValues[0];
             else menu.Value = menu.Value; //seems stupid but calls the update method.
             Plugin.Log.Info("Front end value = " + (string)menu.Value);
@@ -399,15 +405,27 @@ namespace BLPPCounter.Helpfuls
         public static void ChangeMaxValue(this SliderSetting ss, float newVal) => ChangeValue(ss, newVal, false);
         private static void ChangeValue(SliderSetting ss, float newVal, bool isMinVal)
         {
+#if NEW_VERSION
+            float currentVal = ss.Slider.value;
+            if (isMinVal) ss.Slider.minValue = newVal; else ss.Slider.maxValue = newVal;
+            ss.Slider.numberOfSteps = (int)Math.Round((ss.Slider.maxValue - ss.Slider.minValue) / ss.Increments) + 1;
+            if ((isMinVal && newVal < currentVal) || (!isMinVal && newVal > currentVal)) ss.Slider.value = currentVal; // 1.37.0 and above
+#else
             float currentVal = ss.slider.value;
             if (isMinVal) ss.slider.minValue = newVal; else ss.slider.maxValue = newVal;
             ss.slider.numberOfSteps = (int)Math.Round((ss.slider.maxValue - ss.slider.minValue) / ss.increments) + 1;
-            if ((isMinVal && newVal < currentVal) || (!isMinVal && newVal > currentVal)) ss.slider.value = currentVal;
+            if ((isMinVal && newVal < currentVal) || (!isMinVal && newVal > currentVal)) ss.slider.value = currentVal; //1.34.2 and below
+#endif
         }
         public static void CoupleMinMaxSliders(SliderSetting min, SliderSetting max)
         {
+#if NEW_VERSION
+            min.Slider.valueDidChangeEvent += (slider, newVal) => { if (max.Value < newVal) min.Value = max.Value; };
+            max.Slider.valueDidChangeEvent += (slider, newVal) => { if (min.Value > newVal) max.Value = min.Value; }; // 1.37.0 and above
+#else
             min.slider.valueDidChangeEvent += (slider, newVal) => { if (max.Value < newVal) min.Value = max.Value; };
-            max.slider.valueDidChangeEvent += (slider, newVal) => { if (min.Value > newVal) max.Value = min.Value; };
+            max.slider.valueDidChangeEvent += (slider, newVal) => { if (min.Value > newVal) max.Value = min.Value; }; //1.34.2 and below
+#endif
         }
         public static void PrintVars(params (string varName, object value)[] vars)
         {
