@@ -4,7 +4,6 @@ using IPA.Config.Stores;
 using IPA.Config.Stores.Attributes;
 using IPA.Config.Stores.Converters;
 using BLPPCounter.Utils;
-//using UnityEngine;
 using System.Drawing;
 using System.Reflection;
 using System.Linq;
@@ -21,13 +20,14 @@ namespace BLPPCounter.Settings.Configs
         public virtual TextFormatSettings FormatSettings { get; set; } = new TextFormatSettings();
         #endregion
         #region General Settings
+        public virtual bool UseUnranked { get; set; } = true;
         public virtual bool UsingSS { get; set; } = false;
         public virtual int DecimalPrecision { get; set; } = 2;
         public virtual double FontSize { get; set; } = 3;
         public virtual bool ShowLbl { get; set; } = true;
-        public virtual bool PPFC { get; set; } = false;
+        public virtual bool PPFC { get; set; } = true;
         public virtual bool SplitPPVals { get; set; } = false;
-        public virtual bool ExtraInfo { get; set; } = false;
+        public virtual bool ExtraInfo { get; set; } = true;
         public virtual bool UseGrad { get; set; } = true;
         public virtual int GradVal { get; set; } = 100;
         public virtual string PPType { get; set; } = "Normal";

@@ -16,7 +16,8 @@ using static GameplayModifiers;
 using BLPPCounter.Utils.List_Settings;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using ModestTree; // Used in 1.37.0 and above
+using ModestTree;
+using Newtonsoft.Json; // Used in 1.37.0 and above
 namespace BLPPCounter
 {
 
@@ -319,10 +320,12 @@ namespace BLPPCounter
                             m = Data[hash];
                         }
 #if NEW_VERSION
-                        lastMap = new MapSelection(m, beatmapDiff.difficulty, mode, passRating, accRating, techRating, starRating); // 1.34.2 and below
+                        MapSelection ms = new MapSelection(m, beatmapDiff.difficulty, mode, passRating, accRating, techRating, starRating); // 1.34.2 and below
 #else
-                        lastMap = new MapSelection(m, beatmap.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and below
+                        MapSelection ms = new MapSelection(m, beatmap.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and below
 #endif
+                        if (!ms.IsUsable) throw new Exception("The status of this map marks it as unusable.");
+                        lastMap = ms;
                         totalNotes = HelpfulMath.NotesForMaxScore(pc.UsingSS ?
 #if NEW_VERSION
                             (int)JToken.Parse(APIHandler.CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(beatmapDiff.difficulty))))["maxScore"] : // 1.37.0 and above
@@ -577,10 +580,10 @@ namespace BLPPCounter
             else theCounter.ReinitCounter(display);
             lastMap = thisMap;
         }
-        private static void InitData()
+        private static void InitData(bool loadOnlySS = false, bool doNotLoop = false)
         {
             dataLoaded = false;
-            if (File.Exists(HelpfulPaths.BL_CACHE_FILE))
+            if (!loadOnlySS && File.Exists(HelpfulPaths.BL_CACHE_FILE))
             {
                 try
                 {
@@ -623,6 +626,12 @@ namespace BLPPCounter
             {
                 Plugin.Log.Warn("Error loading Taohable Cache file: " + e.Message);
                 Plugin.Log.Debug(e);
+                if (!doNotLoop && e is JsonReaderException)
+                {
+                    File.Delete(HelpfulPaths.TAOHABLE_DATA); //In the case that there is an issue loading the file, try again.
+                    LoadSomeTaohableData();
+                    InitData(true, true);
+                } 
             }
         }
         private static void LoadSomeTaohableData()
@@ -631,7 +640,8 @@ namespace BLPPCounter
             Plugin.Log.Debug("SS data not up to date! Loading...");
             string filePath = HelpfulPaths.TAOHABLE_DATA;
             byte[] data = APIHandler.CallAPI_Bytes(HelpfulPaths.TAOHABLE_API, forceNoHeader: true);
-            using (FileStream fs = File.Exists(filePath) ? File.OpenWrite(filePath) : File.Create(filePath))
+            if (File.Exists(filePath)) File.Delete(filePath); 
+            using (FileStream fs = File.OpenWrite(filePath))
                 fs.Write(data, 0, data.Length); //For some reason Stream.Write isn't implemented
         }
         private static void AddMap(string data) 

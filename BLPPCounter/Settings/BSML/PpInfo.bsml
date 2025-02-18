@@ -14,6 +14,10 @@
             <text id='MapName' text='~BeatmapName' align='Left'/>
             <text id='MapID' text='~BeatmapID' align='Right'/>
           </horizontal>
+          <horizontal>
+            <text id='MapDiff' text='~MapDiffText' align='Left'/>
+            <text id='MapMode' text='~MapModeText' align='Right'/>
+          </horizontal>
         </vertical>
         <vertical spacing='-1' horizontal-fit='PreferredSize' pref-width='75'>
           <horizontal>

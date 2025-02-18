@@ -45,6 +45,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         #endregion
         #region General Settings
 
+        [UIValue(nameof(UseUnranked))]
+        public bool UseUnranked
+        {
+            get => PC.UseUnranked;
+            set {PC.UseUnranked = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseUnranked))); }
+        }
         [UIValue(nameof(UsingSS))]
         public bool UsingSS
         {
@@ -200,8 +206,10 @@ namespace BLPPCounter.Settings.SettingHandlers
                     customTargetText.SetText("<color=\"green\">Success!</color>");
                     customTargetInput.Text = "";
 #if NEW_VERSION
-                    targetList.Values = ToTarget; // 1.37.0 and above#else
-                    targetList.values = ToTarget; // 1.34.2 and below#endif
+                    targetList.Values = ToTarget; // 1.37.0 and above
+#else
+                    targetList.values = ToTarget; // 1.34.2 and below
+#endif
                     targetList.UpdateChoices();
                 }
                 catch (ArgumentException e)

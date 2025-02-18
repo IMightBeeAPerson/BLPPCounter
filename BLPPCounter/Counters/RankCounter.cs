@@ -98,7 +98,7 @@ namespace BLPPCounter.Counters
         public void SetupData(MapSelection map)
         {
             string songId = map.MapData.Item1;
-            if (map.IsRanked)
+            if (map.IsUsable)
             {
                 if (PC.UsingSS)
                 {

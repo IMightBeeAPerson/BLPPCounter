@@ -16,6 +16,8 @@ using TMPro;
 using UnityEngine.TextCore;
 using Newtonsoft.Json.Linq;
 using BeatSaberMarkupLanguage.Components.Settings;
+using BLPPCounter.Settings.Configs;
+using BeatLeader.Models;
 namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
@@ -323,7 +325,7 @@ namespace BLPPCounter.Helpfuls
             comparer(item1[value] as T, item2[value] as T);
         public static int CompareStructValues<T>(JToken item1, JToken item2, string value, Func<T, T, int> comparer) where T : struct =>
            comparer((T)Convert.ChangeType(item1[value], typeof(T)), (T)Convert.ChangeType(item2[value], typeof(T)));
-        public static void UpdateListSetting(this ListSetting menu, List<string> newValues)
+        public static void UpdateListSetting(this ListSetting menu, List<string> newValues)//https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/documentation-comments
         {
 #if NEW_VERSION
             menu.Values = newValues; // 1.37.0 and above
@@ -340,7 +342,7 @@ namespace BLPPCounter.Helpfuls
         /// <list type="bullet">
         ///     <item>
         ///     <term>Unranked</term>
-        ///     <description>Map is unranked. The leaderboard <b>does not</b> show pp. (<paramref name="status"/> = 0)</description>
+        ///     <description>Map is unranked. The leaderboard <b>does not</b> show pp. Only used if <see cref="PluginConfig.UseUnranked"/> is enabled. (<paramref name="status"/> = 0)</description>
         ///     </item>
         ///     <item>
         ///     <term>Nominated</term>
@@ -362,7 +364,36 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="status">The status value returned from BeatLeader's api.</param>
         /// <returns>Whether or not the api will provide enough info to calculate pp.</returns>
-        public static bool StatusIsUsable(int status) => (status >= 0 && status <= 3) || status == 6;
+        public static bool StatusIsUsable(int status) => (status > 0 && status <= 3) || status == 6 || (PluginConfig.Instance.UseUnranked && status == 0);
+        /// <summary>
+        /// Checks if a given map selection is usable. If it is using a score saber map, then it is always usable. Otherwise, it checks the beat leader status against the list below:
+        /// <list type="bullet">
+        ///     <item>
+        ///     <term>Unranked</term>
+        ///     <description>Map is unranked. The leaderboard <b>does not</b> show pp. Only used if <see cref="PluginConfig.UseUnranked"/> is enabled. (status = 0)</description>
+        ///     </item>
+        ///     <item>
+        ///     <term>Nominated</term>
+        ///     <description>Map is nominated, 2 steps from being ranked. The leaderboard <b>does not</b> show pp. (status = 1)</description>
+        ///     </item>
+        ///     <item>
+        ///     <term>Qualified</term>
+        ///     <description>Map is qualified, 1 step from being ranked. The leaderboard shows pp. (status = 2)</description>
+        ///     </item>
+        ///     <item>
+        ///     <term>Ranked</term>
+        ///     <description>Map is ranked. The leaderboard shows pp. (status = 3)</description>
+        ///     </item>
+        ///     <item>
+        ///     <term>Event</term>
+        ///     <description>Map is part of event. The leaderboard shows pp. (status = 6)</description>
+        ///     </item>
+        /// </list>
+        /// </summary>
+        /// <param name="ms">The map selection to check.</param>
+        /// <returns>Whether or not the map selection has a usable status.</returns>
+        public static bool StatusIsUsable(MapSelection ms) => ms.Mode.Equals(Map.SS_MODE_NAME) || StatusIsUsable((int)ms.MapData.Item2["status"]);
+        public static bool StatusIsUsable(JToken diffData) => StatusIsUsable((int)diffData["status"]);
         /// <summary>
         /// Create a square matrix (a matrix with all arrays inside it being the same size).
         /// </summary>
