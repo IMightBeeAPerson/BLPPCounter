@@ -125,6 +125,12 @@ namespace BLPPCounter.Settings.SettingHandlers
 
         [UIValue(nameof(TestAcc))] private float TestAcc = PC.TestAccAmount;
         [UIValue(nameof(TestPp))] private int TestPp = PC.TestPPAmount;
+        [UIValue(nameof(TabPos))]
+#if NEW_VERSION
+        private float TabPos = -5.5f;
+#else
+        private float TabPos = 0f;
+#endif
         [UIComponent(nameof(PercentTable))] private TextMeshProUGUI PercentTable;
         [UIComponent(nameof(PPTable))] private TextMeshProUGUI PPTable;
         [UIComponent("ModeButton")] private TextMeshProUGUI ModeButtonText;
@@ -179,7 +185,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             set { if (MapID is null) return; MapDiff.text = $"<color=#777777>Map Difficulty: <color=#aaaaaa>{value}</color>"; _MapDiffText = value; }
         }
         private string _MapDiffText = "";
-        #endregion
+#endregion
         #region UI Functions
         [UIAction(nameof(Refresh))]
         private void ForceRefresh() { if (Sldvc != null && Gmpc != null) Refresh(true); }

@@ -119,8 +119,7 @@
   </tab>
 
   <tab tags='tabs' tab-name='Settings'>
-    <!-- For 1.37.0 and above, change anchor-pos-y to -5.5. For 1.34.2 and below, change it to 0 -->
-    <settings-container anchor-pos-y='0' horizontal-fit='PreferredSize' pref-width='100'>
+    <settings-container anchor-pos-y='~TabPos' horizontal-fit='PreferredSize' pref-width='100'>
       <vertical spacing='1' child-expand-height='true' vertical-fit='PreferredSize'>
         <button text='Save' on-click='SaveSettings'/>
         <text text='Custom Accuracy Settings' align='Center' font-size='6'/>
