@@ -1,4 +1,4 @@
-<bg child-control-height='false' 
+<bg child-control-height='false'
   xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:noNamespaceSchemaLocation='https://monkeymanboy.github.io/BSML-Docs/BSMLSchema.xsd'>
   
     <tab-selector tab-tag='tabs' select-cell='ChangeTab'/>
@@ -13,6 +13,10 @@
           <horizontal>
             <text id='MapName' text='~BeatmapName' align='Left'/>
             <text id='MapID' text='~BeatmapID' align='Right'/>
+          </horizontal>
+          <horizontal>
+            <text id='MapDiff' text='~MapDiffText' align='Left'/>
+            <text id='MapMode' text='~MapModeText' align='Right'/>
           </horizontal>
         </vertical>
         <vertical spacing='-1' horizontal-fit='PreferredSize' pref-width='75'>
@@ -46,47 +50,85 @@
       </vertical>
     </tab>
   
-    <tab tags='tabs' tab-name='Capture Values'>
+    <tab tags='tabs' tab-name='Capture'>
       <vertical spacing='0.5' vertical-fit='PreferredSize' pref-height='55' anchor-pos-y='-5.5' horizontal-fit='PreferredSize' pref-width='80' child-expand-height='false'>
         <horizontal>
           <text id='ClanTarget' text='' align='Left'/>
           <text id='PPTarget' text='' align='Right'/>
         </horizontal>
         <text id='OwningClan' text='' align='Center'/>
-        <vertical bg='round-rect-panel' bg-color='#CCC' pad-left='3'>
-          <text id='ClanTable' text='' align='Center'/>
-        </vertical>
-        <button text='Refresh Table' on-click='RefreshClanTable'/>
+        <horizontal bg='round-rect-panel' bg-color='#CCC' pad-left='3'>
+          <text id='ClanTable' text='' align='Center' font-size='3.5'/>
+          <vertical spacing='3.5' pref-height='20' vertical-fit='PreferredSize' pad-top='11'>
+            <button text='Select' pref-height='5' font-size='3' on-click='SelectSS' tags='SSButton'/>
+            <button text='Select' pref-height='5' font-size='3' on-click='SelectNM' tags='NMButton'/>
+            <button text='Select' pref-height='5' font-size='3' on-click='SelectFS' tags='FSButton'/>
+            <button text='Select' pref-height='5' font-size='3' on-click='SelectSF' tags='SFButton'/>
+          </vertical>
+        </horizontal>
+        <button text='Refresh Table' click-event='UpdateCurrentTab'/>
       </vertical>
     </tab>
   
-   <tab tags='tabs' tab-name='Relative Values'>
-    <vertical spacing='1' vertical-fit='PreferredSize' pref-height='60' anchor-pos-y='-5.5' horizontal-fit='PreferredSize' pref-width='70' child-expand-height='false'>
+   <tab tags='tabs' tab-name='Relative'>
+    <vertical spacing='0.5' vertical-fit='PreferredSize' pref-height='55' anchor-pos-y='-5.5' horizontal-fit='PreferredSize' pref-width='80' child-expand-height='false'>
       <horizontal>
         <text id='RelativeText' text='hi' word-wrapping='true' align='Left'/>
         <text id='RelativeTarget' text='-999 pp >:('  align='Right'/>
       </horizontal>
-      <vertical bg='round-rect-panel' bg-color='#CCC'>
+      <horizontal bg='round-rect-panel' bg-color='#CCC' pad-left='3'>
         <text id='RelativeTable' text='' align='Center'/>
-      </vertical>
-      <button text='Refresh Table' on-click='RefreshRelativeTable'/>
+        <vertical spacing='3.5' pref-height='20' vertical-fit='PreferredSize' pad-top='11'>
+          <button text='Select' pref-height='5' font-size='3' on-click='SelectSS' tags='SSButton'/>
+          <button text='Select' pref-height='5' font-size='3' on-click='SelectNM' tags='NMButton'/>
+          <button text='Select' pref-height='5' font-size='3' on-click='SelectFS' tags='FSButton'/>
+          <button text='Select' pref-height='5' font-size='3' on-click='SelectSF' tags='SFButton'/>
+        </vertical>
+      </horizontal>
+      <button text='Refresh Table' click-event='UpdateCurrentTab'/>
     </vertical>
   </tab>
   
-  <tab tags='tabs' tab-name='Custom Accuracy'>
-    <vertical spacing='0' vertical-fit='PreferredSize' pref-height='60' anchor-pos-y='-4' horizontal-fit='PreferredSize' pref-width='80' child-expand-height='false'>
+  <tab tags='tabs' tab-name='Custom'>
+    <vertical spacing='0.5' vertical-fit='PreferredSize' pref-height='55' anchor-pos-y='-4' horizontal-fit='PreferredSize' pref-width='80' child-expand-height='false'>
       <horizontal>
         <button id='ModeButton' text='&#60;color=#A020F0&#62;Input PP' align='Left' on-click='ToggleCAMode'/>
-        <button text='Apply Values' on-click='UpdateCA' align='Right'/>
+        <button text='Apply Values' click-event='UpdateCurrentTable' align='Right'/>
       </horizontal>
-      <slider-setting id='CA_PrecentSlider' active='false' text='Percentage' color='#FFD700' increment='0.05' integer-only='false' min='50' max='100' show-buttons='true' apply-on-change='true' value='TestAcc' formatter='PrecentFormat'/>
-      <slider-setting id='CA_PPSlider' text='PP Amount' color='#A020F0' increment='5' integer-only='true' min='100' max='1000' show-buttons='true' apply-on-change='true' value='TestPp' formatter='PPFormat'/>
-      <vertical id='PrecentTable_BG' bg='round-rect-panel' bg-color='#CCC'>
-        <text id='PrecentTable' text='&#10;&#10;&#10;&#10;&#10;&#10;' align='Center'/>
-      </vertical>
-      <vertical id='PPTable_BG' active='false' bg='round-rect-panel' bg-color='#CCC'>
-        <text id='PPTable' text='&#10;&#10;&#10;&#10;&#10;&#10;' align='Center'/>
-      </vertical>
+      <slider-setting id='CA_PercentSlider' active='false' text='Percentage' color='#FFD700' increment='0.05' integer-only='false' min='~PercentSliderMin' max='~PercentSliderMax' show-buttons='true' apply-on-change='true' value='TestAcc' formatter='PercentFormat'/>
+      <slider-setting id='CA_PPSlider' text='PP Amount' color='#A020F0' increment='5' integer-only='true' min='~PPSliderMin' max='~PPSliderMax' show-buttons='true' apply-on-change='true' value='TestPp' formatter='PPFormat'/>
+      <horizontal id='PercentTable_BG' bg='round-rect-panel' bg-color='#CCC' pad-left='3'>
+        <text id='PercentTable' text='&#10;&#10;&#10;&#10;&#10;&#10;' align='Center' font-size='3.5'/>
+        <vertical spacing='3.5' pref-height='20' vertical-fit='PreferredSize' pad-top='11'>
+          <button text='Select' pref-height='5' font-size='3' on-click='SelectSS' tags='SSButton'/>
+          <button text='Select' pref-height='5' font-size='3' on-click='SelectNM' tags='NMButton'/>
+          <button text='Select' pref-height='5' font-size='3' on-click='SelectFS' tags='FSButton'/>
+          <button text='Select' pref-height='5' font-size='3' on-click='SelectSF' tags='SFButton'/>
+        </vertical>
+      </horizontal>
+      <horizontal id='PPTable_BG' active='false' bg='round-rect-panel' bg-color='#CCC' pad-left='3'>
+        <text id='PPTable' text='&#10;&#10;&#10;&#10;&#10;&#10;' align='Center' font-size='3.5'/>
+        <vertical spacing='3.5' pref-height='20' vertical-fit='PreferredSize' pad-top='11'>
+          <button text='Select' pref-height='5' font-size='3' on-click='SelectSS' tags='SSButton'/>
+          <button text='Select' pref-height='5' font-size='3' on-click='SelectNM' tags='NMButton'/>
+          <button text='Select' pref-height='5' font-size='3' on-click='SelectFS' tags='FSButton'/>
+          <button text='Select' pref-height='5' font-size='3' on-click='SelectSF' tags='SFButton'/>
+        </vertical>
+      </horizontal>
     </vertical>
+  </tab>
+
+  <tab tags='tabs' tab-name='Settings'>
+    <!-- For 1.37.0 and above, change anchor-pos-y to -5.5. For 1.34.2 and below, change it to 0 -->
+    <settings-container anchor-pos-y='0' horizontal-fit='PreferredSize' pref-width='100'>
+      <vertical spacing='1' child-expand-height='true' vertical-fit='PreferredSize'>
+        <button text='Save' on-click='SaveSettings'/>
+        <text text='Custom Accuracy Settings' align='Center' font-size='6'/>
+        <slider-setting id='MinAccSlider' text='Minimum Accuracy' increment='0.05' integer-only='false' min='0' max='100' show-buttons='true' apply-on-change='true' value='PercentSliderMin' formatter='PercentFormat'/>
+        <slider-setting id='MaxAccSlider' text='Maximum Accuracy' increment='0.05' integer-only='false' min='0' max='100' show-buttons='true' apply-on-change='true' value='PercentSliderMax' formatter='PercentFormat'/>
+        <slider-setting id='MinPPSlider' text='Minimum PP' increment='5' integer-only='true' min='0' max='3000' show-buttons='true' apply-on-change='true' value='PPSliderMin' formatter='PPFormat'/>
+        <slider-setting id='MaxPPSlider' text='Maximum PP' increment='5' integer-only='true' min='0' max='3000' show-buttons='true' apply-on-change='true' value='PPSliderMax' formatter='PPFormat'/>
+      </vertical>
+    </settings-container>
   </tab>
 </bg>

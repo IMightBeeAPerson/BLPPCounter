@@ -7,9 +7,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEngine;
 using static BLPPCounter.Helpfuls.HelpfulMisc;
-using static BLPPCounter.Utils.FormatListInfo;
-using static BLPPCounter.Utils.FormatListInfo.ChunkType;
-using BeatSaberMarkupLanguage.Components;
+using System.Collections;
 
 namespace BLPPCounter.Helpfuls
 {
@@ -553,7 +551,8 @@ namespace BLPPCounter.Helpfuls
         public static string ColorFormatToColor(string str)
         {
             string Converter(Match m) {
-                string name = m.Groups.First(g => g.Success && !char.IsDigit(g.Name[0])).Name;
+                //string name = m.Groups.First(g => g.Success && !char.IsDigit(g.Name[0])).Name; // 1.37.0 and above
+                string name = m.Groups.OfType<Group>().First(g => g.Success && !char.IsDigit(g.Name[0])).Name; //1.34.2 and below
                 switch (name)
                 {
                     case "Special": return ColorSpecialChar(m.Value[0]);

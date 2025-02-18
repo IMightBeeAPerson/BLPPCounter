@@ -31,7 +31,7 @@ namespace BLPPCounter.Utils
         {
             Text = text; 
             Description = description;
-            Type = "<color=\"green\">Type of markup:</color> " + (type.Contains('-') ? type.Split('-')[0] : type);
+            Type = "<color=\"green\">Type of markup:</color> " + (type.Contains("-") ? type.Split('-')[0] : type);
             this.id = id;
             usable = false;
             this.changeSettings = changeSettings;

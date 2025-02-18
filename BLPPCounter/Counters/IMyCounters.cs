@@ -11,7 +11,7 @@ namespace BLPPCounter.Counters
         void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating, float starRating); //same map, different modifiers
         void ReinitCounter(TMP_Text display, MapSelection map); //same map, different difficulty/mode
         void UpdateFormat();
-        void UpdateCounter(float acc, int notes, int mistakes, float fcPrecent);
+        void UpdateCounter(float acc, int notes, int mistakes, float fcPercent);
         string Name { get; }
 
         /*Constructors that must be created:

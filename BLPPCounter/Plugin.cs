@@ -1,5 +1,4 @@
 ﻿using BeatSaberMarkupLanguage.GameplaySetup;
-using BeatSaberMarkupLanguage.Settings;
 using IPA;
 using IPA.Config.Stores;
 using BLPPCounter.Helpfuls;
@@ -7,19 +6,12 @@ using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers;
 using BLPPCounter.Utils;
 using IPALogger = IPA.Logging.Logger;
-using UnityEngine;
-using Zenject;
-using BeatSaberMarkupLanguage;
-using System.ComponentModel;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Reflection;
-using System.Linq;
-using System.Drawing;
-using System.Collections.Generic;
 using HarmonyLib;
 using BLPPCounter.Patches;
-using Newtonsoft.Json.Linq;
+using BS_Utils.Utilities;
+using BeatSaberMarkupLanguage.Settings; // Used in 1.37.0 and above
+using BLPPCounter.Settings.SettingHandlers.MenuViews; 
 
 namespace BLPPCounter
 {
@@ -46,19 +38,29 @@ namespace BLPPCounter
         private void AddMenuStuff()
         {
             TabSelectionPatch.ClearData();
+#if NEW_VERSION
             BSMLSettings.Instance.AddSettingsMenu("BL PP Counter", HelpfulPaths.SETTINGS_BSML, MenuSettingsHandler.Instance);
-            GameplaySetup.Instance.AddTab("PP Calculator", HelpfulPaths.PP_CALC_BSML, PpInfoTabHandler.Instance);
+            GameplaySetup.Instance.AddTab("PP Calculator", HelpfulPaths.PP_CALC_BSML, PpInfoTabHandler.Instance); // 1.37.0 and above */
+#else
+            //BSMLSettings.instance.AddSettingsMenu("BL PP Counter", HelpfulPaths.SETTINGS_BSML, MenuSettingsHandler.Instance);
+            GameplaySetup.instance.AddTab("PP Calculator", HelpfulPaths.PP_CALC_BSML, PpInfoTabHandler.Instance); // 1.34.2 and below */
+#endif
             SimpleSettingsHandler.Instance.ChangeMenuTab(false);
         }
 
         [OnEnable]
         public void OnEnable() {
             Targeter.GenerateClanNames(); //async
-            BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing += AddMenuStuff; //async (kinda)
+#if NEW_VERSION
+            BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing += AddMenuStuff; //async (kinda) || 1.37.0 and above
+#else
+            BSEvents.menuSceneActive += AddMenuStuff; // 1.34.2 and below
+#endif
             TabSelectionPatch.AddTabName("PP Calculator");
             TheCounter.InitCounterStatic();
             Harmony = new Harmony("Person.BLPPCounter");
             Harmony.PatchAll(Assembly.GetExecutingAssembly());
+
             //new PlaylistLoader();
             /*ClanCounter.FormatTheFormat();
             var test = ClanCounter.displayClan;
@@ -68,11 +70,18 @@ namespace BLPPCounter
 
         [OnDisable]
         public void OnDisable() 
-        { 
+        {
+#if NEW_VERSION
             GameplaySetup.Instance.RemoveTab("BL PP Counter");
             GameplaySetup.Instance.RemoveTab("PP Calculator");
-            BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing -= AddMenuStuff;
             BSMLSettings.Instance.RemoveSettingsMenu(SettingsHandler.Instance);
+            BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing -= AddMenuStuff; // 1.37.0 and above
+#else
+            GameplaySetup.instance.RemoveTab("BL PP Counter");
+            GameplaySetup.instance.RemoveTab("PP Calculator");
+            //BSMLSettings.instance.RemoveSettingsMenu(SettingsHandler.Instance);
+            BSEvents.menuSceneActive -= AddMenuStuff; // 1.34.2 and below
+#endif
             Harmony.UnpatchSelf();
         }
 

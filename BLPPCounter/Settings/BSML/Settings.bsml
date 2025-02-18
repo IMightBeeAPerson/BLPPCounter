@@ -20,7 +20,7 @@
   <vertical spacing='1'>
     <checkbox-setting text='Show Custom Message' value='ShowClanMessage' apply-on-change='true' hover-hint='Show custom clan message instead of the generic message'/>
     <increment-setting text='Map Cache' value='MapCache' integer-only='true' min='0' max='50' increment='5' apply-on-change='true'/>
-    <increment-setting text='Precent Ceiling' value='ClanPrecentCeil' integer-only='false' min='90' max='100' increment='0.1' apply-on-change='true'/>
+    <increment-setting text='Percent Ceiling' value='ClanPercentCeil' integer-only='false' min='90' max='100' increment='0.1' apply-on-change='true'/>
     <checkbox-setting text='Enable Ceiling' apply-on-change='true' value='CeilEnabled' hover-hint='Enable the percentage ceiling'/>
   </vertical>
   <text text='Relative Counter Settings' align='Center'/>

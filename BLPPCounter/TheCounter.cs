@@ -9,18 +9,15 @@ using BLPPCounter.Utils;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Counters;
 using System.Collections.Generic;
-using System.Net.Http;
 using Newtonsoft.Json.Linq;
 using System.Linq;
 using System.Reflection;
-using ModestTree;
 using static GameplayModifiers;
 using BLPPCounter.Utils.List_Settings;
-using IPA.Utilities;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
-using static AlphabetScrollInfo;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using ModestTree;
+using Newtonsoft.Json; // Used in 1.37.0 and above
 namespace BLPPCounter
 {
 
@@ -28,9 +25,13 @@ namespace BLPPCounter
     {
         #region Injects
 #pragma warning disable CS0649, IDE0044
+#if NEW_VERSION
         [Inject] private BeatmapLevel beatmap;
-        [Inject] private BeatmapKey beatmapDiff;// 1.37.0 and above */
-        //[Inject] private IDifficultyBeatmap beatmap; // 1.34.2 and below
+        [Inject] private BeatmapKey beatmapDiff; // 1.37.0 and above */
+#else
+
+        [Inject] private IDifficultyBeatmap beatmap; // 1.34.2 and below
+#endif
         [Inject] private GameplayModifiers mods;
         [Inject] private ScoreController sc;
         [Inject] private BeatmapObjectManager bomb;
@@ -53,14 +54,14 @@ namespace BLPPCounter
         public static Dictionary<string, string> DisplayNameToCounter { get; private set; }
         private static Func<bool, bool, float, float, int, string, string> displayFormatter;
         internal static Func<string, string, string> TargetFormatter;
-        internal static Func<Func<string>, float, float, float, float, float, string> PrecentNeededFormatter;
-        private static Func<Func<Dictionary<char, object>, string>> displayIniter, targetIniter, precentNeededIniter;
+        internal static Func<Func<string>, float, float, float, float, float, string> PercentNeededFormatter;
+        private static Func<Func<Dictionary<char, object>, string>> displayIniter, targetIniter, percentNeededIniter;
         public static string[] Labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
 
         private static bool updateFormat;
         public static bool FormatUsable => displayFormatter != null && displayIniter != null;
         public static bool TargetUsable => TargetFormatter != null && targetIniter != null;
-        public static bool PrecentNeededUsable => PrecentNeededFormatter != null && precentNeededIniter != null;
+        public static bool PercentNeededUsable => PercentNeededFormatter != null && percentNeededIniter != null;
         public static readonly Dictionary<string, char> FormatAlias = new Dictionary<string, char>()
         {
             { "PP", 'x' },
@@ -73,7 +74,7 @@ namespace BLPPCounter
             {"Target", 't' },
             {"Mods", 'm' }
         };
-        public static readonly Dictionary<string, char> PrecentNeededAlias = new Dictionary<string, char>()
+        public static readonly Dictionary<string, char> PercentNeededAlias = new Dictionary<string, char>()
         {
             {"Color", 'c' },
             {"Accuracy", 'a' },
@@ -121,8 +122,8 @@ namespace BLPPCounter
                 {'t', "Person" },
                 {'m', "SF" }
             }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT, null, null, null);
-        internal static readonly FormatRelation PrecentNeededFormatRelation = new FormatRelation("Precent Needed Format", DisplayName,
-            pc.MessageSettings.PrecentNeededMessage, str => pc.MessageSettings.PrecentNeededMessage = str, PrecentNeededAlias,
+        internal static readonly FormatRelation PercentNeededFormatRelation = new FormatRelation("Percent Needed Format", DisplayName,
+            pc.MessageSettings.PercentNeededMessage, str => pc.MessageSettings.PercentNeededMessage = str, PercentNeededAlias,
             new Dictionary<char, string>()
             {
                 { 'c', "Must use as a group value, and will color everything inside group" },
@@ -131,7 +132,7 @@ namespace BLPPCounter
                 { 'y', "The accuracy PP needed" },
                 { 'z', "The pass PP needed" },
                 { 'p', "The total PP number needed to capture the map" }
-            }, str => { var hold = GetFormatPrecentNeeded(str, out string errorStr); return (hold, errorStr); },
+            }, str => { var hold = GetFormatPercentNeeded(str, out string errorStr); return (hold, errorStr); },
             new Dictionary<char, object>()
             {
                 {'c', new Func<object>(() => "green") },
@@ -170,7 +171,7 @@ namespace BLPPCounter
         private int notes, comboNotes, mistakes, totalNotes;
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
-        private string mode, lastTarget;
+        private string mode, lastTarget = Targeter.NO_TARGET;
         #endregion
         #region Inits & Overrides
 
@@ -252,8 +253,8 @@ namespace BLPPCounter
             hold = FormatTarget(pc.MessageSettings.TargetingMessage);
             success &= hold;
             if (hold) InitTarget();
-            hold = FormatPrecentNeeded(pc.MessageSettings.PrecentNeededMessage);
-            if (hold) InitPrecentNeeded();
+            hold = FormatPercentNeeded(pc.MessageSettings.PercentNeededMessage);
+            if (hold) InitPercentNeeded();
             return success && hold;
         }
         public static void ResetFormat()
@@ -262,8 +263,8 @@ namespace BLPPCounter
             displayFormatter = null;
             targetIniter = null;
             TargetFormatter = null;
-            precentNeededIniter = null;
-            PrecentNeededFormatter = null;
+            percentNeededIniter = null;
+            PercentNeededFormatter = null;
         }
         public override void CounterDestroy() {
             if (enabled) ChangeNotifiers(false);
@@ -277,7 +278,6 @@ namespace BLPPCounter
             if (!dataLoaded)
             {
                 Data = new Dictionary<string, Map>();
-                lastTarget = Targeter.NO_TARGET;
                 InitData();
             }
             bool loadedEvents = false;
@@ -298,27 +298,41 @@ namespace BLPPCounter
                     display.text = "";
                     ChangeNotifiers(true);
                     loadedEvents = true;
-                    //string hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
+#if NEW_VERSION
                     string hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
+#else
+                    string hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
+#endif
                     bool counterChange = theCounter != null && !theCounter.Name.Equals(pc.PPType);
                     if (counterChange)
                         if ((GetPropertyFromTypes("DisplayHandler", theCounter.GetType()).Values.First() as string).Equals(DisplayName))
                             //Need to recall this one so that it implements the current counter's wants properly
                             if (FormatTheFormat(pc.FormatSettings.DefaultTextFormat)) InitDisplayFormat();
+                    //Plugin.Log.Info($"CounterChange = {counterChange}\nNULL CHECKS\nLast map: {lastMap.Equals(default)}, hash: {hash is null}, pc: {pc is null}, PPType: {pc?.PPType is null}, lastTarget: {lastTarget is null}, Target: {pc.Target is null}");
                     if (counterChange || lastMap.Equals(default) || !hash.Equals(lastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
                     {
-                        //Plugin.Log.Info($"")
                         Data.TryGetValue(hash, out Map m);
                         if (m == null) 
                         {
                             Plugin.Log.Warn("Map not in cache, attempting API call to get map data...");
                             if (pc.UsingSS) AddSSMap(hash);
-                            else AddMap(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.BLAPI_HASH, hash)).ReadAsStringAsync().Result);
+                            else AddMap(APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash)));
                             m = Data[hash];
                         }
-                        //lastMap = new MapSelection(m, beatmap.difficulty, mode, passRating, accRating, techRating); // 1.34.2 and below
-                        lastMap = new MapSelection(m, beatmapDiff.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and above
-                        totalNotes = HelpfulMath.NotesForMaxScore(pc.UsingSS ? (int)JToken.Parse(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(beatmapDiff.difficulty))).ReadAsStringAsync().Result)["maxScore"] : (int)lastMap.MapData.Item2["maxScore"]);
+#if NEW_VERSION
+                        MapSelection ms = new MapSelection(m, beatmapDiff.difficulty, mode, passRating, accRating, techRating, starRating); // 1.34.2 and below
+#else
+                        MapSelection ms = new MapSelection(m, beatmap.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and below
+#endif
+                        if (!ms.IsUsable) throw new Exception("The status of this map marks it as unusable.");
+                        lastMap = ms;
+                        totalNotes = HelpfulMath.NotesForMaxScore(pc.UsingSS ?
+#if NEW_VERSION
+                            (int)JToken.Parse(APIHandler.CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(beatmapDiff.difficulty))))["maxScore"] : // 1.37.0 and above
+#else
+                            (int)JToken.Parse(APIHandler.CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(beatmap.difficulty))))["maxScore"] : // 1.34.2 and below
+#endif
+                            (int)lastMap.MapData.Item2["maxScore"]);
                         if (!InitCounter()) throw new Exception("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
                     }
                     else
@@ -380,8 +394,12 @@ namespace BLPPCounter
         }
         #endregion
         #region API Calls
-        private void RequestHashData() => 
-            AddMap(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.BLAPI_HASH, beatmap.levelID.Split('_')[2].ToUpper())).ReadAsStringAsync().Result);
+        private void RequestHashData() =>
+#if NEW_VERSION
+            AddMap(APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, beatmap.levelID.Split('_')[2].ToUpper()))); // 1.37.0 and above
+#else
+            AddMap(APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, beatmap.level.levelID.Split('_')[2].ToUpper()))); // 1.34.2 and below
+#endif
         #endregion
         #region Helper Methods
         private void ChangeNotifiers(bool a)
@@ -425,16 +443,16 @@ namespace BLPPCounter
             targetIniter = GetFormatTarget(format, out string _);
             return targetIniter != null;
         }
-        private static Func<Func<Dictionary<char, object>, string>> GetFormatPrecentNeeded(string format, out string errorStr) =>
-            HelpfulFormatter.GetBasicTokenParser(format, PrecentNeededAlias, DisplayName, a => { },
+        private static Func<Func<Dictionary<char, object>, string>> GetFormatPercentNeeded(string format, out string errorStr) =>
+            HelpfulFormatter.GetBasicTokenParser(format, PercentNeededAlias, DisplayName, a => { },
                 (tokens, tokensCopy, priority, vals) =>
                 {
                     if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<object>)vals['c']).Invoke()}", "</color>");
                 }, out errorStr);
-        private static bool FormatPrecentNeeded(string format)
+        private static bool FormatPercentNeeded(string format)
         {
-            precentNeededIniter = GetFormatPrecentNeeded(format, out string _);
-            return precentNeededIniter != null;
+            percentNeededIniter = GetFormatPercentNeeded(format, out string _);
+            return percentNeededIniter != null;
         }
         private static void InitDisplayFormat()
         {
@@ -447,10 +465,10 @@ namespace BLPPCounter
             var simple = targetIniter.Invoke();
             TargetFormatter = (name, mods) => simple.Invoke(new Dictionary<char, object>() { { 't', name }, { 'm', mods } });
         }
-        private static void InitPrecentNeeded()
+        private static void InitPercentNeeded()
         {
-            var simple = precentNeededIniter.Invoke();
-            PrecentNeededFormatter = (color, acc, passpp, accpp, techpp, pp) => simple.Invoke(new Dictionary<char, object>()
+            var simple = percentNeededIniter.Invoke();
+            PercentNeededFormatter = (color, acc, passpp, accpp, techpp, pp) => simple.Invoke(new Dictionary<char, object>()
             { { 'c', color }, { 'a', acc }, { 'x', techpp }, { 'y', accpp }, { 'z', passpp }, { 'p', pp } });
         }
         private static Type[] GetValidCounters()
@@ -548,21 +566,24 @@ namespace BLPPCounter
         private void APIAvoidanceMode()
         {
             Plugin.Log.Debug("API Avoidance mode is functioning (probably)!");
-            //MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmap.difficulty, mode, passRating, accRating, techRating); // 1.34.2 and below
+#if NEW_VERSION
             MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmapDiff.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and above
+#else
+            MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmap.difficulty, mode, passRating, accRating, techRating, starRating); // 1.34.2 and below
+#endif
             Plugin.Log.Debug($"Last Map\n-------------------\n{lastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
             bool ratingDiff, diffDiff;
             (ratingDiff, diffDiff) = thisMap.GetDifference(lastMap);
-            Plugin.Log.Info($"Rating: {ratingDiff}\tDifficulty: {diffDiff}");
+            Plugin.Log.Debug($"DID CHANGE || Rating: {ratingDiff}, Difficulty: {diffDiff}");
             if (diffDiff) theCounter.ReinitCounter(display, thisMap);
             else if (ratingDiff) theCounter.ReinitCounter(display, passRating, accRating, techRating, starRating);
             else theCounter.ReinitCounter(display);
             lastMap = thisMap;
         }
-        private static void InitData()
+        private static void InitData(bool loadOnlySS = false, bool doNotLoop = false)
         {
             dataLoaded = false;
-            if (File.Exists(HelpfulPaths.BL_CACHE_FILE))
+            if (!loadOnlySS && File.Exists(HelpfulPaths.BL_CACHE_FILE))
             {
                 try
                 {
@@ -589,7 +610,11 @@ namespace BLPPCounter
                 JEnumerable<JToken> results = JToken.Parse(File.ReadAllText(HelpfulPaths.TAOHABLE_DATA)).Children();
                 foreach (JToken result in results)
                 {
-                    if (result is JObject jo && !jo.ContainsKey("starScoreSaber")) continue;
+#if NEW_VERSION
+                    if (result is JObject jo && !jo.ContainsKey("starScoreSaber")) continue; // 1.37.0 and above
+#else
+                    if (result is JObject jo && jo.Property("starScoreSaber") == null) continue; // 1.34.0 and below
+#endif
                     Map map = new Map(result["hash"].ToString(), Map.SS_MODE_NAME, Map.FromValue(int.Parse(result["difficulty"].ToString())), result["scoreSaberID"].ToString(), result);
                     if (Data.ContainsKey(map.Hash))
                         Data[map.Hash].Combine(map);
@@ -601,6 +626,12 @@ namespace BLPPCounter
             {
                 Plugin.Log.Warn("Error loading Taohable Cache file: " + e.Message);
                 Plugin.Log.Debug(e);
+                if (!doNotLoop && e is JsonReaderException)
+                {
+                    File.Delete(HelpfulPaths.TAOHABLE_DATA); //In the case that there is an issue loading the file, try again.
+                    LoadSomeTaohableData();
+                    InitData(true, true);
+                } 
             }
         }
         private static void LoadSomeTaohableData()
@@ -608,10 +639,10 @@ namespace BLPPCounter
             if (HelpfulPaths.EnsureTaohableDirectoryExists()) return;
             Plugin.Log.Debug("SS data not up to date! Loading...");
             string filePath = HelpfulPaths.TAOHABLE_DATA;
-            byte[] data = HelpfulPaths.CallAPI(HelpfulPaths.TAOHABLE_API, forceNoHeader: true).ReadAsByteArrayAsync().Result;
-            using (FileStream fs = File.Exists(filePath) ? File.OpenWrite(filePath) : File.Create(filePath))
-                fs.Write(data);
-
+            byte[] data = APIHandler.CallAPI_Bytes(HelpfulPaths.TAOHABLE_API, forceNoHeader: true);
+            if (File.Exists(filePath)) File.Delete(filePath); 
+            using (FileStream fs = File.OpenWrite(filePath))
+                fs.Write(data, 0, data.Length); //For some reason Stream.Write isn't implemented
         }
         private static void AddMap(string data) 
         {
@@ -637,14 +668,14 @@ namespace BLPPCounter
         }
         private void AddSSMap(string hash)
         {
-            JEnumerable<JToken> diffs = JToken.Parse(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.SSAPI_DIFFS, hash)).ReadAsStringAsync().Result).Children();
+            JEnumerable<JToken> diffs = JToken.Parse(APIHandler.CallAPI_String(string.Format(HelpfulPaths.SSAPI_DIFFS, hash))).Children();
             Stack<int> ids = new Stack<int>(diffs.Count());
             foreach (JToken diff in diffs)
                 ids.Push((int)diff["leaderboardId"]);
             while (ids.Count > 0)
             {
                 string songId = ids.Pop().ToString();
-                JToken mapInfo = JToken.Parse(HelpfulPaths.CallAPI(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, songId, "info")).ReadAsStringAsync().Result);
+                JToken mapInfo = JToken.Parse(APIHandler.CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, songId, "info")));
                 Map map = Map.ConvertSSToTaoh(hash, songId, mapInfo);
                 if (Data.ContainsKey(hash))
                     Data[hash].Combine(map);
@@ -655,14 +686,22 @@ namespace BLPPCounter
         {
             JToken data;
             string songId;
+#if NEW_VERSION
             string hash = beatmap.levelID.Split('_')[2].ToUpper(); // 1.37.0 and above
-            //string hash = beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
+#else
+            string hash = beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
+#endif
             try
             {
                 if (!Data.TryGetValue(hash, out Map theMap)) throw new KeyNotFoundException("The map is not in the loaded cache.");
+#if NEW_VERSION
                 Dictionary<string, (string, JToken)> hold = theMap.Get(beatmapDiff.difficulty);
-                if (!pc.UsingSS) mode = beatmapDiff.beatmapCharacteristic.serializedName ?? "Standard";
-                else mode = Map.SS_MODE_NAME;
+                if (!pc.UsingSS) mode = beatmapDiff.beatmapCharacteristic.serializedName ?? "Standard"; // 1.37.0 and above
+#else
+                Dictionary<string, (string, JToken)> hold = theMap.Get(beatmap.difficulty);
+                if (!pc.UsingSS) mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName ?? "Standard"; // 1.34.2 and below
+#endif
+                else mode = Map.SS_MODE_NAME; 
                 if (!hold.TryGetValue(mode, out var holdInfo)) throw new KeyNotFoundException($"The mode '{mode}' doesn't exist.\nKeys: [{string.Join(", ", hold.Keys)}]");
                 data = holdInfo.Item2;
                 songId = holdInfo.Item1;
@@ -705,14 +744,14 @@ namespace BLPPCounter
             if (mods.noBombs) outp += HelpfulPaths.GetMultiAmount(data, "nb");
             return outp;
         }
-        #endregion
+#endregion
         #region Updates
         public static void UpdateText(bool displayFc, TMP_Text display, float[] ppVals, int mistakes)
         {
             int num = pc.UsingSS ? 3 : 0;
             if (pc.SplitPPVals && num == 0) {
                 string outp = "";
-                for (int i=0;i<4;i++)
+                for (int i = 0; i < 4; i++) 
                     outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + 4], mistakes, Labels[i]) + "\n";
                 display.text = outp;
             } else

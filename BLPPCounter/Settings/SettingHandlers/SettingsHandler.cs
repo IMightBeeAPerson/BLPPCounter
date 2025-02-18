@@ -32,8 +32,10 @@ namespace BLPPCounter.Settings.SettingHandlers
             NewInstance?.Invoke(this);
             TypesOfPPChanged += () =>
             {
-                CounterList?.UpdateListSetting(TypesOfPP.Cast<string>().ToList());
-                DefaultCounterList?.UpdateListSetting(RelativeDefaultList.Cast<string>().ToList());
+                if (CounterList != null) CounterList.UpdateListSetting(TypesOfPP.Cast<string>().ToList());
+                else if (!TypesOfPP.Any(obj => ((string)obj).Equals(PPType))) PPType = (string)TypesOfPP[0];
+                if (DefaultCounterList != null) DefaultCounterList.UpdateListSetting(RelativeDefaultList.Cast<string>().ToList());
+                else if (!RelativeDefaultList.Any(obj => ((string)obj).Equals(RelativeDefault))) RelativeDefault = (string)RelativeDefaultList[0];
             };
             PropertyChanged += (obj, args) =>
             {
@@ -43,6 +45,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         #endregion
         #region General Settings
 
+        [UIValue(nameof(UseUnranked))]
+        public bool UseUnranked
+        {
+            get => PC.UseUnranked;
+            set {PC.UseUnranked = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseUnranked))); }
+        }
         [UIValue(nameof(UsingSS))]
         public bool UsingSS
         {
@@ -125,11 +133,11 @@ namespace BLPPCounter.Settings.SettingHandlers
             get => PC.MapCache;
             set {PC.MapCache = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(MapCache))); }
         }
-        [UIValue(nameof(ClanPrecentCeil))]
-        public double ClanPrecentCeil
+        [UIValue(nameof(ClanPercentCeil))]
+        public double ClanPercentCeil
         {
-            get => PC.ClanPrecentCeil;
-            set {PC.ClanPrecentCeil = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ClanPrecentCeil))); }
+            get => PC.ClanPercentCeil;
+            set {PC.ClanPercentCeil = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ClanPercentCeil))); }
         }
         [UIValue(nameof(CeilEnabled))]
         public bool CeilEnabled
@@ -197,8 +205,11 @@ namespace BLPPCounter.Settings.SettingHandlers
                     Targeter.AddTarget(converted.Name, $"{converted.ID}");
                     customTargetText.SetText("<color=\"green\">Success!</color>");
                     customTargetInput.Text = "";
-                    targetList.Values = ToTarget; /* 1.37.4 and up*/
-                    //targetList.values = ToTarget; /* 1.34.2 and below*/
+#if NEW_VERSION
+                    targetList.Values = ToTarget; // 1.37.0 and above
+#else
+                    targetList.values = ToTarget; // 1.34.2 and below
+#endif
                     targetList.UpdateChoices();
                 }
                 catch (ArgumentException e)

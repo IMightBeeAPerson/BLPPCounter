@@ -1,4 +1,5 @@
-<vertical spacing='1'>
+<vertical spacing='1'> <!-- For 1.37.0 and above -->
+  <!--settings-container spacing='1' pref-height='70' vertical-fit='PreferredSize'--> <!-- For 1.34.2 and below -->
   <horizontal>
     <button text='Go Back' align='Left' click-event='back'/>
     <button id='SaveButton' text='Save' align='Right' on-click='SaveChanges'/>

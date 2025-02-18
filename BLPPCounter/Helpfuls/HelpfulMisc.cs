@@ -15,14 +15,35 @@ using BeatSaberMarkupLanguage;
 using TMPro;
 using UnityEngine.TextCore;
 using Newtonsoft.Json.Linq;
-using System.Collections;
-using System.Threading.Tasks;
-using UnityEngine.UIElements;
 using BeatSaberMarkupLanguage.Components.Settings;
+using BLPPCounter.Settings.Configs;
+using BeatLeader.Models;
 namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
     {
+        public static int OrderSongSpeedCorrectly(SongSpeed ss)
+        {
+            switch (ss)
+            {
+                case SongSpeed.Slower: return 0;
+                case SongSpeed.Normal: return 1;
+                case SongSpeed.Faster: return 2;
+                case SongSpeed.SuperFast: return 3;
+                default: return -1;
+            }
+        }
+        public static SongSpeed OrderSongSpeedCorrectly(int ss)
+        {
+            switch (ss)
+            {
+                case 0: return SongSpeed.Slower;
+                case 1: return SongSpeed.Normal;
+                case 2: return SongSpeed.Faster;
+                case 3: return SongSpeed.SuperFast;
+                default: return default;
+            }
+        }
         public static string PPTypeToRating(PPType type)
         {
             switch (type)
@@ -144,10 +165,12 @@ namespace BLPPCounter.Helpfuls
         public static bool IsNumber(object o) => IsNumber(o.GetType());
         public static string SplitByUppercase(string s) => Regex.Replace(s, "(?!^)[A-Z][^A-Z]*", " $&");
         public static string ConvertColorToHex(Color c) => $"#{ToRgba(c):X8}";
+        public static string ConvertColorToHex(UnityEngine.Color c) => $"#{ToRgba(c):X8}";
         public static string ConvertColorToMarkup(Color c) => $"<color={ConvertColorToHex(c)}>";
         public static int ArgbToRgba(int argb) => (argb << 8) + (int)((uint)argb >> 24); //can't use triple shift syntax, so best I can do is casting :(
         public static int RgbaToArgb(int rgba) => (int)((uint)rgba >> 8) + (rgba << 24);
         public static int ToRgba(Color c) => ArgbToRgba(c.ToArgb());
+        public static int ToRgba(UnityEngine.Color c) => ((int)Math.Round(c.r * 0xFF) << 24) + ((int)Math.Round(c.g * 0xFF) << 16) + ((int)Math.Round(c.b * 0xFF) << 8) + (int)Math.Round(c.a * 0xFF);
         public static UnityEngine.Color TextToColor(string text)
         {
             if (text[0] == '#')
@@ -172,69 +195,11 @@ namespace BLPPCounter.Helpfuls
         public static System.Drawing.Color ConvertColor(UnityEngine.Color color) =>
             System.Drawing.Color.FromArgb((int)Math.Round(color.a * 0xFF), (int)Math.Round(color.r * 0xFF), (int)Math.Round(color.g * 0xFF), (int)Math.Round(color.b * 0xFF));
         public static BSMLParserParams AddToComponent(BSMLResourceViewController brvc, UnityEngine.GameObject container) =>
-            BSMLParser.Instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc);
-        public static void SetupTable(TextMeshProUGUI table, int maxWidth, string[][] values, int spaces, bool haveEndColumn, bool centerText, params string[] names)
-        {
-            //for some reason spaces in fonts won't have an actual size, so the line below will add the size to font if it doesn't have one.
-            if (table.font.characterLookupTable[' '].glyph.metrics.width == 0) table.font.MakeSpacesHaveSpace();
-
-            string space = new string(' ', spaces);
-            float[] maxLengths = new float[names.Length];
-            string[] rows = new string[values.Length + 2];
-            string format = centerText ? $"|{space}<space={{1}}px>{{0}}" : $"|{space}{{0}}";
-            int centerTextInc = centerText ? 3 : 2; //weird var, but is an attempt to make this less jank
-            Dictionary<uint, TMP_Character> lookupTable = new Dictionary<uint, TMP_Character>();
-
-            float GetLen(string str) => table.GetPreferredValues(str).x;//table.GetLengthOfText(str);
-            float GetLenWithoutRich(string str) => GetLen(Regex.Replace(str, "<[^>]+>", ""));
-            float GetLenWithSpacers(string str)
-            {
-                MatchCollection mc = Regex.Matches(str, "(?<=<space=)[^p]+");
-                float addedSpace = mc.Aggregate(0.0f, (total, match) => total + float.Parse(match.Value));
-                return GetLenWithoutRich(str) + addedSpace;
-            }
-            object[] GetFormatVals(string[] row)
-            {
-                int outArrLen = row.Length * 2 - 1;
-                if (centerText) outArrLen += row.Length;
-                if (haveEndColumn) outArrLen += centerText ? 2 : 1;
-                object[] outArr = new object[outArrLen];
-                for (int i = 0, c = 0; i < row.Length; i++, c += centerTextInc)
-                {
-                    outArr[c] = row[i];
-                    if (i < row.Length - 1 || haveEndColumn) if (centerText) { outArr[c + 1] = (maxLengths[i] - GetLenWithoutRich(row[i])) / 2; outArr[c + 2] = outArr[c + 1]; }
-                        else outArr[c + 1] = maxLengths[i] - GetLenWithoutRich(row[i]);
-                }
-                return outArr;
-            }
-
-            for (int i = 1, c = centerTextInc - 1; i < names.Length; i++, c += centerTextInc)
-                format += $"<space={{{c}}}px>{space}|{space}" + (centerText ? $"<space={{{c + 2}}}px>{{{c + 1}}}" : $"{{{c + 1}}}");
-            if (haveEndColumn) format += $"<space={{{centerTextInc * (names.Length - 2) + centerTextInc + 1}}}px>{space}|";
-            for (int i = 0; i < maxLengths.Length; i++)
-                maxLengths[i] = Math.Max(values.Aggregate(0.0f, (total, strArr) => Math.Max(total, GetLenWithoutRich(strArr[i]))), GetLenWithoutRich(names[i]));
-            
-            rows[0] = string.Format(format, GetFormatVals(names));
-            for (int i = 0; i < values.Length; i++)
-                rows[i + 2] = string.Format(format, GetFormatVals(values[i]));
-            float spacerSize = table.GetPreferredValues(space + "|").x, dashSize = table.GetPreferredValues("-").x;
-            if (haveEndColumn) spacerSize *= 2;
-            float maxSpace = maxWidth > 0 ? maxWidth : rows.Skip(2).Aggregate(0.0f, (total, str) => Math.Max(total, GetLenWithSpacers(str)));
-            int dashCount = (int)Math.Ceiling((maxSpace - spacerSize) / dashSize);
-            rows[1] = "|" + space + new string('-', dashCount);
-            if (haveEndColumn)
-            {
-                float dashLength = table.GetPreferredValues(rows[1]).x;
-                rows[1] += $"<space={maxSpace - table.GetPreferredValues(rows[1]).x - spacerSize / 2}px>{space}|";
-            }
-            rows[0] += '\n';
-            table.text = rows.Aggregate((total, str) => total + str + "\n");
-        }
-        public static void SetupTable(TextMeshProUGUI table, int maxWidth, string[][] values, bool haveEndColumn, bool centerText, params string[] names) =>
-            SetupTable(table, maxWidth, values, 2, haveEndColumn, centerText, names);
-        public static void SetupTable(TextMeshProUGUI table, int maxWidth, IEnumerable<KeyValuePair<string, string>> values, string key, string value, int spaces = 2, bool haveEndColumn = false, bool centerText = false) =>
-            SetupTable(table, maxWidth, values.Select(kvp => new string[2] { kvp.Key, kvp.Value }).ToArray(), spaces, haveEndColumn, centerText, key, value);
-
+#if NEW_VERSION
+            BSMLParser.Instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc); // 1.37.0 and above
+#else
+            BSMLParser.instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc); // 1.34.2 and below
+#endif
         public static IEnumerable<T> GetDuplicates<T, V>(this IEnumerable<T> arr, Func<T, V> valToCompare)
         {
             Dictionary<V, (T, bool)> firstItems = new Dictionary<V, (T, bool)>();
@@ -360,11 +325,142 @@ namespace BLPPCounter.Helpfuls
             comparer(item1[value] as T, item2[value] as T);
         public static int CompareStructValues<T>(JToken item1, JToken item2, string value, Func<T, T, int> comparer) where T : struct =>
            comparer((T)Convert.ChangeType(item1[value], typeof(T)), (T)Convert.ChangeType(item2[value], typeof(T)));
-        public static void UpdateListSetting(this ListSetting menu, List<string> newValues)
+        public static void UpdateListSetting(this ListSetting menu, List<string> newValues)//https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/documentation-comments
         {
-            menu.Values = newValues;
+#if NEW_VERSION
+            menu.Values = newValues; // 1.37.0 and above
+#else
+            menu.values = newValues.Cast<object>().ToList(); // 1.34.2 and below
+#endif
             if (!newValues.Any(str => str.Equals((string)menu.Value))) menu.Value = newValues[0];
             else menu.Value = menu.Value; //seems stupid but calls the update method.
+            Plugin.Log.Info("Front end value = " + (string)menu.Value);
+            menu.ApplyValue(); //Update the actual value
+        }
+        /// <summary>
+        /// Checks if status given by BeatLeader's api is usable. Current usable statuses are listed below:
+        /// <list type="bullet">
+        ///     <item>
+        ///     <term>Unranked</term>
+        ///     <description>Map is unranked. The leaderboard <b>does not</b> show pp. Only used if <see cref="PluginConfig.UseUnranked"/> is enabled. (<paramref name="status"/> = 0)</description>
+        ///     </item>
+        ///     <item>
+        ///     <term>Nominated</term>
+        ///     <description>Map is nominated, 2 steps from being ranked. The leaderboard <b>does not</b> show pp. (<paramref name="status"/> = 1)</description>
+        ///     </item>
+        ///     <item>
+        ///     <term>Qualified</term>
+        ///     <description>Map is qualified, 1 step from being ranked. The leaderboard shows pp. (<paramref name="status"/> = 2)</description>
+        ///     </item>
+        ///     <item>
+        ///     <term>Ranked</term>
+        ///     <description>Map is ranked. The leaderboard shows pp. (<paramref name="status"/> = 3)</description>
+        ///     </item>
+        ///     <item>
+        ///     <term>Event</term>
+        ///     <description>Map is part of event. The leaderboard shows pp. (<paramref name="status"/> = 6)</description>
+        ///     </item>
+        /// </list>
+        /// </summary>
+        /// <param name="status">The status value returned from BeatLeader's api.</param>
+        /// <returns>Whether or not the api will provide enough info to calculate pp.</returns>
+        public static bool StatusIsUsable(int status) => (status > 0 && status <= 3) || status == 6 || (PluginConfig.Instance.UseUnranked && status == 0);
+        /// <summary>
+        /// Checks if a given map selection is usable. If it is using a score saber map, then it is always usable. Otherwise, it checks the beat leader status against the list below:
+        /// <list type="bullet">
+        ///     <item>
+        ///     <term>Unranked</term>
+        ///     <description>Map is unranked. The leaderboard <b>does not</b> show pp. Only used if <see cref="PluginConfig.UseUnranked"/> is enabled. (status = 0)</description>
+        ///     </item>
+        ///     <item>
+        ///     <term>Nominated</term>
+        ///     <description>Map is nominated, 2 steps from being ranked. The leaderboard <b>does not</b> show pp. (status = 1)</description>
+        ///     </item>
+        ///     <item>
+        ///     <term>Qualified</term>
+        ///     <description>Map is qualified, 1 step from being ranked. The leaderboard shows pp. (status = 2)</description>
+        ///     </item>
+        ///     <item>
+        ///     <term>Ranked</term>
+        ///     <description>Map is ranked. The leaderboard shows pp. (status = 3)</description>
+        ///     </item>
+        ///     <item>
+        ///     <term>Event</term>
+        ///     <description>Map is part of event. The leaderboard shows pp. (status = 6)</description>
+        ///     </item>
+        /// </list>
+        /// </summary>
+        /// <param name="ms">The map selection to check.</param>
+        /// <returns>Whether or not the map selection has a usable status.</returns>
+        public static bool StatusIsUsable(MapSelection ms) => ms.Mode.Equals(Map.SS_MODE_NAME) || StatusIsUsable((int)ms.MapData.Item2["status"]);
+        public static bool StatusIsUsable(JToken diffData) => StatusIsUsable((int)diffData["status"]);
+        /// <summary>
+        /// Create a square matrix (a matrix with all arrays inside it being the same size).
+        /// </summary>
+        /// <typeparam name="T">The type of matrix.</typeparam>
+        /// <param name="rows">How many rows to have (amount of arrays).</param>
+        /// <param name="columns">How many columns to have (the lengths of arrays).</param>
+        /// <returns>An empty matrix with all arrays inside of it initialized.</returns>
+        public static T[][] CreateSquareMatrix<T>(int rows, int columns)
+        {
+            T[][] outp = new T[rows][];
+            for (int i = 0; i < rows; i++)
+                outp[i] = new T[columns];
+            return outp;
+        }
+        /// <summary>
+        /// Checks if a given matrix is a square (all of its arrays are the same length).
+        /// </summary>
+        /// <typeparam name="T">The type of the matrix</typeparam>
+        /// <param name="matrix">The matrix to validate</param>
+        /// <returns>Whether or not the matrix is a square.</returns>
+        public static bool ValidateMatrixAsSquare<T>(T[][] matrix)
+        {
+            int len = matrix[0].Length;
+            foreach (T[] arr in matrix)
+                if (arr.Length != len) return false;
+            return true;
+        }
+        /// <summary>
+        /// Changes the song speed of the gameplay modifier panel to the given song speed.
+        /// </summary>
+        /// <param name="gmpc">the gameplay modifier panel</param>
+        /// <param name="speed">the new speed to set it to</param>
+        public static void ChangeSongSpeed(this GameplayModifiersPanelController gmpc, SongSpeed speed)
+        {
+            if (gmpc.gameplayModifiers.songSpeed == speed) return; //If the speed is already set to this, no work need to be done.
+            gmpc.SetData(gmpc.gameplayModifiers.CopyWith(songSpeed: speed)); //Copy the current mods while only changing the speed, then set it to be correct.
+            (gmpc as IRefreshable).Refresh(); //Refresh the display so that the new modifier is shown correctly.
+        }
+        public static void ChangeMinValue(this SliderSetting ss, float newVal) => ChangeValue(ss, newVal, true);
+        public static void ChangeMaxValue(this SliderSetting ss, float newVal) => ChangeValue(ss, newVal, false);
+        private static void ChangeValue(SliderSetting ss, float newVal, bool isMinVal)
+        {
+#if NEW_VERSION
+            float currentVal = ss.Slider.value;
+            if (isMinVal) ss.Slider.minValue = newVal; else ss.Slider.maxValue = newVal;
+            ss.Slider.numberOfSteps = (int)Math.Round((ss.Slider.maxValue - ss.Slider.minValue) / ss.Increments) + 1;
+            if ((isMinVal && newVal < currentVal) || (!isMinVal && newVal > currentVal)) ss.Slider.value = currentVal; // 1.37.0 and above
+#else
+            float currentVal = ss.slider.value;
+            if (isMinVal) ss.slider.minValue = newVal; else ss.slider.maxValue = newVal;
+            ss.slider.numberOfSteps = (int)Math.Round((ss.slider.maxValue - ss.slider.minValue) / ss.increments) + 1;
+            if ((isMinVal && newVal < currentVal) || (!isMinVal && newVal > currentVal)) ss.slider.value = currentVal; //1.34.2 and below
+#endif
+        }
+        public static void CoupleMinMaxSliders(SliderSetting min, SliderSetting max)
+        {
+#if NEW_VERSION
+            min.Slider.valueDidChangeEvent += (slider, newVal) => { if (max.Value < newVal) min.Value = max.Value; };
+            max.Slider.valueDidChangeEvent += (slider, newVal) => { if (min.Value > newVal) max.Value = min.Value; }; // 1.37.0 and above
+#else
+            min.slider.valueDidChangeEvent += (slider, newVal) => { if (max.Value < newVal) min.Value = max.Value; };
+            max.slider.valueDidChangeEvent += (slider, newVal) => { if (min.Value > newVal) max.Value = min.Value; }; //1.34.2 and below
+#endif
+        }
+        public static void PrintVars(params (string varName, object value)[] vars)
+        {
+            Plugin.Log.Info(vars.Aggregate("", (total, current) => total + $", {current.varName} = {current.value}").Substring(2));
         }
     }
 }

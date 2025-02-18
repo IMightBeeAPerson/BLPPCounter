@@ -4,6 +4,7 @@ using BeatSaberMarkupLanguage.Components;
 using BeatSaberMarkupLanguage.GameplaySetup;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
+using BLPPCounter.Settings.SettingHandlers.MenuViews;
 using BLPPCounter.Utils;
 using System;
 using System.Collections.Generic;
@@ -62,25 +63,41 @@ namespace BLPPCounter.Settings.SettingHandlers
                 foreach (string name in Enum.GetNames(typeof(UsableAttributes)))
                 {
                     if (values.TryGetValue(name.Replace('_', '-'), out string val))
-                        toAdd.SetAttribute(Enum.Parse<UsableAttributes>(name), val);
+#if NEW_VERSION
+                        toAdd.SetAttribute(Enum.Parse<UsableAttributes>(name), val); // 1.37.0 and above
+#else
+                        toAdd.SetAttribute((UsableAttributes)Enum.Parse(typeof(UsableAttributes), name), val); // 1.34.2 and below
+#endif
                 }
                 outp.Add(toAdd);
             }
             UIElements.AddRange(outp.Cast<object>());
-            ccltd.TableView.ReloadData();
+#if NEW_VERSION
+            ccltd.TableView.ReloadData(); // 1.37.0 and above
+#else
+            ccltd.tableView.ReloadData(); // 1.34.2 and below
+#endif
             //Plugin.Log.Info("Simple Tab Settings Loaded!");
             //Plugin.Log.Info(string.Join("\n", UIElements));
         }
         public void ReloadTab() { UIElements.Clear(); loaded = false; LoadElements(); }
         public void ChangeMenuTab(bool removeTab = true)
         {
+#if NEW_VERSION
             if (removeTab) GameplaySetup.Instance.RemoveTab("BL PP Counter");
             if (PluginConfig.Instance.SimpleUI)
                 GameplaySetup.Instance.AddTab("BL PP Counter", HelpfulPaths.SIMPLE_MENU_BSML, this);
             else
-                GameplaySetup.Instance.AddTab("BL PP Counter", HelpfulPaths.MENU_BSML, SettingsHandler.Instance);
+                GameplaySetup.Instance.AddTab("BL PP Counter", HelpfulPaths.MENU_BSML, SettingsHandler.Instance);  // 1.37.0 and above
+#else
+            if (removeTab) GameplaySetup.instance.RemoveTab("BL PP Counter");
+            if (PluginConfig.Instance.SimpleUI)
+                GameplaySetup.instance.AddTab("BL PP Counter", HelpfulPaths.SIMPLE_MENU_BSML, this);
+            else
+                GameplaySetup.instance.AddTab("BL PP Counter", HelpfulPaths.MENU_BSML, SettingsHandler.Instance);  // 1.34.2 and below
+#endif
         }
 #pragma warning restore IDE0051
-        #endregion
+#endregion
     }
 }

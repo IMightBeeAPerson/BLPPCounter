@@ -8,11 +8,9 @@ using BLPPCounter.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
-namespace BLPPCounter.Settings.SettingHandlers
+namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 {
     public class SimpleMenuSettingsHandler : BSMLResourceViewController
     {
@@ -26,7 +24,15 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             SettingsToSave = new bool[PC.SimpleMenuConfigLength];
             HelpfulMisc.ConvertInt32ToBools(SettingsToSave, PC.SimpleMenuConfig);
-            AddChange = (id, newVal) => { if (SettingsToSave[id] == newVal) changes &= ~(1 << id); else changes |= 1 << id; saveButton.interactable = changes > 0; };
+            AddChange = (id, newVal) => 
+            { 
+                if (SettingsToSave[id] == newVal) changes &= ~(1 << id);
+                else changes |= 1 << id;
+#if !NEW_VERSION
+                if (!(saveButton is null)) // 1.34.2 and below
+#endif
+                saveButton.interactable = changes > 0;
+            };
         }
 
         public bool[] SettingsToSave { get; private set; }
@@ -54,7 +60,11 @@ namespace BLPPCounter.Settings.SettingHandlers
             UISettings.AddRange(ConvertMenu().Cast<object>());
             for (int i = 0; i < UISettings.Count; i++) if (UISettings[i] is SettingToggleInfo sti) sti.Usable = SettingsToSave[i];
             changes = 0;
-            UICustomizer.TableView.ReloadData();
+#if NEW_VERSION
+            UICustomizer.TableView.ReloadData(); // 1.37.0 and above
+#else
+            UICustomizer?.tableView.ReloadData(); // 1.34.2 and below
+#endif
         }
         private List<SettingToggleInfo> ConvertMenu()
         {
@@ -78,6 +88,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                     count++,
                     AddChange
                     ));
+            //HelpfulMisc.PrintVars((nameof(outp), outp.Count));
             return outp;
         }
 

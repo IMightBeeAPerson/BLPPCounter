@@ -58,14 +58,14 @@ namespace BLPPCounter.Counters
         public static void ResetFormat() { }
         #endregion
         #region Updates
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPrecent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
         {
             bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0, ss = PluginConfig.Instance.UsingSS;
             float[] ppVals = new float[ss ? 2 : 8];
             if (ss)
             {
                 ppVals[0] = SSCalc.GetPP(acc, starRating);
-                if (displayFc) ppVals[1] = SSCalc.GetPP(fcPrecent, starRating);
+                if (displayFc) ppVals[1] = SSCalc.GetPP(fcPercent, starRating);
             }
             else
             {
@@ -73,7 +73,7 @@ namespace BLPPCounter.Counters
                 ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
                 if (displayFc)
                 {
-                    (ppVals[4], ppVals[5], ppVals[6]) = BLCalc.GetPp(fcPrecent, accRating, passRating, techRating);
+                    (ppVals[4], ppVals[5], ppVals[6]) = BLCalc.GetPp(fcPercent, accRating, passRating, techRating);
                     ppVals[7] = BLCalc.Inflate(ppVals[4] + ppVals[5] + ppVals[6]);
                 }
                 for (int i = 0; i < ppVals.Length; i++)

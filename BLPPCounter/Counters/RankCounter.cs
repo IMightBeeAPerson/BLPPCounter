@@ -98,25 +98,25 @@ namespace BLPPCounter.Counters
         public void SetupData(MapSelection map)
         {
             string songId = map.MapData.Item1;
-            if (map.IsRanked)
+            if (map.IsUsable)
             {
                 if (PC.UsingSS)
                 {
                     string path = string.Format(HelpfulPaths.SSAPI_HASH, map.Hash, "scores", Map.FromDiff(map.Difficulty));
                     IEnumerable<float> pps = new List<float>();
-                    string data = HelpfulPaths.CallAPI(path).ReadAsStringAsync().Result;
+                    string data = APIHandler.CallAPI_String(path);
                     for (int i = 1; i < 5; i++)
-                        pps = pps.Union(JToken.Parse(HelpfulPaths.CallAPI(path + "&page=" + i).ReadAsStringAsync().Result)["scores"].Children().Select(token => (float)token["pp"]));
+                        pps = pps.Union(JToken.Parse(APIHandler.CallAPI_String(path + "&page=" + i))["scores"].Children().Select(token => (float)token["pp"]));
                 }
                 else
                 {
-                    string data = HelpfulPaths.CallAPI(string.Format(BLAPI_PATH, songId)).ReadAsStringAsync().Result;
+                    string data = APIHandler.CallAPI_String(string.Format(BLAPI_PATH, songId));
                     mapPP = JToken.Parse(data).Children().Select(a => (float)Math.Round((double)a["pp"], precision)).ToArray();
                 }
             }
             else
             {
-                string data = HelpfulPaths.CallAPI(string.Format(BLAPI_PATH2, songId, MaxAmountOfPeople)).ReadAsStringAsync().Result;
+                string data = APIHandler.CallAPI_String(string.Format(BLAPI_PATH2, songId, MaxAmountOfPeople));
                 JToken mapData = map.MapData.Item2;
                 float maxScore = (int)mapData["maxScore"];
                 float acc = (float)mapData["accRating"], pass = (float)mapData["passRating"], tech = (float)mapData["techRating"];
@@ -188,13 +188,13 @@ namespace BLPPCounter.Counters
         private int GetRank(float pp) { int val = Array.BinarySearch(mapPP, pp); return mapPP.Length - (val >= 0 ? val - 1 : Math.Abs(val) - 2); }
         #endregion
         #region Updates
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPrecent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
         {
             bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0;
             float[] ppVals = new float[8];
             (ppVals[0], ppVals[1], ppVals[2], ppVals[3]) = BLCalc.GetSummedPp(acc, accRating, passRating, techRating, precision);
             if (displayFc)
-                (ppVals[4], ppVals[5], ppVals[6], ppVals[7]) = BLCalc.GetSummedPp(fcPrecent, accRating, passRating, techRating, precision);
+                (ppVals[4], ppVals[5], ppVals[6], ppVals[7]) = BLCalc.GetSummedPp(fcPercent, accRating, passRating, techRating, precision);
             int rank = GetRank(ppVals[3]);
             float ppDiff = (float)Math.Abs(Math.Round(mapPP[mapPP.Length + 1 - Math.Max(2, Math.Min(rank, mapPP.Length + 1))] - ppVals[3], precision));
             string color = HelpfulFormatter.GetWeightedRankColor(rank);

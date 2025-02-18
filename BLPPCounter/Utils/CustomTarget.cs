@@ -23,14 +23,14 @@ namespace BLPPCounter.Utils
         {
             if (long.TryParse(str, out long id))
             {
-                if (HelpfulPaths.CallAPI($"player/{id}", out HttpContent data)) return new CustomTarget(JObject.Parse(data.ReadAsStringAsync().Result)["name"].ToString(), id);
+                if (APIHandler.CallAPI($"player/{id}", out HttpContent data)) return new CustomTarget(JObject.Parse(data.ReadAsStringAsync().Result)["name"].ToString(), id);
                 else throw new ArgumentException("The ID provided does not exist.");
             }
             return ConvertToIdAlias(str);
         }
         private static CustomTarget ConvertToIdAlias(string str)
         {
-            if (HelpfulPaths.CallAPI($"player/{str.ToLower()}", out HttpContent data))
+            if (APIHandler.CallAPI($"player/{str.ToLower()}", out HttpContent data))
             {
                 string strData = data.ReadAsStringAsync().Result;
                 JObject parsedData = JObject.Parse(strData);

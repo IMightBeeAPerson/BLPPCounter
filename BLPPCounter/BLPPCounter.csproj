@@ -25,7 +25,7 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;NEW_VERSION</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <Optimize>true</Optimize>
@@ -81,7 +81,8 @@
       <Private>False</Private>
       <SpecificVersion>False</SpecificVersion>
     </Reference>
-    <Reference Include="UnityEngine.TextCoreFontEngineModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
+    <Reference Include="UnityEngine.TextCoreFontEngineModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" Condition="$(DefineConstants.Contains('34.2')) OR $(DefineConstants.Contains('NEW_VERSION'))" />
+    <Reference Include="UnityEngine.TextCoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" Condition="$(DefineConstants.Contains('34.2')) == false AND $(DefineConstants.Contains('NEW_VERSION')) == false" />
     <Reference Include="Zenject">
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\Zenject.dll</HintPath>
     </Reference>
@@ -197,6 +198,8 @@
     <Compile Include="Settings\SettingHandlers\SettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\SimpleSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\SimpleMenuSettingsHandler.cs" />
+    <Compile Include="Utils\Special Utils\FilledList.cs" />
+    <Compile Include="Utils\APIHandler.cs" />
     <Compile Include="Utils\ColorMatch.cs" />
     <Compile Include="Utils\CustomAlias.cs" />
     <Compile Include="Utils\CustomTarget.cs" />
@@ -216,6 +219,7 @@
     <Compile Include="Utils\List Settings\SettingToggleInfo.cs" />
     <Compile Include="Utils\List Settings\SimpleMenuInfo.cs" />
     <Compile Include="Utils\SystemColorConverter.cs" />
+    <Compile Include="Utils\Table.cs" />
     <Compile Include="Utils\Targeter.cs" />
   </ItemGroup>
   <ItemGroup>

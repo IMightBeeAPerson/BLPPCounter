@@ -53,6 +53,10 @@ namespace BLPPCounter.CalculatorStuffs
         {
             pointList.Reverse();
         }
-        public static float GetPP(float acc, float stars) => SecretMultiplier * (float)BLCalc.GetCurve(acc, pointList) * stars;
+        public static float GetPP(float acc, float stars) 
+        { 
+            float outp = SecretMultiplier * (float)BLCalc.GetCurve(acc, pointList) * stars;
+            return outp;
+        }
     }
 }

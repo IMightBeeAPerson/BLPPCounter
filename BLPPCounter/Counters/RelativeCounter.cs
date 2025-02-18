@@ -133,7 +133,7 @@ namespace BLPPCounter.Counters
         {
             //Plugin.Log.Debug(data.ToString());
             string replay = (string)data["replay"];
-            ReplayDecoder.TryDecodeReplay(HelpfulPaths.CallAPI(replay).ReadAsByteArrayAsync().Result, out bestReplay);
+            ReplayDecoder.TryDecodeReplay(APIHandler.CallAPI_Bytes(replay), out bestReplay);
             noteArray = bestReplay.notes.ToArray();
             ReplayMods = bestReplay.info.modifiers.ToLower();
             Match hold = Regex.Match(ReplayMods, "(fs|sf|ss),?");
@@ -151,7 +151,7 @@ namespace BLPPCounter.Counters
         {
             try
             {
-                string check = HelpfulPaths.CallAPI(string.Format(HelpfulPaths.BLAPI_SCORE, Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), map.Mode), true).ReadAsStringAsync().Result;
+                string check = APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_SCORE, Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), map.Mode), true);
                 if (check != default && check.Length > 0)
                 {
                     JToken playerData = JObject.Parse(check);
@@ -288,11 +288,11 @@ namespace BLPPCounter.Counters
             (best[0], best[1], best[2]) = BLCalc.GetPp(best[7] / HelpfulMath.MaxScoreForNotes(notes), best[5], best[4], best[6]);
             best[3] = BLCalc.Inflate(best[0] + best[1] + best[2]);
         }
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPrecent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
         {
             if (failed)
             {
-                backup.UpdateCounter(acc, notes, mistakes, fcPrecent);
+                backup.UpdateCounter(acc, notes, mistakes, fcPercent);
                 return;
             }
             bool displayFc = pc.PPFC && mistakes > 0, showLbl = pc.ShowLbl;
@@ -304,7 +304,7 @@ namespace BLPPCounter.Counters
                 ppVals[i + 4] = ppVals[i] - best[i];
             if (displayFc)
             {
-                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPrecent, accRating, passRating, techRating);
+                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPercent, accRating, passRating, techRating);
                 ppVals[11] = BLCalc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
                 for (int i = 8; i < 12; i++)
                     ppVals[i + 4] = ppVals[i] - best[i - 8];

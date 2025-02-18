@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using BLPPCounter.Helpfuls;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 
 namespace BLPPCounter.Utils
@@ -15,11 +16,7 @@ namespace BLPPCounter.Utils
         public float TechRating { get; private set; }
         public float StarRating { get; private set; }
         public (string, JToken) MapData => Map.Get(Mode, Difficulty);
-        public bool IsRanked { get {
-                if (Mode.Equals(Map.SS_MODE_NAME)) return true;
-                int status = (int)MapData.Item2["status"];
-                return status == 3 || status == 2; 
-            } }
+        public bool IsUsable => HelpfulMisc.StatusIsUsable(this);
         public string Hash => Map.Hash;
 
         public MapSelection(Map map = default, BeatmapDifficulty diff = default, string mode = default, float passRating = default, float accRating = default, float techRating = default, float starRating = default)

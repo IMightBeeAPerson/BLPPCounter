@@ -3,6 +3,7 @@
     <vertical pad='5' vertical-fit='PreferredSize' spacing='1'>
       <text text='General Settings' align='Center'/>
       <vertical spacing='1'>
+        <checkbox-setting text='Show On Unranked Maps' apply-on-change='true' value='UseUnranked' hover-hint='Patreons of BL can see ratings for unranked maps'/>
         <checkbox-setting text='Use Scoresaber' apply-on-change='true' value='UsingSS' hover-hint='Use Scoresaber instead of beatsaber (this will disable some features!)'/>
         <increment-setting text='Decimal Precision' value='DecimalPrecision' integer-only='true' min='0' max='4' increment='1' apply-on-change='true'/>
         <increment-setting text='Font Size' value='FontSize' integer-only='false' min='0.5' max='5' increment='0.5' apply-on-change='true'/>
@@ -22,7 +23,7 @@
       <vertical spacing='1'>
         <checkbox-setting text='Show Custom Message' value='ShowClanMessage' apply-on-change='true' hover-hint='Show custom clan message instead of the generic message'/>
         <increment-setting text='Map Cache' value='MapCache' integer-only='true' min='0' max='50' increment='5' apply-on-change='true'/>
-        <increment-setting text='Precent Ceiling' value='ClanPrecentCeil' integer-only='false' min='90' max='100' increment='0.1' apply-on-change='true'/>
+        <increment-setting text='Percent Ceiling' value='ClanPercentCeil' integer-only='false' min='90' max='100' increment='0.1' apply-on-change='true'/>
         <checkbox-setting text='Enable Ceiling' apply-on-change='true' value='CeilEnabled' hover-hint='Enable the percentage ceiling'/>
       </vertical>
       <text text='Relative Counter Settings' align='Center'/>

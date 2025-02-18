@@ -3,11 +3,8 @@ using BeatSaberMarkupLanguage.Components;
 using BeatSaberMarkupLanguage.ViewControllers;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.List_Settings;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine.UI;
 
 namespace BLPPCounter.Settings.SettingHandlers.MenuViews
@@ -15,7 +12,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
     public class ColorSettingsHandler: BSMLResourceViewController
     {
         private static PluginConfig PC => PluginConfig.Instance;
-        public static ColorSettingsHandler Instance { get; private set; } = new ColorSettingsHandler();
+        public static ColorSettingsHandler Instance { get; } = new ColorSettingsHandler();
         public override string ResourceName => "BLPPCounter.Settings.BSML.MenuComponents.ColorSettings.bsml";
         private ColorSettingsHandler() { }
 
@@ -40,7 +37,9 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             ColorListInfo.UpdateSaveButton = () => ColorSaveButton.interactable = ColorValues.Cast<ColorListInfo>().Any(cli => cli.HasChanges);
             ColorValues.Clear();
             ColorValues.AddRange(PC.ColorInfos.Select(pi => new ColorListInfo(pi)));
-            ColorEditor.TableView.ReloadData();
+#if NEW_VERSION
+            ColorEditor.TableView.ReloadData(); // 1.37.0 and above#else
+            ColorEditor.tableView.ReloadData(); // 1.34.2 and below#endif
             ColorSaveButton.interactable = false;
         }
         [UIAction(nameof(SaveColors))]
