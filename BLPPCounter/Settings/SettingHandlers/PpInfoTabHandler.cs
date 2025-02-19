@@ -19,6 +19,7 @@ using System.Net.Http;
 using static GameplayModifiers;
 using BeatSaberMarkupLanguage.Parser;
 using BeatSaberMarkupLanguage.Components.Settings;
+using System.Windows.Forms;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -510,7 +511,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             CurrentDiff = tokens["difficulty"];
             MapDiffText = HelpfulMisc.AddSpaces(CurrentDiff["difficultyName"].ToString());
             MapModeText = HelpfulMisc.AddSpaces(CurrentDiff["modeName"].ToString());
-            if (tokens is JObject obj && obj.GetValue("modifiersRating") is null)
+            if (CurrentDiff is JObject obj && obj["modifiersRating"] is null)
                 CurrentDiff = null;
         }
         public void Refresh(bool forceRefresh = false) => Task.Run(() => DoRefresh(forceRefresh));
