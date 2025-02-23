@@ -23,7 +23,7 @@ namespace BLPPCounter.Settings.Configs
         public virtual bool UseUnranked { get; set; } = true;
         public virtual bool UsingSS { get; set; } = false;
         public virtual int DecimalPrecision { get; set; } = 2;
-        public virtual double FontSize { get; set; } = 3;
+        public virtual float FontSize { get; set; } = 3;
         public virtual bool ShowLbl { get; set; } = true;
         public virtual bool PPFC { get; set; } = true;
         public virtual bool SplitPPVals { get; set; } = false;

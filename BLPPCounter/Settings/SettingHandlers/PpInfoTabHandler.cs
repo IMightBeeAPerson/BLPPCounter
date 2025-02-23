@@ -511,7 +511,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             CurrentDiff = tokens["difficulty"];
             MapDiffText = HelpfulMisc.AddSpaces(CurrentDiff["difficultyName"].ToString());
             MapModeText = HelpfulMisc.AddSpaces(CurrentDiff["modeName"].ToString());
-            if (CurrentDiff is JObject obj && obj["modifiersRating"] is null)
+            if (CurrentDiff["modifiersRating"] is null || CurrentDiff["modifiersRating"].ToString().Length == 0)
                 CurrentDiff = null;
         }
         public void Refresh(bool forceRefresh = false) => Task.Run(() => DoRefresh(forceRefresh));

@@ -1,4 +1,5 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
+using BLPPCounter.Helpfuls;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,7 +22,7 @@ namespace BLPPCounter.Utils
         #endregion
         #region Increment Vars
         [UIValue(nameof(IntegerOnly))]
-        public bool IntegerOnly { get; private set; } = true;
+        public bool IntegerOnly { get; private set; } = false;
         [UIValue(nameof(MinAmount))]
         public float MinAmount { get; private set; } = 0;
         [UIValue(nameof(MaxAmount))]
@@ -47,7 +48,8 @@ namespace BLPPCounter.Utils
         #region Show Events
         [UIValue(nameof(ShowEvent0))] public bool ShowEvent0 { get; private set; } = false;
         [UIValue(nameof(ShowEvent1))] public bool ShowEvent1 { get; private set; } = false;
-        [UIValue(nameof(ShowEvent2))] public bool ShowEvent2 { get; private set; } = false;
+        [UIValue(nameof(ShowEvent20))] public bool ShowEvent20 { get; private set; } = false;
+        [UIValue(nameof(ShowEvent21))] public bool ShowEvent21 { get; private set; } = false;
         [UIValue(nameof(ShowEvent3))] public bool ShowEvent3 { get; private set; } = false;
         [UIValue(nameof(ShowEvent4))] public bool ShowEvent4 { get; private set; } = false;
         [UIValue(nameof(ShowEvent5))] public bool ShowEvent5 { get; private set; } = false;
@@ -60,6 +62,12 @@ namespace BLPPCounter.Utils
         {
             get { if (SettingRef?.GetValue(SettingObj) is bool outp) return outp; return default; }
             set { if (SettingRef != null && SettingRef.PropertyType == typeof(bool)) SettingRef.SetValue(SettingObj, value); }
+        }
+        [UIValue(nameof(SettingValFloat))]
+        public float SettingValFloat
+        {
+            get { if (SettingRef?.GetValue(SettingObj) is float outp) return outp; return default; }
+            set { if (SettingRef != null && SettingRef.PropertyType == typeof(float)) SettingRef.SetValue(SettingObj, value); }
         }
         [UIValue(nameof(SettingValInt))]
         public int SettingValInt
@@ -92,7 +100,7 @@ namespace BLPPCounter.Utils
             {
                 case "checkbox-setting": ShowEvent0 = true; break;
                 case "text": ShowEvent1 = true; break;
-                case "increment-setting": ShowEvent2 = true; break;
+                //case "increment-setting": ShowEvent2 = true; break;
                 case "button": ShowEvent3 = true; break;
                 case "list-setting": ShowEvent4 = true; break;
                 case "dropdown-list-setting": ShowEvent5 = true; break;
@@ -109,7 +117,10 @@ namespace BLPPCounter.Utils
                 case UsableAttributes.min: MinAmount = float.Parse(val); break;
                 case UsableAttributes.max: MaxAmount = float.Parse(val); break;
                 case UsableAttributes.increment: Increment = float.Parse(val); break;
-                case UsableAttributes.integer_only: IntegerOnly = bool.Parse(val); break;
+                case UsableAttributes.integer_only: IntegerOnly = bool.Parse(val);
+                    ShowEvent20 = IntegerOnly;
+                    ShowEvent21 = !IntegerOnly;
+                    break;
                 case UsableAttributes.on_click: var hold = GetUIAction(val); OnClickAction = () => hold.Invoke(SettingObj, null); break;
                 case UsableAttributes.options: OptionVal = SettingObj?.GetType().GetProperties().First(p => p.Name.Equals(val)); break;
             }

@@ -64,7 +64,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             set {PC.DecimalPrecision = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(DecimalPrecision))); }
         }
         [UIValue(nameof(FontSize))]
-        public double FontSize
+        public float FontSize
         {
             get => PC.FontSize;
             set {PC.FontSize = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(FontSize))); }

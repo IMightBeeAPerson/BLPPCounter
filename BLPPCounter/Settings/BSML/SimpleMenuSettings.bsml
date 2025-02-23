@@ -4,7 +4,8 @@
       <vertical horizontal-fit='Unconstrained'>
         <checkbox-setting text='~Text' apply-on-change='true' active='~ShowEvent0' hover-hint='~HoverHint' value='SettingValBool'/>
         <text text='~Text' align='~Align' active='~ShowEvent1'/>
-        <increment-setting text='~Text' value='SettingValInt' integer-only='~IntegerOnly' min='~MinAmount' max='~MaxAmount' increment='~Increment' apply-on-change='true' active='~ShowEvent2'/>
+        <increment-setting text='~Text' value='SettingValInt' integer-only='true' min='~MinAmount' max='~MaxAmount' increment='~Increment' apply-on-change='true' active='~ShowEvent20'/>
+        <increment-setting text='~Text' value='SettingValFloat' integer-only='false' min='~MinAmount' max='~MaxAmount' increment='~Increment' apply-on-change='true' active='~ShowEvent21'/>
         <button text='~Text' align='~Align' on-click='OnClick' hover-hint='~HoverHint' active='~ShowEvent3'/>
         <list-setting text='~Text' apply-on-change='true' value='SettingValString' options='Options' hover-hint='~HoverHint' active='~ShowEvent4'/>
         <horizontal active='~ShowEvent5'>

@@ -133,7 +133,9 @@ namespace BLPPCounter.Counters
         {
             //Plugin.Log.Debug(data.ToString());
             string replay = (string)data["replay"];
-            ReplayDecoder.TryDecodeReplay(APIHandler.CallAPI_Bytes(replay), out bestReplay);
+            byte[] replayData = APIHandler.CallAPI_Bytes(replay, true);
+            if (replayData is null) throw new Exception("The replay link from the API is bad! (replay link failed to return data)");
+            ReplayDecoder.TryDecodeReplay(replayData, out bestReplay);
             noteArray = bestReplay.notes.ToArray();
             ReplayMods = bestReplay.info.modifiers.ToLower();
             Match hold = Regex.Match(ReplayMods, "(fs|sf|ss),?");
@@ -152,7 +154,7 @@ namespace BLPPCounter.Counters
             try
             {
                 string check = APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_SCORE, Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), map.Mode), true);
-                if (check != default && check.Length > 0)
+                if (check != null && check.Length > 0)
                 {
                     JToken playerData = JObject.Parse(check);
                     best = new float[9];
@@ -174,16 +176,13 @@ namespace BLPPCounter.Counters
                         accToBeat = (float)Math.Round(BLCalc.GetAccDeflated(accRating, passRating, techRating, moreHold) * 100.0f, pc.DecimalPrecision);
                     }
                 }
+                else throw new Exception("Relative counter cannot be loaded due to the player never having played this map before! (API didn't return the corrent status)");
             }
             catch (Exception e)
             {
-                if (e.InnerException is HttpRequestException && e.InnerException.Message.Substring(0, 3).Equals("404"))
-                    Plugin.Log.Warn("Relative counter cannot be loaded due to the player never having played this map before! (API return status 404)");
-                else
-                {
-                    Plugin.Log.Warn("There was an error loading the replay of the player, most likely they have never played the map before.");
-                    Plugin.Log.Debug(e);
-                }
+                Plugin.Log.Warn("There was an error loading the replay of the player.");
+                Plugin.Log.Warn(e.Message);
+                Plugin.Log.Debug(e);
                 Plugin.Log.Warn($"Defaulting to {pc.RelativeDefault.ToLower()} counter.");
                 failed = true;
                 backup = TheCounter.InitCounter(pc.RelativeDefault, display);

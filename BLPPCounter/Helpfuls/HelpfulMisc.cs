@@ -159,10 +159,11 @@ namespace BLPPCounter.Helpfuls
             .Union(GetAllFieldsUsingAttribute(theClass, theAttribute, bindingFlags)).ToArray();
         public static bool IsNumber(Type t)
         {
+            if (t is null) return false;
             TypeCode tc = Type.GetTypeCode(t);
             return tc > TypeCode.Char && tc < TypeCode.DateTime;
         }
-        public static bool IsNumber(object o) => IsNumber(o.GetType());
+        public static bool IsNumber(object o) => IsNumber(o?.GetType());
         public static string SplitByUppercase(string s) => Regex.Replace(s, "(?!^)[A-Z][^A-Z]*", " $&");
         public static string ConvertColorToHex(Color c) => $"#{ToRgba(c):X8}";
         public static string ConvertColorToHex(UnityEngine.Color c) => $"#{ToRgba(c):X8}";

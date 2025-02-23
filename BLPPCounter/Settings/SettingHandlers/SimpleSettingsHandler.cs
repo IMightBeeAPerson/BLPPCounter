@@ -59,7 +59,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 if (UsableSetting(type))
                     if (values.TryGetValue("value", out string value)) toAdd = InitUsingSettingsType(type, value, SettingsHandler.Instance);
                     else toAdd = new SimpleMenuInfo(type, SettingsHandler.Instance);
-                if (toAdd == null) continue;
+                else continue;
                 foreach (string name in Enum.GetNames(typeof(UsableAttributes)))
                 {
                     if (values.TryGetValue(name.Replace('_', '-'), out string val))

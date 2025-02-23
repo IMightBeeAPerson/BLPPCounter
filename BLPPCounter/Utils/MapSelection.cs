@@ -46,7 +46,7 @@ namespace BLPPCounter.Utils
         public override string ToString()
         {
             string mapHash = Map == null ? "null" : Map.Hash;
-            return $"Map: {mapHash}\nDifficulty: {Difficulty}\nMode: {Mode}\nPass Rating: {PassRating}\nAcc Rating: {AccRating}\nTech Rating: {TechRating}";
+            return $"Map: {mapHash}\nDifficulty: {Difficulty}\nMode: {Mode}\nStar Rating: {StarRating}\nPass Rating: {PassRating}\nAcc Rating: {AccRating}\nTech Rating: {TechRating}";
         }
         public bool Equals(MapSelection other) {
             if (other.Map == null || Map == null) return base.Equals(other);
