@@ -206,6 +206,7 @@ namespace BLPPCounter.Counters
             text += displayRank(displayFc, PC.ExtraInfo, rank == 1, ppVals[3], ppVals[7], rank, ppDiff, color, TheCounter.Labels[3]);
             display.text = text;
         }
+        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent) { }
         #endregion
 
     }

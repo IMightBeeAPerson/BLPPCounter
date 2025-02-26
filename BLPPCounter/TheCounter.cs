@@ -17,7 +17,8 @@ using BLPPCounter.Utils.List_Settings;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using ModestTree;
-using Newtonsoft.Json; // Used in 1.37.0 and above
+using Newtonsoft.Json;
+using BS_Utils.Utilities; // Used in 1.37.0 and above
 namespace BLPPCounter
 {
 
@@ -168,7 +169,7 @@ namespace BLPPCounter
         private TMP_Text display;
         private bool enabled;
         private float passRating, accRating, techRating, starRating;
-        private int notes, comboNotes, mistakes, totalNotes;
+        private int notes, comboNotes, mistakes, totalNotes, notesTillUpdate;
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
         private string mode, lastTarget = Targeter.NO_TARGET;
@@ -339,6 +340,7 @@ namespace BLPPCounter
                         APIAvoidanceMode();
                     lastTarget = pc.Target;
                     if (updateFormat) { theCounter.UpdateFormat(); updateFormat = false; }
+                    notesTillUpdate = pc.UpdateNotes;
                     theCounter.UpdateCounter(1, 0, 0, 0);
                     //PpInfoTabHandler.Instance.CurrentMap = beatmap;
                 } else
@@ -374,8 +376,14 @@ namespace BLPPCounter
             }
             else OnMiss();
             Finish:
-            theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
-            if (notes == totalNotes) ClearCounter();
+            float acc = (float)(totalHitscore / maxHitscore);
+            theCounter.SoftUpdate(acc, notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
+            if (notesTillUpdate <= 1)
+            {
+                theCounter.UpdateCounter(acc, notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
+                if (pc.UpdateNotes > 1) notesTillUpdate = pc.UpdateNotes;
+            }
+            else notesTillUpdate--;
         }
 
         private void OnBombHit(NoteController nc, in NoteCutInfo nci)
@@ -410,6 +418,7 @@ namespace BLPPCounter
                 sc.scoringForNoteFinishedEvent += OnNoteScored;
                 wall.headDidEnterObstacleEvent += OnWallHit;
                 bomb.noteWasCutEvent += OnBombHit;
+                BSEvents.levelCleared += (aa, b) => ClearCounter();
             } else
             {
                 sc.scoringForNoteFinishedEvent -= OnNoteScored;

@@ -521,6 +521,7 @@ namespace BLPPCounter.Counters
                 display.text = displayClan.Invoke(displayFc, pc.ExtraInfo, mistakes, () => color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
                     () => color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3], message) + "\n";
         }
+        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent) { }
         private void UpdateWeightedCounter(float acc, int mistakes, float fcPercent)
         {
             bool displayFc = pc.PPFC && mistakes > 0;

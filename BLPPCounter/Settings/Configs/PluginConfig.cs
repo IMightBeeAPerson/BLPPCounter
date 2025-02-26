@@ -30,6 +30,7 @@ namespace BLPPCounter.Settings.Configs
         public virtual bool ExtraInfo { get; set; } = true;
         public virtual bool UseGrad { get; set; } = true;
         public virtual int GradVal { get; set; } = 100;
+        public virtual int UpdateNotes { get; set; } = 1;
         public virtual string PPType { get; set; } = "Normal";
         #endregion
         #region Clan Counter Settings

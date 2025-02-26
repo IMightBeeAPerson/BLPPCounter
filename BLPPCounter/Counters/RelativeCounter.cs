@@ -297,7 +297,6 @@ namespace BLPPCounter.Counters
                 return;
             }
             bool displayFc = PC.PPFC && mistakes > 0, showLbl = PC.ShowLbl, replay = PC.UseReplay;
-            UpdateBest(notes);
             float[] ppVals = new float[16];
             (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
             ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
@@ -318,6 +317,7 @@ namespace BLPPCounter.Counters
             if (float.IsNaN(accDiff)) accDiff = 0f;
             else if (!replay) accDiff -= accToBeat;
             float replayAcc = PC.DynamicAcc && replay ? (float)Math.Round(best[7] / HelpfulMath.MaxScoreForNotes(notes) * 100.0f, PC.DecimalPrecision) : accToBeat;
+            if (float.IsNaN(replayAcc)) replayAcc = 0f;
             if (PC.SplitPPVals)
             {
                 string text = "";
@@ -329,6 +329,10 @@ namespace BLPPCounter.Counters
             else
                 display.text = displayFormatter.Invoke(displayFc, PC.ExtraInfo, mistakes, accDiff, color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
                     color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], replayAcc, TheCounter.Labels[3]) + "\n";
+        }
+        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent)
+        {
+            if (!failed) UpdateBest(notes);
         }
         #endregion
     }

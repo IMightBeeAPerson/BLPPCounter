@@ -80,6 +80,7 @@ namespace BLPPCounter.Counters
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
             TheCounter.UpdateText(displayFc, display, ppVals, mistakes);
         }
+        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent) { }
         #endregion
     }
 }

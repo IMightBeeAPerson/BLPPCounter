@@ -111,6 +111,13 @@ namespace BLPPCounter.Settings.SettingHandlers
         private ListSetting CounterList;
         [UIValue(nameof(TypesOfPP))]
         public List<object> TypesOfPP => new List<object>(TheCounter.DisplayNames);
+
+        [UIValue(nameof(UpdateNotes))]
+        public int UpdateNotes
+        {
+            get => PC.UpdateNotes;
+            set {PC.UpdateNotes = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UpdateNotes))); }
+        }
         [UIValue(nameof(PPType))]
         public string PPType
         {
