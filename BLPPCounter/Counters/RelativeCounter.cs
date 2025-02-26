@@ -268,9 +268,9 @@ namespace BLPPCounter.Counters
         #region Updates
         private void UpdateBest(int notes)
         {
-            if (PC.UseReplay)
+            if (!PC.UseReplay)
             {
-                (best[0], best[1], best[2]) = BLCalc.GetPp(accToBeat, accRating, passRating, techRating);
+                (best[0], best[1], best[2]) = BLCalc.GetPp(accToBeat / 100.0f, accRating, passRating, techRating);
                 best[3] = BLCalc.Inflate(best[0] + best[1] + best[2]);
                 return;
             }
