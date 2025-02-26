@@ -296,7 +296,7 @@ namespace BLPPCounter.Counters
                 backup.UpdateCounter(acc, notes, mistakes, fcPercent);
                 return;
             }
-            bool displayFc = PC.PPFC && mistakes > 0, showLbl = PC.ShowLbl;
+            bool displayFc = PC.PPFC && mistakes > 0, showLbl = PC.ShowLbl, replay = PC.UseReplay;
             UpdateBest(notes);
             float[] ppVals = new float[16];
             (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
@@ -314,20 +314,21 @@ namespace BLPPCounter.Counters
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
             string target = PC.ShowEnemy ? PC.Target : Targeter.NO_TARGET;
             string color(float num) => PC.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
-            float accDiff = (float)Math.Round((acc - (PC.UseReplay ? best[7] / HelpfulMath.MaxScoreForNotes(notes) : 0)) * 100.0f, PC.DecimalPrecision);
-            if (PC.UseReplay) accDiff -= accToBeat;
+            float accDiff = (float)Math.Round((acc - (replay ? best[7] / HelpfulMath.MaxScoreForNotes(notes) : 0)) * 100.0f, PC.DecimalPrecision);
             if (float.IsNaN(accDiff)) accDiff = 0f;
+            else if (!replay) accDiff -= accToBeat;
+            float replayAcc = PC.DynamicAcc && replay ? (float)Math.Round(best[7] / HelpfulMath.MaxScoreForNotes(notes) * 100.0f, PC.DecimalPrecision) : accToBeat;
             if (PC.SplitPPVals)
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
                     text += displayFormatter.Invoke(displayFc, PC.ExtraInfo && i == 3, mistakes, accDiff, color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
-                        color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], accToBeat, TheCounter.Labels[i]) + "\n";
+                        color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], replayAcc, TheCounter.Labels[i]) + "\n";
                 display.text = text;
             }
             else
                 display.text = displayFormatter.Invoke(displayFc, PC.ExtraInfo, mistakes, accDiff, color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
-                    color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], accToBeat, TheCounter.Labels[3]) + "\n";
+                    color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], replayAcc, TheCounter.Labels[3]) + "\n";
         }
         #endregion
     }

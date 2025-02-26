@@ -26,6 +26,7 @@
   <text text='Relative Counter Settings' align='Center'/>
   <vertical spacing='1'>
     <checkbox-setting text='Compete Against Replay' value='UseReplay' apply-on-change='true' hover-hint='Compete against your replay versus your final score'/>
+    <checkbox-setting text='Dynamic Acc' value='DynamicAcc' apply-on-change='true' hover-hint='Adjust the accuracy based off of what the replay is at'/>
     <checkbox-setting text='Show Rank' value='ShowRank' apply-on-change='true' hover-hint='Show what place in your clan you are with your current score'/>
     <list-setting id='DefaultCounterList' text='Default Counter' value='RelativeDefault' options='RelativeDefaultList' apply-on-change='true' hover-hint='What counter to go to when relative counter cannot be used' />
   </vertical>

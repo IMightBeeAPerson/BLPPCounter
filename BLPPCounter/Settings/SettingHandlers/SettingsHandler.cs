@@ -155,7 +155,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             get => PC.UseReplay;
             set { PC.UseReplay = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseReplay))); }
         }
-
+        [UIValue(nameof(DynamicAcc))]
+        public bool DynamicAcc
+        {
+            get => PC.DynamicAcc;
+            set { PC.DynamicAcc = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(DynamicAcc))); }
+        }
         [UIValue(nameof(ShowRank))]
         public bool ShowRank
         {
