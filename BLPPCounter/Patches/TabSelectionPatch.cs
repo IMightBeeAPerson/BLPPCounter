@@ -71,7 +71,7 @@ namespace BLPPCounter.Patches
                 }
                 __instance.didSelectCellEvent += CellEvent;
                 CellEvent(__instance, 0);
-                UpdateLastSegmentControl = () => CellEvent(__instance, 0);
+                UpdateLastSegmentControl = () => CellEvent(__instance, 0); //this is stupid, but don't really feel like fixing it
             }
         }
         public static void AddTabName(string name, Action TabSelected = null)

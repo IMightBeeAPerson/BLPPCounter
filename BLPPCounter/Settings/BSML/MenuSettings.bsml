@@ -28,6 +28,7 @@
       </vertical>
       <text text='Relative Counter Settings' align='Center'/>
       <vertical spacing='1'>
+        <checkbox-setting text='Compete Against Replay' value='UseReplay' apply-on-change='true' hover-hint='Compete against your replay versus your final score'/>
         <checkbox-setting text='Show Rank' value='ShowRank' apply-on-change='true' hover-hint='Show what place in your clan you are with your current score'/>
         <list-setting id='DefaultCounterList' text='Default Counter' value='RelativeDefault' options='RelativeDefaultList' apply-on-change='true' hover-hint='What counter to go to when relative counter cannot be used' />
       </vertical>
@@ -38,7 +39,7 @@
       <text text='Target Settings' align='Center'/>
       <vertical spacing='1'>
         <string-setting text='Custom Target' id='CustomTargetInput' value='CustomTarget' apply-on-change='true' hover-hint='Enter the user id or alias of a person'/>
-        <text text='' align='Right' id='CustomTargetMessage'/>
+        <text text='' align='Right' id='CustomTargetText'/>
         <checkbox-setting text='Show Target' apply-on-change='true' value='ShowEnemy' hover-hint='Show who you are targeting (if you have one selected)'/>
         <dropdown-list-setting text='Target' id='TargetList' apply-on-change='true' value='Target' options='ToTarget' hover-hint='A player to compare against while playing'/>
       </vertical>

@@ -16,6 +16,8 @@ namespace BLPPCounter.Settings.SettingHandlers
     /*<checkbox-setting text='Local Replays' apply-on-change='true' value='LocalReplay' hover-hint='Check for any local replays before loading from website' active='false'/>
      <dropdown-list-setting text='Playlists' apply-on-change='true' value='ChosenPlaylist' options='PlNames' hover-hint='A playlist to load' active='false'/>
     <button text='Load Playlist' on-click='LoadPlaylist' hover-hint='Loads the selected playlist into cache to prevent lag' active='false'/>*/
+    //(?<att1>\[[^"\]]+)"[^"\]]+"(?<att2>\)]).*(?<bre>[\n\r]\s*)(?<words>(?:\w+ )+)(?!;)(?<name>\w+)
+    //${att1}nameof(${name})${att2}${bre}${words}${name}
     public class SettingsHandler: ConfigModel, INotifyPropertyChanged
     {
 #pragma warning disable CS0649, IDE0044
@@ -117,7 +119,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region Misc Settings
-        [UIAction("ClearCache")]
+        [UIAction(nameof(ClearCache))]
         public void ClearCache() { ClanCounter.ClearCache(); TheCounter.ClearCounter(); }
         #endregion
         #region Clan Counter Settings
@@ -147,7 +149,13 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region Relative Counter Settings
-        
+        [UIValue(nameof(UseReplay))]
+        public bool UseReplay
+        {
+            get => PC.UseReplay;
+            set { PC.UseReplay = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseReplay))); }
+        }
+
         [UIValue(nameof(ShowRank))]
         public bool ShowRank
         {
@@ -185,12 +193,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region Target Settings
-        [UIComponent("TargetList")]
-        private DropDownListSetting targetList;
-        [UIComponent("CustomTargetMessage")]
-        private TextMeshProUGUI customTargetText;
-        [UIComponent("CustomTargetInput")]
-        private StringSetting customTargetInput;
+        [UIComponent(nameof(TargetList))]
+        private DropDownListSetting TargetList;
+        [UIComponent(nameof(CustomTargetText))]
+        private TextMeshProUGUI CustomTargetText;
+        [UIComponent(nameof(CustomTargetInput))]
+        private StringSetting CustomTargetInput;
         [UIValue(nameof(CustomTarget))]
         public string CustomTarget
         {
@@ -203,19 +211,19 @@ namespace BLPPCounter.Settings.SettingHandlers
                     var converted = Utils.CustomTarget.ConvertToId(value);
                     PC.CustomTargets.Add(converted);
                     Targeter.AddTarget(converted.Name, $"{converted.ID}");
-                    customTargetText.SetText("<color=\"green\">Success!</color>");
-                    customTargetInput.Text = "";
+                    CustomTargetText.SetText("<color=\"green\">Success!</color>");
+                    CustomTargetInput.Text = "";
 #if NEW_VERSION
-                    targetList.Values = ToTarget; // 1.37.0 and above
+                    TargetList.Values = ToTarget; // 1.37.0 and above
 #else
-                    targetList.values = ToTarget; // 1.34.2 and below
+                    TargetList.values = ToTarget; // 1.34.2 and below
 #endif
-                    targetList.UpdateChoices();
+                    TargetList.UpdateChoices();
                 }
                 catch (ArgumentException e)
                 {
                     Plugin.Log.Warn(e.Message);
-                    customTargetText.SetText("<color=\"red\">Failure, id or alias not found.</color>");
+                    CustomTargetText.SetText("<color=\"red\">Failure, id or alias not found.</color>");
                 }
                 
             }
@@ -250,7 +258,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             get => PC.ChosenPlaylist;
 			set {PC.ChosenPlaylist = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof())); }
         }
-        [UIAction("LoadPlaylist")]
+        [UIAction(nameof(LoadPlaylist))]
         public void LoadPlaylist() {
             Plugin.Log.Info("Button works");
             ClanCounter cc = new ClanCounter(null, 0f, 0f, 0f);

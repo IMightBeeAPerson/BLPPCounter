@@ -141,6 +141,11 @@ namespace BLPPCounter.Utils
             Container.text = ToString();
             ContainerUpdated = true;
         }
+        public void ClearTable()
+        {
+            Container.text = "";
+            ContainerUpdated = false;
+        }
         public void ChangeValue(int row, int column, string newValue)
         {
             Values[row][column] = newValue; //Set Value to new value no matter the state of the table.

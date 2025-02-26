@@ -20,6 +20,7 @@ using static GameplayModifiers;
 using BeatSaberMarkupLanguage.Parser;
 using BeatSaberMarkupLanguage.Components.Settings;
 using System.Windows.Forms;
+using BS_Utils.Utilities;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -39,7 +40,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 #if NEW_VERSION
         private BeatmapKey CurrentMap; // 1.37.0 and above
 #else
-        private IDifficultyBeatmap CurrentMap; // 1.34.2 and below
+        internal IDifficultyBeatmap CurrentMap; // 1.34.2 and below
 #endif
         private JToken CurrentDiff;
         private object RefreshLock = new object();
@@ -63,7 +64,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             {"Custom", new Action<PpInfoTabHandler>(pith => pith.UpdateCustomAccuracy()) },
         };
         private static readonly string[] SelectionButtonTags = new string[4] { "SSButton", "NMButton", "FSButton", "SFButton" };
-        private Table ClanTableTable, RelativeTableTable, PPTableTable, PercentTableTable, CurrentTable; 
+        private Table ClanTableTable, RelativeTableTable, PPTableTable, PercentTableTable; 
         #region Relative Counter
         private static Func<string> GetTarget, GetNoScoreTarget;
         private float TargetPP = 0;
@@ -124,8 +125,16 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(MinPPSlider))] private SliderSetting MinPPSlider;
         [UIComponent(nameof(MaxPPSlider))] private SliderSetting MaxPPSlider;
 
-        [UIValue(nameof(TestAcc))] private float TestAcc = PC.TestAccAmount;
-        [UIValue(nameof(TestPp))] private int TestPp = PC.TestPPAmount;
+        [UIValue(nameof(TestAcc))] private float TestAcc 
+        {
+            get => PC.TestAccAmount;
+            set => PC.TestAccAmount = value;
+        }
+        [UIValue(nameof(TestPp))] private int TestPp
+        {
+            get => PC.TestPPAmount;
+            set => PC.TestPPAmount = value;
+        }
         [UIValue(nameof(TabPos))]
 #if NEW_VERSION
         private float TabPos = -5.5f;
@@ -253,6 +262,10 @@ namespace BLPPCounter.Settings.SettingHandlers
         #region Inits
         static PpInfoTabHandler()
         {
+            BSEvents.levelCleared += (transition, results) =>
+            {
+                Instance.ClearMapTabs();
+            };
             InitFormatters();
             Instance = new PpInfoTabHandler();
             TabSelectionPatch.AddToTabSelectedAction(TabName, () =>
@@ -543,6 +556,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             TabMapInfo["Capture"] = default;
             TabMapInfo["Relative Values"] = default;
+            ClanTableTable?.ClearTable();
+            RelativeTableTable?.ClearTable();
             CurrentMap = default;
         }
         #endregion

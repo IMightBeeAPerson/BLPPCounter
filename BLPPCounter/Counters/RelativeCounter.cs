@@ -25,7 +25,7 @@ namespace BLPPCounter.Counters
         private static Func<bool, bool, int, float, string, string, float, string, string, float, float, string, string> displayFormatter;
         public static Type[] FormatterTypes => displayFormatter.GetType().GetGenericArguments();
         private static Func<Func<Dictionary<char, object>, string>> displayIniter;
-        private static PluginConfig pc => PluginConfig.Instance;
+        private static PluginConfig PC => PluginConfig.Instance;
         public static readonly Dictionary<string, char> FormatAlias = new Dictionary<string, char>()
                 {
                     { "Acc Difference", 'd' },
@@ -41,7 +41,7 @@ namespace BLPPCounter.Counters
                     { "Mistakes", 'e' }
                 };
         internal static readonly FormatRelation DefaultFormatRelation = new FormatRelation("Main Format", DisplayName,
-            pc.FormatSettings.RelativeTextFormat, str => pc.FormatSettings.RelativeTextFormat = str, FormatAlias,
+            PC.FormatSettings.RelativeTextFormat, str => PC.FormatSettings.RelativeTextFormat = str, FormatAlias,
             new Dictionary<char, string>()
             {
                 { 'd', "This will show the difference in percentage at the current moment between you and the replay you're comparing against" },
@@ -126,15 +126,14 @@ namespace BLPPCounter.Counters
             this.starRating = starRating;
             this.display = display;
             failed = false;
-            precision = pc.DecimalPrecision;
+            precision = PC.DecimalPrecision;
         }
         public RelativeCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating, map.StarRating) { SetupData(map); }
         private void SetupReplayData(JToken data)
         {
             //Plugin.Log.Debug(data.ToString());
             string replay = (string)data["replay"];
-            byte[] replayData = APIHandler.CallAPI_Bytes(replay, true);
-            if (replayData is null) throw new Exception("The replay link from the API is bad! (replay link failed to return data)");
+            byte[] replayData = APIHandler.CallAPI_Bytes(replay, true) ?? throw new Exception("The replay link from the API is bad! (replay link failed to return data)");
             ReplayDecoder.TryDecodeReplay(replayData, out bestReplay);
             noteArray = bestReplay.notes.ToArray();
             ReplayMods = bestReplay.info.modifiers.ToLower();
@@ -158,9 +157,9 @@ namespace BLPPCounter.Counters
                 {
                     JToken playerData = JObject.Parse(check);
                     best = new float[9];
-                    SetupReplayData(playerData);
+                    if (PC.UseReplay) SetupReplayData(playerData);
                     if ((float)playerData["pp"] is float thePP && thePP > 0)
-                        accToBeat = (float)Math.Round(BLCalc.GetAcc(accRating, passRating, techRating, thePP) * 100.0f, pc.DecimalPrecision);
+                        accToBeat = (float)Math.Round(BLCalc.GetAcc(accRating, passRating, techRating, thePP) * 100.0f, PC.DecimalPrecision);
                     else
                     {
                         string[] hold = ((string)playerData["modifiers"]).ToUpper().Split(',');
@@ -173,7 +172,7 @@ namespace BLPPCounter.Counters
                         float techStar = HelpfulPaths.GetRating(playerData, PPType.Tech, modName);
                         float accStar = HelpfulPaths.GetRating(playerData, PPType.Acc, modName);
                         var moreHold = BLCalc.GetPpSum(acc, accStar, passStar, techStar);
-                        accToBeat = (float)Math.Round(BLCalc.GetAccDeflated(accRating, passRating, techRating, moreHold) * 100.0f, pc.DecimalPrecision);
+                        accToBeat = (float)Math.Round(BLCalc.GetAccDeflated(accRating, passRating, techRating, moreHold) * 100.0f, PC.DecimalPrecision);
                     }
                 }
                 else throw new Exception("Relative counter cannot be loaded due to the player never having played this map before! (API didn't return the corrent status)");
@@ -183,9 +182,9 @@ namespace BLPPCounter.Counters
                 Plugin.Log.Warn("There was an error loading the replay of the player.");
                 Plugin.Log.Warn(e.Message);
                 Plugin.Log.Debug(e);
-                Plugin.Log.Warn($"Defaulting to {pc.RelativeDefault.ToLower()} counter.");
+                Plugin.Log.Warn($"Defaulting to {PC.RelativeDefault.ToLower()} counter.");
                 failed = true;
-                backup = TheCounter.InitCounter(pc.RelativeDefault, display);
+                backup = TheCounter.InitCounter(PC.RelativeDefault, display);
                 return;
             }
             if (!failed)
@@ -208,7 +207,7 @@ namespace BLPPCounter.Counters
             this.accRating = accRating;
             this.techRating = techRating;
             this.starRating = starRating;
-            precision = pc.DecimalPrecision;
+            precision = PC.DecimalPrecision;
             if (failed) backup.ReinitCounter(display, passRating, accRating, techRating, starRating);
             else if (best != null && best.Length >= 9)
                 best[7] = best[8] = 0;
@@ -218,7 +217,7 @@ namespace BLPPCounter.Counters
         public void UpdateFormat() => InitDefaultFormat();
         public static bool InitFormat()
         {
-            if (displayIniter == null && TheCounter.TargetUsable) FormatTheFormat(pc.FormatSettings.RelativeTextFormat);
+            if (displayIniter == null && TheCounter.TargetUsable) FormatTheFormat(PC.FormatSettings.RelativeTextFormat);
             if (displayFormatter == null && displayIniter != null) InitDefaultFormat();
             return displayFormatter != null && TheCounter.TargetUsable;
         }
@@ -228,21 +227,18 @@ namespace BLPPCounter.Counters
             displayFormatter = null;
         }
         #endregion
-        #region API Calls
-        //https://api.beatleader.xyz/score/8/76561198306905129/98470c673d1702c5030487085120ad6f24828d6c/Expert/Standard
-        #endregion
         #region Helper Functions
         public static Func<Func<Dictionary<char, object>, string>> GetTheFormat(string format, out string errorMessage, bool applySettings = true)
         {
             return HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, DisplayName,
                 formattedTokens =>
                 {
-                    if (!pc.ShowLbl) formattedTokens.SetText('l');
-                    if (!pc.Target.Equals(Targeter.NO_TARGET) && pc.ShowEnemy)
+                    if (!PC.ShowLbl) formattedTokens.SetText('l');
+                    if (!PC.Target.Equals(Targeter.NO_TARGET) && PC.ShowEnemy)
                     {
                         string theMods = "";
                         if (TheCounter.theCounter is RelativeCounter rc2) theMods = rc2.ReplayMods;
-                        formattedTokens.MakeTokenConstant('t', TheCounter.TargetFormatter.Invoke(pc.Target, theMods));
+                        formattedTokens.MakeTokenConstant('t', TheCounter.TargetFormatter.Invoke(PC.Target, theMods));
                     }
                     else { formattedTokens.SetText('t'); formattedTokens.MakeTokenConstant('t'); }
                 },
@@ -272,6 +268,12 @@ namespace BLPPCounter.Counters
         #region Updates
         private void UpdateBest(int notes)
         {
+            if (PC.UseReplay)
+            {
+                (best[0], best[1], best[2]) = BLCalc.GetPp(accToBeat, accRating, passRating, techRating);
+                best[3] = BLCalc.Inflate(best[0] + best[1] + best[2]);
+                return;
+            }
             if (notes < 1) return;
             NoteEvent note = noteArray[notes-1];
             if (note.eventType == NoteEventType.good)
@@ -294,7 +296,7 @@ namespace BLPPCounter.Counters
                 backup.UpdateCounter(acc, notes, mistakes, fcPercent);
                 return;
             }
-            bool displayFc = pc.PPFC && mistakes > 0, showLbl = pc.ShowLbl;
+            bool displayFc = PC.PPFC && mistakes > 0, showLbl = PC.ShowLbl;
             UpdateBest(notes);
             float[] ppVals = new float[16];
             (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
@@ -310,20 +312,21 @@ namespace BLPPCounter.Counters
             }
             for (int i = 0; i < ppVals.Length; i++)
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
-            string target = pc.ShowEnemy ? pc.Target : Targeter.NO_TARGET;
-            string color(float num) => pc.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
-            float accDiff = (float)Math.Round((acc - best[7] / HelpfulMath.MaxScoreForNotes(notes)) * 100.0f, pc.DecimalPrecision);
+            string target = PC.ShowEnemy ? PC.Target : Targeter.NO_TARGET;
+            string color(float num) => PC.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
+            float accDiff = (float)Math.Round((acc - (PC.UseReplay ? best[7] / HelpfulMath.MaxScoreForNotes(notes) : 0)) * 100.0f, PC.DecimalPrecision);
+            if (PC.UseReplay) accDiff -= accToBeat;
             if (float.IsNaN(accDiff)) accDiff = 0f;
-            if (pc.SplitPPVals)
+            if (PC.SplitPPVals)
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
-                    text += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, mistakes, accDiff, color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
+                    text += displayFormatter.Invoke(displayFc, PC.ExtraInfo && i == 3, mistakes, accDiff, color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
                         color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], accToBeat, TheCounter.Labels[i]) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, mistakes, accDiff, color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
+                display.text = displayFormatter.Invoke(displayFc, PC.ExtraInfo, mistakes, accDiff, color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
                     color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], accToBeat, TheCounter.Labels[3]) + "\n";
         }
         #endregion

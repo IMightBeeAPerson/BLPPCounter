@@ -340,6 +340,7 @@ namespace BLPPCounter
                     lastTarget = pc.Target;
                     if (updateFormat) { theCounter.UpdateFormat(); updateFormat = false; }
                     theCounter.UpdateCounter(1, 0, 0, 0);
+                    //PpInfoTabHandler.Instance.CurrentMap = beatmap;
                 } else
                     Plugin.Log.Warn("Maps failed to load, most likely unranked.");
             } catch (Exception e)

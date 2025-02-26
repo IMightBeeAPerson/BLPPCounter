@@ -22,6 +22,11 @@ namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
     {
+        /// <summary>
+        /// Returns a number based off the song speed, in the correct number, with slower being 0 and super fast being 3.
+        /// </summary>
+        /// <param name="ss">The song speed to convert to a number</param>
+        /// <returns>The ordered number for given song speed</returns>
         public static int OrderSongSpeedCorrectly(SongSpeed ss)
         {
             switch (ss)
@@ -253,6 +258,11 @@ namespace BLPPCounter.Helpfuls
             gm.width = gm.horizontalAdvance;
             g.metrics = gm;
         }
+        /// <summary>
+        /// Adds a spaces for words that are combined by putting spaces between lowercase and capital letters 
+        /// </summary>
+        /// <param name="str">The word to add spaces to</param>
+        /// <returns>The words with spaces</returns>
         public static string AddSpaces(string str) => Regex.Replace(str, "(?<=[a-z])([A-Z])", " $+");
         public static T[][] RowToColumn<T>(this IEnumerable<T> arr, int rowLengths = 0)
         {
@@ -441,12 +451,12 @@ namespace BLPPCounter.Helpfuls
             float currentVal = ss.Slider.value;
             if (isMinVal) ss.Slider.minValue = newVal; else ss.Slider.maxValue = newVal;
             ss.Slider.numberOfSteps = (int)Math.Round((ss.Slider.maxValue - ss.Slider.minValue) / ss.Increments) + 1;
-            if ((isMinVal && newVal < currentVal) || (!isMinVal && newVal > currentVal)) ss.Slider.value = currentVal; // 1.37.0 and above
+            ss.Slider.value = currentVal; // 1.37.0 and above
 #else
             float currentVal = ss.slider.value;
             if (isMinVal) ss.slider.minValue = newVal; else ss.slider.maxValue = newVal;
             ss.slider.numberOfSteps = (int)Math.Round((ss.slider.maxValue - ss.slider.minValue) / ss.increments) + 1;
-            if ((isMinVal && newVal < currentVal) || (!isMinVal && newVal > currentVal)) ss.slider.value = currentVal; //1.34.2 and below
+            ss.slider.value = currentVal; //1.34.2 and below
 #endif
         }
         public static void CoupleMinMaxSliders(SliderSetting min, SliderSetting max)
