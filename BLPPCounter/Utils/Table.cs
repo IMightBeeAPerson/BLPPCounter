@@ -143,7 +143,7 @@ namespace BLPPCounter.Utils
         }
         public void ClearTable()
         {
-            Container.text = "";
+            Container.text = new string('\n', Values[0].Length);
             ContainerUpdated = false;
         }
         public void ChangeValue(int row, int column, string newValue)

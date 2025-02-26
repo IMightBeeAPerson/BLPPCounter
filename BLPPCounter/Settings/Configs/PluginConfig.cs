@@ -100,6 +100,7 @@ namespace BLPPCounter.Settings.Configs
         public virtual float PercentSliderMax { get; set; } = 100.0f;
         public virtual int PPSliderMin { get; set; } = 0;
         public virtual int PPSliderMax { get; set; } = 1000;
+        public virtual int SliderIncrementNum {  get; set; } = 5;
         #endregion
     }
 }

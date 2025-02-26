@@ -473,5 +473,13 @@ namespace BLPPCounter.Helpfuls
         {
             Plugin.Log.Info(vars.Aggregate("", (total, current) => total + $", {current.varName} = {current.value}").Substring(2));
         }
+        public static void SetIncrements(int incrementNum, params SliderSetting[] toSet)
+        {
+            foreach (SliderSetting s in toSet)
+            {
+                s.increments = incrementNum;
+                s.slider.numberOfSteps = (int)Math.Round((s.slider.maxValue - s.slider.minValue) / incrementNum) + 1;
+            }
+        }
     }
 }

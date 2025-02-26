@@ -116,10 +116,21 @@ namespace BLPPCounter.Settings.SettingHandlers
                 CA_PPSliderSlider.ChangeMaxValue(value);
             }
         }
+        [UIValue(nameof(SliderIncrementNum))]
+        private int SliderIncrementNum
+        {
+            get => _SliderIncrementNum;
+            set
+            {
+                _SliderIncrementNum = value;
+                UpdateTabSliders(value);
+            }
+        }
         private float _PercentSliderMin = PC.PercentSliderMin;
         private float _PercentSliderMax = PC.PercentSliderMax;
         private int _PPSliderMin = PC.PPSliderMin;
         private int _PPSliderMax = PC.PPSliderMax;
+        private int _SliderIncrementNum = PC.SliderIncrementNum;
         [UIComponent(nameof(MinAccSlider))] private SliderSetting MinAccSlider;
         [UIComponent(nameof(MaxAccSlider))] private SliderSetting MaxAccSlider;
         [UIComponent(nameof(MinPPSlider))] private SliderSetting MinPPSlider;
@@ -247,6 +258,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             PC.PercentSliderMax = _PercentSliderMax;
             PC.PPSliderMin = _PPSliderMin;
             PC.PPSliderMax = _PPSliderMax;
+            PC.SliderIncrementNum = _SliderIncrementNum;
         }
         [UIAction("#UpdateCurrentTable")] private void UpdateCurrentTable() => BuildTable();
         [UIAction("#UpdateCurrentTab")] private void UpdateCurrentTab() => UpdateTabDisplay(true);
@@ -559,6 +571,11 @@ namespace BLPPCounter.Settings.SettingHandlers
             ClanTableTable?.ClearTable();
             RelativeTableTable?.ClearTable();
             CurrentMap = default;
+        }
+        private void UpdateTabSliders(int amount = -1)
+        {
+            if (amount <= 0) amount = PC.SliderIncrementNum;
+            HelpfulMisc.SetIncrements(amount, MinPPSlider, MaxPPSlider, MinAccSlider, MaxAccSlider, CA_PPSliderSlider, CA_PercentSliderSlider);
         }
         #endregion
     }

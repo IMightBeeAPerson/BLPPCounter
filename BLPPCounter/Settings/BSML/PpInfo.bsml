@@ -119,14 +119,21 @@
   </tab>
 
   <tab tags='tabs' tab-name='Settings'>
-    <settings-container anchor-pos-y='~TabPos' horizontal-fit='PreferredSize' pref-width='100'>
-      <vertical spacing='1' child-expand-height='true' vertical-fit='PreferredSize'>
-        <button text='Save' on-click='SaveSettings'/>
-        <text text='Custom Accuracy Settings' align='Center' font-size='6'/>
-        <slider-setting id='MinAccSlider' text='Minimum Accuracy' increment='0.05' integer-only='false' min='0' max='100' show-buttons='true' apply-on-change='true' value='PercentSliderMin' formatter='PercentFormat'/>
-        <slider-setting id='MaxAccSlider' text='Maximum Accuracy' increment='0.05' integer-only='false' min='0' max='100' show-buttons='true' apply-on-change='true' value='PercentSliderMax' formatter='PercentFormat'/>
-        <slider-setting id='MinPPSlider' text='Minimum PP' increment='5' integer-only='true' min='0' max='3000' show-buttons='true' apply-on-change='true' value='PPSliderMin' formatter='PPFormat'/>
-        <slider-setting id='MaxPPSlider' text='Maximum PP' increment='5' integer-only='true' min='0' max='3000' show-buttons='true' apply-on-change='true' value='PPSliderMax' formatter='PPFormat'/>
+    <settings-container anchor-pos-y='~TabPos' horizontal-fit='PreferredSize' pref-width='100' vertical-fit='PreferredSize'>
+      <vertical spacing='2' child-expand-height='true'>
+        <vertical spacing='0' horizontal-fit='PreferredSize' pref-width='100'>
+          <button text='Save' on-click='SaveSettings'/>
+          <text text='Custom Accuracy Settings' align='Center' font-size='6'/>
+        </vertical>
+        <vertical spacing='0' horizontal-fit='PreferredSize' pref-width='100'>
+          <slider-setting id='MinAccSlider' text='Minimum Accuracy' increment='0.05' integer-only='false' min='0' max='100' show-buttons='true' apply-on-change='true' value='PercentSliderMin' formatter='PercentFormat'/>
+          <slider-setting id='MaxAccSlider' text='Maximum Accuracy' increment='0.05' integer-only='false' min='0' max='100' show-buttons='true' apply-on-change='true' value='PercentSliderMax' formatter='PercentFormat'/>
+        </vertical>
+        <vertical spacing='0' horizontal-fit='PreferredSize' pref-width='100'>
+          <slider-setting id='MinPPSlider' text='Minimum PP' increment='5' integer-only='true' min='0' max='3000' show-buttons='true' apply-on-change='true' value='PPSliderMin' formatter='PPFormat'/>
+          <slider-setting id='MaxPPSlider' text='Maximum PP' increment='5' integer-only='true' min='0' max='3000' show-buttons='true' apply-on-change='true' value='PPSliderMax' formatter='PPFormat'/>
+        </vertical>
+        <increment-setting text='Increments' increment='1' integer-only='true' min='0' max='50' apply-on-change='true' value='SliderIncrementNum'/>
       </vertical>
     </settings-container>
   </tab>
