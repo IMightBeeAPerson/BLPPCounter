@@ -1,18 +1,18 @@
 ﻿using BLPPCounter.Helpfuls;
-using BLPPCounter.Utils;
+using static GameplayModifiers;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using BLPPCounter.Utils.API_Handlers;
 
 namespace BLPPCounter.CalculatorStuffs
 {
     /* This is all ripped from the beatleader github and changed to work with my stuffs.*/
-    public static class BLCalc
+    public class BLCalc: Calculator
     {
-        
-        private static List<(double, double)> pointList2 = new List<(double, double)> {
+        internal override List<(double, double)> PointList { get; } = new List<(double, double)> {
                 (1.0, 7.424),
                 (0.999, 6.241),
                 (0.9975, 5.158),
@@ -46,101 +46,43 @@ namespace BLPPCounter.CalculatorStuffs
                 (0.6, 0.256),
                 (0.0, 0.000)
         };
-        private static readonly float CLANWAR_WEIGHT_COEFFICIENT = 0.8f;
+        private readonly float CLANWAR_WEIGHT_COEFFICIENT = 0.8f;
+        public static BLCalc Instance { get; private set; } = new BLCalc();
+        private BLCalc() { }
         #region PP Math
-        public static float GetPassPp(float passRating) => 15.2f * Mathf.Exp(Mathf.Pow(passRating, 1 / 2.62f)) - 30f;
-        public static float GetAccPp(float acc, float accRating) => Curve2(acc) * accRating * 34f;
-        public static float GetTechPp(float acc, float techRating) => Mathf.Exp(1.9f * acc) * 1.08f * techRating;
-        public static (float Pass, float Acc, float Tech) GetPp(float accuracy, float accRating, float passRating, float techRating)
+        public override int RatingCount => 3;
+        public override string Label => "BL";
+        public override bool UsesModifiers => true;
+        public float GetPassPp(float passRating) => 15.2f * Mathf.Exp(Mathf.Pow(passRating, 1 / 2.62f)) - 30f;
+        public float GetAccPp(float acc, float accRating) => GetCurve(acc) * accRating * 34f;
+        public float GetTechPp(float acc, float techRating) => Mathf.Exp(1.9f * acc) * 1.08f * techRating;
+        public override float[] GetPp(float acc, params float[] ratings) //ratings order: acc pass tech
         {
+            if (float.IsNaN(acc)) acc = 0;
+            else acc = Mathf.Max(0, Mathf.Min(1, acc));
+            var (accRating, passRating, techRating) = (ratings[0], ratings[1], ratings[2]);
             float passPP = GetPassPp(passRating);
-            if (float.IsNaN(accuracy)) accuracy = 0;
-            else accuracy = Mathf.Max(0, Mathf.Min(1,accuracy));
             if (float.IsInfinity(passPP) || float.IsNaN(passPP) || passPP < 0) passPP = 0;
-            //float accPP = context == LeaderboardContexts.Golf ? accuracy * accRating * 42f : Curve2(accuracy) * accRating * 34f;
-            return (passPP, GetAccPp(accuracy, accRating), GetTechPp(accuracy, techRating));
+            return new float[] { GetAccPp(acc, accRating), passPP, GetTechPp(acc, techRating) };
         }
-        public static (float Pass, float Acc, float Tech) GetPp(float accuracy, float accRating, float passRating, float techRating, int precision)
+        public override float[] SelectRatings(float[] ratings) => ratings.Skip(1).ToArray();
+        public override float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings) //ratings order: acc pass tech
         {
-            var (Pass, Acc, Tech) = GetPp(accuracy, accRating, passRating, techRating);
-            return ((float)Math.Round(Pass, precision), (float)Math.Round(Acc, precision), (float)Math.Round(Tech, precision));
-        }
-        public static (float Pass, float Acc, float Tech, float Total) GetSummedPp(float accuracy, float accRating, float passRating, float techRating)
-        {
-            var (Pass, Acc, Tech) = GetPp(accuracy, accRating, passRating, techRating);
-            return (Pass, Acc, Tech, Inflate(Pass + Acc + Tech));
-        }
-        public static (float Pass, float Acc, float Tech, float Total) GetSummedPp(float accuracy, float accRating, float passRating, float techRating, int precision)
-        {
-            var (Pass, Acc, Tech) = GetPp(accuracy, accRating, passRating, techRating, precision);
-            return (Pass, Acc, Tech, (float)Math.Round(Inflate(Pass + Acc + Tech), precision));
-        }
-        public static float GetPpSum(float accuracy, float accRating, float passRating, float techRating)
-        {
-            float a, b, c;
-            (a,b,c) = GetPp(accuracy, accRating, passRating, techRating);
-            return a + b + c;
-        }
-        public static float GetPartPpSum(float accuracy, float accRating = -1, float passRating = -1, float techRating = -1)
-        {
-            float sum = 0;
-            if (accRating > -1) sum += GetAccPp(accuracy, accRating);
-            if (passRating > -1) sum += GetPassPp(passRating);
-            if (techRating > -1) sum += GetTechPp(accuracy, techRating);
-            return sum;
-        }
-        public static float GetPpSum(float accuracy, MapSelection map) => GetPpSum(accuracy, map.AccRating, map.PassRating, map.TechRating);
-        public static float GetAcc(float accRating, float passRating, float techRating, float inflatedPp, int precision = -1) =>
-            GetAccDeflated(accRating, passRating, techRating, Deflate(inflatedPp), precision);
-        public static float GetAcc((float acc, float pass, float tech) ratings, float inflatedPp, int precision = -1) =>
-            GetAccDeflated(ratings.acc, ratings.pass, ratings.tech, Deflate(inflatedPp), precision);
-        public static float GetAcc(float inflatedPp, JToken diffData, GameplayModifiers.SongSpeed speed, float modMult = 1.0f, int precision = -1) =>
-            GetAccDeflated(Deflate(inflatedPp), diffData, speed, modMult, precision);
-        public static float GetAccDeflated(float accRating, float passRating, float techRating, float deflatedPp, int precision = -1)
-        {
-            if (deflatedPp > GetPpSum(1.0f, accRating, passRating, techRating)) return precision >= 0 ? 100.0f : 1.0f;
+            if (deflatedPp > GetSummedPp(1.0f, ratings)) return precision >= 0 ? 100.0f : 1.0f;
+            var (accRating, passRating, techRating) = (ratings[0], ratings[1], ratings[2]);
             deflatedPp -= GetPassPp(passRating);
             if (deflatedPp <= 0.0f) return 0.0f;
             float outp = CalculateX(deflatedPp, techRating, accRating);
             return precision >= 0 ? (float)Math.Round(outp * 100.0f, precision) : outp;
         }
-        public static float GetAccDeflated((float acc, float pass, float tech) ratings, float deflatedPp, int precision = -1) =>
-            GetAccDeflated(ratings.acc, ratings.pass, ratings.tech, deflatedPp, precision);
-        public static float GetAccDeflated(float deflatedPp, JToken diffData, GameplayModifiers.SongSpeed speed, float modMult = 1.0f, int precision = -1)
+        public override float GetAccDeflated(float deflatedPp, JToken diffData, SongSpeed speed, float modMult = 1.0f, int precision = -1)
         {
-            float outp = GetAccDeflated(HelpfulMisc.GetRatings(diffData, speed, modMult), deflatedPp);
+            float outp = GetAccDeflated(deflatedPp, precision, BLAPI.Instance.GetRatings(diffData, speed, modMult));
             return precision >= 0 ? (float)Math.Round(outp * 100.0f, precision) : outp;
         }
-        public static float Inflate(float peepee)
-        {
-            return 650f * (float)Math.Pow(peepee, 1.3f) / (float)Math.Pow(650f, 1.3f);
-        }
-        public static float Deflate(float pp)
-        {
-            return (float)Math.Pow(pp * (float)Math.Pow(650f, 1.3f) / 650f, 1.0f / 1.3f);
-        }
-        public static float GetCurve(float acc, List<(double, double)> curve)
-        {
-            int i = 1;
-            while (i < curve.Count && curve[i].Item1 > acc) i++;
-            double middle_dis = (acc - curve[i - 1].Item1) / (curve[i].Item1 - curve[i - 1].Item1);
-            return (float)(curve[i - 1].Item2 + middle_dis * (curve[i].Item2 - curve[i - 1].Item2));
-        }
-        public static float Curve2(float acc) => GetCurve(acc, pointList2);
-        public static float InvertCurve2(double curve2Output)
-        {
-            int i = 1;
-            while (i < pointList2.Count && pointList2[i].Item2 > curve2Output) i++;
-            double middle_dis = (curve2Output - pointList2[i - 1].Item2) / (pointList2[i].Item2 - pointList2[i - 1].Item2);
-            return (float)(pointList2[i - 1].Item1 + middle_dis * (pointList2[i].Item1 - pointList2[i - 1].Item1));
-        }
-        public static float Curve2Derivative(double acc)
-        {
-            int i = 1;
-            while (i < pointList2.Count && pointList2[i].Item1 > acc) i++;
-            return (float)((pointList2[i].Item2 - pointList2[i - 1].Item2) / (pointList2[i].Item1 - pointList2[i - 1].Item1));
-        }
-        private static float CalculateX(float y, float t, float a, float initialGuess = 1.0f, float tolerance = 0.0001f, int maxIterations = 100)
+        public override float Inflate(float pp) => 650f * (float)Math.Pow(pp, 1.3f) / (float)Math.Pow(650f, 1.3f);
+        public override float Deflate(float pp) => (float)Math.Pow(pp * (float)Math.Pow(650f, 1.3f) / 650f, 1.0f / 1.3f);
+        private float CalculateX(float y, float t, float a, float initialGuess = 1.0f, float tolerance = 0.0001f, int maxIterations = 100)
         {
             float x = initialGuess;
             double error = 1.0;
@@ -150,20 +92,101 @@ namespace BLPPCounter.CalculatorStuffs
             while (error > tolerance && iterations < maxIterations)
             {
                 // Compute the current value of the equation
-                double currentValue = 1.08 * t * Math.Exp(1.9 * x) + 34 * a * Curve2(x);
+                double currentValue = 1.08 * t * Math.Exp(1.9 * x) + 34 * a * GetCurve(x);
                 double difference = currentValue - y;
 
                 // Adjust x using a basic Newton's method approach
-                double derivative = 1.08 * t * Math.Exp(1.9 * x) + 34 * a * Curve2Derivative(x);
+                double derivative = 1.08 * t * Math.Exp(1.9 * x) + 34 * a * CurveDerivative(x);
                 x -= (float)(difference / derivative);
 
                 // Calculate the error
                 error = Math.Abs(difference);
                 iterations++;
             }
-            //Plugin.Log.Info("THE ACC: " + x * 100.0f);
             return x;
         }//Yes this is chatGPT code, modified to work properly with my code.
+        /*public (float Pass, float Acc, float Tech) GetPp(float accuracy, float accRating, float passRating, float techRating)
+        {
+            float passPP = GetPassPp(passRating);
+            if (float.IsNaN(accuracy)) accuracy = 0;
+            else accuracy = Mathf.Max(0, Mathf.Min(1,accuracy));
+            if (float.IsInfinity(passPP) || float.IsNaN(passPP) || passPP < 0) passPP = 0;
+            //float accPP = context == LeaderboardContexts.Golf ? accuracy * accRating * 42f : Curve2(accuracy) * accRating * 34f;
+            return (passPP, GetAccPp(accuracy, accRating), GetTechPp(accuracy, techRating));
+        }
+        public (float Pass, float Acc, float Tech) GetPp(float accuracy, float accRating, float passRating, float techRating, int precision)
+        {
+            var (Pass, Acc, Tech) = GetPp(accuracy, accRating, passRating, techRating);
+            return ((float)Math.Round(Pass, precision), (float)Math.Round(Acc, precision), (float)Math.Round(Tech, precision));
+        }
+        public (float Pass, float Acc, float Tech, float Total) GetSummedPp(float accuracy, float accRating, float passRating, float techRating)
+        {
+            var (Pass, Acc, Tech) = GetPp(accuracy, accRating, passRating, techRating);
+            return (Pass, Acc, Tech, Inflate(Pass + Acc + Tech));
+        }
+        public (float Pass, float Acc, float Tech, float Total) GetSummedPp(float accuracy, float accRating, float passRating, float techRating, int precision)
+        {
+            var (Pass, Acc, Tech) = GetPp(accuracy, accRating, passRating, techRating, precision);
+            return (Pass, Acc, Tech, (float)Math.Round(Inflate(Pass + Acc + Tech), precision));
+        }
+        public float GetPpSum(float accuracy, float accRating, float passRating, float techRating)
+        {
+            float a, b, c;
+            (a,b,c) = GetPp(accuracy, accRating, passRating, techRating);
+            return a + b + c;
+        }
+        public float GetPartPpSum(float accuracy, float accRating = -1, float passRating = -1, float techRating = -1)
+        {
+            float sum = 0;
+            if (accRating > -1) sum += GetAccPp(accuracy, accRating);
+            if (passRating > -1) sum += GetPassPp(passRating);
+            if (techRating > -1) sum += GetTechPp(accuracy, techRating);
+            return sum;
+        }
+        public float GetPpSum(float accuracy, MapSelection map) => GetPpSum(accuracy, map.AccRating, map.PassRating, map.TechRating);
+
+        public float GetAcc(float accRating, float passRating, float techRating, float inflatedPp, int precision = -1) =>
+            GetAccDeflated(accRating, passRating, techRating, Deflate(inflatedPp), precision);
+
+        public float GetAcc((float acc, float pass, float tech) ratings, float inflatedPp, int precision = -1) =>
+            GetAccDeflated(ratings.acc, ratings.pass, ratings.tech, Deflate(inflatedPp), precision);
+
+        public float GetAcc(float inflatedPp, JToken diffData, GameplayModifiers.SongSpeed speed, float modMult = 1.0f, int precision = -1) =>
+            GetAccDeflated(Deflate(inflatedPp), diffData, speed, modMult, precision);
+
+        public float GetAccDeflated(float accRating, float passRating, float techRating, float deflatedPp, int precision = -1)
+        {
+            if (deflatedPp > GetPpSum(1.0f, accRating, passRating, techRating)) return precision >= 0 ? 100.0f : 1.0f;
+            deflatedPp -= GetPassPp(passRating);
+            if (deflatedPp <= 0.0f) return 0.0f;
+            float outp = CalculateX(deflatedPp, techRating, accRating);
+            return precision >= 0 ? (float)Math.Round(outp * 100.0f, precision) : outp;
+        }
+        public float GetAccDeflated((float acc, float pass, float tech) ratings, float deflatedPp, int precision = -1) =>
+            GetAccDeflated(ratings.acc, ratings.pass, ratings.tech, deflatedPp, precision);
+        public float GetAccDeflated(float deflatedPp, JToken diffData, GameplayModifiers.SongSpeed speed, float modMult = 1.0f, int precision = -1)
+        {
+            float outp = GetAccDeflated(HelpfulMisc.GetRatings(diffData, speed, modMult), deflatedPp);
+            return precision >= 0 ? (float)Math.Round(outp * 100.0f, precision) : outp;
+        }
+        public float Inflate(float peepee)
+        {
+            return 650f * (float)Math.Pow(peepee, 1.3f) / (float)Math.Pow(650f, 1.3f);
+        }
+        public float Deflate(float pp)
+        {
+            return (float)Math.Pow(pp * (float)Math.Pow(650f, 1.3f) / 650f, 1.0f / 1.3f);
+        }
+        
+        public float Curve2(float acc) => GetCurve(acc, pointList2);
+        
+        public float InvertCurve2(double curve2Output) => GetInvertCurve(curve2Output, pointList2);
+        public float GetCurveDerivative(double acc)
+        {
+            int i = 1;
+            while (i < pointList2.Count && pointList2[i].Item1 > acc) i++;
+            return (float)((pointList2[i].Item2 - pointList2[i - 1].Item2) / (pointList2[i].Item1 - pointList2[i - 1].Item1));
+        }*/
         #endregion
         #region Replay Math
         private const float MinBeforeCutScore = 0.0f;
@@ -171,28 +194,28 @@ namespace BLPPCounter.CalculatorStuffs
         private const float MaxBeforeCutScore = 70.0f;
         private const float MaxAfterCutScore = 30.0f;
         private const float MaxCenterDistanceCutScore = 15.0f;
-        public static int RoundToInt(float f) { return (int)Math.Round(f); }
-        public static int GetCutDistanceScore(float cutDistanceToCenter)
+        public int RoundToInt(float f) { return (int)Math.Round(f); }
+        public int GetCutDistanceScore(float cutDistanceToCenter)
         {
             return RoundToInt(MaxCenterDistanceCutScore * (1f - Clamp01(cutDistanceToCenter / 0.3f)));
         }
 
-        public static int GetBeforeCutScore(float beforeCutRating)
+        public int GetBeforeCutScore(float beforeCutRating)
         {
             var rating = Clamp01(beforeCutRating);
             return RoundToInt(LerpUnclamped(MinBeforeCutScore, MaxBeforeCutScore, rating));
         }
 
-        public static int GetAfterCutScore(float afterCutRating)
+        public int GetAfterCutScore(float afterCutRating)
         {
             var rating = Clamp01(afterCutRating);
             return RoundToInt(LerpUnclamped(MinAfterCutScore, MaxAfterCutScore, rating));
         }
-        public static int GetCutScore(BeatLeader.Models.Replay.NoteCutInfo info)
+        public int GetCutScore(BeatLeader.Models.Replay.NoteCutInfo info)
         {
             return GetBeforeCutScore(info.beforeCutRating) + GetCutDistanceScore(info.cutDistanceToCenter) + GetAfterCutScore(info.afterCutRating);
         }
-        public static float Clamp01(float value)
+        public float Clamp01(float value)
         {
             if (value < 0F)
                 return 0F;
@@ -201,25 +224,25 @@ namespace BLPPCounter.CalculatorStuffs
             else
                 return value;
         }
-        public static float LerpUnclamped(float a, float b, float t)
+        public float LerpUnclamped(float a, float b, float t)
         {
             return a + (b - a) * t;
         }
         #endregion
         #region Clan Math
-        private static float TotalPP(float coefficient, float[] ppVals, int startIndex)
+        private float TotalPP(float coefficient, float[] ppVals, int startIndex)
         {
             if (ppVals.Length == 0) return 0.0f;
             float currentWeight = (float)Math.Pow(coefficient, startIndex);
             return ppVals.Aggregate(0.0f, (a, b) => {  var n = a + currentWeight * b; currentWeight *= coefficient; return n; });
         }
-        private static float CalcFinalPP(float coefficient, float[] bottomPp, int index, float expected)
+        private float CalcFinalPP(float coefficient, float[] bottomPp, int index, float expected)
         {
             float oldPp = TotalPP(coefficient, bottomPp, index);
             float newPp = TotalPP(coefficient, bottomPp, index + 1);
             return (expected + oldPp - newPp) / (float)Math.Pow(coefficient, index);
         }
-        public static float GetNeededPP(float[] clanPpVals, float ppDiff)
+        public float GetNeededPP(float[] clanPpVals, float ppDiff)
         {
             float coefficient = CLANWAR_WEIGHT_COEFFICIENT;
             for (int i = clanPpVals.Length - 1; i >= 0; i--)
@@ -233,7 +256,7 @@ namespace BLPPCounter.CalculatorStuffs
             }
             return CalcFinalPP(coefficient, clanPpVals, 0, ppDiff);
         }
-        public static float GetNeededPlay(List<float> clanPpVals, float otherClan, float playerPp)
+        public float GetNeededPlay(List<float> clanPpVals, float otherClan, float playerPp)
         {
             float[] clone = clanPpVals.ToArray();
             clanPpVals.Remove(playerPp);
@@ -242,7 +265,7 @@ namespace BLPPCounter.CalculatorStuffs
             float result = GetNeededPP(clanPpVals.ToArray(), otherClan - ourClan);
             return result;
         }
-        public static float GetWeight(float pp, float[] sortedClanPps, out int rank)
+        public float GetWeight(float pp, float[] sortedClanPps, out int rank)
         {
             rank = 0;
             if (sortedClanPps == null || sortedClanPps.Length == 0) return 1.0f;
@@ -251,8 +274,8 @@ namespace BLPPCounter.CalculatorStuffs
             rank = count;
             return (float)Math.Pow(CLANWAR_WEIGHT_COEFFICIENT, count - 1);
         }
-        public static float GetWeight(float pp, float[] sortedClanPps) => GetWeight(pp, sortedClanPps, out _);
-        public static float GetWeightedPp(float pp, float[] clanPps)
+        public float GetWeight(float pp, float[] sortedClanPps) => GetWeight(pp, sortedClanPps, out _);
+        public float GetWeightedPp(float pp, float[] clanPps)
         {
             return pp * GetWeight(pp, clanPps);
         }

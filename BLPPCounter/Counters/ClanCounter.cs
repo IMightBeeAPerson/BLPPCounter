@@ -10,6 +10,7 @@ using System.Net.Http;
 using TMPro;
 using SiraUtil.Affinity;
 using BLPPCounter.Utils.List_Settings;
+using BLPPCounter.Utils.API_Handlers;
 
 namespace BLPPCounter.Counters
 {
@@ -218,7 +219,7 @@ namespace BLPPCounter.Counters
         public static string DisplayName => "Clan";
         public static string DisplayHandler => DisplayName;
         public static int OrderNumber => 3;
-        public static bool SSUsable => false;
+        public static Leaderboards ValidLeaderboards => Leaderboards.Beatleader;
         public string Name => DisplayName;
         public string Mods { get; private set; }
         private TMP_Text display;
@@ -227,6 +228,7 @@ namespace BLPPCounter.Counters
         private int precision, setupStatus;
         private string message;
         private bool showRank;
+        private BLCalc calc;
         #endregion
         #region Init & Overrides
         public ClanCounter(TMP_Text display, float accRating, float passRating, float techRating, float starRating)
@@ -237,6 +239,7 @@ namespace BLPPCounter.Counters
             this.starRating = starRating;
             this.display = display;
             precision = pc.DecimalPrecision;
+            calc = BLCalc.Instance;
         }
         public ClanCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating, map.StarRating) { SetupData(map); }
         public void SetupData(MapSelection map) //setupStatus key: 0 = success, 1 = Map not ranked, 2 = Map already captured, 3 = load failed, 4 = map too hard to capture
@@ -268,8 +271,10 @@ namespace BLPPCounter.Counters
                 if (ppVals == null) { setupStatus = 3; goto theEnd; }
                 if (pc.MapCache > 0) mapCache.Add((map, ppVals));
             }
-            neededPPs[4] = BLCalc.GetAcc(accRating, passRating, techRating, neededPPs[3]);
-            (neededPPs[0], neededPPs[1], neededPPs[2]) = BLCalc.GetPp(neededPPs[4], nmAccRating, nmPassRating, nmTechRating);
+            neededPPs[4] = calc.GetAcc(neededPPs[3], pc.DecimalPrecision, calc.SelectRatings(starRating, accRating, passRating, techRating));
+            float[] temp = calc.GetPp(neededPPs[4], calc.SelectRatings(starRating, nmAccRating, nmPassRating, nmTechRating));
+            for (int i=0;i<temp.Length;i++) //temp length should be less than or equal to 3
+                neededPPs[i] = temp[i];
             neededPPs[5] = (float)Math.Round(neededPPs[4] * 100.0f, 2);
             if (mapCache.Count > pc.MapCache)
             {
@@ -292,9 +297,9 @@ namespace BLPPCounter.Counters
             string id = Targeter.TargetID, check;
             mapCaptured = false;
             owningClan = "None";
-            check = APIHandler.CallAPI_String($"https://api.beatleader.xyz/player/{id}");
+            check = BLAPI.Instance.CallAPI_String($"https://api.beatleader.xyz/player/{id}");
             if (playerClanId < 0 && check.Length > 0) playerClanId = ParseId(JToken.Parse(check));
-            check = APIHandler.CallAPI_String($"{string.Format(HelpfulPaths.BLAPI_CLAN, mapId)}?page=1&count=1");
+            check = BLAPI.Instance.CallAPI_String($"{string.Format(HelpfulPaths.BLAPI_CLAN, mapId)}?page=1&count=1");
             if (check.Length == 0) return null;
             JToken clanData = JToken.Parse(check);
             if ((int)clanData["difficulty"]["status"] != 3) return null; //Map isn't ranked
@@ -319,7 +324,7 @@ namespace BLPPCounter.Counters
             clone.Remove(playerScore);
             float[] clanPPs = clone.ToArray();
             Array.Sort(clanPPs, (a, b) => (int)Math.Round(b - a));
-            float neededPp = mapCaptured ? 0.0f : BLCalc.GetNeededPlay(actualPpVals, pp, playerScore);
+            float neededPp = mapCaptured ? 0.0f : BLCalc.Instance.GetNeededPlay(actualPpVals, pp, playerScore);
             return clanPPs.Prepend(neededPp).ToArray();
         }
         public static float[] LoadNeededPp(string mapId, out bool mapCaptured, out string owningClan) { int no = -1; return LoadNeededPp(mapId, out mapCaptured, out owningClan, ref no); }
@@ -331,8 +336,10 @@ namespace BLPPCounter.Counters
             this.techRating = techRating;
             this.starRating = starRating;
             precision = pc.DecimalPrecision;
-            neededPPs[4] = BLCalc.GetAcc(accRating, passRating, techRating, neededPPs[3]);
-            (neededPPs[0], neededPPs[1], neededPPs[2]) = BLCalc.GetPp(neededPPs[4], nmAccRating, nmPassRating, nmTechRating);
+            neededPPs[4] = calc.GetAcc(neededPPs[3], pc.DecimalPrecision, calc.SelectRatings(starRating, accRating, passRating, techRating));
+            float[] temp = calc.GetPp(neededPPs[4], calc.SelectRatings(starRating, nmAccRating, nmPassRating, nmTechRating));
+            for (int i = 0; i < temp.Length; i++) //temp length should be less than or equal to 3
+                neededPPs[i] = temp[i];
             neededPPs[5] = (float)Math.Round(neededPPs[4] * 100.0f, 2);
         }
         public void ReinitCounter(TMP_Text display, MapSelection map) 
@@ -357,8 +364,8 @@ namespace BLPPCounter.Counters
         #region API Requests
         private static string RequestClanLeaderboard(string id, string mapId, int playerClanId)
         {
-            int clanId = playerClanId > 0 ? playerClanId : ParseId(APIHandler.CallAPI_String($"player/{id}", forceBLCall: true));
-            return APIHandler.CallAPI_String($"leaderboard/clanRankings/{mapId}/clan/{clanId}?count=100&page=1", forceBLCall: true);
+            int clanId = playerClanId > 0 ? playerClanId : ParseId(APIHandler.GetSelectedAPI().CallAPI_String($"{HelpfulPaths.BLAPI}player/{id}", forceNoHeader: true));
+            return APIHandler.GetSelectedAPI().CallAPI_String($"{HelpfulPaths.BLAPI}leaderboard/clanRankings/{mapId}/clan/{clanId}?count=100&page=1", forceNoHeader: true);
         }
         #endregion
         #region Helper Functions
@@ -488,14 +495,18 @@ namespace BLPPCounter.Counters
             }
             bool displayFc = pc.PPFC && mistakes > 0;
             float[] ppVals = new float[16]; //default pass, acc, tech, total pp for 0-3, modified for 4-7. Same thing but for fc with 8-15.
-            (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
-            ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
+            float[] temp = calc.GetPp(acc, accRating, passRating, techRating);
+            for (int i = 0; i < temp.Length; i++) 
+                ppVals[i] = temp[i];
+            ppVals[3] = calc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
             for (int i = 0; i < 4; i++)
                 ppVals[i + 4] = ppVals[i] - neededPPs[i];
             if (displayFc)
             {
-                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPercent, accRating, passRating, techRating);
-                ppVals[11] = BLCalc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
+                temp = calc.GetPp(acc, accRating, passRating, techRating);
+                for (int i = 0; i < temp.Length; i++)
+                    ppVals[i + 8] = temp[i];
+                ppVals[11] = calc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
                 for (int i = 8; i < 12; i++)
                     ppVals[i + 4] = ppVals[i] - neededPPs[i - 8];
             }
@@ -526,21 +537,28 @@ namespace BLPPCounter.Counters
         {
             bool displayFc = pc.PPFC && mistakes > 0;
             float[] ppVals = new float[16]; //default pass, acc, tech, total pp for 0-3, modified for 4-7. Same thing but for fc with 8-15.
-            (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
-            ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
-            float weight = BLCalc.GetWeight(ppVals[3], clanPPs, out int rank);
+            float[] temp = calc.GetPp(acc, accRating, passRating, techRating);
+            for (int i = 0; i < temp.Length; i++)
+                ppVals[i] = temp[i];
+            ppVals[3] = calc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
+            float weight = calc.GetWeight(ppVals[3], clanPPs, out int rank);
             for (int i = 0; i < 4; i++)
                 ppVals[i + 4] = ppVals[i] * weight;
             if (displayFc)
             {
-                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPercent, accRating, passRating, techRating);
-                ppVals[11] = BLCalc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
+                temp = calc.GetPp(acc, accRating, passRating, techRating);
+                for (int i = 0; i < temp.Length; i++)
+                    ppVals[i + 8] = temp[i];
+                ppVals[11] = calc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
                 for (int i = 8; i < 12; i++)
                     ppVals[i + 4] = ppVals[i] * weight;
             }
             for (int i = 0; i < ppVals.Length; i++)
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
             string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " Weighted PP" };
+            if (pc.LeaderInLabel)
+                for (int i = 0; i < labels.Length; i++)
+                    labels[i] = $" {calc.Label} {labels[i]}";
             if (pc.SplitPPVals)
             {
                 string text = "", color = HelpfulFormatter.GetWeightedRankColor(rank);

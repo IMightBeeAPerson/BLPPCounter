@@ -18,6 +18,9 @@ using Newtonsoft.Json.Linq;
 using BeatSaberMarkupLanguage.Components.Settings;
 using BLPPCounter.Settings.Configs;
 using BeatLeader.Models;
+using System.Runtime.CompilerServices;
+using System.Collections;
+using IPA.Config.Data;
 namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
@@ -86,6 +89,7 @@ namespace BLPPCounter.Helpfuls
             modifierName.Equals("") ? name : modifierName + char.ToUpper(name[0]) + name.Substring(1);
         public static (float accRating, float passRating, float techRating) GetRatings(JToken diffData, SongSpeed speed, float modMult = 1.0f)
         {
+            diffData = diffData["difficulty"];
             if (speed != SongSpeed.Normal) diffData = diffData["modifiersRating"];
             return (
                 (float)diffData[AddModifier("accRating", speed)] * modMult,
@@ -96,6 +100,7 @@ namespace BLPPCounter.Helpfuls
         public static (float accRating, float passRating, float techRating, float starRating) GetRatingsAndStar(JToken diffData, SongSpeed speed, float modMult = 1.0f)
         {
             (float accRating, float passRating, float techRating) = GetRatings(diffData, speed, modMult);
+            diffData = diffData["difficulty"];
             if (speed != SongSpeed.Normal) diffData = diffData["modifiersRating"];
             return (accRating, passRating, techRating, (float)diffData[AddModifier("stars", speed)] * modMult);
         }
@@ -127,6 +132,14 @@ namespace BLPPCounter.Helpfuls
                 outp |= (values[i] ? 1 : 0) << i;
             return outp;
         }
+        public static long ConvertBoolsToInt64(bool[] values)
+        {
+            if (values.Length > 64) throw new ArgumentException("Cannot convert more than 32 bools to a 32 bit number.");
+            long outp = 0;
+            for (int i = 0; i < values.Length; i++)
+                outp |= (values[i] ? 1L : 0L) << i;
+            return outp;
+        }
         public static void ConvertInt16ToBools(bool[] toLoad, short toConvert)
         {
             int count = 0;
@@ -149,6 +162,18 @@ namespace BLPPCounter.Helpfuls
                 else break;
                 toConvert >>= 1;
                 if (count == 1 && toConvert < 0) { toConvert *= -1; toConvert |= 1 << 30; } //manually shift signed bit over bc unsigned shifting isn't allowed in this version 0.0
+            }
+        }
+        public static void ConvertInt64ToBools(bool[] toLoad, long toConvert)
+        {
+            int count = 0;
+            while (toConvert != 0)
+            {
+                if (toLoad.Length > count)
+                    toLoad[count++] = toConvert % 2 == 1;
+                else break;
+                toConvert >>= 1;
+                if (count == 1 && toConvert < 0) { toConvert *= -1; toConvert |= 1 << 62; } //manually shift signed bit over bc unsigned shifting isn't allowed in this version 0.0
             }
         }
         public static K GetKeyFromDictionary<K, V>(Dictionary<K, V> dict, V val) => 
@@ -297,6 +322,7 @@ namespace BLPPCounter.Helpfuls
         }
         public static string Print<T>(this IEnumerable<T> arr)
         {
+            if (arr.Count() == 0) return "[]";
             string outp = "";
             foreach (T item in arr)
                 outp += ", " + item;
@@ -304,6 +330,7 @@ namespace BLPPCounter.Helpfuls
         }
         public static string Print<T>(this IEnumerable<T> arr, Func<T, string> valToString)
         {
+            if (arr.Count() == 0) return "[]";
             string outp = "";
             foreach (T item in arr)
                 outp += ", " + valToString(item);
@@ -345,7 +372,6 @@ namespace BLPPCounter.Helpfuls
 #endif
             if (!newValues.Any(str => str.Equals((string)menu.Value))) menu.Value = newValues[0];
             else menu.Value = menu.Value; //seems stupid but calls the update method.
-            Plugin.Log.Info("Front end value = " + (string)menu.Value);
             menu.ApplyValue(); //Update the actual value
         }
         /// <summary>
@@ -403,7 +429,7 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="ms">The map selection to check.</param>
         /// <returns>Whether or not the map selection has a usable status.</returns>
-        public static bool StatusIsUsable(MapSelection ms) => ms.Mode.Equals(Map.SS_MODE_NAME) || StatusIsUsable((int)ms.MapData.Item2["status"]);
+        public static bool StatusIsUsable(MapSelection ms) => ms.Mode.Equals(Utils.Map.SS_MODE_NAME) || StatusIsUsable((int)ms.MapData.Item2["status"]);
         public static bool StatusIsUsable(JToken diffData) => StatusIsUsable((int)diffData["status"]);
         /// <summary>
         /// Create a square matrix (a matrix with all arrays inside it being the same size).
@@ -477,9 +503,23 @@ namespace BLPPCounter.Helpfuls
         {
             foreach (SliderSetting s in toSet)
             {
+#if NEW_VERSION
+                s.Increments = incrementNum;
+                s.Slider.numberOfSteps = (int)Math.Round((s.Slider.maxValue - s.Slider.minValue) / incrementNum) + 1;
+#else
                 s.increments = incrementNum;
                 s.slider.numberOfSteps = (int)Math.Round((s.slider.maxValue - s.slider.minValue) / incrementNum) + 1;
+#endif
             }
         }
+        public static IEnumerable TupleToEnumerable(ITuple tuple) =>
+            Enumerable.Range(0, tuple.Length).Select(i => tuple[i]?.ToString());
+        public static bool FilledWithDefaults<T>(this IEnumerable<T> vals)
+        {
+            foreach (T val in vals)
+                if (!val.Equals(default(T))) return false;
+            return true;
+        }
+        public static JToken TryEnter(this JToken data, string name) => data[name] ?? data;
     }
 }

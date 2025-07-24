@@ -12,6 +12,7 @@ using System.Linq;
 using static GameplayModifiers;
 using System.Text.RegularExpressions;
 using BLPPCounter.Utils.List_Settings;
+using BLPPCounter.Utils.API_Handlers;
 
 namespace BLPPCounter.Counters
 {
@@ -20,7 +21,7 @@ namespace BLPPCounter.Counters
         #region Static Variables
         public static int OrderNumber => 2;
         public static string DisplayName => "Relative";
-        public static bool SSUsable => false;
+        public static Leaderboards ValidLeaderboards => Leaderboards.Beatleader;
         public static string DisplayHandler => DisplayName;
         private static Func<bool, bool, int, float, string, string, float, string, string, float, float, string, string> displayFormatter;
         public static Type[] FormatterTypes => displayFormatter.GetType().GetGenericArguments();
@@ -113,7 +114,7 @@ namespace BLPPCounter.Counters
         private float[] best; //pass, acc, tech, total, replay pass rating, replay acc rating, replay tech rating, current score, current combo
         private Replay bestReplay;
         private NoteEvent[] noteArray;
-        private int precision;
+        private int precision, bombs;
         private IMyCounters backup;
         private bool failed;
         #endregion
@@ -127,20 +128,21 @@ namespace BLPPCounter.Counters
             this.display = display;
             failed = false;
             precision = PC.DecimalPrecision;
+            ResetVars();
         }
         public RelativeCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating, map.StarRating) { SetupData(map); }
         private void SetupReplayData(JToken data)
         {
             //Plugin.Log.Debug(data.ToString());
             string replay = (string)data["replay"];
-            byte[] replayData = APIHandler.CallAPI_Bytes(replay, true) ?? throw new Exception("The replay link from the API is bad! (replay link failed to return data)");
+            byte[] replayData = BLAPI.Instance.CallAPI_Bytes(replay, true) ?? throw new Exception("The replay link from the API is bad! (replay link failed to return data)");
             ReplayDecoder.TryDecodeReplay(replayData, out bestReplay);
             noteArray = bestReplay.notes.ToArray();
             ReplayMods = bestReplay.info.modifiers.ToLower();
             Match hold = Regex.Match(ReplayMods, "(fs|sf|ss),?");
             SongSpeed mod = hold.Success ? HelpfulMisc.GetModifierFromShortname(hold.Groups[1].Value) : SongSpeed.Normal;
             data = data["difficulty"];
-            float replayMult = HelpfulPaths.GetMultiAmounts(data, Regex.Replace(ReplayMods, hold.Value, "").Split(','));
+            float replayMult = HelpfulPaths.GetMultiAmounts(data, Regex.Replace(Regex.Replace(ReplayMods, "fs|sf|ss|nf", ""), hold.Value, "").Split(','));
             best[4] = HelpfulPaths.GetRating(data, PPType.Pass, mod) * replayMult;
             best[5] = HelpfulPaths.GetRating(data, PPType.Acc, mod) * replayMult;
             best[6] = HelpfulPaths.GetRating(data, PPType.Tech, mod) * replayMult;
@@ -152,14 +154,14 @@ namespace BLPPCounter.Counters
         {
             try
             {
-                string check = APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_SCORE, Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), map.Mode), true);
+                string check = BLAPI.Instance.CallAPI_String(string.Format(HelpfulPaths.BLAPI_SCORE, Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), map.Mode), true);
                 if (check != null && check.Length > 0)
                 {
                     JToken playerData = JObject.Parse(check);
                     best = new float[9];
                     if (PC.UseReplay) SetupReplayData(playerData);
                     if ((float)playerData["pp"] is float thePP && thePP > 0)
-                        accToBeat = (float)Math.Round(BLCalc.GetAcc(accRating, passRating, techRating, thePP) * 100.0f, PC.DecimalPrecision);
+                        accToBeat = BLCalc.Instance.GetAcc(thePP, PC.DecimalPrecision, accRating, passRating, techRating) * 100.0f;
                     else
                     {
                         string[] hold = ((string)playerData["modifiers"]).ToUpper().Split(',');
@@ -171,8 +173,8 @@ namespace BLPPCounter.Counters
                         float passStar = HelpfulPaths.GetRating(playerData, PPType.Pass, modName);
                         float techStar = HelpfulPaths.GetRating(playerData, PPType.Tech, modName);
                         float accStar = HelpfulPaths.GetRating(playerData, PPType.Acc, modName);
-                        var moreHold = BLCalc.GetPpSum(acc, accStar, passStar, techStar);
-                        accToBeat = (float)Math.Round(BLCalc.GetAccDeflated(accRating, passRating, techRating, moreHold) * 100.0f, PC.DecimalPrecision);
+                        var moreHold = BLCalc.Instance.GetSummedPp(acc, accStar, passStar, techStar);
+                        accToBeat = BLCalc.Instance.GetAccDeflated(moreHold, PC.DecimalPrecision, accRating, passRating, techRating) * 100.0f;
                     }
                 }
                 else throw new Exception("Relative counter cannot be loaded due to the player never having played this map before! (API didn't return the corrent status)");
@@ -187,18 +189,13 @@ namespace BLPPCounter.Counters
                 backup = TheCounter.InitCounter(PC.RelativeDefault, display);
                 return;
             }
-            if (!failed)
-            {
-                if (best != null && best.Length >= 9)
-                    best[7] = best[8] = 0;
-            }
+            if (!failed) ResetVars();
         }
         public void ReinitCounter(TMP_Text display)
         {
             this.display = display;
             if (failed) backup.ReinitCounter(display);
-            if (!failed && best != null && best.Length >= 9)
-                best[7] = best[8] = 0;
+            else ResetVars();
         }
         public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating, float starRating)
         {
@@ -209,11 +206,18 @@ namespace BLPPCounter.Counters
             this.starRating = starRating;
             precision = PC.DecimalPrecision;
             if (failed) backup.ReinitCounter(display, passRating, accRating, techRating, starRating);
-            else if (best != null && best.Length >= 9)
-                best[7] = best[8] = 0;
+            else ResetVars();
         }
         public void ReinitCounter(TMP_Text display, MapSelection map)
-        { this.display = display; passRating = map.PassRating; accRating = map.AccRating; techRating = map.TechRating; failed = false; SetupData(map); }
+        { 
+            this.display = display;
+            passRating = map.PassRating;
+            accRating = map.AccRating; 
+            techRating = map.TechRating;
+            starRating = map.StarRating;
+            failed = false;
+            SetupData(map); 
+        }
         public void UpdateFormat() => InitDefaultFormat();
         public static bool InitFormat()
         {
@@ -225,6 +229,12 @@ namespace BLPPCounter.Counters
         {
             displayIniter = null;
             displayFormatter = null;
+        }
+        private void ResetVars()
+        {
+            bombs = 0;
+            if (best != null && best.Length >= 9)
+                best[7] = best[8] = 0;
         }
         #endregion
         #region Helper Functions
@@ -268,26 +278,33 @@ namespace BLPPCounter.Counters
         #region Updates
         private void UpdateBest(int notes)
         {
+            float[] temp;
             if (!PC.UseReplay)
             {
-                (best[0], best[1], best[2]) = BLCalc.GetPp(accToBeat / 100.0f, accRating, passRating, techRating);
-                best[3] = BLCalc.Inflate(best[0] + best[1] + best[2]);
+                temp = BLCalc.Instance.GetPpWithSummedPp(accToBeat / 100.0f, accRating, passRating, techRating);
+                for (int i = 0; i < temp.Length; i++)
+                    best[i] = temp[i];
                 return;
             }
             if (notes < 1) return;
-            NoteEvent note = noteArray[notes-1];
+            NoteEvent note = noteArray[notes + bombs - 1];
             if (note.eventType == NoteEventType.good)
             {
                 best[8]++;
-                best[7] += BLCalc.GetCutScore(note.noteCutInfo) * HelpfulMath.MultiplierForNote((int)Math.Round(best[8]));
+                best[7] += BLCalc.Instance.GetCutScore(note.noteCutInfo) * HelpfulMath.MultiplierForNote((int)Math.Round(best[8]));
             }
             else
             {
                 best[8] = HelpfulMath.DecreaseMultiplier((int)Math.Round(best[8]));
+                if (note.eventType == NoteEventType.bomb)
+                {
+                    bombs++;
+                    UpdateBest(notes);
+                }
             }
-
-            (best[0], best[1], best[2]) = BLCalc.GetPp(best[7] / HelpfulMath.MaxScoreForNotes(notes), best[5], best[4], best[6]);
-            best[3] = BLCalc.Inflate(best[0] + best[1] + best[2]);
+            temp = BLCalc.Instance.GetPpWithSummedPp(best[7] / HelpfulMath.MaxScoreForNotes(notes), best[5], best[4], best[6]);
+            for (int i = 0; i < temp.Length; i++)
+                best[i] = temp[i];
         }
         public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
         {
@@ -298,16 +315,20 @@ namespace BLPPCounter.Counters
             }
             bool displayFc = PC.PPFC && mistakes > 0, showLbl = PC.ShowLbl, replay = PC.UseReplay;
             float[] ppVals = new float[16];
-            (ppVals[0], ppVals[1], ppVals[2]) = BLCalc.GetPp(acc, accRating, passRating, techRating);
-            ppVals[3] = BLCalc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
-            for (int i = 0; i < 4; i++)
-                ppVals[i + 4] = ppVals[i] - best[i];
+            float[] temp = BLCalc.Instance.GetPpWithSummedPp(acc, accRating, passRating, techRating);
+            for (int i = 0; i < temp.Length; i++)
+            {
+                ppVals[i] = temp[i];
+                ppVals[i + temp.Length] = temp[i] - best[i];
+            }
             if (displayFc)
             {
-                (ppVals[8], ppVals[9], ppVals[10]) = BLCalc.GetPp(fcPercent, accRating, passRating, techRating);
-                ppVals[11] = BLCalc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
-                for (int i = 8; i < 12; i++)
-                    ppVals[i + 4] = ppVals[i] - best[i - 8];
+                temp = BLCalc.Instance.GetPpWithSummedPp(fcPercent, accRating, passRating, techRating);
+                for (int i = temp.Length * 2; i < temp.Length * 3; i++)
+                {
+                    ppVals[i] = temp[i - temp.Length * 2];
+                    ppVals[i + temp.Length] = ppVals[i] - best[i - temp.Length * 2];
+                }
             }
             for (int i = 0; i < ppVals.Length; i++)
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);

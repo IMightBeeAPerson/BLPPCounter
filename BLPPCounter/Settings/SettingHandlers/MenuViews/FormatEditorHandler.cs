@@ -83,7 +83,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private string _FormatName = null; // 1.34.2 and below
 #endif
         [UIValue(nameof(CounterNames))]
-        private List<object> CounterNames => TheCounter.ValidDisplayNames.Where(a => MenuSettingsHandler.AllFormatInfo.Any(b => b.Key.Item2.Equals(a)))
+        private List<object> CounterNames => TheCounter.ValidDisplayNames[Leaderboards.Beatleader].Where(a => MenuSettingsHandler.AllFormatInfo.Any(b => b.Key.Item2.Equals(a)))
             .Append(TheCounter.DisplayName).Cast<object>().ToList();
 #if NEW_VERSION
         [UIValue(nameof(FormatNames))]

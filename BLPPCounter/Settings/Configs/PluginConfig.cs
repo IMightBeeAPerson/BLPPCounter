@@ -20,8 +20,6 @@ namespace BLPPCounter.Settings.Configs
         public virtual TextFormatSettings FormatSettings { get; set; } = new TextFormatSettings();
         #endregion
         #region General Settings
-        public virtual bool UseUnranked { get; set; } = true;
-        public virtual bool UsingSS { get; set; } = false;
         public virtual int DecimalPrecision { get; set; } = 2;
         public virtual float FontSize { get; set; } = 3;
         public virtual bool ShowLbl { get; set; } = true;
@@ -30,8 +28,18 @@ namespace BLPPCounter.Settings.Configs
         public virtual bool ExtraInfo { get; set; } = true;
         public virtual bool UseGrad { get; set; } = true;
         public virtual int GradVal { get; set; } = 100;
-        public virtual int UpdateNotes { get; set; } = 1;
+        public virtual bool UpdateAfterTime { get; set; } = false;
+        public virtual float UpdateTime { get; set; } = 0.5f;
         public virtual string PPType { get; set; } = "Normal";
+        #endregion
+        #region Leaderboard Settings
+        public virtual bool DefaultToLeaderboard { get; set; } = true;
+        [UseConverter]
+        public virtual Leaderboards Leaderboard { get; set; } = Leaderboards.Beatleader;
+        [UseConverter]
+        public virtual Leaderboards DefaultLeaderboard { get; set; } = Leaderboards.Scoresaber;
+        public virtual bool UseUnranked { get; set; } = true;
+        public virtual bool LeaderInLabel { get; set; } = true;
         #endregion
         #region Clan Counter Settings
         public virtual bool ShowClanMessage { get; set; } = true;
@@ -64,7 +72,7 @@ namespace BLPPCounter.Settings.Configs
         #region Menu Settings
         #region Simple Settings
         public virtual bool SimpleUI { get; set; } = true;
-        public virtual int SimpleMenuConfig { get; set; } = 0; //Don't worry about this, nothing janky at all going on here :)
+        public virtual long SimpleMenuConfig { get; set; } = 0; //Don't worry about this, nothing janky at all going on here :)
         public virtual int SimpleMenuConfigLength { get; set; } = 0; //Nothing janky at all
         #endregion
         #region Format Settings

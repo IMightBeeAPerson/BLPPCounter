@@ -25,7 +25,7 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;"</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;NEW_VERSION</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <Optimize>true</Optimize>
@@ -171,8 +171,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CalculatorStuffs\BLCalc.cs" />
+    <Compile Include="CalculatorStuffs\Calculator.cs" />
     <Compile Include="CalculatorStuffs\SSCalc.cs" />
     <Compile Include="Counters\ClanCounter.cs" />
+    <Compile Include="Counters\CombinedCounter.cs" />
     <Compile Include="Counters\IMyCounters.cs" />
     <Compile Include="Counters\NormalCounter.cs" />
     <Compile Include="Counters\ProgressCounter.cs" />
@@ -198,8 +200,13 @@
     <Compile Include="Settings\SettingHandlers\SettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\SimpleSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\SimpleMenuSettingsHandler.cs" />
+    <Compile Include="Utils\API Handlers\BLAPI.cs" />
+    <Compile Include="Utils\API Handlers\SSAPI.cs" />
+    <Compile Include="Utils\API Handlers\Throttler.cs" />
+    <None Include="Utils\BoolStorage.cs" />
+    <Compile Include="Utils\Leaderboards.cs" />
     <Compile Include="Utils\Special Utils\FilledList.cs" />
-    <Compile Include="Utils\APIHandler.cs" />
+    <Compile Include="Utils\API Handlers\APIHandler.cs" />
     <Compile Include="Utils\ColorMatch.cs" />
     <Compile Include="Utils\CustomAlias.cs" />
     <Compile Include="Utils\CustomTarget.cs" />
@@ -221,6 +228,7 @@
     <Compile Include="Utils\SystemColorConverter.cs" />
     <Compile Include="Utils\Table.cs" />
     <Compile Include="Utils\Targeter.cs" />
+    <Compile Include="Utils\TimeLooper.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="manifest.json" />
@@ -238,6 +246,7 @@
     <EmbeddedResource Include="Settings\BSML\MenuComponents\ColorSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\MenuComponents\AliasSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\PpInfo.bsml" />
+    <EmbeddedResource Include="Settings\BSML\Test.bsml" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BeatSaberModdingTools.Tasks">

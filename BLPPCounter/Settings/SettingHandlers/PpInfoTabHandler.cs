@@ -21,6 +21,8 @@ using BeatSaberMarkupLanguage.Parser;
 using BeatSaberMarkupLanguage.Components.Settings;
 using System.Windows.Forms;
 using BS_Utils.Utilities;
+using BLPPCounter.Utils.API_Handlers;
+using BeatSaberMarkupLanguage.Components;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -42,7 +44,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 #else
         internal IDifficultyBeatmap CurrentMap; // 1.34.2 and below
 #endif
-        private JToken CurrentDiff;
+        private (JToken Diffdata, JToken Scoredata) CurrentDiff;
         private object RefreshLock = new object();
         private bool SelectButtonsOn = false;
 #if NEW_VERSION
@@ -79,7 +81,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         #endregion
         #region UI Variables & components
         [UIParams] private BSMLParserParams Parser;
-
+        [UIValue(nameof(UsesMods))] private bool UsesMods => Calculator.GetSelectedCalc().UsesModifiers;
+        [UIValue(nameof(IsBL))] private bool IsBL => PC.Leaderboard == Leaderboards.Beatleader;
         [UIValue(nameof(PercentSliderMin))] private float PercentSliderMin
         {
             get => _PercentSliderMin;
@@ -166,6 +169,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(RelativeTarget))] private TextMeshProUGUI RelativeTarget;
         [UIComponent(nameof(RelativeTable))] private TextMeshProUGUI RelativeTable;
 
+        [UIComponent(nameof(CaptureTab))] private Tab CaptureTab;
         [UIComponent(nameof(ClanTable))] private TextMeshProUGUI ClanTable;
         [UIComponent(nameof(OwningClan))] private TextMeshProUGUI OwningClan;
         [UIComponent(nameof(ClanTarget))] private TextMeshProUGUI ClanTarget;
@@ -269,6 +273,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             foreach (string s in SelectionButtonTags)
                 foreach (GameObject go in Parser.GetObjectsWithTag(s))
                     go.SetActive(false);
+            CaptureTab.IsVisible = IsBL;
         }
         #endregion
         #region Inits
@@ -292,11 +297,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             };
             SettingsHandler.Instance.PropertyChanged += (parent, args) => {
 #if NEW_VERSION
-                if (!args.PropertyName.Equals(nameof(SettingsHandler.Target)) || Instance.CurrentMap == default) return; // 1.37.0 and above
+                if (Instance.CurrentMap == default) return; // 1.37.0 and above
 #else
-                if (!args.PropertyName.Equals(nameof(SettingsHandler.Target)) || Instance.CurrentMap is null) return; // 1.34.2 and below
+                if (Instance.CurrentMap is null) return; // 1.34.2 and below
 #endif
-                Instance.ClearMapTabs();
+                if (args.PropertyName.Equals(nameof(SettingsHandler.Target)))
+                    Instance.ClearMapTabs();
             };
         }
         internal void SldvcInit() 
@@ -322,8 +328,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             GetNoScoreTarget = () => simple.Invoke(new Dictionary<char, object>() { { 't', Targeter.TargetName } });
             GetTarget = () => TheCounter.TargetFormatter?.Invoke(Targeter.TargetName, "") ?? "Target formatter is null";
         }
-        private float GetAccToBeatTarget() =>
-            CurrentDiff == null ? 0.0f : BLCalc.GetAcc(TargetPP, CurrentDiff, Gmpc.gameplayModifiers.songSpeed, CurrentModMultiplier, PC.DecimalPrecision);
+        private float GetAccToBeatTarget()
+        {
+            if (CurrentDiff.Diffdata is null) return 0f;
+            return Calculator.GetSelectedCalc().GetAcc(APIHandler.GetSelectedAPI().GetPP(CurrentDiff.Scoredata), PC.DecimalPrecision, APIHandler.GetSelectedAPI().GetRatings(CurrentDiff.Diffdata));
+        }
+
         private float UpdateTargetPP()
         {
 #if NEW_VERSION
@@ -331,50 +341,71 @@ namespace BLPPCounter.Settings.SettingHandlers
 #else
             CurrentMap = Sldvc.selectedDifficultyBeatmap; // 1.34.2 and below
 #endif
-            CurrentDiff = null;
+            CurrentDiff = (null, null);
             if (!Sldvc.beatmapLevel.levelID.Substring(0, 6).Equals("custom")) return 0.0f; //means the level selected is not custom
-            string apiOutput = APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_SCORE,
+#if NEW_VERSION
+            string mode = CurrentMap.beatmapCharacteristic.serializedName; // 1.37.0 and above
+#else
+            string mode = CurrentMap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName; // 1.34.2 and below
+#endif
+        APIHandler api = APIHandler.GetSelectedAPI();
+            JToken scoreData = api.GetScoreData(
                 Targeter.TargetID,
                 Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(),
-#if NEW_VERSION
-                Sldvc.beatmapKey.difficulty.ToString().Replace("+", "Plus"),
-                Sldvc.beatmapKey.beatmapCharacteristic.serializedName // 1.37.0 and above
-#else
-                Sldvc.selectedDifficultyBeatmap.difficulty.ToString().Replace("+", "Plus"),
-                Sldvc.selectedDifficultyBeatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName // 1.34.2 and below
-#endif
-                ), true);
-            TargetHasScore = !(apiOutput is null || apiOutput.Length == 0);
+                CurrentMap.difficulty.ToString().Replace("+", "Plus"),
+                mode,
+                true //Debug option, just prints that API was called.
+                );
+            TargetHasScore = !(scoreData is null);
             if (!TargetHasScore) { UpdateDiff(); return 0.0f; } //target doesn't have a score on this diff.
-            JToken targetScore = JToken.Parse(apiOutput);
-            BeatmapID = targetScore["leaderboardId"].ToString();
-            BeatmapName = targetScore["song"]["name"].ToString();
-            MapDiffText = HelpfulMisc.AddSpaces(targetScore["difficulty"]["difficultyName"].ToString());
-            MapModeText = HelpfulMisc.AddSpaces(targetScore["difficulty"]["modeName"].ToString());
-            float outp = (float)targetScore["pp"];
+            JToken rawDiffData = JToken.Parse(api.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(), Map.FromDiff(CurrentMap.difficulty)));
+            JToken diffData = api.SelectSpecificDiff(rawDiffData, Map.FromDiff(CurrentMap.difficulty), mode);
+            BeatmapID = api.GetLeaderboardId(diffData);
+            BeatmapName = api.GetSongName(rawDiffData);
+            MapDiffText = HelpfulMisc.AddSpaces(CurrentMap.difficulty.ToString().Replace("+", "Plus"));
+            MapModeText = HelpfulMisc.AddSpaces(mode);
+            float outp = api.GetPP(scoreData);
             if (outp == 0.0f) //If the score set doesn't have a pp value, calculate one manually
-            {
-                int maxScore = (int)targetScore["difficulty"]["maxScore"], playerScore = (int)targetScore["modifiedScore"];
-                targetScore = targetScore["difficulty"];
-                outp = BLCalc.Inflate(BLCalc.GetPpSum((float)playerScore / maxScore, (float)targetScore["accRating"], (float)targetScore["passRating"], (float)targetScore["techRating"]));
-            } else targetScore = targetScore["difficulty"];
-            CurrentDiff = targetScore;
-            if (UnformattedCurrentMods.Length > 0) CurrentModMultiplier = HelpfulPaths.GetMultiAmounts(CurrentDiff, UnformattedCurrentMods.Split(' '));
+                outp = Calculator.GetSelectedCalc().Inflate(Calculator.GetSelectedCalc().GetSummedPp(api.GetScore(scoreData) / (float)api.GetMaxScore(diffData), api.GetRatings(diffData)));
+            CurrentDiff = (diffData, scoreData);
+            if (UnformattedCurrentMods.Length > 0) CurrentModMultiplier = HelpfulPaths.GetMultiAmounts(diffData, UnformattedCurrentMods.Split(' '));
             return outp;
         }
 #endregion
-        private void BuildTable(Func<float, float, float, string> valueCalc, TextMeshProUGUI table, ref Table tableTable,
+        public void UpdateStarDisplay()
+        {
+            List<GameObject> objs = Parser.GetObjectsWithTag("ExtraStars");
+            foreach (GameObject obj in objs)
+                obj.SetActive(UsesMods);
+            CaptureTab.IsVisible = IsBL;
+        }
+        private void BuildTable(Func<float[], string> valueCalc, TextMeshProUGUI table, ref Table tableTable,
             string suffix = "%",
             string speedLbl = "<color=blue>Speed</color>",
             string accLbl = "<color=#0D0>Acc</color> to Cap",
             string gnLbl = "With <color=green>Selected Mods</color>")
         {
+            Calculator calc = Calculator.GetSelectedCalc();
             string[][] arr = new string[] { "<color=red>Slower</color>", "<color=#aaa>Normal</color>", "<color=#0F0>Faster</color>", "<color=#FFD700>Super Fast</color>" }.RowToColumn(3);
-            float[] ratings = HelpfulPaths.GetAllRatings(CurrentDiff); //ss-sf, [acc, pass, tech, star]
+            float[] ratings = HelpfulPaths.GetAllRatings(PC.Leaderboard == Leaderboards.Beatleader ? CurrentDiff.Diffdata["difficulty"] : CurrentDiff.Diffdata, calc); //ss-sf, [star, acc, pass, tech] (selects by leaderboard)
+            if (!UsesMods)
+            {
+                float[] newArr = new float[ratings.Length * 4];
+                for (int i = 0; i < ratings.Length; i++)
+                {
+                    newArr[i] = ratings[i];
+                    newArr[i + ratings.Length] = ratings[i];
+                    newArr[i + ratings.Length * 2] = ratings[i];
+                    newArr[i + ratings.Length * 3] = ratings[i];
+                }
+                ratings = newArr;
+            }
+            int len = ratings.Length / 4; //divide by 4 because 3 speed mods + 1 no mod
+            Plugin.Log.Info($"rating len: {ratings.Length}, len: {len}");
             for (int i = 0; i < arr.Length; i++)
-                arr[i][1] = "<color=#0c0>" + valueCalc(ratings[i * 4], ratings[i * 4 + 1], ratings[i * 4 + 2]) + "</color>" + suffix;
+                arr[i][1] = "<color=#0c0>" + valueCalc.Invoke(ratings.Skip(i * len).Take(len).ToArray()) + "</color>" + suffix;
             if (!Mathf.Approximately(CurrentModMultiplier, 1.0f)) for (int i = 0; i < arr.Length; i++)
-                    arr[i][2] = "<color=green>" + valueCalc(ratings[i * 4] * CurrentModMultiplier, ratings[i * 4 + 1] * CurrentModMultiplier, ratings[i * 4 + 2] * CurrentModMultiplier) + "</color>" + suffix;
+                    arr[i][2] = "<color=green>" + valueCalc(ratings.Skip(i * len).Take(len).Select(current => current * CurrentModMultiplier).ToArray()) + "</color>" + suffix;
             else for (int i = 0; i < arr.Length; i++) arr[i][2] = "N/A";
             if (tableTable is null)
                 tableTable = new Table(table, arr, speedLbl, accLbl, gnLbl) { HasEndColumn = true };
@@ -395,22 +426,23 @@ namespace BLPPCounter.Settings.SettingHandlers
             switch (CurrentTab)
             {
                 case "Capture":
-                    BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, PPToCapture, PC.DecimalPrecision) + "", ClanTable, ref ClanTableTable);
+                    if (PC.Leaderboard != Leaderboards.Beatleader) break;
+                    BuildTable(ratings => Calculator.GetSelectedCalc().GetAcc(PPToCapture, PC.DecimalPrecision, ratings) + "", ClanTable, ref ClanTableTable);
                     ClanTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
                     break;
                 case "Relative":
-                    BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, TargetPP, PC.DecimalPrecision) + "", RelativeTable, ref RelativeTableTable, accLbl: "<color=#0D0>Acc</color> to Beat");
+                    BuildTable(ratings => Calculator.GetSelectedCalc().GetAcc(TargetPP, PC.DecimalPrecision, ratings) + "", RelativeTable, ref RelativeTableTable, accLbl: "<color=#0D0>Acc</color> to Beat");
                     RelativeTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
                     break;
                 case "Custom":
                     if (IsPPMode)
                     {
-                        BuildTable((acc, pass, tech) => BLCalc.GetAcc(acc, pass, tech, TestPp, PC.DecimalPrecision) + "", PercentTable, ref PercentTableTable, accLbl: "<color=#0D0>Acc</color>");
+                        BuildTable(ratings => Calculator.GetSelectedCalc().GetAcc(TestPp, PC.DecimalPrecision, ratings) + "", PercentTable, ref PercentTableTable, accLbl: "<color=#0D0>Acc</color>");
                         PercentTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
                     }
                     else
                     {
-                        BuildTable((acc, pass, tech) => BLCalc.GetSummedPp(TestAcc / 100.0f, acc, pass, tech, PC.DecimalPrecision).Total + "", PPTable, ref PPTableTable, " pp", accLbl: "<color=#0D0>PP</color>");
+                        BuildTable(ratings => Calculator.GetSelectedCalc().GetSummedPp(TestAcc / 100.0f, PC.DecimalPrecision, ratings) + "", PPTable, ref PPTableTable, " pp", accLbl: "<color=#0D0>PP</color>");
                         PPTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
                     }
                     break;
@@ -449,8 +481,9 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (mods.enabledObstacleType == EnabledObstacleType.NoObstacles) { UnformattedCurrentMods += "no "; newMods += "No Walls, "; }
             CurrentMods = newMods.Length > 1 ? Grammarize(newMods.Substring(0, newMods.Length - 2)) : null;
             if (UnformattedCurrentMods.Length > 0) UnformattedCurrentMods = UnformattedCurrentMods.Trim();
+            if (!UsesMods) return;
             float modMult = CurrentModMultiplier;
-            if (CurrentDiff != null) CurrentModMultiplier = HelpfulPaths.GetMultiAmounts(CurrentDiff, UnformattedCurrentMods.Split(' '));
+            if (CurrentDiff.Diffdata != null) CurrentModMultiplier = HelpfulPaths.GetMultiAmounts(CurrentDiff.Diffdata, UnformattedCurrentMods.Split(' '));
             if (!Mathf.Approximately(modMult, CurrentModMultiplier))
             {
                 TabMapInfo["Capture"] = default;
@@ -472,6 +505,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (CurrentTab.Equals("Settings") || Sldvc is null || CurrentTab.Length == 0 || (!forceUpdate && TabMapInfo[CurrentTab] == CurrentMap)) return;
             void Update()
             {
+                bool mapUsable = APIHandler.GetSelectedAPI().MapIsUsable(CurrentDiff.Diffdata);
                 TabMapInfo[CurrentTab] = CurrentMap;
                 Updates[CurrentTab].Invoke(this);
                 BuildTable();
@@ -481,10 +515,20 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private void UpdateInfo()
         {
-            if (CurrentDiff != null && HelpfulMisc.StatusIsUsable((int)CurrentDiff["status"]))
+            if (CurrentDiff.Diffdata != null && APIHandler.GetSelectedAPI().MapIsUsable(CurrentDiff.Diffdata))
             {
                 const char Star = (char)9733;
-                var (accRating, passRating, techRating, starRating) = HelpfulMisc.GetRatingsAndStar(CurrentDiff, Gmpc.gameplayModifiers.songSpeed, CurrentModMultiplier);
+                float accRating = 0, passRating = 0, techRating = 0, starRating = 0;
+                switch (PC.Leaderboard) 
+                {
+                    case Leaderboards.All:
+                    case Leaderboards.Beatleader:
+                        (accRating, passRating, techRating, starRating) = HelpfulMisc.GetRatingsAndStar(CurrentDiff.Diffdata, Gmpc.gameplayModifiers.songSpeed, CurrentModMultiplier);
+                        break;
+                    case Leaderboards.Scoresaber:
+                        starRating = (float)CurrentDiff.Diffdata["stars"];
+                        break;
+                }
                 AccStarText.SetText(Math.Round(accRating, PC.DecimalPrecision) + " " + Star);
                 PassStarText.SetText(Math.Round(passRating, PC.DecimalPrecision) + " " + Star);
                 TechStarText.SetText(Math.Round(techRating, PC.DecimalPrecision) + " " + Star);
@@ -502,7 +546,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private void UpdateCaptureValues() 
         {
-            if (CurrentDiff is null || !HelpfulMisc.StatusIsUsable((int)CurrentDiff["status"])) return;
+            if (PC.Leaderboard != Leaderboards.Beatleader || CurrentDiff.Diffdata is null || !BLAPI.Instance.MapIsUsable(CurrentDiff.Diffdata)) return;
             ClanTarget.SetText(TargetHasScore ? GetTarget() : GetNoScoreTarget());
             PPToCapture = ClanCounter.LoadNeededPp(BeatmapID, out _, out string owningClan)[0];
             OwningClan.SetText($"<color=red>{owningClan}</color> owns this map.");
@@ -515,13 +559,13 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private void UpdateCustomAccuracy()
         {
-            if (CurrentDiff is null) return;
+            if (CurrentDiff.Diffdata is null) return;
             if (IsPPMode) PC.TestAccAmount = TestAcc;
             else PC.TestPPAmount = TestPp;
         }
         private void UpdateDiff()
         {
-            if (!APIHandler.CallAPI("leaderboards/hash/" + Sldvc.beatmapLevel.levelID.Split('_')[2].ToUpper(), out HttpContent dataStr, forceBLCall: true)) return;
+            APIHandler api = APIHandler.GetSelectedAPI();
 #if NEW_VERSION
             int val = Map.FromDiff(Sldvc.beatmapKey.difficulty); // 1.37.0 and below
             string modeName = Sldvc.beatmapKey.beatmapCharacteristic.serializedName;
@@ -529,15 +573,18 @@ namespace BLPPCounter.Settings.SettingHandlers
             int val = Map.FromDiff(Sldvc.selectedDifficultyBeatmap.difficulty); // 1.34.2 and above
             string modeName = Sldvc.selectedDifficultyBeatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;
 #endif
-            JToken tokens = JToken.Parse(dataStr.ReadAsStringAsync().Result);
-            BeatmapName = tokens["song"]["name"].ToString();
-            tokens = tokens["leaderboards"].Children().First(t => ((int)t["difficulty"]["value"]) == val && ((string)t["difficulty"]["modeName"]).Equals(modeName));
+            string jsonData = api.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2], val);
+            if (jsonData is null) return;
+            JToken tokens = JToken.Parse(jsonData);
+            BeatmapName = api.GetSongName(tokens);
+            tokens = api.SelectSpecificDiff(tokens, val, modeName);
             BeatmapID = tokens["id"].ToString();
-            CurrentDiff = tokens["difficulty"];
-            MapDiffText = HelpfulMisc.AddSpaces(CurrentDiff["difficultyName"].ToString());
-            MapModeText = HelpfulMisc.AddSpaces(CurrentDiff["modeName"].ToString());
-            if (CurrentDiff["modifiersRating"] is null || CurrentDiff["modifiersRating"].ToString().Length == 0)
-                CurrentDiff = null;
+            CurrentDiff = (tokens, CurrentDiff.Scoredata);
+            MapDiffText = HelpfulMisc.AddSpaces(api.GetDiffName(CurrentDiff.Diffdata));
+            MapModeText = HelpfulMisc.AddSpaces(modeName);
+            if (api.AreRatingsNull(CurrentDiff.Diffdata))
+                CurrentDiff = (null, null);
+            Plugin.Log.Info("Point 1");
         }
         public void Refresh(bool forceRefresh = false) => Task.Run(() => DoRefresh(forceRefresh));
         private void DoRefresh(bool forceRefresh)
@@ -555,9 +602,13 @@ namespace BLPPCounter.Settings.SettingHandlers
                 {
                     UpdateMods();
                     TargetPP = UpdateTargetPP();
+                    Plugin.Log.Info("Point 2");
                     UpdateTabDisplay(forceRefresh, false);
                 }
-                catch (Exception e) { Plugin.Log.Error("There was an error!\n" + e); }
+                catch (Exception e) 
+                { 
+                    Plugin.Log.Error("There was an error!\n" + e); 
+                }
                 finally 
                 { 
                     Monitor.Exit(RefreshLock);
@@ -571,6 +622,18 @@ namespace BLPPCounter.Settings.SettingHandlers
             ClanTableTable?.ClearTable();
             RelativeTableTable?.ClearTable();
             CurrentMap = default;
+        }
+        public void ResetTabs()
+        {
+            IEnumerable<string> tabNames = (string[])TabMapInfo.Keys.ToArray().Clone();
+            foreach (string s in tabNames)
+                TabMapInfo[s] = default;
+            PPTableTable?.ClearTable();
+            PercentTableTable?.ClearTable();
+            ClanTableTable?.ClearTable();
+            RelativeTableTable?.ClearTable();
+            CurrentMap = default;
+            CurrentDiff = default;
         }
         private void UpdateTabSliders(int amount = -1)
         {

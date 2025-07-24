@@ -3,8 +3,6 @@
     <vertical pad='5' vertical-fit='PreferredSize' spacing='1'>
       <text text='General Settings' align='Center'/>
       <vertical spacing='1'>
-        <checkbox-setting text='Show On Unranked Maps' apply-on-change='true' value='UseUnranked' hover-hint='Patreons of BL can see ratings for unranked maps'/>
-        <checkbox-setting text='Use Scoresaber' apply-on-change='true' value='UsingSS' hover-hint='Use Scoresaber instead of beatsaber (this will disable some features!)'/>
         <increment-setting text='Decimal Precision' value='DecimalPrecision' integer-only='true' min='0' max='4' increment='1' apply-on-change='true'/>
         <increment-setting text='Font Size' value='FontSize' integer-only='false' min='0.5' max='5' increment='0.5' apply-on-change='true'/>
         <checkbox-setting text='Show Labels' apply-on-change='true' value='ShowLbl' hover-hint='Whether or not to show label next to PP'/>
@@ -12,9 +10,18 @@
         <checkbox-setting text='Split PP Values' apply-on-change='true' value='SplitVals' hover-hint='Split the PP values to have pass, acc, and tech PP'/>
         <checkbox-setting text='Show Messages' apply-on-change='true' value='ExtraInfo' hover-hint='Show extra information and messages under the counter'/>
         <checkbox-setting text='Use Gradient' apply-on-change='true' value='UseGrad' hover-hint='Instead of solid green/red, use a gradient based off of the value'/>
-        <increment-setting text='Update Amount' value='UpdateNotes' integer-only='true' min='1' max='100' increment='1' apply-on-change='true'/>
         <increment-setting text='Gradient Threshold' value='GradVal' integer-only='true' min='50' max='300' increment='10' apply-on-change='true'/>
+        <checkbox-setting text='Update After Time' apply-on-change='true' value='UpdateAfterTime' hover-hint='Update every x amount of seconds instead of every time the block is hit'/>
+        <increment-setting text='Update Amount' value='UpdateTime' integer-only='false' min='0.1' max='10' increment='0.1' apply-on-change='true'/>
         <list-setting id='CounterList' text='PP Types' apply-on-change='true' value='PPType' options='TypesOfPP' hover-hint='How the counter should count PP'/>
+      </vertical>
+      <text text='Leaderboard Settings' align='Center'/>
+      <vertical spacing='1'>
+        <list-setting text='Leaderboard' apply-on-change='true' value='Leaderboard' options='Leaderboards' hover-hint='Choose which leaderboard to use (Only Beatleader has all features!)'/>
+        <checkbox-setting text='Default to leaderboard' apply-on-change='true' value='DefaultToLeaderboard' hover-hint='If the map is not usable for the selected leaderboard, try to default to the below leaderboard'/>
+        <list-setting id='DefLeader' text='Default Leaderboard' apply-on-change='true' value='DefaultLeaderboard' options='DefaultLeaderboards' hover-hint='The leaderboard to default on (cannot be the same as selected leaderboard)'/>
+        <checkbox-setting text='Show On Unranked Maps' apply-on-change='true' value='UseUnranked' hover-hint='Patreons of BL can see ratings for unranked maps'/>
+        <checkbox-setting text='Show Leaderboard in Label' apply-on-change='true' value='LeaderInLabel' hover-hint='Shows the leaderboard inside of the label aspect of the counter'/>
       </vertical>
       <text text='Misc Settings' align='Center'/>
       <vertical spacing='1'>
@@ -37,6 +44,9 @@
       <text text='Rank Counter Settings' align='Center'/>
       <vertical spacing='1' active='false'>
         <increment-setting text='Maximum Scores to Load' value='MinRank' integer-only='true' min='10' max='500' increment='10' apply-on-change='true'/>
+      </vertical>
+      <text text='Combined Counter Settings' align='Center'/>
+      <vertical spacing='1'>
       </vertical>
       <text text='Target Settings' align='Center'/>
       <vertical spacing='1'>

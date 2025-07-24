@@ -18,7 +18,13 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using ModestTree;
 using Newtonsoft.Json;
-using BS_Utils.Utilities; // Used in 1.37.0 and above
+using BS_Utils.Utilities;
+using System.Threading.Tasks;
+using System.Threading;
+using BLPPCounter.CalculatorStuffs;
+using BLPPCounter.Utils.API_Handlers;
+using System.Net.Http;
+using System.Runtime.InteropServices.WindowsRuntime; // Used in 1.37.0 and above
 namespace BLPPCounter
 {
 
@@ -43,15 +49,15 @@ namespace BLPPCounter
         public static Dictionary<string, Map> Data { get; private set; }
         public static string DisplayName => "Main";
         private static PluginConfig pc => PluginConfig.Instance;
-        private static bool dataLoaded = false, fullDisable = false;
+        private static bool dataLoaded = false, fullDisable = false, usingDefaultLeaderboard = false;
+        private static Leaderboards leaderboard => usingDefaultLeaderboard ? pc.DefaultLeaderboard : pc.Leaderboard;
         private static MapSelection lastMap;
-        public static IMyCounters theCounter { get; private set; }
+        public static IMyCounters theCounter { get; internal set; }
         public static ReadOnlyDictionary<string, Type> StaticFunctions { get; private set; }
         public static ReadOnlyDictionary<string, Type> StaticProperties { get; private set; }
         public static Type[] ValidCounters { get; private set; }
-        public static string[] ValidSSDisplayNames;
-        public static string[] ValidDisplayNames;
-        public static string[] DisplayNames => pc.UsingSS ? ValidSSDisplayNames : ValidDisplayNames;
+        public static ReadOnlyDictionary<Leaderboards, string[]> ValidDisplayNames;
+        public static string[] DisplayNames => fullDisable ? new string[1] { "There are none" } : ValidDisplayNames[leaderboard];
         public static Dictionary<string, string> DisplayNameToCounter { get; private set; }
         private static Func<bool, bool, float, float, int, string, string> displayFormatter;
         internal static Func<string, string, string> TargetFormatter;
@@ -164,12 +170,13 @@ namespace BLPPCounter
             {
                 ('c', ValueListInfo.ValueType.Color)
             });
+        private static TimeLooper TimeLooper = new TimeLooper();
         #endregion
         #region Variables
         private TMP_Text display;
         private bool enabled;
         private float passRating, accRating, techRating, starRating;
-        private int notes, comboNotes, mistakes, totalNotes, notesTillUpdate;
+        private int notes, comboNotes, mistakes, totalNotes;
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
         private string mode, lastTarget = Targeter.NO_TARGET;
@@ -189,7 +196,7 @@ namespace BLPPCounter
             StaticFunctions = new ReadOnlyDictionary<string, Type>(new Dictionary<string, Type>() 
             { { "InitFormat", typeof(bool) }, { "ResetFormat", typeof(void) } });
             StaticProperties = new ReadOnlyDictionary<string, Type>(new Dictionary<string, Type>()
-            { {"DisplayName", typeof(string) }, {"OrderNumber", typeof(int) }, {"DisplayHandler", typeof(string) }, {"SSUsable", typeof(bool) } });
+            { {"DisplayName", typeof(string) }, {"OrderNumber", typeof(int) }, {"DisplayHandler", typeof(string) }, {"ValidLeaderboards", typeof(Leaderboards) } });
 
             GetMethodFromTypes("InitFormat", typeof(TheCounter)); //Call this by itself because it is not a chooseable counter.
 
@@ -212,38 +219,43 @@ namespace BLPPCounter
                     }
                 ValidCounters = ValidCounters.Where(a => a != null).ToArray();
                 DisplayNameToCounter = new Dictionary<string, string>();
+                Dictionary<string, string> counterToDisplayName = new Dictionary<string, string>();
                 foreach (var val in propertyOutp)
-                    if (val.Value is string name)
+                    if (val.Value is string name) 
+                    {
                         DisplayNameToCounter.Add(name, val.Key);
+                        counterToDisplayName.Add(val.Key, name);
+                    }
                 Dictionary<int, string> propertyOrder = GetPropertyFromTypes("OrderNumber", ValidCounters).ToDictionary(x => (int)x.Value, x => x.Key);
                 List<string> displayNames = new List<string>();
                 var sortedOrderNumbers = propertyOrder.Keys.OrderBy(x => x);
                 foreach (int i in sortedOrderNumbers)
                         displayNames.Add(propertyOutp[propertyOrder[i]] as string);
-                ValidDisplayNames = displayNames.ToArray();
-                HashSet<string> hold = new HashSet<string>(GetPropertyFromTypes("SSUsable", ValidCounters).Where(kvp => kvp.Value is bool b && b).Select(kvp => propertyOutp[kvp.Key]).Cast<string>());
-                ValidSSDisplayNames = displayNames.Where(str => hold.Contains(str)).ToArray();
+                Dictionary<string, Leaderboards> hold = new Dictionary<string, Leaderboards>(GetPropertyFromTypes("ValidLeaderboards", ValidCounters).Select(kvp => new KeyValuePair<string, Leaderboards>(kvp.Key, (Leaderboards)kvp.Value)));
+                Dictionary<Leaderboards, string[]> DNames = new Dictionary<Leaderboards, string[]>();
+                foreach (Leaderboards l in Enum.GetValues(typeof(Leaderboards)))
+                    DNames[l] = hold.Where(kvp => (kvp.Value & l) > 0).Select(kvp => kvp.Key).ToArray();
+                IEnumerable<Leaderboards> keys = (Leaderboards[])Enum.GetValues(typeof(Leaderboards));
+                foreach (Leaderboards l in keys)
+                {
+                    HashSet<string> ls = new HashSet<string>(DNames[l].Select(n => counterToDisplayName[n]));
+                    DNames[l] = displayNames.Where(str => ls.Contains(str)).ToArray();
+                }
+                ValidDisplayNames = new ReadOnlyDictionary<Leaderboards, string[]>(DNames);
             } catch (Exception e)
             {
                 Plugin.Log.Error("Oh no! The static check for counters broke somehow :(");
                 Plugin.Log.Error(e.ToString());
                 return;
             }
-            if (pc.UsingSS && ValidSSDisplayNames.Length == 0)
+            if (DisplayNames.Count() > 0)
             {
-                pc.UsingSS = false;
-                Plugin.Log.Critical("No counter can use score saber! Turning SS mode off.");
-                ValidSSDisplayNames = new string[] { "There are none" };
-            }
-            if (ValidDisplayNames.Length > 0)
-            {
-                if (!ValidDisplayNames.Contains(pc.PPType))
-                    pc.PPType = ValidDisplayNames[0];
+                if (!DisplayNames.Contains(pc.PPType))
+                    pc.PPType = DisplayNames[0];
             } else
             {
                 Plugin.Log.Critical("No counter is in working order!!! Shutting down this counter as it will only cause issues.");
                 fullDisable = true;
-                ValidDisplayNames = new string[] { "There are none" };
             }
             LoadSomeTaohableData();
         }
@@ -268,7 +280,18 @@ namespace BLPPCounter
             PercentNeededFormatter = null;
         }
         public override void CounterDestroy() {
-            if (enabled) ChangeNotifiers(false);
+            usingDefaultLeaderboard = false;
+            if (enabled)
+            {
+                ChangeNotifiers(false);
+                TimeLooper.End();
+                if (pc.LeaderInLabel)
+                {
+                    int len = Calculator.GetSelectedCalc().Label.Length + 1;
+                    for (int i = 0; i < Labels.Length; i++)
+                        Labels[i] = Labels[i].Substring(len);
+                }
+            }
         }
         public override void CounterInit()
         {
@@ -299,6 +322,8 @@ namespace BLPPCounter
                     display.text = "";
                     ChangeNotifiers(true);
                     loadedEvents = true;
+                    for (int i = 0; i < Labels.Length; i++)
+                        Labels[i] = $" {Calculator.GetCalc(usingDefaultLeaderboard).Label}{Labels[i]}";
 #if NEW_VERSION
                     string hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
 #else
@@ -310,14 +335,13 @@ namespace BLPPCounter
                             //Need to recall this one so that it implements the current counter's wants properly
                             if (FormatTheFormat(pc.FormatSettings.DefaultTextFormat)) InitDisplayFormat();
                     //Plugin.Log.Info($"CounterChange = {counterChange}\nNULL CHECKS\nLast map: {lastMap.Equals(default)}, hash: {hash is null}, pc: {pc is null}, PPType: {pc?.PPType is null}, lastTarget: {lastTarget is null}, Target: {pc.Target is null}");
-                    if (counterChange || lastMap.Equals(default) || !hash.Equals(lastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
+                    if (theCounter is null || counterChange || lastMap.Equals(default) || !hash.Equals(lastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
                     {
                         Data.TryGetValue(hash, out Map m);
                         if (m == null) 
                         {
                             Plugin.Log.Warn("Map not in cache, attempting API call to get map data...");
-                            if (pc.UsingSS) AddSSMap(hash);
-                            else AddMap(APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash)));
+                            APIHandler.GetAPI(usingDefaultLeaderboard).AddMap(Data, hash);
                             m = Data[hash];
                         }
 #if NEW_VERSION
@@ -327,42 +351,53 @@ namespace BLPPCounter
 #endif
                         if (!ms.IsUsable) throw new Exception("The status of this map marks it as unusable.");
                         lastMap = ms;
-                        totalNotes = HelpfulMath.NotesForMaxScore(pc.UsingSS ?
 #if NEW_VERSION
-                            (int)JToken.Parse(APIHandler.CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(beatmapDiff.difficulty))))["maxScore"] : // 1.37.0 and above
+                        totalNotes = HelpfulMath.NotesForMaxScore(APIHandler.GetAPI(usingDefaultLeaderboard).GetMaxScore(hash, Map.FromDiff(beatmapDiff.difficulty), mode));
 #else
-                            (int)JToken.Parse(APIHandler.CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(beatmap.difficulty))))["maxScore"] : // 1.34.2 and below
+                        totalNotes = HelpfulMath.NotesForMaxScore(APIHandler.GetAPI(usingDefaultLeaderboard).GetMaxScore(hash, Map.FromDiff(beatmap.difficulty), mode));
 #endif
-                            (int)lastMap.MapData.Item2["maxScore"]);
+                        APIHandler.UsingDefault = usingDefaultLeaderboard;
+                        Calculator.UsingDefault = usingDefaultLeaderboard;
                         if (!InitCounter()) throw new Exception("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
                     }
                     else
                         APIAvoidanceMode();
                     lastTarget = pc.Target;
                     if (updateFormat) { theCounter.UpdateFormat(); updateFormat = false; }
-                    notesTillUpdate = pc.UpdateNotes;
+                    if (pc.UpdateAfterTime) SetTimeLooper();
                     theCounter.UpdateCounter(1, 0, 0, 0);
                     //PpInfoTabHandler.Instance.CurrentMap = beatmap;
+                    return;
                 } else
                     Plugin.Log.Warn("Maps failed to load, most likely unranked.");
             } catch (Exception e)
             {
                 Plugin.Log.Error($"The counter failed to be initialized: {e.Message}\nSource: {e.Source}");
-                
                 if (e is KeyNotFoundException) Plugin.Log.Error($"Data dictionary length: {Data.Count}");
                 Plugin.Log.Debug(e);
-                enabled = false;
-                if (display != null)
-                    display.text = "";
-                if (loadedEvents) ChangeNotifiers(false);
+                if (usingDefaultLeaderboard)
+                {
+                    enabled = false;
+                    if (display != null)
+                        display.text = "";
+                    if (loadedEvents) ChangeNotifiers(false);
+                }
+            }
+            if (!usingDefaultLeaderboard)
+            {
+                usingDefaultLeaderboard = true;
+                usingDefaultLeaderboard = DisplayNames.Contains(pc.PPType);
+                if (!usingDefaultLeaderboard) return;
+                CounterInit();
             }
         }
-        #endregion
+#endregion
         #region Event Calls
         private void OnNoteScored(ScoringElement scoringElement)
         {
             if (scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb)
                 return;
+            bool enteredLock = pc.UpdateAfterTime && Monitor.TryEnter(TimeLooper.Locker); //This is to make sure timeLooper is paused, not to pause this thread.
             NoteData.ScoringType st = scoringElement.noteData.scoringType;
             if (st == NoteData.ScoringType.Ignore) goto Finish; //if scoring type is Ignore, skip this function
             notes++;
@@ -376,19 +411,15 @@ namespace BLPPCounter
             }
             else OnMiss();
             Finish:
-            float acc = (float)(totalHitscore / maxHitscore);
-            theCounter.SoftUpdate(acc, notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
-            if (notesTillUpdate <= 1)
-            {
-                theCounter.UpdateCounter(acc, notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
-                if (pc.UpdateNotes > 1) notesTillUpdate = pc.UpdateNotes;
-            }
-            else notesTillUpdate--;
+            theCounter.SoftUpdate((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
+            if (enteredLock) Monitor.Exit(TimeLooper.Locker);
+            if (!pc.UpdateAfterTime) theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
+            else if (TimeLooper.IsPaused) TimeLooper.SetStatus(false);
         }
 
         private void OnBombHit(NoteController nc, in NoteCutInfo nci)
         {
-            if(nc.noteData.gameplayType == NoteData.GameplayType.Bomb)
+            if (nc.noteData.gameplayType == NoteData.GameplayType.Bomb)
                 OnMiss();
         }
         private void OnWallHit(ObstacleController oc)
@@ -401,13 +432,25 @@ namespace BLPPCounter
             comboNotes = HelpfulMath.DecreaseMultiplier(comboNotes);
             mistakes++;
         }
+        private void SetTimeLooper()
+        {
+            TimeLooper.Delay = (int)(pc.UpdateTime * 1000);
+            int currentNotes = 0;
+            TimeLooper.GenerateTask(() =>
+            {
+                if (currentNotes == notes) return true;
+                theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
+                currentNotes = notes;
+                return false;
+            });
+        }
         #endregion
         #region API Calls
         private void RequestHashData() =>
 #if NEW_VERSION
-            AddMap(APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, beatmap.levelID.Split('_')[2].ToUpper()))); // 1.37.0 and above
+            APIHandler.GetAPI(usingDefaultLeaderboard).AddMap(Data, beatmap.levelID.Split('_')[2].ToUpper()); // 1.37.0 and above
 #else
-            AddMap(APIHandler.CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, beatmap.level.levelID.Split('_')[2].ToUpper()))); // 1.34.2 and below
+            APIHandler.GetAPI(usingDefaultLeaderboard).AddMap(Data, beatmap.level.levelID.Split('_')[2].ToUpper()); // 1.34.2 and below
 #endif
         #endregion
         #region Helper Methods
@@ -649,7 +692,9 @@ namespace BLPPCounter
             if (HelpfulPaths.EnsureTaohableDirectoryExists()) return;
             Plugin.Log.Debug("SS data not up to date! Loading...");
             string filePath = HelpfulPaths.TAOHABLE_DATA;
-            byte[] data = APIHandler.CallAPI_Bytes(HelpfulPaths.TAOHABLE_API, forceNoHeader: true);
+            byte[] data = null;
+            if (APIHandler.CallAPI_Static(HelpfulPaths.TAOHABLE_API, out HttpContent content))
+                data = content.ReadAsByteArrayAsync().Result;
             if (File.Exists(filePath)) File.Delete(filePath); 
             using (FileStream fs = File.OpenWrite(filePath))
                 fs.Write(data, 0, data.Length); //For some reason Stream.Write isn't implemented
@@ -676,22 +721,6 @@ namespace BLPPCounter
                 Plugin.Log.Debug(e);
             }
         }
-        private void AddSSMap(string hash)
-        {
-            JEnumerable<JToken> diffs = JToken.Parse(APIHandler.CallAPI_String(string.Format(HelpfulPaths.SSAPI_DIFFS, hash))).Children();
-            Stack<int> ids = new Stack<int>(diffs.Count());
-            foreach (JToken diff in diffs)
-                ids.Push((int)diff["leaderboardId"]);
-            while (ids.Count > 0)
-            {
-                string songId = ids.Pop().ToString();
-                JToken mapInfo = JToken.Parse(APIHandler.CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, songId, "info")));
-                Map map = Map.ConvertSSToTaoh(hash, songId, mapInfo);
-                if (Data.ContainsKey(hash))
-                    Data[hash].Combine(map);
-                else Data[hash] = map;
-            }
-        }
         private bool SetupMapData()
         {
             JToken data;
@@ -706,10 +735,10 @@ namespace BLPPCounter
                 if (!Data.TryGetValue(hash, out Map theMap)) throw new KeyNotFoundException("The map is not in the loaded cache.");
 #if NEW_VERSION
                 Dictionary<string, (string, JToken)> hold = theMap.Get(beatmapDiff.difficulty);
-                if (!pc.UsingSS) mode = beatmapDiff.beatmapCharacteristic.serializedName ?? "Standard"; // 1.37.0 and above
+                if (leaderboard != Leaderboards.Scoresaber) mode = beatmapDiff.beatmapCharacteristic.serializedName ?? "Standard"; // 1.37.0 and above
 #else
                 Dictionary<string, (string, JToken)> hold = theMap.Get(beatmap.difficulty);
-                if (!pc.UsingSS) mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName ?? "Standard"; // 1.34.2 and below
+                if (leaderboard != Leaderboards.Scoresaber) mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName ?? "Standard"; // 1.34.2 and below
 #endif
                 else mode = Map.SS_MODE_NAME; 
                 if (!hold.TryGetValue(mode, out var holdInfo)) throw new KeyNotFoundException($"The mode '{mode}' doesn't exist.\nKeys: [{string.Join(", ", hold.Keys)}]");
@@ -729,7 +758,7 @@ namespace BLPPCounter
         private bool SetupMapData(JToken data)
         {
             if (data == null || data.ToString().Length <= 0) return false;
-            if (pc.UsingSS)
+            if (leaderboard == Leaderboards.Scoresaber)
             {
                 starRating = (float)data["starScoreSaber"];
                 Plugin.Log.Info("Stars: " + starRating);
@@ -746,7 +775,7 @@ namespace BLPPCounter
         }
         private float GetStarMultiplier(JToken data)
         {
-            if (pc.UsingSS) return 1.0f;
+            if (!Calculator.GetCalc(usingDefaultLeaderboard).UsesModifiers) return 1.0f;
             float outp = 1.0f;
             if (mods.ghostNotes) outp += HelpfulPaths.GetMultiAmount(data, "gn");
             if (mods.noArrows) outp += HelpfulPaths.GetMultiAmount(data, "na");
@@ -758,14 +787,27 @@ namespace BLPPCounter
         #region Updates
         public static void UpdateText(bool displayFc, TMP_Text display, float[] ppVals, int mistakes)
         {
-            int num = pc.UsingSS ? 3 : 0;
-            if (pc.SplitPPVals && num == 0) {
+            int num = Calculator.GetCalc(usingDefaultLeaderboard).DisplayRatingCount; //4 comes from the maximum amount of ratings of currently supported leaderboards
+            if (pc.SplitPPVals && num > 1) {
                 string outp = "";
                 for (int i = 0; i < 4; i++) 
-                    outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + 4], mistakes, Labels[i]) + "\n";
+                    outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakes, Labels[i]) + "\n";
                 display.text = outp;
             } else
-                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[3 - num], ppVals[7 - num * 2], mistakes, Labels[3]);
+                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakes, Labels[3]);
+        }
+        public static string GetUpdateText(bool displayFc, float[] ppVals, int mistakes, string[] labels = null)
+        {
+            if (labels is null) labels = Labels;
+            int num = Calculator.GetCalc(usingDefaultLeaderboard).DisplayRatingCount; //4 comes from the maximum amount of ratings of currently supported leaderboards
+            if (pc.SplitPPVals && num > 1)
+            {
+                string outp = "";
+                for (int i = 0; i < 4; i++)
+                    outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakes, Labels[i]) + "\n";
+                return outp;
+            }
+            return displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakes, Labels[3]);
         }
         #endregion
     }

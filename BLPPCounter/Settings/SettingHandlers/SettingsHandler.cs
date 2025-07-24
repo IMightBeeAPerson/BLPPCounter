@@ -38,10 +38,14 @@ namespace BLPPCounter.Settings.SettingHandlers
                 else if (!TypesOfPP.Any(obj => ((string)obj).Equals(PPType))) PPType = (string)TypesOfPP[0];
                 if (DefaultCounterList != null) DefaultCounterList.UpdateListSetting(RelativeDefaultList.Cast<string>().ToList());
                 else if (!RelativeDefaultList.Any(obj => ((string)obj).Equals(RelativeDefault))) RelativeDefault = (string)RelativeDefaultList[0];
+                PpInfoTabHandler.Instance.UpdateStarDisplay();
+                PpInfoTabHandler.Instance.ResetTabs();
+                TheCounter.theCounter = null;
             };
             PropertyChanged += (obj, args) =>
             {
-                if (args.PropertyName.Equals(nameof(UsingSS))) TypesOfPPChanged?.Invoke();
+                if (args.PropertyName.Equals(nameof(Leaderboard))) TypesOfPPChanged?.Invoke();
+                if (args.PropertyName.Equals(nameof(UseUnranked))) TheCounter.theCounter = null;
             };
         }
         #endregion
@@ -52,12 +56,6 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             get => PC.UseUnranked;
             set {PC.UseUnranked = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseUnranked))); }
-        }
-        [UIValue(nameof(UsingSS))]
-        public bool UsingSS
-        {
-            get => PC.UsingSS;
-            set {PC.UsingSS = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UsingSS))); }
         }
         [UIValue(nameof(DecimalPrecision))]
         public int DecimalPrecision
@@ -112,17 +110,66 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIValue(nameof(TypesOfPP))]
         public List<object> TypesOfPP => new List<object>(TheCounter.DisplayNames);
 
-        [UIValue(nameof(UpdateNotes))]
-        public int UpdateNotes
+        [UIValue(nameof(UpdateAfterTime))]
+        public bool UpdateAfterTime
         {
-            get => PC.UpdateNotes;
-            set {PC.UpdateNotes = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UpdateNotes))); }
+            get => PC.UpdateAfterTime;
+            set {PC.UpdateAfterTime = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UpdateAfterTime))); }
+        }
+        [UIValue(nameof(UpdateTime))]
+        public float UpdateTime
+        {
+            get => PC.UpdateTime;
+            set {PC.UpdateTime = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UpdateTime))); }
         }
         [UIValue(nameof(PPType))]
         public string PPType
         {
             get => PC.PPType;
             set {PC.PPType = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(PPType))); }
+        }
+        #endregion
+        #region Leaderboard Settings
+        [UIComponent(nameof(DefLeader))] 
+        private ListSetting DefLeader;
+        [UIValue(nameof(Leaderboard))]
+        public string Leaderboard
+        {
+            get => PC.Leaderboard.ToString();
+            set 
+            {
+                PC.Leaderboard = (Leaderboards)Enum.Parse(typeof(Leaderboards), value);
+                if (!(DefLeader is null))
+                {
+                    DefLeader.Values = DefaultLeaderboards;
+                    if (!DefLeader.Values.Contains(DefaultLeaderboard))
+                        DefaultLeaderboard = DefLeader.Values[0] as string;
+                    DefLeader.ReceiveValue();
+                }
+                PropertyChanged(this, new PropertyChangedEventArgs(nameof(Leaderboard)));
+            }
+        }
+        [UIValue(nameof(Leaderboards))]
+        public List<object> Leaderboards => new List<object>(2) { Utils.Leaderboards.Beatleader.ToString(), Utils.Leaderboards.Scoresaber.ToString() };
+        [UIValue(nameof(DefaultToLeaderboard))]
+        public bool DefaultToLeaderboard
+        {
+            get => PC.DefaultToLeaderboard;
+            set { PC.DefaultToLeaderboard = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(DefaultToLeaderboard))); }
+        }
+        [UIValue(nameof(DefaultLeaderboard))]
+        public string DefaultLeaderboard
+        {
+            get => PC.DefaultLeaderboard.ToString();
+            set { PC.DefaultLeaderboard = (Leaderboards)Enum.Parse(typeof(Leaderboards), value); PropertyChanged(this, new PropertyChangedEventArgs(nameof(DefaultLeaderboard))); }
+        }
+        [UIValue(nameof(DefaultLeaderboards))]
+        public List<object> DefaultLeaderboards => Leaderboards.Where(l => !l.Equals(Leaderboard)).ToList();
+        [UIValue(nameof(LeaderInLabel))] 
+        public bool LeaderInLabel
+        {
+            get => PC.LeaderInLabel;
+            set { PC.LeaderInLabel = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(LeaderInLabel))); }
         }
         #endregion
         #region Misc Settings

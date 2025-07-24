@@ -9,6 +9,7 @@ using System.Linq;
 using TMPro;
 using BLPPCounter.Utils.List_Settings;
 using BeatLeader.Replayer;
+using BLPPCounter.Utils.API_Handlers;
 
 namespace BLPPCounter.Counters
 {
@@ -17,10 +18,8 @@ namespace BLPPCounter.Counters
         #region Static Variables
         public static int OrderNumber => 4;
         public static string DisplayName => "Rank";
-        public static bool SSUsable => false;
+        public static Leaderboards ValidLeaderboards => Leaderboards.All;
         public static string DisplayHandler => DisplayName;
-        public static readonly string BLAPI_PATH = "leaderboard/{0}/scoregraph"; //replace 0 with a BL leaderboard idea (ex: a40531)
-        public static readonly string BLAPI_PATH2 = "leaderboard/scores/{0}?count={1}"; //replace 0 with a BL leaderboard idea (ex: a40531), replace 1 with the amount of people to request
         private static PluginConfig PC => PluginConfig.Instance;
 
         private static Func<bool, bool, bool, float, float, int, float, string, string, string> displayRank;
@@ -81,8 +80,9 @@ namespace BLPPCounter.Counters
         private int precision;
         private float accRating, passRating, techRating, starRating;
         private TMP_Text display;
-        private float[] mapPP;
-        private int MaxAmountOfPeople => PC.MinRank;
+        private float[] mapPP, ratings;
+        private int ratingLen;
+        private Calculator calc;
         #endregion
         #region Inits
         public RankCounter(TMP_Text display, float accRating, float passRating, float techRating, float starRating)
@@ -93,36 +93,16 @@ namespace BLPPCounter.Counters
             this.starRating = starRating;
             this.display = display;
             precision = PluginConfig.Instance.DecimalPrecision;
+            calc = Calculator.GetSelectedCalc();
+            ratings = calc.SelectRatings(starRating, accRating, passRating, techRating);
+            ratingLen = ratings.Length == 1 ? 0 : ratings.Length;
         }
         public RankCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating, map.StarRating) { SetupData(map); }
         public void SetupData(MapSelection map)
         {
             string songId = map.MapData.Item1;
-            if (map.IsUsable)
-            {
-                if (PC.UsingSS)
-                {
-                    string path = string.Format(HelpfulPaths.SSAPI_HASH, map.Hash, "scores", Map.FromDiff(map.Difficulty));
-                    IEnumerable<float> pps = new List<float>();
-                    string data = APIHandler.CallAPI_String(path);
-                    for (int i = 1; i < 5; i++)
-                        pps = pps.Union(JToken.Parse(APIHandler.CallAPI_String(path + "&page=" + i))["scores"].Children().Select(token => (float)token["pp"]));
-                }
-                else
-                {
-                    string data = APIHandler.CallAPI_String(string.Format(BLAPI_PATH, songId));
-                    mapPP = JToken.Parse(data).Children().Select(a => (float)Math.Round((double)a["pp"], precision)).ToArray();
-                }
-            }
-            else
-            {
-                string data = APIHandler.CallAPI_String(string.Format(BLAPI_PATH2, songId, MaxAmountOfPeople));
-                JToken mapData = map.MapData.Item2;
-                float maxScore = (int)mapData["maxScore"];
-                float acc = (float)mapData["accRating"], pass = (float)mapData["passRating"], tech = (float)mapData["techRating"];
-                mapPP = JToken.Parse(data)["scores"].Children().Select(a => 
-                (float)Math.Round(BLCalc.Inflate(BLCalc.GetPpSum((int)a["modifiedScore"] / maxScore, acc, pass, tech)), precision)).ToArray();
-            }
+            APIHandler api = APIHandler.GetSelectedAPI();
+            mapPP = api.GetScoregraph(map);
             Array.Sort(mapPP);//, (a,b) => (int)(b - a));
             //Plugin.Log.Debug($"[{string.Join(", ", mapPP)}]");
         }
@@ -135,6 +115,9 @@ namespace BLPPCounter.Counters
             this.techRating = techRating;
             this.starRating = starRating;
             precision = PluginConfig.Instance.DecimalPrecision;
+            calc = Calculator.GetSelectedCalc();
+            ratings = calc.SelectRatings(starRating, accRating, passRating, techRating);
+            ratingLen = ratings.Length == 1 ? 0 : ratings.Length;
         }
         public void ReinitCounter(TMP_Text display, MapSelection map) 
         { 
@@ -191,19 +174,27 @@ namespace BLPPCounter.Counters
         public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
         {
             bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0;
-            float[] ppVals = new float[8];
-            (ppVals[0], ppVals[1], ppVals[2], ppVals[3]) = BLCalc.GetSummedPp(acc, accRating, passRating, techRating, precision);
+            float[] ppVals = new float[(ratingLen + 1) * 2], temp;
+            temp = calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision, ratings);
+            //Plugin.Log.Info($"ratings: {HelpfulMisc.Print(temp)}\ttemp: {HelpfulMisc.Print(temp)}");
+            for (int i = 0; i < temp.Length; i++)
+                ppVals[i] = temp[i];
             if (displayFc)
-                (ppVals[4], ppVals[5], ppVals[6], ppVals[7]) = BLCalc.GetSummedPp(fcPercent, accRating, passRating, techRating, precision);
-            int rank = GetRank(ppVals[3]);
-            float ppDiff = (float)Math.Abs(Math.Round(mapPP[mapPP.Length + 1 - Math.Max(2, Math.Min(rank, mapPP.Length + 1))] - ppVals[3], precision));
+            {
+                temp = calc.GetPpWithSummedPp(fcPercent, PluginConfig.Instance.DecimalPrecision, ratings);
+                for (int i = 0; i < temp.Length; i++)
+                    ppVals[i + temp.Length] = temp[i];
+            }
+            int rank = GetRank(ppVals[ratingLen]);
+            float ppDiff = (float)Math.Abs(Math.Round(mapPP[mapPP.Length + 1 - Math.Max(2, Math.Min(rank, mapPP.Length + 1))] - ppVals[ratingLen], precision));
             string color = HelpfulFormatter.GetWeightedRankColor(rank);
             string text = "";
+            //Plugin.Log.Info("PPVals: " + HelpfulMisc.Print(ppVals));
             if (PC.SplitPPVals)
-                for (int i = 0; i < 3; i++)
-                    text += displayRank(displayFc, false, false, ppVals[i], ppVals[i + 4],
+                for (int i = 0; i < ratingLen; i++)
+                    text += displayRank(displayFc, false, false, ppVals[i], ppVals[i + ratingLen],
                         rank, ppDiff, color, TheCounter.Labels[i]) + "\n";
-            text += displayRank(displayFc, PC.ExtraInfo, rank == 1, ppVals[3], ppVals[7], rank, ppDiff, color, TheCounter.Labels[3]);
+            text += displayRank(displayFc, PC.ExtraInfo, rank == 1, ppVals[ratingLen], ppVals[ratingLen * 2 + 1], rank, ppDiff, color, TheCounter.Labels[3]);
             display.text = text;
         }
         public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent) { }

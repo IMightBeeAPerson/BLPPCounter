@@ -8,28 +8,31 @@ using BLPPCounter.Settings.SettingHandlers.MenuViews;
 using BLPPCounter.Utils;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.ComponentModel.Design;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
+using UnityEngine;
 using static BLPPCounter.Utils.SimpleMenuInfo;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
     public class SimpleSettingsHandler
     {
-#pragma warning disable CS0649
+#pragma warning disable CS0649, IDE0051, IDE0044
         #region Static Variables
         public static SimpleSettingsHandler Instance { get; private set; } = new SimpleSettingsHandler();
         #endregion
         #region UI Variables
-#pragma warning disable IDE0051
-        [UIComponent("UIList")]
+        /*[UIComponent("UIList")]
         private CustomCellListTableData ccltd;
         [UIValue(nameof(UIElements))]
-        public List<object> UIElements { get; } = new List<object>();
+        public List<object> UIElements { get; } = new List<object>();*/
         private bool loaded = false;
-        [UIValue(nameof(HasNotLoaded))]
-        private bool HasNotLoaded => !loaded;
+        /*[UIValue(nameof(HasNotLoaded))]
+        private bool HasNotLoaded => !loaded;*/
+        [UIObject(nameof(Container))] private GameObject Container;
         #endregion
         #region Init Functions
         [UIAction("#post-parse")]
@@ -39,10 +42,20 @@ namespace BLPPCounter.Settings.SettingHandlers
             loaded = true;
             const string resource = "BLPPCounter.Settings.BSML.MenuSettings.bsml";
             const string regex = "<([^ ]+-setting|text|button)[^>]*\\/>(?=[^<]*?$)";
-            List<object> outp = new List<object>();
-            MatchCollection mc = Regex.Matches(Utilities.GetResourceContent(System.Reflection.Assembly.GetExecutingAssembly(), resource), regex, RegexOptions.Multiline);
+            MatchCollection mc = Regex.Matches(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), resource), regex, RegexOptions.Multiline);
             bool loadData = PluginConfig.Instance.SimpleMenuConfigLength == mc.Count;
             if (loadData) SimpleMenuSettingsHandler.Instance.LoadMenu();
+            string huh = "<settings-container  mask-overflow='true' size-delta-x='0'>\n<vertical pad='5' vertical-fit='PreferredSize' spacing='1'>\n";
+            Dictionary<string, bool> usable = new Dictionary<string, bool>();
+            foreach (SettingToggleInfo sti in SimpleMenuSettingsHandler.Instance.UISettings.Cast<SettingToggleInfo>())
+                usable[sti.Text] = sti.Usable;
+            foreach (Match m in mc)
+                if (!loadData || (loadData && usable[Regex.Match(m.Value, "text=['\"]([^'\"]+)").Groups[1].Value]))
+                    huh += m.Value + '\n';
+            huh += "</vertical>\n</settings-container>";
+            BSMLParser.Instance.Parse(huh, Container, SettingsHandler.Instance);
+            Plugin.Log.Info("Simple Settings has been loaded.");
+            /*List<object> outp = new List<object>();
             foreach (Match match in mc)
             {
                 string type = match.Groups[1].Value;
@@ -78,9 +91,9 @@ namespace BLPPCounter.Settings.SettingHandlers
             ccltd.tableView.ReloadData(); // 1.34.2 and below
 #endif
             //Plugin.Log.Info("Simple Tab Settings Loaded!");
-            //Plugin.Log.Info(string.Join("\n", UIElements));
+            //Plugin.Log.Info(string.Join("\n", UIElements));*/
         }
-        public void ReloadTab() { UIElements.Clear(); loaded = false; LoadElements(); }
+        public void ReloadTab() { /*UIElements.Clear();*/ loaded = false; LoadElements(); }
         public void ChangeMenuTab(bool removeTab = true)
         {
 #if NEW_VERSION

@@ -20,15 +20,15 @@
           </horizontal>
         </vertical>
         <vertical spacing='-1' horizontal-fit='PreferredSize' pref-width='75'>
-          <horizontal>
+          <horizontal tags='ExtraStars' active='~UsesMods'>
             <text text='&#60;color=blue&#62;Acc&#60;/color&#62; Stars' align='Left'/>
             <text id='AccStarText' text='0.00&#9733;' align='Right'/>
           </horizontal>
-          <horizontal>
+          <horizontal tags='ExtraStars' active='~UsesMods'>
             <text text='&#60;color=green&#62;Tech&#60;/color&#62; Stars' align='Left'/>
             <text id='TechStarText' text='0.00&#9733;' align='Right'/>
           </horizontal>
-          <horizontal>
+          <horizontal tags='ExtraStars' active='~UsesMods'>
             <text text='&#60;color=red&#62;Pass&#60;/color&#62; Stars' align='Left'/>
             <text id='PassStarText' text='0.00&#9733;' align='Right'/>
           </horizontal>
@@ -50,7 +50,7 @@
       </vertical>
     </tab>
   
-    <tab tags='tabs' tab-name='Capture'>
+    <tab id='CaptureTab' tags='tabs' tab-name='Capture'>
       <vertical spacing='0.5' vertical-fit='PreferredSize' pref-height='55' anchor-pos-y='-5.5' horizontal-fit='PreferredSize' pref-width='80' child-expand-height='false'>
         <horizontal>
           <text id='ClanTarget' text='' align='Left'/>
@@ -119,8 +119,8 @@
   </tab>
 
   <tab tags='tabs' tab-name='Settings'>
-    <settings-container anchor-pos-y='~TabPos' horizontal-fit='PreferredSize' pref-width='100' vertical-fit='PreferredSize'>
-      <vertical spacing='2' child-expand-height='true'>
+    <settings-container anchor-pos-y='~TabPos'>
+      <vertical spacing='2' child-expand-height='true' horizontal-fit='PreferredSize' pref-width='100' vertical-fit='PreferredSize'>
         <vertical spacing='0' horizontal-fit='PreferredSize' pref-width='100'>
           <button text='Save' on-click='SaveSettings'/>
           <text text='Custom Accuracy Settings' align='Center' font-size='6'/>

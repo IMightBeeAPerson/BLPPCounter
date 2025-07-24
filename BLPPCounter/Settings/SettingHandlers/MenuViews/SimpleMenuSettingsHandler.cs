@@ -18,12 +18,12 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         public override string ResourceName => "BLPPCounter.Settings.BSML.MenuComponents.SimpleSettings.bsml";
         private static PluginConfig PC => PluginConfig.Instance;
         public static SimpleMenuSettingsHandler Instance { get; private set; } = new SimpleMenuSettingsHandler();
-        private int changes = 0;
+        private long changes = 0;
         private readonly Action<int, bool> AddChange;
         public SimpleMenuSettingsHandler()
         {
             SettingsToSave = new bool[PC.SimpleMenuConfigLength];
-            HelpfulMisc.ConvertInt32ToBools(SettingsToSave, PC.SimpleMenuConfig);
+            HelpfulMisc.ConvertInt64ToBools(SettingsToSave, PC.SimpleMenuConfig);
             AddChange = (id, newVal) => 
             { 
                 if (SettingsToSave[id] == newVal) changes &= ~(1 << id);
@@ -48,7 +48,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private void SaveChanges()
         {
             PC.SimpleMenuConfig ^= changes;
-            HelpfulMisc.ConvertInt32ToBools(SettingsToSave, PC.SimpleMenuConfig);
+            HelpfulMisc.ConvertInt64ToBools(SettingsToSave, PC.SimpleMenuConfig);
             changes = 0;
             saveButton.interactable = false;
             SimpleSettingsHandler.Instance.ReloadTab();

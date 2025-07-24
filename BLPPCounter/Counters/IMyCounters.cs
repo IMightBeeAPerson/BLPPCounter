@@ -27,6 +27,7 @@ namespace BLPPCounter.Counters
          public static int OrderNumber;
          public static string DisplayName;
          public static string DisplayHandler;
+         public static Leaderboards ValidLeaderboards;
          */
     }
 }
