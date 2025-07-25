@@ -1,5 +1,5 @@
 <bg xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='https://monkeymanboy.github.io/BSML-Docs/ https://raw.githubusercontent.com/monkeymanboy/BSML-Docs/gh-pages/BSMLSchema.xsd'>
-  <settings-container  mask-overflow='true' size-delta-x='0'>
+  <settings-container  mask-overflow='true' size-delta-x='0' size-delta-y='5' anchor-pos-y='0'>
     <vertical pad='5' vertical-fit='PreferredSize' spacing='1'>
       <text text='General Settings' align='Center'/>
       <vertical spacing='1'>
@@ -31,7 +31,7 @@
       <vertical spacing='1'>
         <checkbox-setting text='Show Custom Message' value='ShowClanMessage' apply-on-change='true' hover-hint='Show custom clan message instead of the generic message'/>
         <increment-setting text='Map Cache' value='MapCache' integer-only='true' min='0' max='50' increment='5' apply-on-change='true'/>
-        <increment-setting text='Percent Ceiling' value='ClanPercentCeil' integer-only='false' min='90' max='100' increment='0.1' apply-on-change='true'/>
+        <slider-setting text='Percent Ceiling' value='ClanPercentCeil' integer-only='false' min='90' max='100' increment='0.1' apply-on-change='true' show-buttons='true'/>
         <checkbox-setting text='Enable Ceiling' apply-on-change='true' value='CeilEnabled' hover-hint='Enable the percentage ceiling'/>
       </vertical>
       <text text='Relative Counter Settings' align='Center'/>
@@ -41,19 +41,13 @@
         <checkbox-setting text='Show Rank' value='ShowRank' apply-on-change='true' hover-hint='Show what place in your clan you are with your current score'/>
         <list-setting id='DefaultCounterList' text='Default Counter' value='RelativeDefault' options='RelativeDefaultList' apply-on-change='true' hover-hint='What counter to go to when relative counter cannot be used' />
       </vertical>
-      <text text='Rank Counter Settings' align='Center'/>
-      <vertical spacing='1' active='false'>
-        <increment-setting text='Maximum Scores to Load' value='MinRank' integer-only='true' min='10' max='500' increment='10' apply-on-change='true'/>
-      </vertical>
-      <text text='Combined Counter Settings' align='Center'/>
-      <vertical spacing='1'>
-      </vertical>
       <text text='Target Settings' align='Center'/>
       <vertical spacing='1'>
         <string-setting text='Custom Target' id='CustomTargetInput' value='CustomTarget' apply-on-change='true' hover-hint='Enter the user id or alias of a person'/>
         <text text='' align='Right' id='CustomTargetText'/>
         <checkbox-setting text='Show Target' apply-on-change='true' value='ShowEnemy' hover-hint='Show who you are targeting (if you have one selected)'/>
         <dropdown-list-setting text='Target' id='TargetList' apply-on-change='true' value='Target' options='ToTarget' hover-hint='A player to compare against while playing'/>
+        <button text='Reset Target' on-click='ResetTarget' hover-hint='Resets the target back to yourself'/>
       </vertical>
     </vertical>
   </settings-container>

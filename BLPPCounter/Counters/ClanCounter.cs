@@ -247,9 +247,7 @@ namespace BLPPCounter.Counters
             setupStatus = 0;
             JToken mapData = map.MapData.Item2;
             if (int.Parse(mapData["status"].ToString()) != 3) { setupStatus = 1; goto theEnd; }
-            //Plugin.Log.Info(mapData.ToString());
             string songId = map.MapData.Item1;
-            //mods = mapData["PATH TO MODS"]
             Mods = "";
             nmPassRating = HelpfulPaths.GetRating(mapData, PPType.Pass);
             nmAccRating = HelpfulPaths.GetRating(mapData, PPType.Acc);
@@ -271,11 +269,11 @@ namespace BLPPCounter.Counters
                 if (ppVals == null) { setupStatus = 3; goto theEnd; }
                 if (pc.MapCache > 0) mapCache.Add((map, ppVals));
             }
-            neededPPs[4] = calc.GetAcc(neededPPs[3], pc.DecimalPrecision, calc.SelectRatings(starRating, accRating, passRating, techRating));
+            neededPPs[5] = calc.GetAcc(neededPPs[3], pc.DecimalPrecision, calc.SelectRatings(starRating, accRating, passRating, techRating));
+            neededPPs[4] = neededPPs[5] / 100.0f;
             float[] temp = calc.GetPp(neededPPs[4], calc.SelectRatings(starRating, nmAccRating, nmPassRating, nmTechRating));
             for (int i=0;i<temp.Length;i++) //temp length should be less than or equal to 3
                 neededPPs[i] = temp[i];
-            neededPPs[5] = (float)Math.Round(neededPPs[4] * 100.0f, 2);
             if (mapCache.Count > pc.MapCache)
             {
                 Plugin.Log.Debug("Cache full! Making room...");
@@ -336,11 +334,12 @@ namespace BLPPCounter.Counters
             this.techRating = techRating;
             this.starRating = starRating;
             precision = pc.DecimalPrecision;
-            neededPPs[4] = calc.GetAcc(neededPPs[3], pc.DecimalPrecision, calc.SelectRatings(starRating, accRating, passRating, techRating));
+            neededPPs[5] = calc.GetAcc(neededPPs[3], pc.DecimalPrecision, calc.SelectRatings(starRating, accRating, passRating, techRating));
+            neededPPs[4] = neededPPs[5] / 100.0f;
+            Plugin.Log.Info($"Read Percent: {neededPPs[5]}, Calc Percent: {neededPPs[4]}");
             float[] temp = calc.GetPp(neededPPs[4], calc.SelectRatings(starRating, nmAccRating, nmPassRating, nmTechRating));
             for (int i = 0; i < temp.Length; i++) //temp length should be less than or equal to 3
                 neededPPs[i] = temp[i];
-            neededPPs[5] = (float)Math.Round(neededPPs[4] * 100.0f, 2);
         }
         public void ReinitCounter(TMP_Text display, MapSelection map) 
         { this.display = display; passRating = map.PassRating; accRating = map.AccRating; techRating = map.TechRating; SetupData(map); }
@@ -512,7 +511,6 @@ namespace BLPPCounter.Counters
             }
             for (int i = 0; i < ppVals.Length; i++)
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
-            string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
             string color(float num) => pc.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
             string message()
             {
@@ -525,12 +523,12 @@ namespace BLPPCounter.Counters
                 string text = "";
                 for (int i = 0; i < 4; i++)
                     text += displayClan.Invoke(displayFc, pc.ExtraInfo && i == 3, mistakes, () => color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
-                        () => color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], labels[i], message) + "\n";
+                        () => color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], TheCounter.GetLabel(i), message) + "\n";
                 display.text = text;
             }
             else
                 display.text = displayClan.Invoke(displayFc, pc.ExtraInfo, mistakes, () => color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
-                    () => color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], labels[3], message) + "\n";
+                    () => color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], TheCounter.GetLabel(3), message) + "\n";
         }
         public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent) { }
         private void UpdateWeightedCounter(float acc, int mistakes, float fcPercent)
@@ -555,21 +553,18 @@ namespace BLPPCounter.Counters
             }
             for (int i = 0; i < ppVals.Length; i++)
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
-            string[] labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " Weighted PP" };
-            if (pc.LeaderInLabel)
-                for (int i = 0; i < labels.Length; i++)
-                    labels[i] = $" {calc.Label} {labels[i]}";
+            string ppLabel = " Weighted PP";
             if (pc.SplitPPVals)
             {
                 string text = "", color = HelpfulFormatter.GetWeightedRankColor(rank);
                 for (int i = 0; i < 4; i++)
                     text += displayWeighted.Invoke(new bool[] { displayFc, pc.ExtraInfo && i == 3, showRank && i == 3 }, 
-                        mistakes, () => color, $"{rank}", $"{ppVals[i + 4]}", ppVals[i], $"{ppVals[i + 12]}", ppVals[i + 8], labels[i], message) + "\n";
+                        mistakes, () => color, $"{rank}", $"{ppVals[i + 4]}", ppVals[i], $"{ppVals[i + 12]}", ppVals[i + 8], i == 3 ? ppLabel : TheCounter.GetLabel(i), message) + "\n";
                 display.text = text;
             }
             else
                 display.text = displayWeighted.Invoke(new bool[] { displayFc, pc.ExtraInfo, showRank }, 
-                    mistakes, () => HelpfulFormatter.GetWeightedRankColor(rank), $"{rank}", $"{ppVals[7]}", ppVals[3], $"{ppVals[15]}", ppVals[11], labels[3], message) + "\n";
+                    mistakes, () => HelpfulFormatter.GetWeightedRankColor(rank), $"{rank}", $"{ppVals[7]}", ppVals[3], $"{ppVals[15]}", ppVals[11], ppLabel, message) + "\n";
         }
     }
     #endregion

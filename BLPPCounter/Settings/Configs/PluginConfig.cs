@@ -44,7 +44,7 @@ namespace BLPPCounter.Settings.Configs
         #region Clan Counter Settings
         public virtual bool ShowClanMessage { get; set; } = true;
         public virtual int MapCache { get; set; } = 10;
-        public virtual double ClanPercentCeil { get; set; } = 99;
+        public virtual float ClanPercentCeil { get; set; } = 99.0f;
         public virtual bool CeilEnabled { get; set; } = true;
         #endregion
         #region Relative Counter Settings

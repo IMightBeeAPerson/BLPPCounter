@@ -344,12 +344,12 @@ namespace BLPPCounter.Counters
                 string text = "";
                 for (int i = 0; i < 4; i++)
                     text += displayFormatter.Invoke(displayFc, PC.ExtraInfo && i == 3, mistakes, accDiff, color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
-                        color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], replayAcc, TheCounter.Labels[i]) + "\n";
+                        color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], replayAcc, TheCounter.GetLabel(i)) + "\n";
                 display.text = text;
             }
             else
                 display.text = displayFormatter.Invoke(displayFc, PC.ExtraInfo, mistakes, accDiff, color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
-                    color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], replayAcc, TheCounter.Labels[3]) + "\n";
+                    color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], replayAcc, TheCounter.GetLabel(3)) + "\n";
         }
         public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent)
         {

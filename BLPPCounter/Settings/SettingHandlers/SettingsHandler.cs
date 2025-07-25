@@ -141,9 +141,15 @@ namespace BLPPCounter.Settings.SettingHandlers
                 PC.Leaderboard = (Leaderboards)Enum.Parse(typeof(Leaderboards), value);
                 if (!(DefLeader is null))
                 {
+#if NEW_VERSION
                     DefLeader.Values = DefaultLeaderboards;
                     if (!DefLeader.Values.Contains(DefaultLeaderboard))
                         DefaultLeaderboard = DefLeader.Values[0] as string;
+#else
+                    DefLeader.values = DefaultLeaderboards;
+                    if (!DefLeader.values.Contains(DefaultLeaderboard))
+                        DefaultLeaderboard = DefLeader.values[0] as string;
+#endif
                     DefLeader.ReceiveValue();
                 }
                 PropertyChanged(this, new PropertyChangedEventArgs(nameof(Leaderboard)));
@@ -171,7 +177,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             get => PC.LeaderInLabel;
             set { PC.LeaderInLabel = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(LeaderInLabel))); }
         }
-        #endregion
+#endregion
         #region Misc Settings
         [UIAction(nameof(ClearCache))]
         public void ClearCache() { ClanCounter.ClearCache(); TheCounter.ClearCounter(); }
@@ -190,7 +196,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             set {PC.MapCache = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(MapCache))); }
         }
         [UIValue(nameof(ClanPercentCeil))]
-        public double ClanPercentCeil
+        public float ClanPercentCeil
         {
             get => PC.ClanPercentCeil;
             set {PC.ClanPercentCeil = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ClanPercentCeil))); }
@@ -301,6 +307,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         [UIValue(nameof(ToTarget))]
         public List<object> ToTarget => Targeter.theTargets.Prepend(Targeter.NO_TARGET).ToList();
+        [UIAction(nameof(ResetTarget))]
+        public void ResetTarget() => TargetList.Value = "None";
         #endregion
         #region Unused Code
         /*[UIValue(nameof())]

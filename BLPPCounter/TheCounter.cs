@@ -63,9 +63,10 @@ namespace BLPPCounter
         internal static Func<string, string, string> TargetFormatter;
         internal static Func<Func<string>, float, float, float, float, float, string> PercentNeededFormatter;
         private static Func<Func<Dictionary<char, object>, string>> displayIniter, targetIniter, percentNeededIniter;
-        public static string[] Labels = new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" };
+        private static readonly ReadOnlyCollection<string> Labels = new ReadOnlyCollection<string>(new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" }); //Ain't Nobody appending a billion "BL"s to this now :)
 
         private static bool updateFormat;
+        public static bool SettingChanged = false;
         public static bool FormatUsable => displayFormatter != null && displayIniter != null;
         public static bool TargetUsable => TargetFormatter != null && targetIniter != null;
         public static bool PercentNeededUsable => PercentNeededFormatter != null && percentNeededIniter != null;
@@ -288,8 +289,6 @@ namespace BLPPCounter
                 if (pc.LeaderInLabel)
                 {
                     int len = Calculator.GetSelectedCalc().Label.Length + 1;
-                    for (int i = 0; i < Labels.Length; i++)
-                        Labels[i] = Labels[i].Substring(len);
                 }
             }
         }
@@ -322,8 +321,6 @@ namespace BLPPCounter
                     display.text = "";
                     ChangeNotifiers(true);
                     loadedEvents = true;
-                    for (int i = 0; i < Labels.Length; i++)
-                        Labels[i] = $" {Calculator.GetCalc(usingDefaultLeaderboard).Label}{Labels[i]}";
 #if NEW_VERSION
                     string hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
 #else
@@ -335,8 +332,9 @@ namespace BLPPCounter
                             //Need to recall this one so that it implements the current counter's wants properly
                             if (FormatTheFormat(pc.FormatSettings.DefaultTextFormat)) InitDisplayFormat();
                     //Plugin.Log.Info($"CounterChange = {counterChange}\nNULL CHECKS\nLast map: {lastMap.Equals(default)}, hash: {hash is null}, pc: {pc is null}, PPType: {pc?.PPType is null}, lastTarget: {lastTarget is null}, Target: {pc.Target is null}");
-                    if (theCounter is null || counterChange || lastMap.Equals(default) || !hash.Equals(lastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
+                    if (theCounter is null || SettingChanged || counterChange || lastMap.Equals(default) || !hash.Equals(lastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
                     {
+                        SettingChanged = false;
                         Data.TryGetValue(hash, out Map m);
                         if (m == null) 
                         {
@@ -597,6 +595,7 @@ namespace BLPPCounter
             }
             return outp;
         }
+        public static string GetLabel(int index) => (pc.LeaderInLabel ? ' ' + Calculator.GetCalc(usingDefaultLeaderboard).Label : "") + Labels[index];
         #endregion
         #region Init
         private bool InitCounter()
@@ -791,23 +790,23 @@ namespace BLPPCounter
             if (pc.SplitPPVals && num > 1) {
                 string outp = "";
                 for (int i = 0; i < 4; i++) 
-                    outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakes, Labels[i]) + "\n";
+                    outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakes, GetLabel(i)) + "\n";
                 display.text = outp;
             } else
-                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakes, Labels[3]);
+                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakes, GetLabel(3));
         }
         public static string GetUpdateText(bool displayFc, float[] ppVals, int mistakes, string[] labels = null)
         {
-            if (labels is null) labels = Labels;
+            if (labels is null) labels = Labels.ToArray();
             int num = Calculator.GetCalc(usingDefaultLeaderboard).DisplayRatingCount; //4 comes from the maximum amount of ratings of currently supported leaderboards
             if (pc.SplitPPVals && num > 1)
             {
                 string outp = "";
                 for (int i = 0; i < 4; i++)
-                    outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakes, Labels[i]) + "\n";
+                    outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakes, labels[i]) + "\n";
                 return outp;
             }
-            return displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakes, Labels[3]);
+            return displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakes, labels[3]);
         }
         #endregion
     }

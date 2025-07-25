@@ -330,7 +330,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private float GetAccToBeatTarget()
         {
-            if (CurrentDiff.Diffdata is null) return 0f;
+            if (CurrentDiff.Diffdata is null || APIHandler.GetSelectedAPI().AreRatingsNull(CurrentDiff.Diffdata)) return 0f;
             return Calculator.GetSelectedCalc().GetAcc(APIHandler.GetSelectedAPI().GetPP(CurrentDiff.Scoredata), PC.DecimalPrecision, APIHandler.GetSelectedAPI().GetRatings(CurrentDiff.Diffdata));
         }
 
@@ -365,7 +365,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             MapDiffText = HelpfulMisc.AddSpaces(CurrentMap.difficulty.ToString().Replace("+", "Plus"));
             MapModeText = HelpfulMisc.AddSpaces(mode);
             float outp = api.GetPP(scoreData);
-            if (outp == 0.0f) //If the score set doesn't have a pp value, calculate one manually
+            if (outp == 0.0f && !api.AreRatingsNull(diffData)) //If the score set doesn't have a pp value, calculate one manually. Make sure there are ratings to do calculation, otherwise skip.
                 outp = Calculator.GetSelectedCalc().Inflate(Calculator.GetSelectedCalc().GetSummedPp(api.GetScore(scoreData) / (float)api.GetMaxScore(diffData), api.GetRatings(diffData)));
             CurrentDiff = (diffData, scoreData);
             if (UnformattedCurrentMods.Length > 0) CurrentModMultiplier = HelpfulPaths.GetMultiAmounts(diffData, UnformattedCurrentMods.Split(' '));
@@ -584,7 +584,6 @@ namespace BLPPCounter.Settings.SettingHandlers
             MapModeText = HelpfulMisc.AddSpaces(modeName);
             if (api.AreRatingsNull(CurrentDiff.Diffdata))
                 CurrentDiff = (null, null);
-            Plugin.Log.Info("Point 1");
         }
         public void Refresh(bool forceRefresh = false) => Task.Run(() => DoRefresh(forceRefresh));
         private void DoRefresh(bool forceRefresh)
@@ -602,7 +601,6 @@ namespace BLPPCounter.Settings.SettingHandlers
                 {
                     UpdateMods();
                     TargetPP = UpdateTargetPP();
-                    Plugin.Log.Info("Point 2");
                     UpdateTabDisplay(forceRefresh, false);
                 }
                 catch (Exception e) 

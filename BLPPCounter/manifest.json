@@ -3,9 +3,9 @@
   "id": "BLPPCounter",
   "name": "BL PP Counter",
   "author": "Person",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Adds a BeatLeader pp counter and a few other things.",
-  "gameVersion": "1.40.0",
+  "gameVersion": "1.29.0",
   "dependsOn": {
     "BSIPA": "^4.2.0",
     "SiraUtil": "^3.0.5",

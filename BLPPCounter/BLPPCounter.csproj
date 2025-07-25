@@ -25,7 +25,7 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;NEW_VERSION</DefineConstants>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <Optimize>true</Optimize>
@@ -174,7 +174,6 @@
     <Compile Include="CalculatorStuffs\Calculator.cs" />
     <Compile Include="CalculatorStuffs\SSCalc.cs" />
     <Compile Include="Counters\ClanCounter.cs" />
-    <Compile Include="Counters\CombinedCounter.cs" />
     <Compile Include="Counters\IMyCounters.cs" />
     <Compile Include="Counters\NormalCounter.cs" />
     <Compile Include="Counters\ProgressCounter.cs" />
@@ -224,7 +223,6 @@
     <Compile Include="Utils\PlaylistLoader.cs" />
     <Compile Include="Utils\PPType.cs" />
     <Compile Include="Utils\List Settings\SettingToggleInfo.cs" />
-    <Compile Include="Utils\List Settings\SimpleMenuInfo.cs" />
     <Compile Include="Utils\SystemColorConverter.cs" />
     <Compile Include="Utils\Table.cs" />
     <Compile Include="Utils\Targeter.cs" />
@@ -240,7 +238,6 @@
     <EmbeddedResource Include="Settings\BSML\MenuSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\Settings.bsml" />
     <EmbeddedResource Include="Settings\BSML\MainMenuSettings.bsml" />
-    <EmbeddedResource Include="Settings\BSML\SimpleMenuSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\MenuComponents\SimpleSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\MenuComponents\MenuFormatSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\MenuComponents\ColorSettings.bsml" />

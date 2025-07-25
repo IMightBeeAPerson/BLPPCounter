@@ -35,6 +35,7 @@ namespace BLPPCounter
             Instance = this;
             Log = logger;
         }// '<' = &#60; '>' = &#62;
+        //\[ERROR @ (?:\d{2}:?){3} \| BL PP Counter\] [^ ]+Exception:
         private void AddMenuStuff()
         {
             TabSelectionPatch.ClearData();

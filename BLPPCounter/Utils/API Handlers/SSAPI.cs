@@ -31,7 +31,7 @@ namespace BLPPCounter.Utils.API_Handlers
         public override string GetSongName(JToken diffData) => diffData["songName"].ToString();
         public override string GetDiffName(JToken diffData) => diffData["difficulty"]["difficultyRaw"].ToString().Substring(1).Split('_')[0];
         public override string GetLeaderboardId(JToken diffData) => diffData["id"].ToString();
-        public override bool MapIsUsable(JToken diffData) => GetRatings(diffData)[0] > 0;
+        public override bool MapIsUsable(JToken diffData) => !(diffData is null) && GetRatings(diffData)[0] > 0;
         public override bool AreRatingsNull(JToken diffData) => diffData["stars"] is null;
         public override int GetMaxScore(JToken diffData)
         {
@@ -47,7 +47,9 @@ namespace BLPPCounter.Utils.API_Handlers
         public override JToken GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false)
         {
             diff = Map.FromDiff((BeatmapDifficulty)Enum.Parse(typeof(BeatmapDifficulty), diff)) + "";
-            string name = (string)JToken.Parse(CallAPI_String("https://scoresaber.com/api/player/" + userId + "/basic", quiet))["name"];
+            string name = CallAPI_String("https://scoresaber.com/api/player/" + userId + "/basic", quiet);
+            if (name is null || JToken.Parse(name)["name"] is null) return null;
+            name = (string)JToken.Parse(name)["name"];
             string outp = CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "scores", diff) + "&search=" + name);
             if (outp is null || outp.Length == 0) return null;
             return JToken.Parse(outp)["scores"].Children().First();
