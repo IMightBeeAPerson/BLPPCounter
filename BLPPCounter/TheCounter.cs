@@ -63,7 +63,7 @@ namespace BLPPCounter
         internal static Func<string, string, string> TargetFormatter;
         internal static Func<Func<string>, float, float, float, float, float, string> PercentNeededFormatter;
         private static Func<Func<Dictionary<char, object>, string>> displayIniter, targetIniter, percentNeededIniter;
-        private static readonly ReadOnlyCollection<string> Labels = new ReadOnlyCollection<string>(new string[] { " Pass PP", " Acc PP", " Tech PP", " PP" }); //Ain't Nobody appending a billion "BL"s to this now :)
+        private static readonly ReadOnlyCollection<string> Labels = new ReadOnlyCollection<string>(new string[] { " Acc PP", " Pass PP", " Tech PP", " PP" }); //Ain't Nobody appending a billion "BL"s to this now :)
 
         private static bool updateFormat;
         public static bool SettingChanged = false;
@@ -387,6 +387,12 @@ namespace BLPPCounter
                 usingDefaultLeaderboard = DisplayNames.Contains(pc.PPType);
                 if (!usingDefaultLeaderboard) return;
                 CounterInit();
+            } else
+            {
+                enabled = false;
+                if (display != null)
+                    display.text = "";
+                if (loadedEvents) ChangeNotifiers(false);
             }
         }
 #endregion
