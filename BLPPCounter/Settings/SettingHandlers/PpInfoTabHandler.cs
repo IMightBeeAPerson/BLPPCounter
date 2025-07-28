@@ -15,11 +15,9 @@ using HMUI;
 using BLPPCounter.Patches;
 using UnityEngine;
 using System.Collections;
-using System.Net.Http;
 using static GameplayModifiers;
 using BeatSaberMarkupLanguage.Parser;
 using BeatSaberMarkupLanguage.Components.Settings;
-using System.Windows.Forms;
 using BS_Utils.Utilities;
 using BLPPCounter.Utils.API_Handlers;
 using BeatSaberMarkupLanguage.Components;
@@ -83,6 +81,17 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIParams] private BSMLParserParams Parser;
         [UIValue(nameof(UsesMods))] private bool UsesMods => Calculator.GetSelectedCalc().UsesModifiers;
         [UIValue(nameof(IsBL))] private bool IsBL => PC.Leaderboard == Leaderboards.Beatleader;
+
+        [UIValue(nameof(ShowTrueID))] private bool ShowTrueID
+        {
+            get => _ShowTrueID;
+            set
+            {
+                _ShowTrueID = value;
+                MapID.gameObject.SetActive(!value);
+                TrueMapID.gameObject.SetActive(value);
+            }
+        }
         [UIValue(nameof(PercentSliderMin))] private float PercentSliderMin
         {
             get => _PercentSliderMin;
@@ -129,6 +138,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 UpdateTabSliders(value);
             }
         }
+        private bool _ShowTrueID = PC.ShowTrueID;
         private float _PercentSliderMin = PC.PercentSliderMin;
         private float _PercentSliderMax = PC.PercentSliderMax;
         private int _PPSliderMin = PC.PPSliderMin;
@@ -186,6 +196,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(MapID))] private TextMeshProUGUI MapID;
         [UIComponent(nameof(MapMode))] private TextMeshProUGUI MapMode;
         [UIComponent(nameof(MapDiff))] private TextMeshProUGUI MapDiff;
+        [UIComponent(nameof(TrueMapID))] private TextMeshProUGUI TrueMapID;
         [UIValue(nameof(BeatmapName))] private string BeatmapName
         {
             get => _BeatmapName;
@@ -210,6 +221,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             set { if (MapID is null) return; MapDiff.text = $"<color=#777777>Map Difficulty: <color=#aaaaaa>{value}</color>"; _MapDiffText = value; }
         }
         private string _MapDiffText = "";
+        [UIValue(nameof(TrueBeatmapID))] private string TrueBeatmapID
+        {
+            get => _TrueBeatmapID;
+            set { if (MapID is null) return; TrueMapID.text = $"<color=#777777>True Map ID: <color=#aaaaaa>{value}</color>"; _TrueBeatmapID = value; }
+        }
+        private string _TrueBeatmapID = "";
 #endregion
         #region UI Functions
         [UIAction(nameof(Refresh))]
@@ -263,6 +280,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             PC.PPSliderMin = _PPSliderMin;
             PC.PPSliderMax = _PPSliderMax;
             PC.SliderIncrementNum = _SliderIncrementNum;
+            PC.ShowTrueID = _ShowTrueID;
         }
         [UIAction("#UpdateCurrentTable")] private void UpdateCurrentTable() => BuildTable();
         [UIAction("#UpdateCurrentTab")] private void UpdateCurrentTab() => UpdateTabDisplay(true);
@@ -274,6 +292,8 @@ namespace BLPPCounter.Settings.SettingHandlers
                 foreach (GameObject go in Parser.GetObjectsWithTag(s))
                     go.SetActive(false);
             CaptureTab.IsVisible = IsBL;
+            MapID.gameObject.SetActive(!ShowTrueID);
+            TrueMapID.gameObject.SetActive(ShowTrueID);
         }
         #endregion
         #region Inits
@@ -354,14 +374,23 @@ namespace BLPPCounter.Settings.SettingHandlers
                 Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(),
                 CurrentMap.difficulty.ToString().Replace("+", "Plus"),
                 mode,
-                true //Debug option, just prints that API was called.
+                true //Debug option, just prevents prints when the API was called.
                 );
             TargetHasScore = !(scoreData is null);
             if (!TargetHasScore) { UpdateDiff(); return 0.0f; } //target doesn't have a score on this diff.
-            JToken rawDiffData = JToken.Parse(api.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(), Map.FromDiff(CurrentMap.difficulty)));
-            JToken diffData = api.SelectSpecificDiff(rawDiffData, Map.FromDiff(CurrentMap.difficulty), mode);
-            BeatmapID = api.GetLeaderboardId(diffData);
-            BeatmapName = api.GetSongName(rawDiffData);
+            JToken diffData = null;
+            try
+            {
+                JToken rawDiffData = JToken.Parse(api.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(), Map.FromDiff(CurrentMap.difficulty)));
+                diffData = api.SelectSpecificDiff(rawDiffData, Map.FromDiff(CurrentMap.difficulty), mode);
+                BeatmapID = api.GetLeaderboardId(diffData);
+                TrueBeatmapID = IsBL ? BeatmapID : JToken.Parse(BLAPI.Instance.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(), Map.FromDiff(CurrentMap.difficulty)))["song"]["id"].ToString();
+                BeatmapName = api.GetSongName(rawDiffData);
+            } catch (Exception)
+            { //This exception should only happen when a map isn't on the radar of the selected leaderboard (aka unranked), and thus doesn't need to be broadcasted.
+                UpdateDiff(); 
+                return 0.0f;
+            }
             MapDiffText = HelpfulMisc.AddSpaces(CurrentMap.difficulty.ToString().Replace("+", "Plus"));
             MapModeText = HelpfulMisc.AddSpaces(mode);
             float outp = api.GetPP(scoreData);
@@ -528,6 +557,9 @@ namespace BLPPCounter.Settings.SettingHandlers
                     case Leaderboards.Scoresaber:
                         starRating = (float)CurrentDiff.Diffdata["stars"];
                         break;
+                    case Leaderboards.Accsaber:
+                        starRating = (float)CurrentDiff.Diffdata["complexity"];
+                        break;
                 }
                 AccStarText.SetText(Math.Round(accRating, PC.DecimalPrecision) + " " + Star);
                 PassStarText.SetText(Math.Round(passRating, PC.DecimalPrecision) + " " + Star);
@@ -578,7 +610,8 @@ namespace BLPPCounter.Settings.SettingHandlers
             JToken tokens = JToken.Parse(jsonData);
             BeatmapName = api.GetSongName(tokens);
             tokens = api.SelectSpecificDiff(tokens, val, modeName);
-            BeatmapID = tokens["id"].ToString();
+            BeatmapID = api.GetLeaderboardId(tokens);
+            TrueBeatmapID = IsBL ? BeatmapID : JToken.Parse(BLAPI.Instance.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(), Map.FromDiff(CurrentMap.difficulty)))["song"]["id"].ToString();
             CurrentDiff = (tokens, CurrentDiff.Scoredata);
             MapDiffText = HelpfulMisc.AddSpaces(api.GetDiffName(CurrentDiff.Diffdata));
             MapModeText = HelpfulMisc.AddSpaces(modeName);

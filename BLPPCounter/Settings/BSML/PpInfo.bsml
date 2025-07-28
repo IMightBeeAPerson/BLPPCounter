@@ -13,6 +13,7 @@
           <horizontal>
             <text id='MapName' text='~BeatmapName' align='Left'/>
             <text id='MapID' text='~BeatmapID' align='Right'/>
+            <text id='TrueMapID' text='~TrueBeatmapID' align='Right'/>
           </horizontal>
           <horizontal>
             <text id='MapDiff' text='~MapDiffText' align='Left'/>
@@ -134,6 +135,8 @@
           <slider-setting id='MaxPPSlider' text='Maximum PP' increment='5' integer-only='true' min='0' max='3000' show-buttons='true' apply-on-change='true' value='PPSliderMax' formatter='PPFormat'/>
         </vertical>
         <increment-setting text='Increments' increment='1' integer-only='true' min='0' max='50' apply-on-change='true' value='SliderIncrementNum'/>
+        <text text='Misc. Settings' align='Center' font-size='6'/>
+        <checkbox-setting text='Show true ID' apply-on-change='true' value='ShowTrueID' hover-hint='Whether or not to show the leaderboard ID or actual beatsaber id'/>
       </vertical>
     </settings-container>
   </tab>

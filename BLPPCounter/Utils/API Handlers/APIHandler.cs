@@ -60,6 +60,7 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract float[] GetRatings(JToken diffData);
         public abstract JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName);
         public abstract string GetHashData(string hash, int diffNum);
+        public abstract string GetHash(JToken diffData);
         public abstract JToken GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false);
         public abstract float GetPP(JToken scoreData);
         public abstract int GetScore(JToken scoreData);

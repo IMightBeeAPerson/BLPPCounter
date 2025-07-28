@@ -111,6 +111,7 @@ namespace BLPPCounter.Settings.Configs
         public virtual int PPSliderMin { get; set; } = 0;
         public virtual int PPSliderMax { get; set; } = 1000;
         public virtual int SliderIncrementNum {  get; set; } = 5;
+        public virtual bool ShowTrueID { get; set; } = false;
         #endregion
     }
 }

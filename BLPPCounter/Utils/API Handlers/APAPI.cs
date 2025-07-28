@@ -30,13 +30,17 @@ namespace BLPPCounter.Utils.API_Handlers
         public override string GetSongName(JToken diffData) => diffData["songName"].ToString();
         public override string GetDiffName(JToken diffData) => diffData["difficulty"].ToString();
         public override string GetLeaderboardId(JToken diffData) => diffData["leaderboardId"].ToString();
+        public override string GetHash(JToken diffData) => diffData["songHash"].ToString();
         public override bool MapIsUsable(JToken diffData) => !(diffData is null) && GetRatings(diffData)[0] > 0;
         public override bool AreRatingsNull(JToken diffData) => diffData["complexity"] is null;
         public override int GetMaxScore(JToken diffData) => (int)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, diffData["leaderboardId"], "info")))["maxScore"];
         public override int GetMaxScore(string hash, int diffNum, string modeName) => GetMaxScore(JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)))["difficulty"]);
         public override JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName) => diffData;
-        public override string GetHashData(string hash, int diffNum) =>
-            CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)))["id"]));
+        public override string GetHashData(string hash, int diffNum)
+        {
+            string id = JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)))["id"].ToString();
+            return CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, id), true);
+        }
         public override JToken GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false) => 
             SSAPI.Instance.GetScoreData(userId, hash, diff, mode, quiet);
         public override float GetPP(JToken scoreData) => (float)scoreData["baseScore"] / (float)scoreData["maxScore"];

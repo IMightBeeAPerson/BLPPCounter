@@ -42,6 +42,7 @@ namespace BLPPCounter.Utils.API_Handlers
         public override string GetSongName(JToken diffData) => diffData["song"]["name"].ToString();
         public override string GetDiffName(JToken diffData) => diffData["difficulty"]["difficultyName"].ToString();
         public override string GetLeaderboardId(JToken diffData) => diffData["id"].ToString();
+        public override string GetHash(JToken diffData) => diffData["song"]["hash"].ToString();
         public override int GetMaxScore(JToken diffData) => (int)(diffData["difficulty"]?["maxScore"] ?? diffData["maxScore"]);
         public override int GetMaxScore(string hash, int diffNum, string modeName) => 
             GetMaxScore(SelectSpecificDiff(JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash))), diffNum, modeName));

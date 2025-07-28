@@ -44,16 +44,18 @@ namespace BLPPCounter.Utils.API_Handlers
         public override JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName) => diffData;
         public override string GetHashData(string hash, int diffNum) =>
             CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum));
+        public override string GetHash(JToken diffData) => diffData["songHash"].ToString();
         public override JToken GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false)
         {
             diff = Map.FromDiff((BeatmapDifficulty)Enum.Parse(typeof(BeatmapDifficulty), diff)) + "";
             string name = CallAPI_String(string.Format(HelpfulPaths.SSAPI_USERID, userId, "basic"), quiet);
             if (name is null || JToken.Parse(name)["name"] is null) return null;
             name = (string)JToken.Parse(name)["name"];
-            string outp = CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "scores", diff) + "&search=" + name);
+            string outp = CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "scores", diff) + "&search=" + name, quiet);
             if (outp is null || outp.Length == 0) return null;
-            JObject tokenOutp = JToken.Parse(outp)["scores"].Children().First(token => token["leaderboardPlayerInfo"]["name"].ToString().Equals(name)) as JObject;
-            tokenOutp.Property("id").AddAfterSelf(new JProperty("maxScore", JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diff)))["maxScore"]));
+            JObject tokenOutp = JToken.Parse(outp)["scores"].Children().FirstOrDefault(token => token["leaderboardPlayerInfo"]["name"].ToString().Equals(name)) as JObject;
+            if (tokenOutp is null) return null;
+            tokenOutp.Property("id").AddAfterSelf(new JProperty("maxScore", JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diff, quiet)))["maxScore"]));
             tokenOutp.Property("maxScore").AddAfterSelf(new JProperty("accuracy", (float)tokenOutp["modifiedScore"] / (float)tokenOutp["maxScore"]));
             return tokenOutp;
         }
