@@ -55,8 +55,10 @@ namespace BLPPCounter.Utils.API_Handlers
             if (outp is null || outp.Length == 0) return null;
             JObject tokenOutp = JToken.Parse(outp)["scores"].Children().FirstOrDefault(token => token["leaderboardPlayerInfo"]["name"].ToString().Equals(name)) as JObject;
             if (tokenOutp is null) return null;
-            tokenOutp.Property("id").AddAfterSelf(new JProperty("maxScore", JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diff, quiet)))["maxScore"]));
+            JToken mapInfo = JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diff, quiet)));
+            tokenOutp.Property("id").AddAfterSelf(new JProperty("maxScore", (int)mapInfo["maxScore"]));
             tokenOutp.Property("maxScore").AddAfterSelf(new JProperty("accuracy", (float)tokenOutp["modifiedScore"] / (float)tokenOutp["maxScore"]));
+            tokenOutp["id"] = (int)mapInfo["id"];
             return tokenOutp;
         }
         public override float GetPP(JToken scoreData) => (float)scoreData["pp"];

@@ -59,7 +59,7 @@ namespace BLPPCounter.Helpfuls
                 case PPType.Acc: return "accRating";
                 case PPType.Tech: return "techRating";
                 case PPType.Pass: return "passRating";
-                case PPType.Star: return "stars";
+                case PPType.Star: return PluginConfig.Instance.Leaderboard == Leaderboards.Accsaber ? "complexity" : "stars";
                 default: return "";
             }
         }

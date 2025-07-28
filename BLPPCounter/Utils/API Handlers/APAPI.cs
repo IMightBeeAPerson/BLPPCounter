@@ -1,4 +1,5 @@
-﻿using BLPPCounter.Helpfuls;
+﻿using BLPPCounter.CalculatorStuffs;
+using BLPPCounter.Helpfuls;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -43,7 +44,12 @@ namespace BLPPCounter.Utils.API_Handlers
         }
         public override JToken GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false) => 
             SSAPI.Instance.GetScoreData(userId, hash, diff, mode, quiet);
-        public override float GetPP(JToken scoreData) => (float)scoreData["baseScore"] / (float)scoreData["maxScore"];
+        public override float GetPP(JToken scoreData)
+        {
+            float acc = (float)scoreData["accuracy"];
+            float complexity = (float)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, scoreData["id"].ToString()), true))["complexity"];
+            return APCalc.Instance.GetPp(acc, complexity)[0];
+        }
         public override int GetScore(JToken scoreData) => (int)scoreData["baseScore"];
         public override float[] GetScoregraph(MapSelection ms) => SSAPI.Instance.GetScoregraph(ms);
         internal override void AddMap(Dictionary<string, Map> Data, string hash)

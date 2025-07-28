@@ -384,7 +384,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 JToken rawDiffData = JToken.Parse(api.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(), Map.FromDiff(CurrentMap.difficulty)));
                 diffData = api.SelectSpecificDiff(rawDiffData, Map.FromDiff(CurrentMap.difficulty), mode);
                 BeatmapID = api.GetLeaderboardId(diffData);
-                TrueBeatmapID = IsBL ? BeatmapID : JToken.Parse(BLAPI.Instance.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(), Map.FromDiff(CurrentMap.difficulty)))["song"]["id"].ToString();
+                TrueBeatmapID = IsBL ? BeatmapID : JToken.Parse(BLAPI.Instance.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(), Map.FromDiff(CurrentMap.difficulty)))["song"]["id"].ToString().Replace('x', (char)0);
                 BeatmapName = api.GetSongName(rawDiffData);
             } catch (Exception)
             { //This exception should only happen when a map isn't on the radar of the selected leaderboard (aka unranked), and thus doesn't need to be broadcasted.
@@ -416,7 +416,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             Calculator calc = Calculator.GetSelectedCalc();
             string[][] arr = new string[] { "<color=red>Slower</color>", "<color=#aaa>Normal</color>", "<color=#0F0>Faster</color>", "<color=#FFD700>Super Fast</color>" }.RowToColumn(3);
-            float[] ratings = HelpfulPaths.GetAllRatings(PC.Leaderboard == Leaderboards.Beatleader ? CurrentDiff.Diffdata["difficulty"] : CurrentDiff.Diffdata, calc); //ss-sf, [star, acc, pass, tech] (selects by leaderboard)
+            float[] ratings = HelpfulPaths.GetAllRatings(IsBL ? CurrentDiff.Diffdata["difficulty"] : CurrentDiff.Diffdata, calc); //ss-sf, [star, acc, pass, tech] (selects by leaderboard)
             if (!UsesMods)
             {
                 float[] newArr = new float[ratings.Length * 4];
@@ -611,7 +611,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             BeatmapName = api.GetSongName(tokens);
             tokens = api.SelectSpecificDiff(tokens, val, modeName);
             BeatmapID = api.GetLeaderboardId(tokens);
-            TrueBeatmapID = IsBL ? BeatmapID : JToken.Parse(BLAPI.Instance.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(), Map.FromDiff(CurrentMap.difficulty)))["song"]["id"].ToString();
+            TrueBeatmapID = IsBL ? BeatmapID : JToken.Parse(BLAPI.Instance.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(), Map.FromDiff(CurrentMap.difficulty)))["song"]["id"].ToString().Replace('x', (char)0);
             CurrentDiff = (tokens, CurrentDiff.Scoredata);
             MapDiffText = HelpfulMisc.AddSpaces(api.GetDiffName(CurrentDiff.Diffdata));
             MapModeText = HelpfulMisc.AddSpaces(modeName);
