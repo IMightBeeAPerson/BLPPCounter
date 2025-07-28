@@ -75,6 +75,8 @@ namespace BLPPCounter.Utils.API_Handlers
                     return BLAPI.Instance;
                 case Leaderboards.Scoresaber:
                     return SSAPI.Instance;
+                case Leaderboards.Accsaber:
+                    return APAPI.Instance;
                 default:
                     return null;
             }

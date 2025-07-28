@@ -110,6 +110,8 @@ namespace BLPPCounter.CalculatorStuffs
                     return BLCalc.Instance;
                 case Leaderboards.Scoresaber:
                     return SSCalc.Instance;
+                case Leaderboards.Accsaber:
+                    return APCalc.Instance;
                 default:
                     return null;
             }

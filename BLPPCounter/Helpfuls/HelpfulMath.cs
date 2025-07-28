@@ -34,10 +34,5 @@ namespace BLPPCounter.Helpfuls
             if (notes >= 6) return 2;
             return 0;
         }
-
-        internal static int NotesForMaxScore(object aPIHander)
-        {
-            throw new NotImplementedException();
-        }
     }
 }

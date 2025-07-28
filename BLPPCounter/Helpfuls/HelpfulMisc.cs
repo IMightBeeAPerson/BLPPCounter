@@ -429,7 +429,7 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="ms">The map selection to check.</param>
         /// <returns>Whether or not the map selection has a usable status.</returns>
-        public static bool StatusIsUsable(MapSelection ms) => ms.Mode.Equals(Utils.Map.SS_MODE_NAME) || StatusIsUsable((int)ms.MapData.Item2["status"]);
+        public static bool StatusIsUsable(MapSelection ms) => ms.Mode.Equals(Utils.Map.SS_MODE_NAME) || ms.Mode.Equals(Utils.Map.AP_MODE_NAME) || StatusIsUsable((int)ms.MapData.Item2["status"]);
         public static bool StatusIsUsable(JToken diffData) => StatusIsUsable((int)diffData["status"]);
         /// <summary>
         /// Create a square matrix (a matrix with all arrays inside it being the same size).

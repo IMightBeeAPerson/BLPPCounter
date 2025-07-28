@@ -156,7 +156,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
         }
         [UIValue(nameof(Leaderboards))]
-        public List<object> Leaderboards => new List<object>(2) { Utils.Leaderboards.Beatleader.ToString(), Utils.Leaderboards.Scoresaber.ToString() };
+        public List<object> Leaderboards = Enum.GetNames(typeof(Leaderboards)).Take(3).Cast<object>().ToList();
         [UIValue(nameof(DefaultToLeaderboard))]
         public bool DefaultToLeaderboard
         {

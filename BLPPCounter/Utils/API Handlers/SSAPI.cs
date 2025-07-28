@@ -47,12 +47,15 @@ namespace BLPPCounter.Utils.API_Handlers
         public override JToken GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false)
         {
             diff = Map.FromDiff((BeatmapDifficulty)Enum.Parse(typeof(BeatmapDifficulty), diff)) + "";
-            string name = CallAPI_String("https://scoresaber.com/api/player/" + userId + "/basic", quiet);
+            string name = CallAPI_String(string.Format(HelpfulPaths.SSAPI_USERID, userId, "basic"), quiet);
             if (name is null || JToken.Parse(name)["name"] is null) return null;
             name = (string)JToken.Parse(name)["name"];
             string outp = CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "scores", diff) + "&search=" + name);
             if (outp is null || outp.Length == 0) return null;
-            return JToken.Parse(outp)["scores"].Children().First();
+            JObject tokenOutp = JToken.Parse(outp)["scores"].Children().First(token => token["leaderboardPlayerInfo"]["name"].ToString().Equals(name)) as JObject;
+            tokenOutp.Property("id").AddAfterSelf(new JProperty("maxScore", JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diff)))["maxScore"]));
+            tokenOutp.Property("maxScore").AddAfterSelf(new JProperty("accuracy", (float)tokenOutp["modifiedScore"] / (float)tokenOutp["maxScore"]));
+            return tokenOutp;
         }
         public override float GetPP(JToken scoreData) => (float)scoreData["pp"];
         public override int GetScore(JToken scoreData) => (int)scoreData["modifiedScore"];

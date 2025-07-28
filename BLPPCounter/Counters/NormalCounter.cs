@@ -53,9 +53,10 @@ namespace BLPPCounter.Counters
         public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
         {
             float[] ppVals = new float[Calc.DisplayRatingCount * 2];
+            bool displayFC = PluginConfig.Instance.PPFC && mistakes > 0;
             Calc.SetPp(acc, ppVals, 0, precision, ppContainer);
-            Calc.SetPp(fcPercent, ppVals, Calc.DisplayRatingCount, precision, ppContainer);
-            TheCounter.UpdateText(PluginConfig.Instance.PPFC && mistakes > 0, display, ppVals, mistakes);
+            if (displayFC) Calc.SetPp(fcPercent, ppVals, Calc.DisplayRatingCount, precision, ppContainer);
+            TheCounter.UpdateText(displayFC, display, ppVals, mistakes);
         }
         public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent) { }
         #endregion

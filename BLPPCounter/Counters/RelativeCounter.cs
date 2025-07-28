@@ -13,6 +13,7 @@ using static GameplayModifiers;
 using System.Text.RegularExpressions;
 using BLPPCounter.Utils.List_Settings;
 using BLPPCounter.Utils.API_Handlers;
+using BeatLeader.Models.AbstractReplay;
 
 namespace BLPPCounter.Counters
 {
@@ -21,7 +22,7 @@ namespace BLPPCounter.Counters
         #region Static Variables
         public static int OrderNumber => 2;
         public static string DisplayName => "Relative";
-        public static Leaderboards ValidLeaderboards => Leaderboards.Beatleader;
+        public static Leaderboards ValidLeaderboards => Leaderboards.All;
         public static string DisplayHandler => DisplayName;
         private static Func<bool, bool, int, float, string, string, float, string, string, float, float, string, string> displayFormatter;
         public static Type[] FormatterTypes => displayFormatter.GetType().GetGenericArguments();
@@ -113,10 +114,12 @@ namespace BLPPCounter.Counters
         private float accRating, passRating, techRating, starRating, accToBeat;
         private float[] best; //pass, acc, tech, total, replay pass rating, replay acc rating, replay tech rating, current score, current combo
         private Replay bestReplay;
-        private NoteEvent[] noteArray;
+        private BeatLeader.Models.Replay.NoteEvent[] noteArray;
         private int precision, bombs;
         private IMyCounters backup;
-        private bool failed;
+        private bool failed, useReplay;
+        private Calculator calc;
+        private float[] selectedRatings;
         #endregion
         #region Init
         public RelativeCounter(TMP_Text display, float accRating, float passRating, float techRating, float starRating)
@@ -127,25 +130,42 @@ namespace BLPPCounter.Counters
             this.starRating = starRating;
             this.display = display;
             failed = false;
+            useReplay = PC.UseReplay;
             precision = PC.DecimalPrecision;
+            calc = Calculator.GetSelectedCalc();
+            selectedRatings = calc.SelectRatings(starRating, accRating, passRating, techRating);
             ResetVars();
         }
         public RelativeCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating, map.StarRating) { SetupData(map); }
-        private void SetupReplayData(JToken data)
+        private void SetupReplayData(MapSelection map, JToken data)
         {
             //Plugin.Log.Debug(data.ToString());
+            if (data is null)
+            {
+                data = BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), PC.Leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true);
+                if (data is null)
+                {
+                    useReplay = false;
+                    return;
+                }
+            }
             string replay = (string)data["replay"];
             byte[] replayData = BLAPI.Instance.CallAPI_Bytes(replay, true) ?? throw new Exception("The replay link from the API is bad! (replay link failed to return data)");
             ReplayDecoder.TryDecodeReplay(replayData, out bestReplay);
             noteArray = bestReplay.notes.ToArray();
             ReplayMods = bestReplay.info.modifiers.ToLower();
-            Match hold = Regex.Match(ReplayMods, "(fs|sf|ss),?");
-            SongSpeed mod = hold.Success ? HelpfulMisc.GetModifierFromShortname(hold.Groups[1].Value) : SongSpeed.Normal;
-            data = data["difficulty"];
-            float replayMult = HelpfulPaths.GetMultiAmounts(data, Regex.Replace(Regex.Replace(ReplayMods, "fs|sf|ss|nf", ""), hold.Value, "").Split(','));
-            best[4] = HelpfulPaths.GetRating(data, PPType.Pass, mod) * replayMult;
-            best[5] = HelpfulPaths.GetRating(data, PPType.Acc, mod) * replayMult;
-            best[6] = HelpfulPaths.GetRating(data, PPType.Tech, mod) * replayMult;
+            if (PC.Leaderboard == Leaderboards.Beatleader)
+            {
+                Match hold = Regex.Match(ReplayMods, "(fs|sf|ss),?");
+                SongSpeed mod = hold.Success ? HelpfulMisc.GetModifierFromShortname(hold.Groups[1].Value) : SongSpeed.Normal;
+                data = data["difficulty"];
+                float replayMult = HelpfulPaths.GetMultiAmounts(data, Regex.Replace(Regex.Replace(ReplayMods, "fs|sf|ss|nf", ""), hold.Value, "").Split(','));
+                best[4] = HelpfulPaths.GetRating(data, PPType.Acc, mod) * replayMult;
+                best[5] = HelpfulPaths.GetRating(data, PPType.Pass, mod) * replayMult;
+                best[6] = HelpfulPaths.GetRating(data, PPType.Tech, mod) * replayMult;
+            }
+            else for (int i = 0; i < selectedRatings.Length; i++) 
+                    best[4 + i] = selectedRatings[i];
             ReplayMods = ReplayMods.ToUpper();
         }
         #endregion
@@ -154,27 +174,32 @@ namespace BLPPCounter.Counters
         {
             try
             {
-                string check = BLAPI.Instance.CallAPI_String(string.Format(HelpfulPaths.BLAPI_SCORE, Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), map.Mode), true);
-                if (check != null && check.Length > 0)
+                JToken playerData = APIHandler.GetSelectedAPI().GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), PC.Leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true);
+                if (playerData != null)
                 {
-                    JToken playerData = JObject.Parse(check);
                     best = new float[9];
-                    if (PC.UseReplay) SetupReplayData(playerData);
+                    //Only BL has useable replays, so only send data if this is a BL replay.
+                    if (PC.UseReplay) SetupReplayData(map, PC.Leaderboard == Leaderboards.Beatleader ? playerData : null);
                     if ((float)playerData["pp"] is float thePP && thePP > 0)
-                        accToBeat = BLCalc.Instance.GetAcc(thePP, PC.DecimalPrecision, accRating, passRating, techRating) * 100.0f;
+                        accToBeat = calc.GetAcc(thePP, PC.DecimalPrecision, selectedRatings);
                     else
                     {
                         string[] hold = ((string)playerData["modifiers"]).ToUpper().Split(',');
-                        //Ignore how janky this line is below, i'll fix later if I feel like it.
-                        string modName = hold.Length == 0 ? "" : hold.FirstOrDefault(a => a.Equals("SF") || a.Equals("FS") || a.Equals("SS")) ?? "";
                         float acc = (float)playerData["accuracy"];
-                        playerData = playerData["difficulty"];
-                        modName = modName.ToLower();
-                        float passStar = HelpfulPaths.GetRating(playerData, PPType.Pass, modName);
-                        float techStar = HelpfulPaths.GetRating(playerData, PPType.Tech, modName);
-                        float accStar = HelpfulPaths.GetRating(playerData, PPType.Acc, modName);
-                        var moreHold = BLCalc.Instance.GetSummedPp(acc, accStar, passStar, techStar);
-                        accToBeat = BLCalc.Instance.GetAccDeflated(moreHold, PC.DecimalPrecision, accRating, passRating, techRating) * 100.0f;
+                        float ppToBeat;
+                        //Ignore how janky this line is below, i'll fix later if I feel like it.
+                        if (PC.Leaderboard == Leaderboards.Beatleader)
+                        {
+                            string modName = hold.Length == 0 ? "" : hold.FirstOrDefault(a => a.Equals("SF") || a.Equals("FS") || a.Equals("SS")) ?? "";
+                            playerData = playerData["difficulty"];
+                            modName = modName.ToLower();
+                            float passStar = HelpfulPaths.GetRating(playerData, PPType.Pass, modName);
+                            float techStar = HelpfulPaths.GetRating(playerData, PPType.Tech, modName);
+                            float accStar = HelpfulPaths.GetRating(playerData, PPType.Acc, modName);
+                            ppToBeat = calc.GetSummedPp(acc, accStar, passStar, techStar);
+                        }
+                        else ppToBeat = calc.GetSummedPp(acc, selectedRatings);
+                        accToBeat = calc.GetAccDeflated(ppToBeat, PC.DecimalPrecision, selectedRatings);
                     }
                 }
                 else throw new Exception("Relative counter cannot be loaded due to the player never having played this map before! (API didn't return the corrent status)");
@@ -205,6 +230,7 @@ namespace BLPPCounter.Counters
             this.techRating = techRating;
             this.starRating = starRating;
             precision = PC.DecimalPrecision;
+            selectedRatings = calc.SelectRatings(starRating, accRating, passRating, techRating);
             if (failed) backup.ReinitCounter(display, passRating, accRating, techRating, starRating);
             else ResetVars();
         }
@@ -215,6 +241,7 @@ namespace BLPPCounter.Counters
             accRating = map.AccRating; 
             techRating = map.TechRating;
             starRating = map.StarRating;
+            selectedRatings = calc.SelectRatings(starRating, accRating, passRating, techRating);
             failed = false;
             SetupData(map); 
         }
@@ -279,15 +306,15 @@ namespace BLPPCounter.Counters
         private void UpdateBest(int notes)
         {
             float[] temp;
-            if (!PC.UseReplay)
+            if (!useReplay)
             {
-                temp = BLCalc.Instance.GetPpWithSummedPp(accToBeat / 100.0f, accRating, passRating, techRating);
+                temp = calc.GetPpWithSummedPp(accToBeat / 100.0f, selectedRatings);
                 for (int i = 0; i < temp.Length; i++)
                     best[i] = temp[i];
                 return;
-            }
+            } //Past here will only be reached when the leaderboard is set to Beatleader.
             if (notes < 1) return;
-            NoteEvent note = noteArray[notes + bombs - 1];
+            BeatLeader.Models.Replay.NoteEvent note = noteArray[notes + bombs - 1];
             if (note.eventType == NoteEventType.good)
             {
                 best[8]++;
@@ -302,7 +329,7 @@ namespace BLPPCounter.Counters
                     UpdateBest(notes);
                 }
             }
-            temp = BLCalc.Instance.GetPpWithSummedPp(best[7] / HelpfulMath.MaxScoreForNotes(notes), best[5], best[4], best[6]);
+            temp = calc.GetPpWithSummedPp(best[7] / HelpfulMath.MaxScoreForNotes(notes), best[4], best[5], best[6]);
             for (int i = 0; i < temp.Length; i++)
                 best[i] = temp[i];
         }
@@ -313,9 +340,9 @@ namespace BLPPCounter.Counters
                 backup.UpdateCounter(acc, notes, mistakes, fcPercent);
                 return;
             }
-            bool displayFc = PC.PPFC && mistakes > 0, showLbl = PC.ShowLbl, replay = PC.UseReplay;
-            float[] ppVals = new float[16];
-            float[] temp = BLCalc.Instance.GetPpWithSummedPp(acc, accRating, passRating, techRating);
+            bool displayFc = PC.PPFC && mistakes > 0, showLbl = PC.ShowLbl;
+            float[] ppVals = new float[calc.RatingCount * 4]; //16 for bl
+            float[] temp = calc.GetPpWithSummedPp(acc, selectedRatings);
             for (int i = 0; i < temp.Length; i++)
             {
                 ppVals[i] = temp[i];
@@ -323,7 +350,7 @@ namespace BLPPCounter.Counters
             }
             if (displayFc)
             {
-                temp = BLCalc.Instance.GetPpWithSummedPp(fcPercent, accRating, passRating, techRating);
+                temp = calc.GetPpWithSummedPp(fcPercent, selectedRatings);
                 for (int i = temp.Length * 2; i < temp.Length * 3; i++)
                 {
                     ppVals[i] = temp[i - temp.Length * 2];
@@ -334,22 +361,22 @@ namespace BLPPCounter.Counters
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
             string target = PC.ShowEnemy ? PC.Target : Targeter.NO_TARGET;
             string color(float num) => PC.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
-            float accDiff = (float)Math.Round((acc - (replay ? best[7] / HelpfulMath.MaxScoreForNotes(notes) : 0)) * 100.0f, PC.DecimalPrecision);
+            float accDiff = (float)Math.Round((acc - (useReplay ? best[7] / HelpfulMath.MaxScoreForNotes(notes) : 0)) * 100.0f, PC.DecimalPrecision);
             if (float.IsNaN(accDiff)) accDiff = 0f;
-            else if (!replay) accDiff -= accToBeat;
-            float replayAcc = PC.DynamicAcc && replay ? (float)Math.Round(best[7] / HelpfulMath.MaxScoreForNotes(notes) * 100.0f, PC.DecimalPrecision) : accToBeat;
+            else if (!useReplay) accDiff -= accToBeat;
+            float replayAcc = PC.DynamicAcc && useReplay ? (float)Math.Round(best[7] / HelpfulMath.MaxScoreForNotes(notes) * 100.0f, PC.DecimalPrecision) : accToBeat;
             if (float.IsNaN(replayAcc)) replayAcc = 0f;
             if (PC.SplitPPVals)
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
-                    text += displayFormatter.Invoke(displayFc, PC.ExtraInfo && i == 3, mistakes, accDiff, color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
-                        color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], replayAcc, TheCounter.GetLabel(i)) + "\n";
+                    text += displayFormatter.Invoke(displayFc, PC.ExtraInfo && i == 3, mistakes, accDiff, color(ppVals[i + calc.DisplayRatingCount]), ppVals[i + calc.DisplayRatingCount].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
+                        color(ppVals[i + calc.DisplayRatingCount * 3]), ppVals[i + calc.DisplayRatingCount * 3].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + calc.DisplayRatingCount * 2], replayAcc, TheCounter.GetLabel(i)) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayFormatter.Invoke(displayFc, PC.ExtraInfo, mistakes, accDiff, color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
-                    color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], replayAcc, TheCounter.GetLabel(3)) + "\n";
+                display.text = displayFormatter.Invoke(displayFc, PC.ExtraInfo, mistakes, accDiff, color(ppVals[calc.DisplayRatingCount * 2 - 1]), ppVals[calc.DisplayRatingCount * 2 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[calc.DisplayRatingCount - 1],
+                    color(ppVals[calc.DisplayRatingCount * 4 - 1]), ppVals[calc.DisplayRatingCount * 4 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[calc.DisplayRatingCount * 3 - 1], replayAcc, TheCounter.GetLabel(3)) + "\n";
         }
         public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent)
         {

@@ -601,7 +601,12 @@ namespace BLPPCounter
             }
             return outp;
         }
-        public static string GetLabel(int index) => (pc.LeaderInLabel ? ' ' + Calculator.GetCalc(usingDefaultLeaderboard).Label : "") + Labels[index];
+        public static string GetLabel(int index)
+        {
+            string predicate = pc.LeaderInLabel ? Calculator.GetCalc(usingDefaultLeaderboard).Label : "";
+            if (pc.LeaderInLabel && pc.Leaderboard != Leaderboards.Accsaber) return predicate + Labels[index];
+            return predicate;
+        }
         #endregion
         #region Init
         private bool InitCounter()
@@ -666,14 +671,27 @@ namespace BLPPCounter
             try
             {
                 JEnumerable<JToken> results = JToken.Parse(File.ReadAllText(HelpfulPaths.TAOHABLE_DATA)).Children();
+                string modeName;
                 foreach (JToken result in results)
                 {
+                    bool ssRanked = false, apRanked = false;
+                    if (result is JObject jo)
+                    {
 #if NEW_VERSION
-                    if (result is JObject jo && !jo.ContainsKey("starScoreSaber")) continue; // 1.37.0 and above
+                        ssRanked = jo.ContainsKey("starScoreSaber") != null;  // 1.37.0 and above
+                        apRanked = jo.ContainsKey("complexityAccSaber") != null;
 #else
-                    if (result is JObject jo && jo.Property("starScoreSaber") == null) continue; // 1.34.0 and below
+                        ssRanked = jo.Property("starScoreSaber") != null; // 1.34.0 and below 
+                        apRanked = jo.Property("complexityAccSaber") != null; 
 #endif
-                    Map map = new Map(result["hash"].ToString(), Map.SS_MODE_NAME, Map.FromValue(int.Parse(result["difficulty"].ToString())), result["scoreSaberID"].ToString(), result);
+                    }
+                    if (!ssRanked && !apRanked) continue;
+                    Map apMap = null, ssMap = null;
+                    if (apRanked)
+                        apMap = new Map(result["hash"].ToString(), Map.AP_MODE_NAME, Map.FromValue(int.Parse(result["difficulty"].ToString())), result["scoreSaberID"].ToString(), result);
+                    if (ssRanked)
+                        ssMap = new Map(result["hash"].ToString(), Map.SS_MODE_NAME, Map.FromValue(int.Parse(result["difficulty"].ToString())), result["scoreSaberID"].ToString(), result);
+                    Map map = ssRanked && apRanked ? Map.Combine(apMap, ssMap) : ssRanked ? ssMap : apMap;
                     if (Data.ContainsKey(map.Hash))
                         Data[map.Hash].Combine(map);
                     else Data[map.Hash] = map;
@@ -695,7 +713,7 @@ namespace BLPPCounter
         private static void LoadSomeTaohableData()
         {
             if (HelpfulPaths.EnsureTaohableDirectoryExists()) return;
-            Plugin.Log.Debug("SS data not up to date! Loading...");
+            Plugin.Log.Debug("Taoh data not up to date! Loading...");
             string filePath = HelpfulPaths.TAOHABLE_DATA;
             byte[] data = null;
             if (APIHandler.CallAPI_Static(HelpfulPaths.TAOHABLE_API, out HttpContent content))
@@ -740,12 +758,20 @@ namespace BLPPCounter
                 if (!Data.TryGetValue(hash, out Map theMap)) throw new KeyNotFoundException("The map is not in the loaded cache.");
 #if NEW_VERSION
                 Dictionary<string, (string, JToken)> hold = theMap.Get(beatmapDiff.difficulty);
-                if (leaderboard != Leaderboards.Scoresaber) mode = beatmapDiff.beatmapCharacteristic.serializedName ?? "Standard"; // 1.37.0 and above
+                if (leaderboard == Leaderboards.Beatleader) mode = beatmapDiff.beatmapCharacteristic.serializedName ?? "Standard"; // 1.37.0 and above
 #else
                 Dictionary<string, (string, JToken)> hold = theMap.Get(beatmap.difficulty);
-                if (leaderboard != Leaderboards.Scoresaber) mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName ?? "Standard"; // 1.34.2 and below
+                if (leaderboard == Leaderboards.Beatleader) mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName ?? "Standard"; // 1.34.2 and below
 #endif
-                else mode = Map.SS_MODE_NAME; 
+                else switch (leaderboard)
+                    {
+                        case Leaderboards.Scoresaber:
+                            mode = Map.SS_MODE_NAME;
+                            break;
+                        case Leaderboards.Accsaber:
+                            mode = Map.AP_MODE_NAME; 
+                            break;
+                    } 
                 if (!hold.TryGetValue(mode, out var holdInfo)) throw new KeyNotFoundException($"The mode '{mode}' doesn't exist.\nKeys: [{string.Join(", ", hold.Keys)}]");
                 data = holdInfo.Item2;
                 songId = holdInfo.Item1;
@@ -763,10 +789,17 @@ namespace BLPPCounter
         private bool SetupMapData(JToken data)
         {
             if (data == null || data.ToString().Length <= 0) return false;
+            //Too lazy to use a switch here, sue me.
             if (leaderboard == Leaderboards.Scoresaber)
             {
                 starRating = (float)data["starScoreSaber"];
                 Plugin.Log.Info("Stars: " + starRating);
+                return starRating > 0;
+            }
+            if (leaderboard == Leaderboards.Accsaber)
+            {
+                starRating = (float)data["complexityAccSaber"];
+                Plugin.Log.Info("Complexity: " + starRating);
                 return starRating > 0;
             }
             float multiplier = GetStarMultiplier(data);

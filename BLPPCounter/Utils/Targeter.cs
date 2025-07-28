@@ -21,7 +21,13 @@ namespace BLPPCounter.Utils
 
         public static async void GenerateClanNames()
         {
-            JEnumerable<JToken> clanStuffs = JToken.Parse(RequestClan((await BS_Utils.Gameplay.GetUserInfo.GetUserAsync()).platformUserId))["data"].Children();
+            string clanInfo = RequestClan((await BS_Utils.Gameplay.GetUserInfo.GetUserAsync()).platformUserId);
+            if (clanInfo.Length == 0)
+            {
+                theTargets = new List<object>();
+                return;
+            }
+            JEnumerable<JToken> clanStuffs = JToken.Parse(clanInfo)["data"].Children();
             theTargets = new List<object>(clanStuffs.Count());
             nameToId = new Dictionary<string, string>();
             foreach (JToken person in clanStuffs) {

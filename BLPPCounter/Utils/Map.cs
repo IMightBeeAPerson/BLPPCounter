@@ -1,4 +1,6 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using BLPPCounter.Helpfuls;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -8,7 +10,9 @@ namespace BLPPCounter.Utils
     {
         public string Hash { get; private set; }
         public static readonly string SS_MODE_NAME = "SS_Diff";
-        private static readonly string TAOH_FORMAT = "{\"name\":{0},\"scoreSaberID\":{1},\"hash\":{2},\"difficulty\":{3},\"characteristic\":{4},\"starScoreSaber\":{5}}";
+        public static readonly string AP_MODE_NAME = "AP_Diff";
+        private static readonly string SS_TAOH_FORMAT = "{\"name\":{0},\"scoreSaberID\":{1},\"hash\":{2},\"difficulty\":{3},\"characteristic\":{4},\"starScoreSaber\":{5}}";
+        private static readonly string AP_TAOH_FORMAT = "{\"name\":{0},\"scoreSaberID\":{1},\"hash\":{2},\"difficulty\":{3},\"characteristic\":{4},\"complexityAccSaber\":{5}}";
         private readonly Dictionary<string, Dictionary<BeatmapDifficulty, (string, JToken)>> data;
         public Map(string hash) {
             Hash = hash;
@@ -73,8 +77,15 @@ namespace BLPPCounter.Utils
         public static Map ConvertSSToTaoh(string hash, string songId, JToken SSInfo)
         {
             int diff = (int)SSInfo["difficulty"]["difficulty"];
-            JToken newToken = JToken.Parse(string.Format(TAOH_FORMAT, SSInfo["songName"].ToString(), songId, hash, diff, SSInfo["difficulty"]["gameMode"].ToString().Replace("Solo", ""), (float)SSInfo["stars"]));
+            JToken newToken = JToken.Parse(string.Format(SS_TAOH_FORMAT, SSInfo["songName"].ToString(), songId, hash, diff, SSInfo["difficulty"]["gameMode"].ToString().Replace("Solo", ""), (float)SSInfo["stars"]));
             return new Map(hash, SS_MODE_NAME, FromValue(diff), songId, newToken);
+        }
+        public static Map ConvertAPToTaoh(string hash, string songId, JToken APInfo)
+        {
+            string hold = APInfo["difficulty"].ToString().ToLower();
+            int diff = FromDiff((BeatmapDifficulty)Enum.Parse(typeof(BeatmapDifficulty), char.ToUpper(hold[0]) + hold.Substring(1)));
+            JToken newToken = JToken.Parse(string.Format(AP_TAOH_FORMAT, APInfo["songName"].ToString(), songId, hash, diff, "Standard", (float)APInfo["complexity"]));
+            return new Map(hash, AP_MODE_NAME, FromValue(diff), songId, newToken);
         }
         public override string ToString()
         {
