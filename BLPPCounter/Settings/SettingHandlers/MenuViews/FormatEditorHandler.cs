@@ -32,6 +32,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         public bool IsLoaded => loaded;
         private string rawFormat;
         private bool saveable = false;
+        private FormatListInfo lastSelectedInfo = null;
         #endregion
         #region UI Components
         #region Main Menu
@@ -55,6 +56,10 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private TextMeshProUGUI SaveMessage;
         [UIComponent(nameof(AliasTable))]
         private TextMeshProUGUI AliasTable;
+        [UIComponent(nameof(AddAboveSelectedButton))]
+        private Button AddAboveSelectedButton;
+        [UIComponent(nameof(AddBelowSelectedButton))]
+        private Button AddBelowSelectedButton;
         #endregion
         #region Value Editor
         [UIComponent(nameof(ValueEditor))]
@@ -152,6 +157,13 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 #else
             FormatEditor.tableView.ReloadData(); // 1.34.2 and below
 #endif
+            if (lastSelectedInfo != null)
+            {
+                lastSelectedInfo.Unselected();
+                lastSelectedInfo = null;
+            }
+            AddAboveSelectedButton.interactable = false;
+            AddBelowSelectedButton.interactable = false;
             UpdatePreviewDisplay(true);
         }
         public void UpdatePreviewDisplay(bool forceUpdate = false)
@@ -198,6 +210,11 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                 ? selectedFli.Child : selectedFli;
             string outp = "", colorOutp = "";
             saveable = true;
+            selectedFli.Selected();
+            lastSelectedInfo?.Unselected();
+            lastSelectedInfo = selectedFli;
+            AddAboveSelectedButton.interactable = true;
+            AddBelowSelectedButton.interactable = true;
             foreach (FormatListInfo fli in arr)
             {
                 saveable &= fli.Updatable();
@@ -220,12 +237,38 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             //Plugin.Log.Debug(colorOutp);
             UpdateSaveButton();
         }
-        [UIAction(nameof(AddDefaultChunk))]
-        private void AddDefaultChunk()
+        [UIAction(nameof(AddBottomChunk))]
+        private void AddBottomChunk()
         {
             FormatChunks.Add(FormatListInfo.DefaultVal);
             if (FormatChunks.Count >= 2)
                 (FormatChunks[FormatChunks.Count - 1] as FormatListInfo).AboveInfo = FormatChunks[FormatChunks.Count - 2] as FormatListInfo;
+            UpdateFormatTable(true);
+        }
+        [UIAction(nameof(AddTopChunk))]
+        private void AddTopChunk()
+        {
+            FormatChunks.ShiftDown(FormatListInfo.DefaultVal);
+            if (FormatChunks.Count >= 2)
+                (FormatChunks[1] as FormatListInfo).AboveInfo = FormatChunks[0] as FormatListInfo;
+            UpdateFormatTable(true);
+        }
+        [UIAction(nameof(AddAboveSelected))]
+        private void AddAboveSelected()
+        { //lastSelectedInfo is already null checked before this is called, so no need to do it twice.
+            int selectedIndex = FormatChunks.IndexOf(lastSelectedInfo);
+            FormatChunks.ShiftDown(selectedIndex, FormatListInfo.DefaultVal); //places given val ABOVE the val at the index.
+            if (FormatChunks.Count > selectedIndex + 1)
+                (FormatChunks[selectedIndex + 1] as FormatListInfo).AboveInfo = FormatChunks[selectedIndex] as FormatListInfo;
+            UpdateFormatTable(true);
+        }
+        [UIAction(nameof(AddBelowSelected))]
+        private void AddBelowSelected()
+        { //lastSelectedInfo is already null checked before this is called, so no need to do it twice.
+            int selectedIndex = FormatChunks.IndexOf(lastSelectedInfo) + 1;
+            FormatChunks.ShiftDown(selectedIndex, FormatListInfo.DefaultVal);
+            if (FormatChunks.Count > selectedIndex + 1)
+                (FormatChunks[selectedIndex + 1] as FormatListInfo).AboveInfo = FormatChunks[selectedIndex] as FormatListInfo;
             UpdateFormatTable(true);
         }
         [UIAction(nameof(ForceUpdatePreviewDisplay))]
@@ -249,6 +292,9 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             string currentFormat = CurrentFormatInfo.Format.Replace("\n", "\\n");
             FormatChunks.Clear();
             FormatChunks.AddRange(FormatListInfo.InitAllFromChunks(FormatListInfo.ChunkItAll(currentFormat)).Cast<object>());
+            lastSelectedInfo = null;
+            AddAboveSelectedButton.interactable = false;
+            AddBelowSelectedButton.interactable = false;
             //Plugin.Log.Info("THE CHUNKS\n" + string.Join("\n", FormatChunks));
             UpdateFormatTable(true);
             //MenuSettingsHandler.UpdateAliasTable(AliasTable, CurrentFormatInfo.Descriptions);

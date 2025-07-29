@@ -2,6 +2,7 @@
 using BeatSaberMarkupLanguage.Attributes;
 using BeatSaberMarkupLanguage.Components;
 using BeatSaberMarkupLanguage.GameplaySetup;
+using BeatSaberMarkupLanguage.Parser;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers.MenuViews;
@@ -22,8 +23,9 @@ namespace BLPPCounter.Settings.SettingHandlers
 #pragma warning disable CS0649, IDE0051, IDE0044
         #region Static Variables
         public static SimpleSettingsHandler Instance { get; private set; } = new SimpleSettingsHandler();
+        private static readonly HashSet<string> NonSettingTags = new HashSet<string>(2) { "settings-container", "vertical" };
         #endregion
-        #region UI Variables
+        #region UI & Normal Variables
         private bool loaded = false;
         [UIObject(nameof(Container))] private GameObject Container;
         #endregion
@@ -36,14 +38,14 @@ namespace BLPPCounter.Settings.SettingHandlers
             const string resource = "BLPPCounter.Settings.BSML.MenuSettings.bsml";
             const string regex = "(?<=\\s)<\\/?([A-z\\-]+)[^>]*>(?=[^<]*?$)(?!\\z)";
             MatchCollection mc = Regex.Matches(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), resource), regex, RegexOptions.Multiline);
-            bool loadData = PluginConfig.Instance.SimpleMenuConfigLength == mc.Count;
+            bool loadData = PluginConfig.Instance.SimpleMenuConfigLength == mc.Count(m => !NonSettingTags.Contains(m.Groups[1].Value));
             if (loadData) SimpleMenuSettingsHandler.Instance.LoadMenu();
             string huh = "";
             Dictionary<string, bool> usable = new Dictionary<string, bool>();
             foreach (SettingToggleInfo sti in SimpleMenuSettingsHandler.Instance.UISettings.Cast<SettingToggleInfo>())
                 usable[sti.Text] = sti.Usable;
             foreach (Match m in mc)
-                if (!loadData || m.Groups[1].Equals("vertical") || (loadData && usable[Regex.Match(m.Value, "text=['\"]([^'\"]+)").Groups[1].Value]))
+                if (!loadData || NonSettingTags.Contains(m.Groups[1].Value) || (loadData && usable[Regex.Match(m.Value, "text=['\"]([^'\"]+)").Groups[1].Value]))
                     huh += m.Value + '\n';
 #if NEW_VERSION
             BSMLParser.Instance.Parse(huh, Container, SettingsHandler.Instance);
@@ -52,7 +54,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 #endif
             Plugin.Log.Info("Simple Settings has been loaded.");
         }
-        public void ReloadTab() { loaded = false; LoadElements(); }
+        public void ReloadTab() { loaded = false; ChangeMenuTab(); }
         public void ChangeMenuTab(bool removeTab = true)
         {
 #if NEW_VERSION

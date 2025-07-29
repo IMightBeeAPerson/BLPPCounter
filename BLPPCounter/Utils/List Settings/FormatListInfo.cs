@@ -14,6 +14,7 @@ using BLPPCounter.Settings.Configs;
 using BLPPCounter.Helpfuls;
 using System.Reflection;
 using BLPPCounter.Utils.Special_Utils;
+using BeatSaberMarkupLanguage.Components;
 
 namespace BLPPCounter.Utils
 {
@@ -24,6 +25,7 @@ namespace BLPPCounter.Utils
         public static Dictionary<string, char> AliasConverter { get; internal set; }
         private static List<object> ParentList;
         private static Action UpdateTable, UpdatePreview;
+        private static readonly Color OriginalColor = new Color(0.8f, 0.8f, 0.8f);
 
         private static readonly string AliasRegex = string.Format("(?<Token>{0}.|{0}{1}[^{1}]+{1}){2}(?<Params>[^{3}]+){3}|(?<Token>{0}{1}[^{1}]+{1}|{0}.)", Regex.Escape($"{ESCAPE_CHAR}"), Regex.Escape($"{ALIAS}"), Regex.Escape($"{PARAM_OPEN}"), Regex.Escape($"{PARAM_CLOSE}"));
         //(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)\)|(?<Token>&'[^']+'|&.)
@@ -72,6 +74,7 @@ namespace BLPPCounter.Utils
         [UIComponent(nameof(Incrementer))] private TextMeshProUGUI IncrementerText;
         [UIObject(nameof(ChoiceContainer))] private GameObject ChoiceContainer;
         [UIComponent(nameof(Choicer))] private DropDownListSetting Choicer;
+        [UIComponent(nameof(BGContainer))] private Backgroundable BGContainer;
 
         #endregion
         #region Variables
@@ -348,6 +351,14 @@ namespace BLPPCounter.Utils
         }
         #endregion
         #region Functions
+        public void Selected()
+        {
+            BGContainer.ApplyColor(new Color(0, 0, 1));
+        }
+        public void Unselected()
+        {
+            BGContainer.ApplyColor(OriginalColor);
+        }
         public void SetParentToken() //For ChunkType.Parameter
         {
             if (Chunk != Parameter) return;
@@ -462,43 +473,6 @@ namespace BLPPCounter.Utils
             }
         }
         public string GetColorDisplay() => ColorFormatChunk(GetDisplay(), Chunk);
-        /*{
-            PluginConfig pc = PluginConfig.Instance;
-            string outp;
-            switch (Chunk)
-            {
-                case Regular_Text:
-                    return "<color=white>" + Text.Replace("\\n", $"{ConvertColorToMarkup(pc.SpecialCharacterColor)}\\n</color>");
-                case Escaped_Character:
-                    return $"{ColorSpecialChar(ESCAPE_CHAR)}{ConvertColorToMarkup(pc.AliasColor)}{Text}";
-                case Escaped_Token:
-                    outp = $"{ColorSpecialChar(ESCAPE_CHAR)}{ColorSpecialChar(ALIAS)}{ConvertColorToMarkup(pc.AliasColor)}{Text}{ColorSpecialChar(ALIAS)}";
-                    if (TokenParams != null)
-                    {
-                        outp += ColorSpecialChar(PARAM_OPEN);
-                        for (int i=0;i<TokenParams.Length;i++) 
-                            outp += $"{(i != 0 ? ColorSpecialChar(DELIMITER) : "")}{ColorSpecialChar(ALIAS)}{ConvertColorToMarkup(pc.AliasColor)}{TokenParams[i]}{ColorSpecialChar(ALIAS)}"; 
-                        outp += ColorSpecialChar(PARAM_CLOSE);
-                    }
-                    return outp;
-                case Capture_Open:
-                    return $"{ColorSpecialChar(CAPTURE_OPEN)}{ConvertColorToMarkup(pc.CaptureIdColor)}{Text2}";
-                case Capture_Close:
-                    return ColorSpecialChar(CAPTURE_CLOSE);
-                case Group_Open:
-                    return $"{ColorSpecialChar(GROUP_OPEN)}{ColorSpecialChar(ALIAS)}{ConvertColorToMarkup(pc.AliasColor)}{Text}{ColorSpecialChar(ALIAS)}";
-                case Group_Close:
-                    return ColorSpecialChar(GROUP_CLOSE);
-                case Rich_Text_Open:
-                    outp = $"{ColorSpecialChar(RICH_SHORT)}{ConvertColorToMarkup(pc.SpecialCharacterColor)}{{0}}{ColorSpecialChar(DELIMITER)}{ConvertColorToMarkup(pc.ParamVarColor)}{Text2}{ColorSpecialChar(RICH_SHORT)}";
-                    return RICH_SHORTHANDS.ContainsValue(Text) ? string.Format(outp, RICH_SHORTHANDS.First(p => p.Value.Equals(Text)).Key) : string.Format(outp, Text);
-                case Rich_Text_Close:
-                    return ColorSpecialChar(RICH_SHORT);
-                case Insert_Group_Value:
-                    return ColorSpecialChar(INSERT_SELF);
-                default: return GetDisplay();
-            }
-        }//*/
 #endregion
         #region Overrides
         public override string ToString()

@@ -40,7 +40,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 #if NEW_VERSION
         private BeatmapKey CurrentMap; // 1.37.0 and above
 #else
-        internal IDifficultyBeatmap CurrentMap; // 1.34.2 and below
+        private IDifficultyBeatmap CurrentMap; // 1.34.2 and below
 #endif
         private (JToken Diffdata, JToken Scoredata) CurrentDiff;
         private object RefreshLock = new object();
@@ -247,7 +247,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction(nameof(PercentFormat))]
         private string PercentFormat(float toFormat) => $"{toFormat:N2}%";
         [UIAction(nameof(PPFormat))]
-        private string PPFormat(int toFormat) => $"{toFormat} pp";
+        private string PPFormat(int toFormat) => $"{toFormat} " + GetPPLabel();
         [UIAction(nameof(ToggleCAMode))]
         private void ToggleCAMode()
         {
@@ -256,7 +256,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             CA_PercentSlider.SetActive(!IsPPMode);
             PPTable_BG.SetActive(!IsPPMode);
             PercentTable_BG.SetActive(IsPPMode);
-            ModeButtonText.text = IsPPMode ? "<color=#A020F0>Input PP" : "<color=#FFD700>Input Percentage";
+            ModeButtonText.text = IsPPMode ? "<color=#A020F0>Input " + GetPPLabel().ToUpper() : "<color=#FFD700>Input Percentage";
             if (Sldvc != null) 
             {
                 UpdateCustomAccuracy();
@@ -527,8 +527,9 @@ namespace BLPPCounter.Settings.SettingHandlers
                     go.SetActive(true);
             SelectButtonsOn = true;
         }
-#endregion
+        #endregion
         #region Misc Functions
+        public string GetPPLabel() => PluginConfig.Instance.Leaderboard == Leaderboards.Accsaber ? "ap" : "pp";
         public void UpdateTabDisplay(bool forceUpdate = false, bool runAsync = true) 
         {
             if (CurrentTab.Equals("Settings") || Sldvc is null || CurrentTab.Length == 0 || (!forceUpdate && TabMapInfo[CurrentTab] == CurrentMap)) return;
@@ -582,12 +583,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             ClanTarget.SetText(TargetHasScore ? GetTarget() : GetNoScoreTarget());
             PPToCapture = ClanCounter.LoadNeededPp(BeatmapID, out _, out string owningClan)[0];
             OwningClan.SetText($"<color=red>{owningClan}</color> owns this map.");
-            PPTarget.SetText($"<color=#0F0>{Math.Round(PPToCapture, PC.DecimalPrecision)}</color> pp");
+            PPTarget.SetText($"<color=#0F0>{Math.Round(PPToCapture, PC.DecimalPrecision)}</color> " + GetPPLabel());
         }
         private void UpdateRelativeValues()
         {
             RelativeText.SetText(TargetHasScore ? GetTarget() : GetNoScoreTarget());
-            RelativeTarget.SetText($"<color=#0F0>{Math.Round(TargetPP, PC.DecimalPrecision)}</color> pp");
+            RelativeTarget.SetText($"<color=#0F0>{Math.Round(TargetPP, PC.DecimalPrecision)}</color> " + GetPPLabel());
         }
         private void UpdateCustomAccuracy()
         {

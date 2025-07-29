@@ -1,5 +1,5 @@
 <bg xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='https://monkeymanboy.github.io/BSML-Docs/ https://raw.githubusercontent.com/monkeymanboy/BSML-Docs/gh-pages/BSMLSchema.xsd'>
-  <settings-container  mask-overflow='true' size-delta-x='0' size-delta-y='5' anchor-pos-y='0'>
+  <settings-container mask-overflow='true' size-delta-x='0' size-delta-y='5' anchor-pos-y='0'>
     <vertical pad='5' vertical-fit='PreferredSize' spacing='1'>
       <text text='General Settings' align='Center'/>
       <vertical spacing='1'>

@@ -11,8 +11,21 @@
             <button id='TheSaveButton' text='Save' align='Center' on-click='SaveFormatToConfig'/>
             <button text='Update Preview' align='Right' on-click='ForceUpdatePreviewDisplay'/>
         </horizontal>
+         <modal show-event='AddNewChunk' hide-event='CloseWindow' click-off-closes='true' size-delta-x='80' size-delta-y='30' anchor-pos-x='10'>
+           <vertical spacing='1'>
+             <text text='Add New Chunk' align='Center'/>
+             <horizontal spacing='2'>
+               <button id='AddAboveSelectedButton' text='Add Above Selected' align='Left' interactable='false' on-click='AddAboveSelected' click-event='CloseWindow'/>
+               <button text='Add To Top' align='Right' on-click='AddTopChunk' click-event='CloseWindow'/>
+             </horizontal>
+             <horizontal spacing='2'>
+               <button id='AddBelowSelectedButton' text='Add Below Selected' align='Left' interactable='false' on-click='AddBelowSelected' click-event='CloseWindow'/>
+               <button text='Add to Bottom' align='Right' on-click='AddBottomChunk' click-event='CloseWindow'/>
+             </horizontal>
+           </vertical>
+         </modal>
         <custom-list id='FormatEditor' contents='FormatChunks' show-scrollbar='true' pref-width='100' pref-height='60' cell-size='30' select-cell='SelectedCell' clickable-cells='true'>
-            <vertical bg='round-rect-panel' bg-color='#CCC' horizontal-fit='Unconstrained' pad='2'>
+            <vertical id='BGContainer' bg='round-rect-panel' bg-color='#CCC' horizontal-fit='Unconstrained' pad='2'>
             <dropdown-list-setting text='Choose Type' apply-on-change='true' value='ChunkStr' options='TypesOfChunks' hover-hint='The types of chunks'/>
             <string-setting id='TextComp' text='~TextCompLabel' apply-on-change='true' value='Text' formatter='Centerer' active='~ShowTextComp'/>
             <string-setting id='Text2Comp' text='Enter Value' apply-on-change='true' value='Text2' formatter='Centerer' active='~ShowText2Comp'/>
@@ -29,7 +42,7 @@
         </custom-list>
         <horizontal>
             <button text='Scroll Fully Up' align='Left' on-click='ScrollToTop'/>
-            <button text='Add New Chunk' align='Center' on-click='AddDefaultChunk'/>
+            <button text='Add New Chunk' align='Center' click-event='AddNewChunk'/>
             <button text='Scroll Fully Down' align='Right' on-click='ScrollToBottom'/>
         </horizontal>
         </vertical>

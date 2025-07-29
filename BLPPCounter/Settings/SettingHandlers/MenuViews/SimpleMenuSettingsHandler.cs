@@ -26,8 +26,8 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             HelpfulMisc.ConvertInt64ToBools(SettingsToSave, PC.SimpleMenuConfig);
             AddChange = (id, newVal) => 
             { 
-                if (SettingsToSave[id] == newVal) changes &= ~(1 << id);
-                else changes |= 1 << id;
+                if (SettingsToSave[id] == newVal) changes &= ~(1L << id);
+                else changes |= 1L << id;
 #if !NEW_VERSION
                 if (!(saveButton is null)) // 1.34.2 and below
 #endif
@@ -61,7 +61,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             for (int i = 0; i < UISettings.Count; i++) if (UISettings[i] is SettingToggleInfo sti) sti.Usable = SettingsToSave[i];
             changes = 0;
 #if NEW_VERSION
-            UICustomizer.TableView.ReloadData(); // 1.37.0 and above
+            UICustomizer?.TableView.ReloadData(); // 1.37.0 and above
 #else
             UICustomizer?.tableView.ReloadData(); // 1.34.2 and below
 #endif

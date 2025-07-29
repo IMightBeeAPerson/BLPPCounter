@@ -521,5 +521,30 @@ namespace BLPPCounter.Helpfuls
             return true;
         }
         public static JToken TryEnter(this JToken data, string name) => data[name] ?? data;
+        public static void ShiftDown<T>(this List<T> data, T toPrepend = default)
+        {
+            if (data.Count == 0)
+            {
+                data.Add(toPrepend);
+                return;
+            }
+            data.Add(data[data.Count - 1]);
+            for (int i = data.Count - 2; i > 0; i--)
+                data[i] = data[i - 1];
+            data[0] = toPrepend;
+        }
+        public static void ShiftDown<T>(this List<T> data, int offset, T toPrepend = default)
+        {
+            if (data.Count == 0 || offset >= data.Count)
+            {
+                data.Add(toPrepend);
+                return;
+            }
+            if (offset < 0) return;
+            data.Add(data[data.Count - 1]);
+            for (int i = data.Count - 2; i > offset; i--)
+                data[i] = data[i - 1];
+            data[offset] = toPrepend;
+        }
     }
 }
