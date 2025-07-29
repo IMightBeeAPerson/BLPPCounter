@@ -11,7 +11,7 @@
             <button id='TheSaveButton' text='Save' align='Center' on-click='SaveFormatToConfig'/>
             <button text='Update Preview' align='Right' on-click='ForceUpdatePreviewDisplay'/>
         </horizontal>
-         <modal show-event='AddNewChunk' hide-event='CloseWindow' click-off-closes='true' size-delta-x='80' size-delta-y='30' anchor-pos-x='10'>
+         <modal show-event='AddNewChunk' hide-event='CloseWindow' click-off-closes='true' size-delta-x='80' size-delta-y='30'>
            <vertical spacing='1'>
              <text text='Add New Chunk' align='Center'/>
              <horizontal spacing='2'>
