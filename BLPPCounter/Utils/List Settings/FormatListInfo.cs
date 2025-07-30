@@ -37,8 +37,14 @@ namespace BLPPCounter.Utils
 
         #endregion
         #region UI Variables
-        [UIValue(nameof(TypesOfChunks))] private List<object> TypesOfChunks => Enum.GetNames(typeof(ChunkType)).Select(s => s.Replace('_', ' ')).Cast<object>().ToList();
-        [UIValue(nameof(ChoiceOptions))] private List<object> ChoiceOptions = new List<object>();
+        [UIValue(nameof(TypesOfChunks))] private List<object> TypesOfChunks = Enum.GetNames(typeof(ChunkType)).Select(s => s.Replace('_', ' ')).Cast<object>().ToList();
+#if NEW_VERSION
+        [UIValue(nameof(ChoiceOptions))] private List<object> ChoiceOptions = new List<object>(); //1.37.0 and above
+#else
+        //This is done as a workaround to a bug with BSML in 1.29.0, where if DropDownListSetting tries to load from an empty list, it will break and throw an error.
+        //Since the list here gets replaced when it is in use, it doesn't matter what I put in the list as long as there is something.
+        [UIValue(nameof(ChoiceOptions))] private List<object> ChoiceOptions = new List<object>(1) { "Placeholder" }; //1.34.2 and below
+#endif
 
         [UIValue(nameof(ChunkStr))] private string ChunkStr
         {
@@ -76,10 +82,18 @@ namespace BLPPCounter.Utils
         [UIComponent(nameof(Choicer))] private DropDownListSetting Choicer;
         [UIComponent(nameof(BGContainer))] private Backgroundable BGContainer;
 
-        #endregion
+#endregion
         #region Variables
         public event PropertyChangedEventHandler PropertyChanged;
-        public FormatListInfo AboveInfo { get => _AboveInfo; set { _AboveInfo = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AboveInfo))); } }
+        public FormatListInfo AboveInfo 
+        { 
+            get => _AboveInfo; 
+            set 
+            { 
+                _AboveInfo = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AboveInfo))); 
+            } 
+        }
         public FormatListInfo _AboveInfo = null; //This is so that parameters can find their parent.
         private string[] TokenParams; //This will be accessed by other instances other this class.
         private string _Text, _Text2;

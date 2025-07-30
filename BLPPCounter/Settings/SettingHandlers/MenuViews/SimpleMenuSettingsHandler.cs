@@ -58,7 +58,9 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             if (loaded) return;
             loaded = true;
             UISettings.AddRange(ConvertMenu().Cast<object>());
-            for (int i = 0; i < UISettings.Count; i++) if (UISettings[i] is SettingToggleInfo sti) sti.Usable = SettingsToSave[i];
+            for (int i = 0; i < UISettings.Count; i++) 
+                if (UISettings[i] is SettingToggleInfo sti) 
+                    sti.Usable = SettingsToSave[i];
             changes = 0;
 #if NEW_VERSION
             UICustomizer?.TableView.ReloadData(); // 1.37.0 and above
@@ -77,7 +79,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                 SettingsToSave = new bool[mc.Count];
                 for (int i = 0; i < SettingsToSave.Length; i++) SettingsToSave[i] = true;
                 PC.SimpleMenuConfigLength = mc.Count;
-                PC.SimpleMenuConfig = HelpfulMisc.ConvertBoolsToInt32(SettingsToSave);
+                PC.SimpleMenuConfig = HelpfulMisc.ConvertBoolsToInt64(SettingsToSave);
             }
             int count = 0;
             for (int i = 0; i < mc.Count; i++)
