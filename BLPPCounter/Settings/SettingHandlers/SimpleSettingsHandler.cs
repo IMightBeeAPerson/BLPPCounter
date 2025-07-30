@@ -38,7 +38,14 @@ namespace BLPPCounter.Settings.SettingHandlers
             const string resource = "BLPPCounter.Settings.BSML.MenuSettings.bsml";
             const string regex = "(?<=\\s)<\\/?([A-z\\-]+)[^>]*>(?=[^<]*?$)(?!\\z)";
             MatchCollection mc = Regex.Matches(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), resource), regex, RegexOptions.Multiline);
-            bool loadData = PluginConfig.Instance.SimpleMenuConfigLength == mc.Count(m => !NonSettingTags.Contains(m.Groups[1].Value));
+#if NEW_VERSION
+            bool loadData = PluginConfig.Instance.SimpleMenuConfigLength == mc.Count(m => !NonSettingTags.Contains(m.Groups[1].Value)); //1.37.0 and above
+#else
+            int count = 0;
+            foreach (Match m in mc)
+                if (!NonSettingTags.Contains(m.Groups[1].Value)) count++;
+            bool loadData = PluginConfig.Instance.SimpleMenuConfigLength == count; //1.34.2 and below
+#endif
             if (loadData) SimpleMenuSettingsHandler.Instance.LoadMenu();
             string huh = "";
             Dictionary<string, bool> usable = new Dictionary<string, bool>();
@@ -71,6 +78,6 @@ namespace BLPPCounter.Settings.SettingHandlers
                 GameplaySetup.instance.AddTab("BL PP Counter", HelpfulPaths.MENU_BSML, SettingsHandler.Instance);  // 1.34.2 and below
 #endif
         }
-        #endregion
+#endregion
     }
 }

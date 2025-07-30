@@ -353,11 +353,19 @@ namespace BLPPCounter.Utils
         #region Functions
         public void Selected()
         {
-            BGContainer.ApplyColor(new Color(0, 0, 1));
+#if NEW_VERSION
+            BGContainer.ApplyColor(new Color(0, 0, 1)); //1.37.0 and above
+#else
+            BGContainer.background.color = new Color(0, 0, 1); //1.34.2 and below
+#endif
         }
         public void Unselected()
         {
-            BGContainer.ApplyColor(OriginalColor);
+#if NEW_VERSION
+            BGContainer.ApplyColor(OriginalColor); //1.37.0 and above
+#else
+            BGContainer.background.color = OriginalColor; //1.34.2 and below
+#endif
         }
         public void SetParentToken() //For ChunkType.Parameter
         {
