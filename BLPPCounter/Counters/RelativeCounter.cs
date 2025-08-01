@@ -138,7 +138,7 @@ namespace BLPPCounter.Counters
             precision = PC.DecimalPrecision;
             calc = Calculator.GetSelectedCalc(); //only need to set it here bc when Calculator changes, this class instance gets remade.
             leaderboard = Calculator.UsingDefault ? PC.DefaultLeaderboard : PC.Leaderboard;
-            ppVals = new float[calc.DisplayRatingCount * 4]; //16 for bl (displayRatingCount bc gotta store total pp as well)
+            ppVals = new float[selectedRatings.Length * 4]; //16 for bl (displayRatingCount bc gotta store total pp as well)
             selectedRatings = calc.SelectRatings(starRating, accRating, passRating, techRating);
             ResetVars();
         }
@@ -188,7 +188,6 @@ namespace BLPPCounter.Counters
                 CatchupBest();
                 if (catchUpNotes == 0)
                     UpdateCounter(1, 0, 0, 1);
-                Plugin.Log.Info("Loading Done!");
             });
         }
         private void SetupDataAsync(MapSelection map)
@@ -442,18 +441,17 @@ namespace BLPPCounter.Counters
             else if (!useReplay) accDiff -= accToBeat;
             float replayAcc = PC.DynamicAcc && useReplay ? (float)Math.Round(best[7] / HelpfulMath.MaxScoreForNotes(notes) * 100.0f, PC.DecimalPrecision) : accToBeat;
             if (float.IsNaN(replayAcc)) replayAcc = 0f;
-            Plugin.Log.Info("I assume here");
-            if (PC.SplitPPVals)
+            if (PC.SplitPPVals && calc.RatingCount > 1)
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
-                    text += displayFormatter.Invoke(displayFc, PC.ExtraInfo && i == 3, mistakes, accDiff, color(ppVals[i + calc.DisplayRatingCount]), ppVals[i + calc.DisplayRatingCount].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
-                        color(ppVals[i + calc.DisplayRatingCount * 3]), ppVals[i + calc.DisplayRatingCount * 3].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + calc.DisplayRatingCount * 2], replayAcc, TheCounter.CurrentLabels[i]) + "\n";
+                    text += displayFormatter.Invoke(displayFc, PC.ExtraInfo && i == 3, mistakes, accDiff, color(ppVals[i + selectedRatings.Length]), ppVals[i + selectedRatings.Length].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
+                        color(ppVals[i + selectedRatings.Length * 3]), ppVals[i + selectedRatings.Length * 3].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + selectedRatings.Length * 2], replayAcc, TheCounter.CurrentLabels[i]) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayFormatter.Invoke(displayFc, PC.ExtraInfo, mistakes, accDiff, color(ppVals[calc.DisplayRatingCount * 2 - 1]), ppVals[calc.DisplayRatingCount * 2 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[calc.DisplayRatingCount - 1],
-                    color(ppVals[calc.DisplayRatingCount * 4 - 1]), ppVals[calc.DisplayRatingCount * 4 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[calc.DisplayRatingCount * 3 - 1], replayAcc, TheCounter.CurrentLabels.Last()) + "\n";
+                display.text = displayFormatter.Invoke(displayFc, PC.ExtraInfo, mistakes, accDiff, color(ppVals[selectedRatings.Length * 2 - 1]), ppVals[selectedRatings.Length * 2 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[selectedRatings.Length - 1],
+                    color(ppVals[selectedRatings.Length * 4 - 1]), ppVals[selectedRatings.Length * 4 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[selectedRatings.Length * 3 - 1], replayAcc, TheCounter.CurrentLabels.Last()) + "\n";
         }
         public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent)
         {

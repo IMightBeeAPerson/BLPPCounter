@@ -518,7 +518,7 @@ namespace BLPPCounter.Counters
                 return func.Invoke(() => color(ppVals[3] - neededPPs[3]),
                 neededPPs[5], neededPPs[0], neededPPs[1], neededPPs[2], (float)Math.Round(neededPPs[3], precision));
             }
-            if (pc.SplitPPVals)
+            if (pc.SplitPPVals && calc.RatingCount > 1)
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
@@ -554,7 +554,7 @@ namespace BLPPCounter.Counters
             for (int i = 0; i < ppVals.Length; i++)
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
             string ppLabel = " Weighted PP";
-            if (pc.SplitPPVals)
+            if (pc.SplitPPVals && calc.RatingCount > 1)
             {
                 string text = "", color = HelpfulFormatter.GetWeightedRankColor(rank);
                 for (int i = 0; i < 4; i++)

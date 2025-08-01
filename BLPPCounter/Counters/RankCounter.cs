@@ -190,7 +190,7 @@ namespace BLPPCounter.Counters
             string color = HelpfulFormatter.GetWeightedRankColor(rank);
             string text = "";
             //Plugin.Log.Info("PPVals: " + HelpfulMisc.Print(ppVals));
-            if (PC.SplitPPVals)
+            if (PC.SplitPPVals && calc.RatingCount > 1)
                 for (int i = 0; i < ratingLen; i++)
                     text += displayRank(displayFc, false, false, ppVals[i], ppVals[i + ratingLen],
                         rank, ppDiff, color, TheCounter.CurrentLabels[i]) + "\n";
