@@ -27,32 +27,9 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         [UIAction("#post-parse")]
         private void ActivateOthers()
         {
-            /*IEnumerator NoNulls()
-            {
-                Plugin.Log.Info("SimpleMenuSettingsHandler\nWaiting...");
-                yield return new WaitUntil(() => SimpleContainer != null);
-                Plugin.Log.Info("Done!");
-                HelpfulMisc.AddToComponent(SimpleMenuSettingsHandler.Instance, SimpleContainer);
-                Plugin.Log.Info("FormatEditorHandler\nWaiting...");
-                yield return new WaitUntil(() => FormatContainer != null);
-                Plugin.Log.Info("Done!");
-                HelpfulMisc.AddToComponent(FormatEditorHandler.Instance, FormatContainer);
-                Plugin.Log.Info("ColorSettingsHandler\nWaiting...");
-                yield return new WaitUntil(() => ColorContainer != null);
-                Plugin.Log.Info("Done!");
-                HelpfulMisc.AddToComponent(ColorSettingsHandler.Instance, ColorContainer);
-                Plugin.Log.Info("CustomAliasHandler\nWaiting...");
-                yield return new WaitUntil(() => AliasContainer != null);
-                Plugin.Log.Info("Done!");
-                HelpfulMisc.AddToComponent(CustomAliasHandler.Instance, AliasContainer);
-            }*/
-            //Plugin.Log.Info("SimpleMenuSettingsHandler");
             HelpfulMisc.AddToComponent(SimpleMenuSettingsHandler.Instance, SimpleContainer);
-            //Plugin.Log.Info("FormatEditorHandler");
             HelpfulMisc.AddToComponent(FormatEditorHandler.Instance, FormatContainer);
-            //Plugin.Log.Info("ColorSettingsHandler");
             HelpfulMisc.AddToComponent(ColorSettingsHandler.Instance, ColorContainer);
-            //Plugin.Log.Info("CustomAliasHandler");
             HelpfulMisc.AddToComponent(CustomAliasHandler.Instance, AliasContainer);
         }
         static MenuSettingsHandler()
@@ -76,7 +53,11 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         public bool SimpleUI
         {
             get => PC.SimpleUI;
-            set => PC.SimpleUI = value;
+            set
+            {
+                PC.SimpleUI = value;
+                SimpleSettingsHandler.Instance.ChangeMenuTab();
+            }
         }
         [UIValue(nameof(UpdatePreview))]
         public bool UpdatePreview

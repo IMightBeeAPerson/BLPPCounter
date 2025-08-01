@@ -8,6 +8,7 @@ using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers.MenuViews;
 using BLPPCounter.Utils;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.Design;
@@ -26,7 +27,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private static readonly HashSet<string> NonSettingTags = new HashSet<string>(2) { "settings-container", "vertical" };
         #endregion
         #region UI & Normal Variables
-        private bool loaded = false;
+        private bool loaded = false, loadData = true;
         [UIObject(nameof(Container))] private GameObject Container;
         #endregion
         #region Init Functions
@@ -44,7 +45,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             int count = 0;
             foreach (Match m in mc)
                 if (!NonSettingTags.Contains(m.Groups[1].Value)) count++;
-            bool loadData = PluginConfig.Instance.SimpleMenuConfigLength == count; //1.34.2 and below
+            loadData &= PluginConfig.Instance.SimpleMenuConfigLength == count; //1.34.2 and below
 #endif
             if (loadData) SimpleMenuSettingsHandler.Instance.LoadMenu();
             string huh = "";
@@ -61,7 +62,6 @@ namespace BLPPCounter.Settings.SettingHandlers
 #endif
             Plugin.Log.Info("Simple Settings has been loaded.");
         }
-        public void ReloadTab() { loaded = false; ChangeMenuTab(); }
         public void ChangeMenuTab(bool removeTab = true)
         {
 #if NEW_VERSION
@@ -71,13 +71,21 @@ namespace BLPPCounter.Settings.SettingHandlers
             else
                 GameplaySetup.Instance.AddTab("BL PP Counter", HelpfulPaths.MENU_BSML, SettingsHandler.Instance);  // 1.37.0 and above
 #else
-            if (removeTab) GameplaySetup.instance.RemoveTab("BL PP Counter");
+            if (removeTab) 
+            { //Remove tab doesn't work very well in 1.29, so instead clear tab and redo the xml.
+                if (Container is null || Container.transform is null) return;
+                Container.transform.DetachChildren();
+                loadData = PluginConfig.Instance.SimpleUI;
+                loaded = false;
+                LoadElements();
+                return;
+            }
             if (PluginConfig.Instance.SimpleUI)
                 GameplaySetup.instance.AddTab("BL PP Counter", HelpfulPaths.SIMPLE_MENU_BSML, this);
             else
                 GameplaySetup.instance.AddTab("BL PP Counter", HelpfulPaths.MENU_BSML, SettingsHandler.Instance);  // 1.34.2 and below
 #endif
         }
-#endregion
+        #endregion
     }
 }

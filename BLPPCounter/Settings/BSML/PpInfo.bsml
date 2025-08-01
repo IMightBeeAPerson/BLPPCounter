@@ -5,7 +5,7 @@
   
     <tab tags='tabs' tab-name='Info'>
       <vertical spacing='2' vertical-fit='PreferredSize' pref-height='50' anchor-pos-y='-2' horizontal-fit='PreferredSize' pref-width='75' child-expand-height='false'>
-        <vertical spacing='0' horizontal-fit='PreferredSize' pref-width='75'>
+        <vertical spacing='1' horizontal-fit='PreferredSize' pref-width='75'>
           <horizontal>
             <button text='Refresh Contents' on-click='Refresh'/>
             <button text='Refresh Mods' on-click='RefreshMods'/>
@@ -20,22 +20,10 @@
             <text id='MapMode' text='~MapModeText' align='Right'/>
           </horizontal>
         </vertical>
-        <vertical spacing='-1' horizontal-fit='PreferredSize' pref-width='75'>
-          <horizontal tags='ExtraStars' active='~UsesMods'>
-            <text text='&#60;color=blue&#62;Acc&#60;/color&#62; Stars' align='Left'/>
-            <text id='AccStarText' text='0.00&#9733;' align='Right'/>
-          </horizontal>
-          <horizontal tags='ExtraStars' active='~UsesMods'>
-            <text text='&#60;color=green&#62;Tech&#60;/color&#62; Stars' align='Left'/>
-            <text id='TechStarText' text='0.00&#9733;' align='Right'/>
-          </horizontal>
-          <horizontal tags='ExtraStars' active='~UsesMods'>
-            <text text='&#60;color=red&#62;Pass&#60;/color&#62; Stars' align='Left'/>
-            <text id='PassStarText' text='0.00&#9733;' align='Right'/>
-          </horizontal>
+        <vertical horizontal-fit='PreferredSize' pref-width='75'>
           <horizontal>
-            <text text='&#60;color=yellow&#62;Total&#60;/color&#62; Stars' align='Left'/>
-            <text id='StarText' text='0.00&#9733;' align='Right'/>
+            <text id='PrefixLabels' text='Stars' align='Left'/>
+            <text id='StarRatings' text='0.00&#9733;' align='Right'/>
           </horizontal>
         </vertical>
         <vertical spacing='-1' horizontal-fit='PreferredSize' pref-width='75'>

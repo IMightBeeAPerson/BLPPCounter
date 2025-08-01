@@ -19,6 +19,7 @@ namespace BLPPCounter.CalculatorStuffs
         public abstract int RatingCount { get; }
         public abstract bool UsesModifiers { get; }
         public abstract string Label { get; }
+        public abstract string[] StarLabels { get; }
         /// <summary>
         /// This is how many ratings to display. If there is more than 1 rating type, the total pp also needs to be displayed, meaning plus 1.
         /// </summary>
@@ -102,7 +103,7 @@ namespace BLPPCounter.CalculatorStuffs
         #region Static Methods
         public static Calculator GetCalc(bool useDefault = false) => GetCalc(!useDefault ? PluginConfig.Instance.Leaderboard : PluginConfig.Instance.DefaultLeaderboard);
         public static Calculator GetSelectedCalc() => GetCalc(UsingDefault);
-        private static Calculator GetCalc(Leaderboards leaderboard)
+        public static Calculator GetCalc(Leaderboards leaderboard)
         {
             switch(leaderboard)
             {

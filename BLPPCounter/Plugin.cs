@@ -80,7 +80,7 @@ namespace BLPPCounter
 #else
             GameplaySetup.instance.RemoveTab("BL PP Counter");
             GameplaySetup.instance.RemoveTab("PP Calculator");
-            //BSMLSettings.instance.RemoveSettingsMenu(SettingsHandler.Instance);
+            BSMLSettings.instance.RemoveSettingsMenu(SettingsHandler.Instance);
             BSEvents.menuSceneActive -= AddMenuStuff; // 1.34.2 and below
 #endif
             Harmony.UnpatchSelf();

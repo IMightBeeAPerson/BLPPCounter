@@ -68,7 +68,7 @@ namespace BLPPCounter.Utils.API_Handlers
         internal abstract void AddMap(Dictionary<string, Map> Data, string hash);
         public static APIHandler GetAPI(bool useDefault = false) => GetAPI(!useDefault ? PluginConfig.Instance.Leaderboard : PluginConfig.Instance.DefaultLeaderboard);
         public static APIHandler GetSelectedAPI() => GetAPI(UsingDefault);
-        private static APIHandler GetAPI(Leaderboards leaderboard)
+        public static APIHandler GetAPI(Leaderboards leaderboard)
         {
             switch (leaderboard)
             {

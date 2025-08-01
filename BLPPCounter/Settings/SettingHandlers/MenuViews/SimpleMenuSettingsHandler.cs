@@ -51,7 +51,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             HelpfulMisc.ConvertInt64ToBools(SettingsToSave, PC.SimpleMenuConfig);
             changes = 0;
             saveButton.interactable = false;
-            SimpleSettingsHandler.Instance.ReloadTab();
+            SimpleSettingsHandler.Instance.ChangeMenuTab();
         }
         public void LoadMenu()
         {

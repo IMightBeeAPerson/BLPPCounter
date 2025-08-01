@@ -99,7 +99,14 @@ namespace BLPPCounter.Helpfuls
         }
         public static (float accRating, float passRating, float techRating, float starRating) GetRatingsAndStar(JToken diffData, SongSpeed speed, float modMult = 1.0f)
         {
-            (float accRating, float passRating, float techRating) = GetRatings(diffData, speed, modMult);
+            float accRating, passRating, techRating;
+            try
+            {
+                (accRating, passRating, techRating) = GetRatings(diffData, speed, modMult);
+            } catch (Exception)
+            {
+                return (0, 0, 0, 0);
+            }
             diffData = diffData["difficulty"];
             if (speed != SongSpeed.Normal) diffData = diffData["modifiersRating"];
             return (accRating, passRating, techRating, (float)diffData[AddModifier("stars", speed)] * modMult);
@@ -134,7 +141,7 @@ namespace BLPPCounter.Helpfuls
         }
         public static long ConvertBoolsToInt64(bool[] values)
         {
-            if (values.Length > 64) throw new ArgumentException("Cannot convert more than 32 bools to a 32 bit number.");
+            if (values.Length > 64) throw new ArgumentException("Cannot convert more than 64 bools to a 64 bit number.");
             long outp = 0;
             for (int i = 0; i < values.Length; i++)
                 outp |= (values[i] ? 1L : 0L) << i;
@@ -173,7 +180,7 @@ namespace BLPPCounter.Helpfuls
                     toLoad[count++] = toConvert % 2 == 1;
                 else break;
                 toConvert >>= 1;
-                if (count == 1 && toConvert < 0) { toConvert *= -1; toConvert |= 1 << 62; } //manually shift signed bit over bc unsigned shifting isn't allowed in this version 0.0
+                if (count == 1 && toConvert < 0) { toConvert *= -1; toConvert |= 1L << 62; } //manually shift signed bit over bc unsigned shifting isn't allowed in this version 0.0
             }
         }
         public static K GetKeyFromDictionary<K, V>(Dictionary<K, V> dict, V val) => 

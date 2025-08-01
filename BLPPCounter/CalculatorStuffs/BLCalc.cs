@@ -52,6 +52,8 @@ namespace BLPPCounter.CalculatorStuffs
         #region PP Math
         public override int RatingCount => 3;
         public override string Label => "BL";
+        public override string[] StarLabels { get; } = new string[4] 
+        { "<color=blue>Acc</color> Stars","<color=red>Pass</color> Stars","<color=green>Tech</color> Stars","<color=yellow>Total</color> Stars" };
         public override bool UsesModifiers => true;
         public float GetPassPp(float passRating) => 15.2f * Mathf.Exp(Mathf.Pow(passRating, 1 / 2.62f)) - 30f;
         public float GetAccPp(float acc, float accRating) => GetCurve(acc) * accRating * 34f;

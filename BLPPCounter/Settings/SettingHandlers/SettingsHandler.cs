@@ -10,6 +10,7 @@ using System.ComponentModel;
 using System.Linq;
 using TMPro;
 using BLPPCounter.Helpfuls;
+using System.Threading.Tasks;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -38,7 +39,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 else if (!TypesOfPP.Any(obj => ((string)obj).Equals(PPType))) PPType = (string)TypesOfPP[0];
                 if (DefaultCounterList != null) DefaultCounterList.UpdateListSetting(RelativeDefaultList.Cast<string>().ToList());
                 else if (!RelativeDefaultList.Any(obj => ((string)obj).Equals(RelativeDefault))) RelativeDefault = (string)RelativeDefaultList[0];
-                PpInfoTabHandler.Instance.UpdateStarDisplay();
+                PpInfoTabHandler.Instance.ChangeTabSettings = true;
                 PpInfoTabHandler.Instance.ResetTabs();
                 TheCounter.theCounter = null;
             };

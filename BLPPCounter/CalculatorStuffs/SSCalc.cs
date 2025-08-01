@@ -53,6 +53,7 @@ namespace BLPPCounter.CalculatorStuffs
         public static readonly SSCalc Instance = new SSCalc();
         public override int RatingCount => 1;
         public override string Label => "SS";
+        public override string[] StarLabels { get; } = new string[1] { "<color=yellow>Stars</color>" };
         public override bool UsesModifiers => false;
         private SSCalc() 
         {

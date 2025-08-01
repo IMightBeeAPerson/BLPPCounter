@@ -69,6 +69,7 @@ namespace BLPPCounter.CalculatorStuffs
         public override int RatingCount => 1;
         public override bool UsesModifiers => false;
         public override string Label => "AP";
+        public override string[] StarLabels { get; } = new string[1] { "<color=#00FF00>Complexity</color>" };
         public static readonly APCalc Instance = new APCalc();
         private APCalc()
         {

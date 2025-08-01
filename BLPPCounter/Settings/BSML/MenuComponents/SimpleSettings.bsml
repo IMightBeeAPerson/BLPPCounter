@@ -1,8 +1,7 @@
-<!-- This is disabled in 1.34.2 and below, maintain the 1.37.0 and above for any version -->
   <!-- For 1.37.0 and above -->
-<!--vertical spacing='1'-->
+<vertical spacing='1'>
   <!-- For 1.34.2 and below -->
-<settings-container  spacing='1' pref-height='70' vertical-fit='PreferredSize'>
+<!--settings-container  spacing='1' pref-height='70' vertical-fit='PreferredSize'-->
       <horizontal>
       <button text='Go Back' align='Left' click-event='back'/>
       <button id='SaveButton' text='Save' align='Right' on-click='SaveChanges'/>
@@ -18,6 +17,6 @@
       </vertical>
     </custom-list>
   <!-- For 1.37.0 and above -->
-  <!--/vertical-->
+    </vertical>
   <!-- For 1.34.2 and below -->
-  </settings-container>
+    <!--/settings-container-->
