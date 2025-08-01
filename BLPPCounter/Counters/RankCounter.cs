@@ -193,8 +193,8 @@ namespace BLPPCounter.Counters
             if (PC.SplitPPVals)
                 for (int i = 0; i < ratingLen; i++)
                     text += displayRank(displayFc, false, false, ppVals[i], ppVals[i + ratingLen],
-                        rank, ppDiff, color, TheCounter.GetLabel(i)) + "\n";
-            text += displayRank(displayFc, PC.ExtraInfo, rank == 1, ppVals[ratingLen], ppVals[ratingLen * 2 + 1], rank, ppDiff, color, TheCounter.GetLabel(3));
+                        rank, ppDiff, color, TheCounter.CurrentLabels[i]) + "\n";
+            text += displayRank(displayFc, PC.ExtraInfo, rank == 1, ppVals[ratingLen], ppVals[ratingLen * 2 + 1], rank, ppDiff, color, TheCounter.CurrentLabels.Last());
             display.text = text;
         }
         public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent) { }

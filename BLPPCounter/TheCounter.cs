@@ -64,6 +64,7 @@ namespace BLPPCounter
         internal static Func<Func<string>, float, float, float, float, float, string> PercentNeededFormatter;
         private static Func<Func<Dictionary<char, object>, string>> displayIniter, targetIniter, percentNeededIniter;
         private static readonly ReadOnlyCollection<string> Labels = new ReadOnlyCollection<string>(new string[] { " Acc PP", " Pass PP", " Tech PP", " PP" }); //Ain't Nobody appending a billion "BL"s to this now :)
+        public static string[] CurrentLabels { get; private set; } = null;
 
         private static bool updateFormat;
         public static bool SettingChanged = false;
@@ -177,7 +178,7 @@ namespace BLPPCounter
         private TMP_Text display;
         private bool enabled;
         private float passRating, accRating, techRating, starRating;
-        private int notes, comboNotes, mistakes, totalNotes;
+        private int notes, comboNotes, mistakes;
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
         private string mode, lastTarget = Targeter.NO_TARGET;
@@ -349,11 +350,6 @@ namespace BLPPCounter
 #endif
                         if (!ms.IsUsable) throw new Exception("The status of this map marks it as unusable.");
                         lastMap = ms;
-#if NEW_VERSION
-                        totalNotes = HelpfulMath.NotesForMaxScore(APIHandler.GetAPI(usingDefaultLeaderboard).GetMaxScore(hash, Map.FromDiff(beatmapDiff.difficulty), mode));
-#else
-                        totalNotes = HelpfulMath.NotesForMaxScore(APIHandler.GetAPI(usingDefaultLeaderboard).GetMaxScore(hash, Map.FromDiff(beatmap.difficulty), mode));
-#endif
                         APIHandler.UsingDefault = usingDefaultLeaderboard;
                         Calculator.UsingDefault = usingDefaultLeaderboard;
                         if (!InitCounter()) throw new Exception("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
@@ -363,6 +359,7 @@ namespace BLPPCounter
                     lastTarget = pc.Target;
                     if (updateFormat) { theCounter.UpdateFormat(); updateFormat = false; }
                     if (pc.UpdateAfterTime) SetTimeLooper();
+                    SetLabels();
                     theCounter.UpdateCounter(1, 0, 0, 0);
                     //PpInfoTabHandler.Instance.CurrentMap = beatmap;
                     return;
@@ -601,11 +598,14 @@ namespace BLPPCounter
             }
             return outp;
         }
-        public static string GetLabel(int index)
+        private static void SetLabels()
         {
+            CurrentLabels = new string[Calculator.GetCalc(usingDefaultLeaderboard).DisplayRatingCount];
             string predicate = pc.LeaderInLabel ? Calculator.GetCalc(usingDefaultLeaderboard).Label : "";
-            if (pc.LeaderInLabel && pc.Leaderboard != Leaderboards.Accsaber) return predicate + Labels[index];
-            return predicate;
+            for (int i = 0; i < CurrentLabels.Length; i++)
+            if (pc.LeaderInLabel && ((usingDefaultLeaderboard && pc.DefaultLeaderboard != Leaderboards.Accsaber) || (!usingDefaultLeaderboard && pc.Leaderboard != Leaderboards.Accsaber)))
+                CurrentLabels[i] = predicate + Labels[CurrentLabels.Length == 1 ? 3 : i];
+            else CurrentLabels[i] = predicate;
         }
         #endregion
         #region Init
@@ -829,10 +829,10 @@ namespace BLPPCounter
             if (pc.SplitPPVals && num > 1) {
                 string outp = "";
                 for (int i = 0; i < 4; i++) 
-                    outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakes, GetLabel(i)) + "\n";
+                    outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakes, CurrentLabels[i]) + "\n";
                 display.text = outp;
             } else
-                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakes, GetLabel(3));
+                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakes, CurrentLabels[3]);
         }
         public static string GetUpdateText(bool displayFc, float[] ppVals, int mistakes, string[] labels = null)
         {

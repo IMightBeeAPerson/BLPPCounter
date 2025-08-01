@@ -527,6 +527,12 @@ namespace BLPPCounter.Helpfuls
                 if (!val.Equals(default(T))) return false;
             return true;
         }
+        /// <summary>
+        /// Attempts to move into a <see cref="JToken">JToken</see>.
+        /// </summary>
+        /// <param name="data">Parent <see cref="JToken">JToken</see>.</param>
+        /// <param name="name">The key to attempt to move into.</param>
+        /// <returns>Either the child <see cref="JToken">JToken</see> or if it is null the parent <see cref="JToken">JToken</see>.</returns>
         public static JToken TryEnter(this JToken data, string name) => data[name] ?? data;
         public static void ShiftDown<T>(this List<T> data, T toPrepend = default)
         {

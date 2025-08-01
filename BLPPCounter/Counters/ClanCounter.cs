@@ -523,12 +523,12 @@ namespace BLPPCounter.Counters
                 string text = "";
                 for (int i = 0; i < 4; i++)
                     text += displayClan.Invoke(displayFc, pc.ExtraInfo && i == 3, mistakes, () => color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
-                        () => color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], TheCounter.GetLabel(i), message) + "\n";
+                        () => color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], TheCounter.CurrentLabels[i], message) + "\n";
                 display.text = text;
             }
             else
                 display.text = displayClan.Invoke(displayFc, pc.ExtraInfo, mistakes, () => color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
-                    () => color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], TheCounter.GetLabel(3), message) + "\n";
+                    () => color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], TheCounter.CurrentLabels.Last(), message) + "\n";
         }
         public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent) { }
         private void UpdateWeightedCounter(float acc, int mistakes, float fcPercent)
@@ -559,7 +559,7 @@ namespace BLPPCounter.Counters
                 string text = "", color = HelpfulFormatter.GetWeightedRankColor(rank);
                 for (int i = 0; i < 4; i++)
                     text += displayWeighted.Invoke(new bool[] { displayFc, pc.ExtraInfo && i == 3, showRank && i == 3 }, 
-                        mistakes, () => color, $"{rank}", $"{ppVals[i + 4]}", ppVals[i], $"{ppVals[i + 12]}", ppVals[i + 8], i == 3 ? ppLabel : TheCounter.GetLabel(i), message) + "\n";
+                        mistakes, () => color, $"{rank}", $"{ppVals[i + 4]}", ppVals[i], $"{ppVals[i + 12]}", ppVals[i + 8], i == 3 ? ppLabel : TheCounter.CurrentLabels[i], message) + "\n";
                 display.text = text;
             }
             else
