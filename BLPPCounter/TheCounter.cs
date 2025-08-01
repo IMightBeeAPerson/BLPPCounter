@@ -173,6 +173,7 @@ namespace BLPPCounter
                 ('c', ValueListInfo.ValueType.Color)
             });
         private static TimeLooper TimeLooper = new TimeLooper();
+        private static string lastTarget = Targeter.NO_TARGET;
         #endregion
         #region Variables
         private TMP_Text display;
@@ -181,7 +182,7 @@ namespace BLPPCounter
         private int notes, comboNotes, mistakes;
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
-        private string mode, lastTarget = Targeter.NO_TARGET;
+        private string mode;
         #endregion
         #region Inits & Overrides
 
@@ -360,7 +361,7 @@ namespace BLPPCounter
                     if (updateFormat) { theCounter.UpdateFormat(); updateFormat = false; }
                     if (pc.UpdateAfterTime) SetTimeLooper();
                     SetLabels();
-                    theCounter.UpdateCounter(1, 0, 0, 0);
+                    theCounter.UpdateCounter(1, 0, 0, 1);
                     //PpInfoTabHandler.Instance.CurrentMap = beatmap;
                     return;
                 } else
@@ -832,7 +833,7 @@ namespace BLPPCounter
                     outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakes, CurrentLabels[i]) + "\n";
                 display.text = outp;
             } else
-                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakes, CurrentLabels[3]);
+                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakes, CurrentLabels.Last());
         }
         public static string GetUpdateText(bool displayFc, float[] ppVals, int mistakes, string[] labels = null)
         {
@@ -842,10 +843,10 @@ namespace BLPPCounter
             {
                 string outp = "";
                 for (int i = 0; i < 4; i++)
-                    outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakes, labels[i]) + "\n";
+                    outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakes, CurrentLabels[i]) + "\n";
                 return outp;
             }
-            return displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakes, labels[3]);
+            return displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakes, CurrentLabels.Last());
         }
         #endregion
     }

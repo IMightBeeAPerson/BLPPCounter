@@ -309,7 +309,11 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIValue(nameof(ToTarget))]
         public List<object> ToTarget => Targeter.theTargets.Prepend(Targeter.NO_TARGET).ToList();
         [UIAction(nameof(ResetTarget))]
-        public void ResetTarget() => TargetList.Value = "None";
+        public void ResetTarget()
+        {
+            TargetList.Value = "None";
+            Target = "None";
+        }
         #endregion
         #region Unused Code
         /*[UIValue(nameof())]

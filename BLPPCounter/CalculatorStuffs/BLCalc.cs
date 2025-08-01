@@ -66,6 +66,8 @@ namespace BLPPCounter.CalculatorStuffs
             float passPP = GetPassPp(passRating);
             if (float.IsInfinity(passPP) || float.IsNaN(passPP) || passPP < 0) passPP = 0;
             return new float[] { GetAccPp(acc, accRating), passPP, GetTechPp(acc, techRating) };
+            //Plugin.Log.Info($"acc = {acc}, ratings = {HelpfulMisc.Print(ratings)}, pp = {HelpfulMisc.Print(outp)}, total pp = {Inflate(outp[0] + outp[1] + outp[2])}");
+            //return outp;
         }
         public override float[] SelectRatings(float[] ratings) => ratings.Skip(1).ToArray();
         public override float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings) //ratings order: acc pass tech
