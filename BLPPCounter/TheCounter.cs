@@ -177,7 +177,7 @@ namespace BLPPCounter
         #endregion
         #region Variables
         private TMP_Text display;
-        private bool enabled;
+        private bool enabled, loading, hasNotifiers;
         private float passRating, accRating, techRating, starRating;
         private int notes, comboNotes, mistakes;
         private int fcTotalHitscore, fcMaxHitscore;
@@ -288,24 +288,32 @@ namespace BLPPCounter
             {
                 ChangeNotifiers(false);
                 TimeLooper.End();
-                if (pc.LeaderInLabel)
-                {
-                    int len = Calculator.GetSelectedCalc().Label.Length + 1;
-                }
             }
         }
         public override void CounterInit()
         {
-            enabled = false;
+            enabled = hasNotifiers = false;
             if (fullDisable) return;
             notes = fcMaxHitscore = comboNotes = fcTotalHitscore = mistakes = 0;
             totalHitscore = maxHitscore = 0.0;
+            ChangeNotifiers(true);
+            display = CanvasUtility.CreateTextFromSettings(Settings);
+            display.fontSize = (float)pc.FontSize;
+            display.text = "Loading...";
+            Task.Run(() =>
+            {
+                loading = true;
+                AsyncCounterInit();
+                loading = false;
+            });
+        }
+        private void AsyncCounterInit() 
+        {
             if (!dataLoaded)
             {
                 Data = new Dictionary<string, Map>();
                 InitData();
             }
-            bool loadedEvents = false;
             try
             {
                 if (!dataLoaded) RequestHashData();
@@ -318,11 +326,6 @@ namespace BLPPCounter
                 }
                 if (enabled)
                 {
-                    display = CanvasUtility.CreateTextFromSettings(Settings);
-                    display.fontSize = (float)pc.FontSize;
-                    display.text = "";
-                    ChangeNotifiers(true);
-                    loadedEvents = true;
 #if NEW_VERSION
                     string hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
 #else
@@ -349,11 +352,19 @@ namespace BLPPCounter
 #else
                         MapSelection ms = new MapSelection(m, beatmap.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and below
 #endif
-                        if (!ms.IsUsable) throw new Exception("The status of this map marks it as unusable.");
+                        if (!ms.IsUsable)
+                        {
+                            Plugin.Log.Warn("The status of this map marks it as unusable.");
+                            goto Failed;
+                        } 
                         lastMap = ms;
                         APIHandler.UsingDefault = usingDefaultLeaderboard;
                         Calculator.UsingDefault = usingDefaultLeaderboard;
-                        if (!InitCounter()) throw new Exception("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
+                        if (!InitCounter())
+                        {
+                            Plugin.Log.Warn("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
+                            goto Failed;
+                        }
                     }
                     else
                         APIAvoidanceMode();
@@ -361,8 +372,7 @@ namespace BLPPCounter
                     if (updateFormat) { theCounter.UpdateFormat(); updateFormat = false; }
                     if (pc.UpdateAfterTime) SetTimeLooper();
                     SetLabels();
-                    theCounter.UpdateCounter(1, 0, 0, 1);
-                    //PpInfoTabHandler.Instance.CurrentMap = beatmap;
+                    if (notes < 1) theCounter.UpdateCounter(1, 0, 0, 1);
                     return;
                 } else
                     Plugin.Log.Warn("Maps failed to load, most likely unranked.");
@@ -374,23 +384,22 @@ namespace BLPPCounter
                 if (usingDefaultLeaderboard)
                 {
                     enabled = false;
-                    if (display != null)
-                        display.text = "";
-                    if (loadedEvents) ChangeNotifiers(false);
+                    display.text = "";
+                    if (hasNotifiers) ChangeNotifiers(false);
                 }
             }
+            Failed:
             if (!usingDefaultLeaderboard)
             {
                 usingDefaultLeaderboard = true;
                 usingDefaultLeaderboard = DisplayNames.Contains(pc.PPType);
                 if (!usingDefaultLeaderboard) return;
-                CounterInit();
+                AsyncCounterInit();
             } else
             {
                 enabled = false;
-                if (display != null)
-                    display.text = "";
-                if (loadedEvents) ChangeNotifiers(false);
+                display.text = "";
+                if (hasNotifiers) ChangeNotifiers(false);
             }
         }
 #endregion
@@ -399,7 +408,7 @@ namespace BLPPCounter
         {
             if (scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb)
                 return;
-            bool enteredLock = pc.UpdateAfterTime && Monitor.TryEnter(TimeLooper.Locker); //This is to make sure timeLooper is paused, not to pause this thread.
+            bool enteredLock = !loading && pc.UpdateAfterTime && Monitor.TryEnter(TimeLooper.Locker); //This is to make sure timeLooper is paused, not to pause this thread.
             NoteData.ScoringType st = scoringElement.noteData.scoringType;
             if (st == NoteData.ScoringType.Ignore) goto Finish; //if scoring type is Ignore, skip this function
             notes++;
@@ -413,6 +422,8 @@ namespace BLPPCounter
             }
             else OnMiss();
             Finish:
+            if (loading) return;
+            Plugin.Log.Info("Notes = " + notes);
             theCounter.SoftUpdate((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
             if (enteredLock) Monitor.Exit(TimeLooper.Locker);
             if (!pc.UpdateAfterTime) theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
@@ -463,14 +474,17 @@ namespace BLPPCounter
                 sc.scoringForNoteFinishedEvent += OnNoteScored;
                 wall.headDidEnterObstacleEvent += OnWallHit;
                 bomb.noteWasCutEvent += OnBombHit;
-                BSEvents.levelCleared += (aa, b) => ClearCounter();
+                BSEvents.levelCleared += ClearCounterCaller;
             } else
             {
                 sc.scoringForNoteFinishedEvent -= OnNoteScored;
                 wall.headDidEnterObstacleEvent -= OnWallHit;
                 bomb.noteWasCutEvent -= OnBombHit;
+                BSEvents.levelCleared -= ClearCounterCaller;
             }
+            hasNotifiers = a;
         }
+        private void ClearCounterCaller(StandardLevelScenesTransitionSetupDataSO slstsdso, LevelCompletionResults lcr) => ClearCounter();
         public static void ClearCounter() => lastMap = default;
         public static void ForceLoadMaps()
         {
@@ -672,7 +686,6 @@ namespace BLPPCounter
             try
             {
                 JEnumerable<JToken> results = JToken.Parse(File.ReadAllText(HelpfulPaths.TAOHABLE_DATA)).Children();
-                string modeName;
                 foreach (JToken result in results)
                 {
                     bool ssRanked = false, apRanked = false;
@@ -689,9 +702,9 @@ namespace BLPPCounter
                     if (!ssRanked && !apRanked) continue;
                     Map apMap = null, ssMap = null;
                     if (apRanked)
-                        apMap = new Map(result["hash"].ToString(), Map.AP_MODE_NAME, Map.FromValue(int.Parse(result["difficulty"].ToString())), result["scoreSaberID"].ToString(), result);
+                        apMap = new Map(result["hash"].ToString().ToUpper(), Map.AP_MODE_NAME, Map.FromValue(int.Parse(result["difficulty"].ToString())), result["scoreSaberID"].ToString(), result);
                     if (ssRanked)
-                        ssMap = new Map(result["hash"].ToString(), Map.SS_MODE_NAME, Map.FromValue(int.Parse(result["difficulty"].ToString())), result["scoreSaberID"].ToString(), result);
+                        ssMap = new Map(result["hash"].ToString().ToUpper(), Map.SS_MODE_NAME, Map.FromValue(int.Parse(result["difficulty"].ToString())), result["scoreSaberID"].ToString(), result);
                     Map map = ssRanked && apRanked ? Map.Combine(apMap, ssMap) : ssRanked ? ssMap : apMap;
                     if (Data.ContainsKey(map.Hash))
                         Data[map.Hash].Combine(map);
@@ -756,7 +769,11 @@ namespace BLPPCounter
 #endif
             try
             {
-                if (!Data.TryGetValue(hash, out Map theMap)) throw new KeyNotFoundException("The map is not in the loaded cache.");
+                if (!Data.TryGetValue(hash, out Map theMap))
+                {
+                    Plugin.Log.Warn("The map is not in the loaded cache.");
+                    return false;
+                }
 #if NEW_VERSION
                 Dictionary<string, (string, JToken)> hold = theMap.Get(beatmapDiff.difficulty);
                 if (leaderboard == Leaderboards.Beatleader) mode = beatmapDiff.beatmapCharacteristic.serializedName ?? "Standard"; // 1.37.0 and above
@@ -772,8 +789,12 @@ namespace BLPPCounter
                         case Leaderboards.Accsaber:
                             mode = Map.AP_MODE_NAME; 
                             break;
-                    } 
-                if (!hold.TryGetValue(mode, out var holdInfo)) throw new KeyNotFoundException($"The mode '{mode}' doesn't exist.\nKeys: [{string.Join(", ", hold.Keys)}]");
+                    }
+                if (!hold.TryGetValue(mode, out var holdInfo))
+                {
+                    Plugin.Log.Warn($"The mode '{mode}' doesn't exist.\nKeys: [{string.Join(", ", hold.Keys)}]");
+                    return false;
+                }
                 data = holdInfo.Item2;
                 songId = holdInfo.Item1;
             }

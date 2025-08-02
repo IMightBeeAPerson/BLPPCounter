@@ -94,6 +94,11 @@ namespace BLPPCounter.Utils.API_Handlers
                 {
                     string songId = ids.Pop().ToString();
                     JToken mapInfo = JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, songId, "info")));
+                    if (!(bool)mapInfo["ranked"])
+                    {
+                        Plugin.Log.Warn("SS map cannot be added to cache as it is not ranked.");
+                        return;
+                    }
                     Map map = Map.ConvertSSToTaoh(hash, songId, mapInfo);
                     if (Data.ContainsKey(hash))
                         Data[hash].Combine(map);

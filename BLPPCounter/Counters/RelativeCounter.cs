@@ -197,47 +197,49 @@ namespace BLPPCounter.Counters
             try
             {
                 JToken playerData = APIHandler.GetSelectedAPI().GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), PC.Leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true);
-                if (playerData != null)
+                if (playerData is null)
                 {
-                    best = new float[9];
-                    //Only BL has useable replays, so only send data if this is a BL replay.
-                    if (PC.UseReplay) SetupReplayData(map, leaderboard == Leaderboards.Beatleader ? playerData : null);
-                    if ((float)playerData["pp"] is float thePP && thePP > 0)
-                        accToBeat = calc.GetAcc(thePP, PC.DecimalPrecision, selectedRatings);
-                    else
-                    {
-                        string[] hold = ((string)playerData["modifiers"]).ToUpper().Split(',');
-                        float acc = (float)playerData["accuracy"];
-                        float ppToBeat;
-                        //Ignore how janky this line is below, i'll fix later if I feel like it.
-                        if (leaderboard == Leaderboards.Beatleader)
-                        {
-                            string modName = hold.Length == 0 ? "" : hold.FirstOrDefault(a => a.Equals("SF") || a.Equals("FS") || a.Equals("SS")) ?? "";
-                            playerData = playerData["difficulty"];
-                            modName = modName.ToLower();
-                            float passStar = HelpfulPaths.GetRating(playerData, PPType.Pass, modName);
-                            float techStar = HelpfulPaths.GetRating(playerData, PPType.Tech, modName);
-                            float accStar = HelpfulPaths.GetRating(playerData, PPType.Acc, modName);
-                            ppToBeat = calc.GetSummedPp(acc, accStar, passStar, techStar);
-                        }
-                        else ppToBeat = calc.GetSummedPp(acc, selectedRatings);
-                        accToBeat = calc.GetAccDeflated(ppToBeat, PC.DecimalPrecision, selectedRatings);
-                    }
+                    Plugin.Log.Warn("Relative counter cannot be loaded due to the player never having played this map before! (API didn't return the corrent status)");
+                    goto Failed;
                 }
-                else throw new Exception("Relative counter cannot be loaded due to the player never having played this map before! (API didn't return the corrent status)");
+                best = new float[9];
+                //Only BL has useable replays, so only send data if this is a BL replay.
+                if (PC.UseReplay) SetupReplayData(map, leaderboard == Leaderboards.Beatleader ? playerData : null);
+                if ((float)playerData["pp"] is float thePP && thePP > 0)
+                    accToBeat = calc.GetAcc(thePP, PC.DecimalPrecision, selectedRatings);
+                else
+                {
+                    string[] hold = ((string)playerData["modifiers"]).ToUpper().Split(',');
+                    float acc = (float)playerData["accuracy"];
+                    float ppToBeat;
+                    //Ignore how janky this line is below, i'll fix later if I feel like it.
+                    if (leaderboard == Leaderboards.Beatleader)
+                    {
+                        string modName = hold.Length == 0 ? "" : hold.FirstOrDefault(a => a.Equals("SF") || a.Equals("FS") || a.Equals("SS")) ?? "";
+                        playerData = playerData["difficulty"];
+                        modName = modName.ToLower();
+                        float passStar = HelpfulPaths.GetRating(playerData, PPType.Pass, modName);
+                        float techStar = HelpfulPaths.GetRating(playerData, PPType.Tech, modName);
+                        float accStar = HelpfulPaths.GetRating(playerData, PPType.Acc, modName);
+                        ppToBeat = calc.GetSummedPp(acc, accStar, passStar, techStar);
+                    }
+                    else ppToBeat = calc.GetSummedPp(acc, selectedRatings);
+                    accToBeat = calc.GetAccDeflated(ppToBeat, PC.DecimalPrecision, selectedRatings);
+                }
+                if (!failed) ResetVars();
+                return;
             }
             catch (Exception e)
             {
                 Plugin.Log.Warn("There was an error loading the replay of the player.");
                 Plugin.Log.Warn(e.Message);
                 Plugin.Log.Debug(e);
-                Plugin.Log.Warn($"Defaulting to {PC.RelativeDefault.ToLower()} counter.");
-                failed = true;
-                backup = TheCounter.InitCounter(PC.RelativeDefault, display);
-                
-                return;
             }
-            if (!failed) ResetVars();
+            Failed:
+            Plugin.Log.Warn($"Defaulting to {PC.RelativeDefault.ToLower()} counter.");
+            failed = true;
+            backup = TheCounter.InitCounter(PC.RelativeDefault, display);
+            if (catchUpNotes < 1) backup.UpdateCounter(1, 0, 0, 1);
         }
         public void ReinitCounter(TMP_Text display)
         {
@@ -328,7 +330,7 @@ namespace BLPPCounter.Counters
         #region Updates
         private void CatchupBest()
         {
-            if (catchUpNotes < 1)
+            if (catchUpNotes == 0)
             {
                 caughtUp = true;
                 return;
@@ -413,11 +415,7 @@ namespace BLPPCounter.Counters
                 backup.UpdateCounter(acc, notes, mistakes, fcPercent);
                 return;
             }
-            if (loadingReplay || !caughtUp)
-            {
-                if (notes <= 1) display.text = "Loading...";
-                return;
-            }
+            if (loadingReplay || !caughtUp) return;
             bool displayFc = PC.PPFC && mistakes > 0, showLbl = PC.ShowLbl;
             
             float[] temp = calc.GetPpWithSummedPp(acc, selectedRatings);
