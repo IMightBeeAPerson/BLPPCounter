@@ -50,14 +50,14 @@ namespace BLPPCounter
         public static string DisplayName => "Main";
         private static PluginConfig pc => PluginConfig.Instance;
         private static bool dataLoaded = false, fullDisable = false, usingDefaultLeaderboard = false;
-        private static Leaderboards leaderboard => usingDefaultLeaderboard ? pc.DefaultLeaderboard : pc.Leaderboard;
+        internal static Leaderboards Leaderboard => usingDefaultLeaderboard ? pc.DefaultLeaderboard : pc.Leaderboard;
         private static MapSelection lastMap;
         public static IMyCounters theCounter { get; internal set; }
         public static ReadOnlyDictionary<string, Type> StaticFunctions { get; private set; }
         public static ReadOnlyDictionary<string, Type> StaticProperties { get; private set; }
         public static Type[] ValidCounters { get; private set; }
         public static ReadOnlyDictionary<Leaderboards, string[]> ValidDisplayNames;
-        public static string[] DisplayNames => fullDisable ? new string[1] { "There are none" } : ValidDisplayNames[leaderboard];
+        public static string[] DisplayNames => fullDisable ? new string[1] { "There are none" } : ValidDisplayNames[Leaderboard];
         public static Dictionary<string, string> DisplayNameToCounter { get; private set; }
         private static Func<bool, bool, float, float, int, string, string> displayFormatter;
         internal static Func<string, string, string> TargetFormatter;
@@ -284,11 +284,10 @@ namespace BLPPCounter
         }
         public override void CounterDestroy() {
             usingDefaultLeaderboard = false;
-            if (enabled)
-            {
+            if (hasNotifiers) 
                 ChangeNotifiers(false);
+            if (enabled)
                 TimeLooper.End();
-            }
         }
         public override void CounterInit()
         {
@@ -366,8 +365,8 @@ namespace BLPPCounter
                             goto Failed;
                         }
                     }
-                    else
-                        APIAvoidanceMode();
+                    else if (!APIAvoidanceMode())
+                        goto Failed;
                     lastTarget = pc.Target;
                     if (updateFormat) { theCounter.UpdateFormat(); updateFormat = false; }
                     if (pc.UpdateAfterTime) SetTimeLooper();
@@ -423,7 +422,6 @@ namespace BLPPCounter
             else OnMiss();
             Finish:
             if (loading) return;
-            Plugin.Log.Info("Notes = " + notes);
             theCounter.SoftUpdate((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
             if (enteredLock) Monitor.Exit(TimeLooper.Locker);
             if (!pc.UpdateAfterTime) theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
@@ -641,7 +639,7 @@ namespace BLPPCounter
             outp.UpdateFormat();
             return outp;
         }
-        private void APIAvoidanceMode()
+        private bool APIAvoidanceMode()
         {
             Plugin.Log.Debug("API Avoidance mode is functioning (probably)!");
 #if NEW_VERSION
@@ -649,6 +647,7 @@ namespace BLPPCounter
 #else
             MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmap.difficulty, mode, passRating, accRating, techRating, starRating); // 1.34.2 and below
 #endif
+            if (!thisMap.IsUsable) return false;
             Plugin.Log.Debug($"Last Map\n-------------------\n{lastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
             bool ratingDiff, diffDiff;
             (ratingDiff, diffDiff) = thisMap.GetDifference(lastMap);
@@ -657,6 +656,7 @@ namespace BLPPCounter
             else if (ratingDiff) theCounter.ReinitCounter(display, passRating, accRating, techRating, starRating);
             else theCounter.ReinitCounter(display);
             lastMap = thisMap;
+            return true;
         }
         private static void InitData(bool loadOnlySS = false, bool doNotLoop = false)
         {
@@ -779,9 +779,9 @@ namespace BLPPCounter
                 if (leaderboard == Leaderboards.Beatleader) mode = beatmapDiff.beatmapCharacteristic.serializedName ?? "Standard"; // 1.37.0 and above
 #else
                 Dictionary<string, (string, JToken)> hold = theMap.Get(beatmap.difficulty);
-                if (leaderboard == Leaderboards.Beatleader) mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName ?? "Standard"; // 1.34.2 and below
+                if (Leaderboard == Leaderboards.Beatleader) mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName ?? "Standard"; // 1.34.2 and below
 #endif
-                else switch (leaderboard)
+                else switch (Leaderboard)
                     {
                         case Leaderboards.Scoresaber:
                             mode = Map.SS_MODE_NAME;
@@ -812,13 +812,13 @@ namespace BLPPCounter
         {
             if (data == null || data.ToString().Length <= 0) return false;
             //Too lazy to use a switch here, sue me.
-            if (leaderboard == Leaderboards.Scoresaber)
+            if (Leaderboard == Leaderboards.Scoresaber)
             {
                 starRating = (float)data["starScoreSaber"];
                 Plugin.Log.Info("Stars: " + starRating);
                 return starRating > 0;
             }
-            if (leaderboard == Leaderboards.Accsaber)
+            if (Leaderboard == Leaderboards.Accsaber)
             {
                 starRating = (float)data["complexityAccSaber"];
                 Plugin.Log.Info("Complexity: " + starRating);

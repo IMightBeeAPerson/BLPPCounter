@@ -21,6 +21,7 @@ using BeatLeader.Models;
 using System.Runtime.CompilerServices;
 using System.Collections;
 using IPA.Config.Data;
+using BLPPCounter.CalculatorStuffs;
 namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
@@ -59,7 +60,7 @@ namespace BLPPCounter.Helpfuls
                 case PPType.Acc: return "accRating";
                 case PPType.Tech: return "techRating";
                 case PPType.Pass: return "passRating";
-                case PPType.Star: return PluginConfig.Instance.Leaderboard == Leaderboards.Accsaber ? "complexity" : "stars";
+                case PPType.Star: return TheCounter.Leaderboard == Leaderboards.Accsaber ? "complexity" : "stars";
                 default: return "";
             }
         }

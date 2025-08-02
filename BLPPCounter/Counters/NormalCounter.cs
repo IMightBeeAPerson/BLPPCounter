@@ -15,7 +15,7 @@ namespace BLPPCounter.Counters
         public string Name => DisplayName;
         private TMP_Text display;
         private int precision;
-        private float[] ppContainer;
+        private float[] ppContainer, ppVals;
         private Calculator Calc;
 
         #region Init
@@ -25,6 +25,7 @@ namespace BLPPCounter.Counters
             precision = PluginConfig.Instance.DecimalPrecision;
             Calc = Calculator.GetSelectedCalc();
             ppContainer = Calc.SelectRatings(starRating, accRating, passRating, techRating);
+            ppVals = new float[Calc.DisplayRatingCount * 2];
         }
         public NormalCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating, map.StarRating) { SetupData(map); }
 
@@ -52,10 +53,9 @@ namespace BLPPCounter.Counters
         #region Updates
         public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
         {
-            float[] ppVals = new float[Calc.DisplayRatingCount * 2];
             bool displayFC = PluginConfig.Instance.PPFC && mistakes > 0;
             Calc.SetPp(acc, ppVals, 0, precision, ppContainer);
-            if (displayFC) Calc.SetPp(fcPercent, ppVals, Calc.DisplayRatingCount, precision, ppContainer);
+            if (displayFC) Calc.SetPp(fcPercent, ppVals, ppVals.Length / 2, precision, ppContainer);
             TheCounter.UpdateText(displayFC, display, ppVals, mistakes);
         }
         public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent) { }

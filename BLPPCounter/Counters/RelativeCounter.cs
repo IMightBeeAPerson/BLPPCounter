@@ -120,8 +120,8 @@ namespace BLPPCounter.Counters
         private int precision, bombs;
         private IMyCounters backup;
         private bool failed, useReplay;
-        private readonly Calculator calc;
-        private readonly Leaderboards leaderboard;
+        private Calculator calc;
+        private Leaderboards leaderboard;
         private float[] selectedRatings, ppVals;
         private bool loadingReplay, caughtUp;
         private int catchUpNotes, displayNum;
@@ -255,7 +255,11 @@ namespace BLPPCounter.Counters
             this.techRating = techRating;
             this.starRating = starRating;
             precision = PC.DecimalPrecision;
+            calc = Calculator.GetSelectedCalc(); //only need to set it here bc when Calculator changes, this class instance gets remade.
             selectedRatings = calc.SelectRatings(starRating, accRating, passRating, techRating);
+            displayNum = calc.DisplayRatingCount;
+            leaderboard = Calculator.UsingDefault ? PC.DefaultLeaderboard : PC.Leaderboard;
+            ppVals = new float[displayNum * 4]; //16 for bl (displayRatingCount bc gotta store total pp as well)
             if (failed) backup.ReinitCounter(display, passRating, accRating, techRating, starRating);
             else ResetVars();
         }
