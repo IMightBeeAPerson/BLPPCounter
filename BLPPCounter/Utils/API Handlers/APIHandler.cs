@@ -65,6 +65,7 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract float GetPP(JToken scoreData);
         public abstract int GetScore(JToken scoreData);
         public abstract float[] GetScoregraph(MapSelection ms);
+        public abstract float[] GetScores(string userId, int count);
         internal abstract void AddMap(Dictionary<string, Map> Data, string hash);
         public static APIHandler GetAPI(bool useDefault = false) => GetAPI(!useDefault ? PluginConfig.Instance.Leaderboard : PluginConfig.Instance.DefaultLeaderboard);
         public static APIHandler GetSelectedAPI() => GetAPI(UsingDefault);

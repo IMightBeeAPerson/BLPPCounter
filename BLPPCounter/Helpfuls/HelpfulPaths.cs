@@ -18,9 +18,12 @@ namespace BLPPCounter.Helpfuls
         #region File Paths
         public static readonly string HOST_NAME = "BLPPCounter";
         public static readonly string PLAYLISTS = Path.Combine(Environment.CurrentDirectory, "Playlists");
-        public static readonly string THE_FOLDER = Path.Combine(Environment.CurrentDirectory, "UserData", HOST_NAME);
+        public static readonly string THE_FOLDER = Path.Combine(Environment.CurrentDirectory, "UserData", "PP Counter");
         public static readonly string BL_CACHE_FILE = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "LeaderboardsCache");
         public static readonly string BL_REPLAY_FOLDER = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "Replays");
+        public static readonly string TAOHABLE_DATA = Path.Combine(THE_FOLDER, "TaohableData.json");
+        public static readonly string HEADERS = Path.Combine(THE_FOLDER, "Headers.json");
+        public static readonly string PROFILE_DATA = Path.Combine(THE_FOLDER, "Profiles.json");
         #endregion
         #region Resource Paths
         public static readonly string COUNTER_BSML = HOST_NAME + ".Settings.BSML.Settings.bsml";
@@ -34,7 +37,8 @@ namespace BLPPCounter.Helpfuls
         public static readonly string BLAPI_HASH = "https://api.beatleader.com/leaderboards/hash/{0}"; //hash
         public static readonly string BLAPI_USERID = "https://api.beatleader.com/user/id/{0}"; //user_id
         public static readonly string BLAPI_CLAN = "https://api.beatleader.com/leaderboard/clanRankings/{0}"; //clan_id
-        public static readonly string BLAPI_SCORE = "https://api.beatleader.com/score/general/{0}/{1}/{2}/{3}"; //user_id, hash, diff, mode || Ex: https://api.beatleader.com/score/8/76561198306905129/a3292aa17b782ee2a229800186324947a4ec9fee/Expert/Standard
+        public static readonly string BLAPI_SCORE = "https://api.beatleader.com/score/general/{0}/{1}/{2}/{3}"; //user_id, hash, diff, mode || Ex: https://api.beatleader.com/score/general/76561198306905129/a3292aa17b782ee2a229800186324947a4ec9fee/Expert/Standard
+        public static readonly string BLAPI_PLAYERSCORES = "https://api.beatleader.xyz/player/{0}/scores/compact?sortBy=pp&page={1}&count={2}&scoreStatus=0&leaderboardContext=general"; //user_id, page, count
 
         public static readonly string SSAPI = "https://scoresaber.com/api/";
         //UNRANKED: https://scoresaber.com/api/leaderboard/by-hash/bdacecbf446f0f066f4189c7fe1a81c6d3664b90/info?difficulty=5
@@ -44,6 +48,7 @@ namespace BLPPCounter.Helpfuls
         public static readonly string SSAPI_USERID = "https://scoresaber.com/api/player/{0}/{1}"; //user_id, either "basic", "full", or "scores"
         public static readonly string SSAPI_DIFFS = "https://scoresaber.com/api/leaderboard/get-difficulties/{0}"; //hash
         public static readonly string SSAPI_LEADERBOARDID = "https://scoresaber.com/api/leaderboard/by-id/{0}/{1}"; //leaderboard_id, either "info" or "scores"
+        public static readonly string SSAPI_PLAYERSCORES = "https://scoresaber.com/api/player/{0}/scores?limit={1}&sort=top&page={2}"; //user_id, count, page
 
         public static readonly string APAPI = "https://api.accsaber.com/"; //No documentation here, doc at https://github.com/accsaber/accsaber-plugin/blob/main/EndpointResearch/ENDPOINTS.md
         public static readonly string APAPI_LEADERBOARDID = "https://api.accsaber.com/ranked-maps/{0}"; //Scoresaber_id
@@ -55,11 +60,11 @@ namespace BLPPCounter.Helpfuls
         #region Directory Checks
         public static bool EnsureTaohableDirectoryExists()
         {
-            string path = Path.Combine(UnityGame.InstallPath, "UserData", "PP Counter");
+            string path = THE_FOLDER;
             if (!Directory.Exists(path)) Directory.CreateDirectory(path);
             path = Path.Combine(path, "TaohableData.json");
             if (!APIHandler.CallAPI_Static(TAOHABLE_META, out HttpContent content))
-                throw new Exception("Taoh's meta file is not available. This either means internet is down or I need to go yell at someone.");
+                throw new Exception("Taoh's meta file is not available. This means either internet is down or I need to go yell at someone.");
             JToken TaohHeaders = JToken.Parse(content.ReadAsStringAsync().Result);
             bool headersGood = true;
             if (!File.Exists(HEADERS)) using (FileStream fs = File.Create(HEADERS))
@@ -77,11 +82,20 @@ namespace BLPPCounter.Helpfuls
                         fs.Write(headerInfo, 0, headerInfo.Length);
                         return false;
                     }
-                JToken CurrentTaohHeaders = JToken.Parse(headerString);
-                int SimpleComparer<T>(T i1, T i2) where T : IComparable => i1.CompareTo(i2);
-                headersGood = HelpfulMisc.CompareStructValues<float>(TaohHeaders, CurrentTaohHeaders, "top10kVersion", SimpleComparer) <= 0
-                    && HelpfulMisc.CompareStructValues<float>(TaohHeaders, CurrentTaohHeaders, "songLibraryVersion", SimpleComparer) <= 0
-                    && HelpfulMisc.CompareValues(TaohHeaders, CurrentTaohHeaders, "top10kUpdated", item => DateTime.Parse(item), SimpleComparer) <= 0;
+                JToken CurrentTaohHeaders = null;
+                try
+                {
+                    CurrentTaohHeaders = JToken.Parse(headerString);
+                    int SimpleComparer<T>(T i1, T i2) where T : IComparable => i1.CompareTo(i2);
+                    headersGood = HelpfulMisc.CompareStructValues<float>(TaohHeaders, CurrentTaohHeaders, "top10kVersion", SimpleComparer) <= 0
+                        && HelpfulMisc.CompareStructValues<float>(TaohHeaders, CurrentTaohHeaders, "songLibraryVersion", SimpleComparer) <= 0
+                        && HelpfulMisc.CompareValues(TaohHeaders, CurrentTaohHeaders, "top10kUpdated", item => DateTime.Parse(item), SimpleComparer) <= 0;
+                } catch (Exception e)
+                {
+                    Plugin.Log.Warn("Oh No! Current Taoh Headers are not parseable! Automatically overriding the problem file.");
+                    File.Delete(HEADERS);
+                    headersGood = false;
+                }
                 if (!headersGood)
                     using (FileStream fs = File.OpenWrite(HEADERS))
                     {
@@ -94,8 +108,6 @@ namespace BLPPCounter.Helpfuls
         #endregion
 
         #region Json Paths
-        public static readonly string TAOHABLE_DATA = Path.Combine(UnityGame.InstallPath, "UserData", "PP Counter", "TaohableData.json");
-        public static readonly string HEADERS = Path.Combine(UnityGame.InstallPath, "UserData", "PP Counter", "Headers.json");
         public static float GetRating(JToken data, PPType type, SongSpeed mod = SongSpeed.Normal)
         {
             if (mod != SongSpeed.Normal) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.

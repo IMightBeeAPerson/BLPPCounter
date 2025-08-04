@@ -51,6 +51,10 @@ namespace BLPPCounter.Utils.API_Handlers
             return APCalc.Instance.GetPp(acc, complexity)[0];
         }
         public override int GetScore(JToken scoreData) => (int)scoreData["baseScore"];
+        public override float[] GetScores(string userId, int count)
+        {
+            return null;
+        }
         public override float[] GetScoregraph(MapSelection ms) => SSAPI.Instance.GetScoregraph(ms);
         internal override void AddMap(Dictionary<string, Map> Data, string hash)
         {

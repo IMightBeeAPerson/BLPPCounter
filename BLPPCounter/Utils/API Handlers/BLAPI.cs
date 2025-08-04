@@ -82,6 +82,21 @@ namespace BLPPCounter.Utils.API_Handlers
                 (float)Math.Round(BLCalc.Instance.Inflate(BLCalc.Instance.GetSummedPp((int)a["modifiedScore"] / maxScore, acc, pass, tech)), PluginConfig.Instance.DecimalPrecision)).ToArray();
             }
         }
+        public override float[] GetScores(string userId, int count)
+        {
+            const int MaxCountToPage = 100;
+            List<float> outp = new List<float>();
+            int pageNum = 1;
+            while (count >= MaxCountToPage)
+            {
+                outp.AddRange(JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.BLAPI_PLAYERSCORES, userId, pageNum, MaxCountToPage)))?["data"].Children().Select(token => (float)token["score"]["pp"]).ToArray());
+                count -= MaxCountToPage;
+                pageNum++;
+            }
+            if (count > 0)
+                outp.AddRange(JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.BLAPI_PLAYERSCORES, userId, pageNum, count)))?["data"].Children().Select(token => (float)token["score"]["pp"]).ToArray());
+            return outp.ToArray();
+        }
         internal override void AddMap(Dictionary<string, Map> Data, string hash)
         {
             try

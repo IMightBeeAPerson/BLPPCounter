@@ -106,6 +106,7 @@ namespace BLPPCounter.Settings.Configs
         #region BL Calculator Settings
         public virtual int TestPPAmount { get; set; } = 450;
         public virtual float TestAccAmount { get; set; } = 95.0f;
+        public virtual int ProfileTestPP { get; set; } = 450;
         public virtual float PercentSliderMin { get; set; } = 75.0f;
         public virtual float PercentSliderMax { get; set; } = 100.0f;
         public virtual int PPSliderMin { get; set; } = 0;

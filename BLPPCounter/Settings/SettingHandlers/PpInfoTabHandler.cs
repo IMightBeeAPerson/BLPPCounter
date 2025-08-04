@@ -58,7 +58,8 @@ namespace BLPPCounter.Settings.SettingHandlers
             { "Info", default },
             { "Capture", default },
             { "Relative", default },
-            { "Custom", default }
+            { "Custom", default },
+            { "Profile", default }
         };
         private readonly Dictionary<string, Action<PpInfoTabHandler>> Updates = new Dictionary<string, Action<PpInfoTabHandler>>()
         {
@@ -66,6 +67,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             {"Capture", new Action<PpInfoTabHandler>(pith => pith.UpdateCaptureValues()) },
             {"Relative", new Action<PpInfoTabHandler>(pith => pith.UpdateRelativeValues()) },
             {"Custom", new Action<PpInfoTabHandler>(pith => pith.UpdateCustomAccuracy()) },
+            {"Profile", new Action<PpInfoTabHandler>(pith => pith.UpdateProfile()) }
         };
         private static readonly string[] SelectionButtonTags = new string[4] { "SSButton", "NMButton", "FSButton", "SFButton" };
         private Table ClanTableTable, RelativeTableTable, PPTableTable, PercentTableTable;
@@ -78,8 +80,10 @@ namespace BLPPCounter.Settings.SettingHandlers
         #region Clan Counter
         private float PPToCapture = 0;
         #endregion
-        #region Custom Accuracy
+        #region Custom Accuracy & Profile
         private bool IsPPMode = true;
+
+        private Profile CurrentProfile;
         #endregion
         #endregion
         #region UI Variables & components
@@ -154,6 +158,14 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(MinPPSlider))] private SliderSetting MinPPSlider;
         [UIComponent(nameof(MaxPPSlider))] private SliderSetting MaxPPSlider;
 
+        [UIValue(nameof(ProfileTestPp))] private int ProfileTestPp
+        {
+            get => PC.ProfileTestPP;
+            set => PC.ProfileTestPP = value;
+        }
+
+        [UIComponent(nameof(PlusOneText))] private TextMeshProUGUI PlusOneText;
+
         [UIValue(nameof(TestAcc))] private float TestAcc 
         {
             get => PC.TestAccAmount;
@@ -190,15 +202,10 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(ClanTarget))] private TextMeshProUGUI ClanTarget;
         [UIComponent(nameof(PPTarget))] private TextMeshProUGUI PPTarget;
 
-        /*[UIComponent(nameof(AccStarText))] private TextMeshProUGUI AccStarText;
-        [UIComponent(nameof(TechStarText))] private TextMeshProUGUI TechStarText;
-        [UIComponent(nameof(PassStarText))] private TextMeshProUGUI PassStarText;
-        [UIComponent(nameof(StarText))] private TextMeshProUGUI StarText;//*/
         [UIComponent(nameof(SpeedModText))] private TextMeshProUGUI SpeedModText;
         [UIComponent(nameof(ModMultText))] private TextMeshProUGUI ModMultText;
         [UIComponent(nameof(PrefixLabels))] private TextMeshProUGUI PrefixLabels;
         [UIComponent(nameof(StarRatings))] private TextMeshProUGUI StarRatings;
-
         [UIComponent(nameof(MapName))] private TextMeshProUGUI MapName;
         [UIComponent(nameof(MapID))] private TextMeshProUGUI MapID;
         [UIComponent(nameof(MapMode))] private TextMeshProUGUI MapMode;
@@ -628,6 +635,11 @@ namespace BLPPCounter.Settings.SettingHandlers
             MapModeText = HelpfulMisc.AddSpaces(modeName);
             if (api.AreRatingsNull(CurrentDiff.Diffdata))
                 CurrentDiff = (null, null);
+        }
+        private void UpdateProfile()
+        {
+            CurrentProfile = new Profile(CurrentLeaderboard, Targeter.PlayerID);
+            PlusOneText.SetText($"+1{GetPPLabel()}: <color=#00FF00>{CurrentProfile.PlusOne}</color>{GetPPLabel()}");
         }
         public void Refresh(bool forceRefresh = false) => Task.Run(() => DoRefresh(forceRefresh));
         private void DoRefresh(bool forceRefresh)
