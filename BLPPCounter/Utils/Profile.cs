@@ -215,9 +215,16 @@ namespace BLPPCounter.Utils
             PlusOne = i < WeightedScores.Length ?
                 (float)Math.Round((1 + shiftWeight * weightedSum) / GetWeight(i + 1), PluginConfig.Instance.DecimalPrecision) : 0;
         }
-        public void AddPlay()
+        public void AddPlay(float rawPP)
         {
-
+            if (Scores[Scores.Length - 1] > rawPP) return;
+            int index = Array.BinarySearch(Scores, rawPP);
+            if (index < 0) index = -index - 1;
+            List<float> hold = Scores.ToList();
+            hold.Insert(index, rawPP);
+            hold.RemoveAt(hold.Count - 1);
+            Scores = hold.ToArray();
+            WeightScores();
         }
         #endregion
     }

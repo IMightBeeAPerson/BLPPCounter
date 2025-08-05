@@ -248,7 +248,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         [UIAction(nameof(AddTopChunk))]
         private void AddTopChunk()
         {
-            FormatChunks.ShiftDown(FormatListInfo.DefaultVal);
+            FormatChunks.Insert(0, FormatListInfo.DefaultVal);
             if (FormatChunks.Count >= 2)
                 (FormatChunks[1] as FormatListInfo).AboveInfo = FormatChunks[0] as FormatListInfo;
             UpdateFormatTable(true);
@@ -257,7 +257,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private void AddAboveSelected()
         { //lastSelectedInfo is already null checked before this is called, so no need to do it twice.
             int selectedIndex = FormatChunks.IndexOf(lastSelectedInfo);
-            FormatChunks.ShiftDown(selectedIndex, FormatListInfo.DefaultVal); //places given val ABOVE the val at the index.
+            FormatChunks.Insert(selectedIndex, FormatListInfo.DefaultVal); //places given val ABOVE the val at the index.
             if (FormatChunks.Count > selectedIndex + 1)
                 (FormatChunks[selectedIndex + 1] as FormatListInfo).AboveInfo = FormatChunks[selectedIndex] as FormatListInfo;
             UpdateFormatTable(true);
@@ -266,7 +266,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private void AddBelowSelected()
         { //lastSelectedInfo is already null checked before this is called, so no need to do it twice.
             int selectedIndex = FormatChunks.IndexOf(lastSelectedInfo) + 1;
-            FormatChunks.ShiftDown(selectedIndex, FormatListInfo.DefaultVal);
+            FormatChunks.Insert(selectedIndex, FormatListInfo.DefaultVal);
             if (FormatChunks.Count > selectedIndex + 1)
                 (FormatChunks[selectedIndex + 1] as FormatListInfo).AboveInfo = FormatChunks[selectedIndex] as FormatListInfo;
             UpdateFormatTable(true);
