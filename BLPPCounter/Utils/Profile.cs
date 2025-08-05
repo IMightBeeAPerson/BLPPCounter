@@ -27,9 +27,11 @@ namespace BLPPCounter.Utils
         private float[] Scores;
         [JsonIgnore]
         private float[] WeightedScores;
+        [JsonProperty(nameof(TotalPP), Required = Required.DisallowNull)]
+        private float TotalPP;
         [JsonProperty(nameof(UserID), Required = Required.DisallowNull)]
         private readonly string UserID;
-        [JsonIgnore]
+        [JsonProperty(nameof(PlusOne), Required = Required.DisallowNull)]
         public float PlusOne { get; private set; }
         #endregion
         #region Init
@@ -50,11 +52,16 @@ namespace BLPPCounter.Utils
         }
         private void InitScores()
         {
-            Scores = APIHandler.GetAPI(Leaderboard).GetScores(UserID, GetPlusOneCount());
+            APIHandler api = APIHandler.GetAPI(Leaderboard);
+            Scores = api.GetScores(UserID, GetPlusOneCount());
+            TotalPP = api.GetProfilePP(UserID);
             if (Scores is null) Scores = new float[1] { 0.0f };
             WeightScores();
             CalculatePlusOne();
         }
+        #endregion
+        #region Static Functions
+        
         #endregion
         #region Misc Functions
         private float GetWeight(int scoreNum)
@@ -108,7 +115,7 @@ namespace BLPPCounter.Utils
                 WeightedScores[i] = weight * Scores[i];
                 weight = GetNextWeight(weight);
             }
-            Plugin.Log.Info($"Scores: {HelpfulMisc.Print(Scores)}\nWeighted Scores: {HelpfulMisc.Print(WeightedScores)}");
+            //Plugin.Log.Info($"Scores: {HelpfulMisc.Print(Scores)}\nWeighted Scores: {HelpfulMisc.Print(WeightedScores)}");
         }
         private int GetPlusOneCount()
         {
@@ -116,7 +123,7 @@ namespace BLPPCounter.Utils
             {
                 case Leaderboards.Beatleader:
                 case Leaderboards.Scoresaber:
-                    return 400;
+                    return 100;
                 case Leaderboards.Accsaber:
                     return 50;
                 default:
@@ -125,19 +132,12 @@ namespace BLPPCounter.Utils
         }
         private void CalculatePlusOne()
         {
-            float sum = 0;
-            int i = Scores.Length - 1;
-            float currentWeight = GetWeight(i + 2), previousWeight = 1;
-            for (; i > 0; i--)
-            {
-                previousWeight = GetPreviousWeight(currentWeight);
-                sum += (Scores[i] * previousWeight) - (Scores[i] * currentWeight);
-                currentWeight = previousWeight;
-                if (Scores[i - 1] * previousWeight - sum >= 1.0f)
-                    break;
-            }
-            PlusOne = (1 + sum) / previousWeight;
-            PlusOne = (float)Math.Round(PlusOne, PluginConfig.Instance.DecimalPrecision);
+            int i = 0;
+            float shiftWeight = 1.0f - GetWeight(2);
+            float weightedSum = TotalPP;
+            for (; i < WeightedScores.Length && WeightedScores[i] - shiftWeight * weightedSum >= 1.0f; weightedSum -= WeightedScores[i], i++) ;
+            PlusOne = i < WeightedScores.Length ? 
+                (float)Math.Round((1 + shiftWeight * weightedSum) / GetWeight(i + 1), PluginConfig.Instance.DecimalPrecision) : 0;
         }
         #endregion
     }

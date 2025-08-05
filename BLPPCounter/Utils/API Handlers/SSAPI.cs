@@ -78,6 +78,10 @@ namespace BLPPCounter.Utils.API_Handlers
                 outp.AddRange(JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_PLAYERSCORES, userId, count, pageNum)))?["playerScores"].Children().Select(token => (float)token["score"]["pp"]));
             return outp.ToArray();
         }
+        public override float GetProfilePP(string userId)
+        {
+            return (float)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_USERID, userId, "basic")))?["pp"];
+        }
         public override float[] GetScoregraph(MapSelection ms)
         {
             IEnumerable<float> pps = new List<float>();

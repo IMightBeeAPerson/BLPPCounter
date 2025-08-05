@@ -55,6 +55,10 @@ namespace BLPPCounter.Utils.API_Handlers
         {
             return null;
         }
+        public override float GetProfilePP(string userId)
+        {
+            return (float)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.APAPI_PLAYERID, userId)))?["ap"];
+        }
         public override float[] GetScoregraph(MapSelection ms) => SSAPI.Instance.GetScoregraph(ms);
         internal override void AddMap(Dictionary<string, Map> Data, string hash)
         {

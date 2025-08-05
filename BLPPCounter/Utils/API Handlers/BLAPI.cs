@@ -97,6 +97,10 @@ namespace BLPPCounter.Utils.API_Handlers
                 outp.AddRange(JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.BLAPI_PLAYERSCORES, userId, pageNum, count)))?["data"].Children().Select(token => (float)token["score"]["pp"]).ToArray());
             return outp.ToArray();
         }
+        public override float GetProfilePP(string userId)
+        {
+            return (float)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.BLAPI_USERID, userId)))?["pp"];
+        }
         internal override void AddMap(Dictionary<string, Map> Data, string hash)
         {
             try
