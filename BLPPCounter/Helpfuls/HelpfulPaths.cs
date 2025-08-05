@@ -35,10 +35,10 @@ namespace BLPPCounter.Helpfuls
         #region API Paths
         public static readonly string BLAPI = "https://api.beatleader.com/";
         public static readonly string BLAPI_HASH = "https://api.beatleader.com/leaderboards/hash/{0}"; //hash
-        public static readonly string BLAPI_USERID = "https://api.beatleader.com/user/id/{0}"; //user_id
+        public static readonly string BLAPI_USERID = "https://api.beatleader.com/player/{0}"; //user_id
         public static readonly string BLAPI_CLAN = "https://api.beatleader.com/leaderboard/clanRankings/{0}"; //clan_id
         public static readonly string BLAPI_SCORE = "https://api.beatleader.com/score/general/{0}/{1}/{2}/{3}"; //user_id, hash, diff, mode || Ex: https://api.beatleader.com/score/general/76561198306905129/a3292aa17b782ee2a229800186324947a4ec9fee/Expert/Standard
-        public static readonly string BLAPI_PLAYERSCORES = "https://api.beatleader.xyz/player/{0}/scores/compact?sortBy=pp&page={1}&count={2}&scoreStatus=0&leaderboardContext=general"; //user_id, page, count
+        public static readonly string BLAPI_PLAYERSCORES = "https://api.beatleader.com/player/{0}/scores/compact?sortBy=pp&page={1}&count={2}&scoreStatus=0&leaderboardContext=general"; //user_id, page, count
 
         public static readonly string SSAPI = "https://scoresaber.com/api/";
         //UNRANKED: https://scoresaber.com/api/leaderboard/by-hash/bdacecbf446f0f066f4189c7fe1a81c6d3664b90/info?difficulty=5

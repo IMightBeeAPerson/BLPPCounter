@@ -108,20 +108,29 @@
   </tab>
 
   <tab tags='tabs' tab-name='Profile'>
-    <vertical spacing='0.5' vertical-fit='PreferredSize' pref-height='35' anchor-pos-y='-10.5' horizontal-fit='PreferredSize' pref-width='80' child-expand-height='false'>
+    <vertical spacing='1' vertical-fit='PreferredSize' pref-height='35' anchor-pos-y='0' horizontal-fit='PreferredSize' pref-width='80' child-expand-height='false'>
+      <horizontal>
+        <text text='+1 pp' align='Left'/>
+        <text id='PlusOneText' text='-1 pp' align='Right'/>
+      </horizontal>
       <horizontal>
         <button text='Reload Data' hover-hint='Reloads ALL profile scores (this is slow)' align='Left'/>
-        <text id='PlusOneText' text='+1 pp: ' align='Right'/>
+        <button text='Input play PP' on-click='UpdateProfilePP' align='Right'/>
       </horizontal>
-      <button text='Input play PP' align='Center'/>
       <slider-setting id='ProfilePPSlider' text='To Get' color='#A020F0' increment='5' integer-only='true' min='~PPSliderMin' max='~PPSliderMax' show-buttons='true' apply-on-change='true' value='ProfileTestPp' formatter='PPFormat'/>
-      <text text='The weighted amount is ### pp'/>
-      <text text='The amount of profile pp gained is ### pp'/>
+      <horizontal>
+      <text id='WeightedText' text='' align='Left'/>
+      <text id='WeightedTextValue' text='' align='Right'/>
+      </horizontal>
+      <horizontal>
+        <text id='ProfilePPText' text='' align='Left'/>
+        <text id='ProfilePPTextValue' text='' align='Right'/>  
+      </horizontal>
     </vertical>
   </tab>
 
   <tab tags='tabs' tab-name='Settings'>
-    <settings-container anchor-pos-y='~TabPos' size-delta-y='1'>
+    <settings-container anchor-pos-y='~TabPos'>
       <vertical spacing='2' child-expand-height='true' horizontal-fit='PreferredSize' pref-width='100' vertical-fit='PreferredSize'>
         <vertical spacing='0' horizontal-fit='PreferredSize' pref-width='100'>
           <button text='Save' on-click='SaveSettings'/>

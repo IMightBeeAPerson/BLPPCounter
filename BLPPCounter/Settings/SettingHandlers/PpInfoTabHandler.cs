@@ -22,6 +22,7 @@ using BS_Utils.Utilities;
 using BLPPCounter.Utils.API_Handlers;
 using BeatSaberMarkupLanguage.Components;
 using IPA.Utilities;
+using UnityEngine.Profiling;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -165,6 +166,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
 
         [UIComponent(nameof(PlusOneText))] private TextMeshProUGUI PlusOneText;
+        [UIComponent(nameof(ProfilePPSlider))] private SliderSetting ProfilePPSlider;
+        [UIComponent(nameof(WeightedText))] private TextMeshProUGUI WeightedText;
+        [UIComponent(nameof(WeightedTextValue))] private TextMeshProUGUI WeightedTextValue;
+        [UIComponent(nameof(ProfilePPText))] private TextMeshProUGUI ProfilePPText;
+        [UIComponent(nameof(ProfilePPTextValue))] private TextMeshProUGUI ProfilePPTextValue;
+
 
         [UIValue(nameof(TestAcc))] private float TestAcc 
         {
@@ -286,6 +293,15 @@ namespace BLPPCounter.Settings.SettingHandlers
             Gmpc.ChangeSongSpeed(speed);
             UpdateMods();
             UpdateCurrentTable();
+        }
+        [UIAction(nameof(UpdateProfilePP))] private void UpdateProfilePP()
+        {
+            float ppAmount = ProfilePPSlider.Value;
+            float weightedPpAmount = CurrentProfile.GetWeightedPP(ppAmount);
+            WeightedText.SetText($"<color=green>Weighted</color> {GetPPLabel()}");
+            WeightedTextValue.SetText("<color=#aa7722>" + weightedPpAmount + "</color> " + GetPPLabel());
+            ProfilePPText.SetText($"<color=yellow>Profile</color> {GetPPLabel()}");
+            ProfilePPTextValue.SetText("<color=purple>" + CurrentProfile.GetProfilePP(weightedPpAmount) + "</color> " + GetPPLabel());
         }
         [UIAction(nameof(SaveSettings))] private void SaveSettings()
         {
@@ -638,8 +654,9 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private void UpdateProfile()
         {
-            CurrentProfile = new Profile(CurrentLeaderboard, Targeter.PlayerID);
-            PlusOneText.SetText($"+1{GetPPLabel()}: <color=#00FF00>{CurrentProfile.PlusOne}</color>{GetPPLabel()}");
+            CurrentProfile = Profile.GetProfile(CurrentLeaderboard, Targeter.PlayerID);
+            PlusOneText.SetText($"<color=#00FF00>{CurrentProfile.PlusOne}</color> {GetPPLabel()}");
+            UpdateProfilePP();
         }
         public void Refresh(bool forceRefresh = false) => Task.Run(() => DoRefresh(forceRefresh));
         private void DoRefresh(bool forceRefresh)

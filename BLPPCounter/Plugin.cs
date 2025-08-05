@@ -61,6 +61,7 @@ namespace BLPPCounter
             TheCounter.InitCounterStatic();
             Harmony = new Harmony("Person.BLPPCounter");
             Harmony.PatchAll(Assembly.GetExecutingAssembly());
+            Profile.LoadAllProfiles();
 
             //new PlaylistLoader();
             /*ClanCounter.FormatTheFormat();
@@ -83,6 +84,7 @@ namespace BLPPCounter
             BSMLSettings.instance.RemoveSettingsMenu(SettingsHandler.Instance);
             BSEvents.menuSceneActive -= AddMenuStuff; // 1.34.2 and below
 #endif
+            Profile.SaveAllProfiles();
             Harmony.UnpatchSelf();
         }
 
