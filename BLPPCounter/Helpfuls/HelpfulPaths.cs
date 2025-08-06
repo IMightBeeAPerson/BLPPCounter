@@ -110,13 +110,13 @@ namespace BLPPCounter.Helpfuls
         #region Json Paths
         public static float GetRating(JToken data, PPType type, SongSpeed mod = SongSpeed.Normal)
         {
-            if (mod != SongSpeed.Normal) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
+            if (mod != SongSpeed.Normal && !(data["modifiersRating"] is null)) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
             string path = HelpfulMisc.AddModifier(HelpfulMisc.PPTypeToRating(type), mod);
             return (float)(data?[path] ?? 0);
         }
         public static float GetRating(JToken data, PPType type, string modName)
         {
-            if (!modName.Equals("")) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
+            if (!modName.Equals("") && !(data["modifiersRating"] is null)) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
             string path = HelpfulMisc.AddModifier(HelpfulMisc.PPTypeToRating(type), modName);
             return (float)(data?[path] ?? 0);
         }

@@ -84,7 +84,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         #region Custom Accuracy & Profile
         private bool IsPPMode = true;
 
-        private Profile CurrentProfile;
+        private Profile CurrentProfile = null;
         #endregion
         #endregion
         #region UI Variables & components
@@ -303,6 +303,11 @@ namespace BLPPCounter.Settings.SettingHandlers
             ProfilePPText.SetText($"<color=yellow>Profile</color> {GetPPLabel()}");
             ProfilePPTextValue.SetText("<color=purple>" + CurrentProfile.GetProfilePP(weightedPpAmount) + "</color> " + GetPPLabel());
         }
+        [UIAction(nameof(RefreshProfilePP))] private void RefreshProfilePP()
+        {
+            CurrentProfile.ReloadScores();
+            UpdateProfilePP();
+        }
         [UIAction(nameof(SaveSettings))] private void SaveSettings()
         {
             PC.PercentSliderMin = _PercentSliderMin;
@@ -332,6 +337,10 @@ namespace BLPPCounter.Settings.SettingHandlers
             BSEvents.levelCleared += (transition, results) =>
             {
                 Instance.ClearMapTabs();
+                float finalAcc = results.totalCutScore / (float)results.maxCutScore;
+                float[] ratings = Instance.CurrentCalculator.SelectRatings(TheCounter.LastMap.StarRating, TheCounter.LastMap.AccRating, TheCounter.LastMap.PassRating, TheCounter.LastMap.TechRating);
+                Profile.GetProfile(Calculator.UsingDefault ? PC.DefaultLeaderboard : PC.Leaderboard, Targeter.PlayerID)
+                .AddPlay(Instance.CurrentCalculator.Inflate(Instance.CurrentCalculator.GetSummedPp(finalAcc, ratings)));
             };
             InitFormatters();
             Instance = new PpInfoTabHandler();

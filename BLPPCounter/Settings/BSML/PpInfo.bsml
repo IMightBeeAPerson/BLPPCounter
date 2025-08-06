@@ -114,7 +114,7 @@
         <text id='PlusOneText' text='-1 pp' align='Right'/>
       </horizontal>
       <horizontal>
-        <button text='Reload Data' hover-hint='Reloads ALL profile scores (this is slow)' align='Left'/>
+        <button text='Reload Data' hover-hint='Reloads ALL profile scores (this is slow)' on-click='RefreshProfilePP' align='Left'/>
         <button text='Input play PP' on-click='UpdateProfilePP' align='Right'/>
       </horizontal>
       <slider-setting id='ProfilePPSlider' text='To Get' color='#A020F0' increment='5' integer-only='true' min='~PPSliderMin' max='~PPSliderMax' show-buttons='true' apply-on-change='true' value='ProfileTestPp' formatter='PPFormat'/>

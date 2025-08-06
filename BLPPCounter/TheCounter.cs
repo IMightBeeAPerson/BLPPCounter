@@ -51,7 +51,7 @@ namespace BLPPCounter
         private static PluginConfig pc => PluginConfig.Instance;
         private static bool dataLoaded = false, fullDisable = false, usingDefaultLeaderboard = false;
         internal static Leaderboards Leaderboard => usingDefaultLeaderboard ? pc.DefaultLeaderboard : pc.Leaderboard;
-        private static MapSelection lastMap;
+        internal static MapSelection LastMap;
         public static IMyCounters theCounter { get; internal set; }
         public static ReadOnlyDictionary<string, Type> StaticFunctions { get; private set; }
         public static ReadOnlyDictionary<string, Type> StaticProperties { get; private set; }
@@ -336,7 +336,7 @@ namespace BLPPCounter
                             //Need to recall this one so that it implements the current counter's wants properly
                             if (FormatTheFormat(pc.FormatSettings.DefaultTextFormat)) InitDisplayFormat();
                     //Plugin.Log.Info($"CounterChange = {counterChange}\nNULL CHECKS\nLast map: {lastMap.Equals(default)}, hash: {hash is null}, pc: {pc is null}, PPType: {pc?.PPType is null}, lastTarget: {lastTarget is null}, Target: {pc.Target is null}");
-                    if (theCounter is null || SettingChanged || counterChange || lastMap.Equals(default) || !hash.Equals(lastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
+                    if (theCounter is null || SettingChanged || counterChange || LastMap.Equals(default) || !hash.Equals(LastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
                     {
                         SettingChanged = false;
                         Data.TryGetValue(hash, out Map m);
@@ -356,7 +356,7 @@ namespace BLPPCounter
                             Plugin.Log.Warn("The status of this map marks it as unusable.");
                             goto Failed;
                         } 
-                        lastMap = ms;
+                        LastMap = ms;
                         APIHandler.UsingDefault = usingDefaultLeaderboard;
                         Calculator.UsingDefault = usingDefaultLeaderboard;
                         if (!InitCounter())
@@ -483,7 +483,7 @@ namespace BLPPCounter
             hasNotifiers = a;
         }
         private void ClearCounterCaller(StandardLevelScenesTransitionSetupDataSO slstsdso, LevelCompletionResults lcr) => ClearCounter();
-        public static void ClearCounter() => lastMap = default;
+        public static void ClearCounter() => LastMap = default;
         public static void ForceLoadMaps()
         {
             if (dataLoaded) return;
@@ -635,7 +635,7 @@ namespace BLPPCounter
             Type counterType = ValidCounters.FirstOrDefault(a => a.FullName.Equals(displayName));
             if (counterType == default) 
                 throw new ArgumentException($"Name '{displayName}' is not a counter! Valid counter names are:\n{string.Join("\n", ValidCounters as IEnumerable<Type>)}");
-            IMyCounters outp = (IMyCounters)Activator.CreateInstance(counterType, display, lastMap);
+            IMyCounters outp = (IMyCounters)Activator.CreateInstance(counterType, display, LastMap);
             outp.UpdateFormat();
             return outp;
         }
@@ -645,17 +645,17 @@ namespace BLPPCounter
 #if NEW_VERSION
             MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmapDiff.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and above
 #else
-            MapSelection thisMap = new MapSelection(Data[lastMap.Hash], beatmap.difficulty, mode, passRating, accRating, techRating, starRating); // 1.34.2 and below
+            MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmap.difficulty, mode, passRating, accRating, techRating, starRating); // 1.34.2 and below
 #endif
             if (!thisMap.IsUsable) return false;
-            Plugin.Log.Debug($"Last Map\n-------------------\n{lastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
+            Plugin.Log.Debug($"Last Map\n-------------------\n{LastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
             bool ratingDiff, diffDiff;
-            (ratingDiff, diffDiff) = thisMap.GetDifference(lastMap);
+            (ratingDiff, diffDiff) = thisMap.GetDifference(LastMap);
             Plugin.Log.Debug($"DID CHANGE || Rating: {ratingDiff}, Difficulty: {diffDiff}");
             if (diffDiff) theCounter.ReinitCounter(display, thisMap);
             else if (ratingDiff) theCounter.ReinitCounter(display, passRating, accRating, techRating, starRating);
             else theCounter.ReinitCounter(display);
-            lastMap = thisMap;
+            LastMap = thisMap;
             return true;
         }
         private static void InitData(bool loadOnlySS = false, bool doNotLoop = false)

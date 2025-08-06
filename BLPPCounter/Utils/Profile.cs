@@ -68,6 +68,12 @@ namespace BLPPCounter.Utils
             if (PlusOne < 0)
                 CalculatePlusOne();
         }
+        public void ReloadScores()
+        {
+            TotalPP = 0;
+            PlusOne = 0;
+            InitScores();
+        }
         #endregion
         #region Static Functions
         public static void SaveProfile(Profile profile)
@@ -107,7 +113,7 @@ namespace BLPPCounter.Utils
         }
         public static Profile GetProfile(Leaderboards leaderboard, string userID)
         {
-            if (LoadedProfiles.TryGetValue(userID + "_" + (int)leaderboard, out Profile profile))
+            if (LoadedProfiles.TryGetValue(GetID(leaderboard, userID), out Profile profile))
                 return profile;
             else
             {
@@ -116,6 +122,9 @@ namespace BLPPCounter.Utils
                 return profile;
             }
         }
+        public static Profile TryGetProfile(Leaderboards leaderboard, string userID) => 
+            LoadedProfiles.ContainsKey(GetID(leaderboard, userID)) ? LoadedProfiles[GetID(leaderboard, userID)] : null;
+        public static string GetID(Leaderboards leaderboard, string userID) => userID + "_" + (int)leaderboard;
         #endregion
         #region Misc Functions
         private float GetWeight(int scoreNum)
@@ -217,7 +226,8 @@ namespace BLPPCounter.Utils
         }
         public void AddPlay(float rawPP)
         {
-            if (Scores[Scores.Length - 1] > rawPP) return;
+            Plugin.Log.Info("pp: " + rawPP);
+            if (float.IsNaN(rawPP) || Scores[Scores.Length - 1] > rawPP) return;
             int index = Array.BinarySearch(Scores, rawPP);
             if (index < 0) index = -index - 1;
             List<float> hold = Scores.ToList();
