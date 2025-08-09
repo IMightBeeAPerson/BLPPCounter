@@ -66,13 +66,15 @@ namespace BLPPCounter.Utils
             }
             WeightScores();
             if (PlusOne < 0)
-                CalculatePlusOne();
+                PlusOne = CalculatePlusOne();
         }
         public void ReloadScores()
         {
-            TotalPP = 0;
-            PlusOne = 0;
+            TotalPP = -1;
+            PlusOne = -1;
             InitScores();
+            Plugin.Log.Info($"Scores Length: {Scores.Length}\nNew Scores: {HelpfulMisc.Print(Scores)}");
+            Plugin.Log.Info($"Weighted Scores Length: {WeightedScores.Length}\nNew Weighted Scores: {HelpfulMisc.Print(WeightedScores)}");
         }
         #endregion
         #region Static Functions
@@ -95,7 +97,7 @@ namespace BLPPCounter.Utils
         internal static void LoadAllProfiles()
         {
             if (!File.Exists(HelpfulPaths.PROFILE_DATA)) return;
-            JEnumerable<JToken> profiles = default;
+            JEnumerable<JToken> profiles;
             try
             {
                 profiles = JToken.Parse(File.ReadAllText(HelpfulPaths.PROFILE_DATA)).Children();
@@ -193,7 +195,7 @@ namespace BLPPCounter.Utils
                     return 0;
             }
         }
-        public int GetScoreIndex(float rawPP)
+        private int GetScoreIndex(float rawPP)
         {
             int i = 0;
             while (i < Scores.Length && Scores[i] > rawPP) i++;
@@ -206,35 +208,55 @@ namespace BLPPCounter.Utils
             return i + 1;
         }
         public float GetWeightedPP(float rawPP) => (float)Math.Round(GetWeight(GetScoreIndex(rawPP)) * rawPP, PluginConfig.Instance.DecimalPrecision);
-        public float GetProfilePP(float weightedPP)
+        public float GetProfilePP(float weightedPP) => GetProfilePP(weightedPP, WeightedScores, GetScoreIndexWeighted(weightedPP));
+        public float GetProfilePPRaw(float rawPP) => GetProfilePP(GetWeightedPP(rawPP), WeightedScores, GetScoreIndex(rawPP));
+        private float GetProfilePP(float pp, float[] scores, int index)
         {
-            int i = GetScoreIndexWeighted(weightedPP);
-            float shiftWeight = 1.0f - GetWeight(2);
             float weightedSum = TotalPP;
-            for (int j = 0; j + 1 < i; weightedSum -= WeightedScores[j], j++) ;
-            float outp = (float)Math.Round(weightedPP - shiftWeight * weightedSum, PluginConfig.Instance.DecimalPrecision);
+            if (index-- >= scores.Length)
+                return -1;
+            else for (int j = 0; j < index; weightedSum -= scores[j], j++) ;
+            float outp = (float)Math.Round(pp - (1.0f - GetWeight(2)) * weightedSum, PluginConfig.Instance.DecimalPrecision);
             return outp < 0 ? 0 : outp;
         }
-        private void CalculatePlusOne()
+        public float CalculatePlusOne()
         {
             int i = 0;
             float shiftWeight = 1.0f - GetWeight(2);
             float weightedSum = TotalPP;
             for (; i < WeightedScores.Length && WeightedScores[i] - shiftWeight * weightedSum >= 1.0f; weightedSum -= WeightedScores[i], i++) ;
-            PlusOne = i < WeightedScores.Length ?
+            return i < WeightedScores.Length ?
+                (float)Math.Round((1 + shiftWeight * weightedSum) / GetWeight(i + 1), PluginConfig.Instance.DecimalPrecision) : 0;
+        }
+        public float CalculatePlusOne(int scoreNum)
+        {
+            int i = 0;
+            float shiftWeight = 1.0f - GetWeight(2);
+            float weightedSum = TotalPP;
+            float currentMult = GetWeight(scoreNum + 1);
+            while (i < WeightedScores.Length && WeightedScores[i] - shiftWeight * weightedSum >= 1.0f)
+            {
+                if (i == scoreNum - 1) continue;
+                if (i >= scoreNum)
+                {
+                    weightedSum -= Scores[i] * currentMult;
+                    currentMult = GetNextWeight(scoreNum);
+                } else
+                    weightedSum -= WeightedScores[i];
+                i++;
+            }
+            return i < WeightedScores.Length ?
                 (float)Math.Round((1 + shiftWeight * weightedSum) / GetWeight(i + 1), PluginConfig.Instance.DecimalPrecision) : 0;
         }
         public void AddPlay(float rawPP)
         {
-            Plugin.Log.Info("pp: " + rawPP);
             if (float.IsNaN(rawPP) || Scores[Scores.Length - 1] > rawPP) return;
-            int index = Array.BinarySearch(Scores, rawPP);
-            if (index < 0) index = -index - 1;
-            List<float> hold = Scores.ToList();
-            hold.Insert(index, rawPP);
-            hold.RemoveAt(hold.Count - 1);
-            Scores = hold.ToArray();
-            WeightScores();
+            int index = Scores.Length - HelpfulMisc.FindInsertValue(Scores.Reverse().ToArray(), rawPP);
+            float profilePP = GetProfilePP(GetWeightedPP(rawPP), WeightedScores, index + 1);
+            if (profilePP > 0) TotalPP += profilePP;
+            HelpfulMisc.SiftDown(Scores, index, rawPP);
+            HelpfulMisc.SiftDown(WeightedScores, index, GetWeight(index + 1) * rawPP, GetWeight(2));
+            PlusOne = CalculatePlusOne();
         }
         #endregion
     }

@@ -31,7 +31,7 @@ namespace BLPPCounter.Helpfuls
         public static readonly HashSet<char> SPECIAL_CHARS, ALL_SPECIAL_CHARS; 
         //difference is SPECIAL_CHARS only contains characters that modifies the format by itself, unlike chars like OPEN_PARAM which are normal unless used after an escaped token.
         public static Dictionary<string, string> RICH_SHORTHANDS => PC.TokenSettings.RichShorthands;
-        public static readonly string NUMBER_TOSTRING_FORMAT;
+        public static string NUMBER_TOSTRING_FORMAT { get; internal set; }
         public static readonly Dictionary<string, char> GLOBAL_ALIASES;
         public static readonly Func<char, int> GLOBAL_PARAM_AMOUNT = c => GetGlobalParamAmount(c);
 
@@ -48,7 +48,7 @@ namespace BLPPCounter.Helpfuls
             RegexAliasPattern = string.Format(RegexAliasPattern, Regex.Escape(ESCAPE_CHAR + ""), Regex.Escape(GROUP_OPEN + ""), Regex.Escape(ALIAS + ""), Regex.Escape(PARAM_OPEN + ""), Regex.Escape(PARAM_CLOSE + ""));
             TestRegexAliasPattern = string.Format(TestRegexAliasPattern, Regex.Escape(ESCAPE_CHAR + ""), Regex.Escape(GROUP_OPEN + ""), Regex.Escape(ALIAS + ""), Regex.Escape(PARAM_OPEN + ""), Regex.Escape(PARAM_CLOSE + ""));
             RegexAliasErrorFinder = string.Format(RegexAliasErrorFinder, Regex.Escape(ESCAPE_CHAR + ""), Regex.Escape(GROUP_OPEN + ""), Regex.Escape(ALIAS + ""), Regex.Escape(PARAM_OPEN + ""));
-            var hold = "";
+            string hold = "";
             for (int i = 0; i < PC.DecimalPrecision; i++) hold += "#";
             NUMBER_TOSTRING_FORMAT = PC.DecimalPrecision > 0 ? PC.FormatSettings.NumberFormat.Replace("#", "#." + hold) : PC.FormatSettings.NumberFormat;
             SPECIAL_CHARS = new HashSet<char>() { ESCAPE_CHAR, RICH_SHORT, GROUP_OPEN, GROUP_CLOSE, CAPTURE_OPEN, CAPTURE_CLOSE };

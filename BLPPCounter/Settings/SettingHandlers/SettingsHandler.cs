@@ -45,8 +45,21 @@ namespace BLPPCounter.Settings.SettingHandlers
             };
             PropertyChanged += (obj, args) =>
             {
-                if (args.PropertyName.Equals(nameof(Leaderboard))) TypesOfPPChanged?.Invoke();
-                if (args.PropertyName.Equals(nameof(UseUnranked))) TheCounter.theCounter = null;
+                switch (args.PropertyName)
+                {
+                    case nameof(Leaderboard):
+                        TypesOfPPChanged?.Invoke();
+                        break;
+                    case nameof(UseUnranked):
+                        TheCounter.theCounter = null;
+                        break;
+                    case nameof(DecimalPrecision):
+                        string hold = "";
+                        for (int i = 0; i < PC.DecimalPrecision; i++) hold += "#";
+                        HelpfulFormatter.NUMBER_TOSTRING_FORMAT = PC.DecimalPrecision > 0 ? PC.FormatSettings.NumberFormat.Replace("#", "#." + hold) : PC.FormatSettings.NumberFormat;
+                        break;
+
+                }
             };
         }
         #endregion

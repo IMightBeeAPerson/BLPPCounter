@@ -23,6 +23,7 @@ using BLPPCounter.Utils.API_Handlers;
 using BeatSaberMarkupLanguage.Components;
 using IPA.Utilities;
 using UnityEngine.Profiling;
+using UnityEngine.UI;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -45,7 +46,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private IDifficultyBeatmap CurrentMap; // 1.34.2 and below
 #endif
         private (JToken Diffdata, JToken Scoredata) CurrentDiff;
-        private object RefreshLock = new object();
+        private object RefreshLock = new object(), ProfileLock = new object();
         private bool SelectButtonsOn = false;
         private Leaderboards CurrentLeaderboard = PC.Leaderboard;
         private Calculator CurrentCalculator => Calculator.GetCalc(CurrentLeaderboard);
@@ -91,6 +92,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIParams] private BSMLParserParams Parser;
         private bool UsesMods => CurrentCalculator.UsesModifiers;
         private bool IsBL => CurrentLeaderboard == Leaderboards.Beatleader;
+
+        [UIComponent(nameof(MainTabSelector))] private TabSelector MainTabSelector;
 
         [UIValue(nameof(ShowTrueID))] private bool ShowTrueID
         {
@@ -165,7 +168,9 @@ namespace BLPPCounter.Settings.SettingHandlers
             set => PC.ProfileTestPP = value;
         }
 
+        [UIComponent(nameof(ProfileTab))] private Tab ProfileTab;
         [UIComponent(nameof(PlusOneText))] private TextMeshProUGUI PlusOneText;
+        [UIComponent(nameof(ReloadDataButton))] private Button ReloadDataButton;
         [UIComponent(nameof(ProfilePPSlider))] private SliderSetting ProfilePPSlider;
         [UIComponent(nameof(WeightedText))] private TextMeshProUGUI WeightedText;
         [UIComponent(nameof(WeightedTextValue))] private TextMeshProUGUI WeightedTextValue;
@@ -297,16 +302,34 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction(nameof(UpdateProfilePP))] private void UpdateProfilePP()
         {
             float ppAmount = ProfilePPSlider.Value;
-            float weightedPpAmount = CurrentProfile.GetWeightedPP(ppAmount);
             WeightedText.SetText($"<color=green>Weighted</color> {GetPPLabel()}");
-            WeightedTextValue.SetText("<color=#aa7722>" + weightedPpAmount + "</color> " + GetPPLabel());
+            WeightedTextValue.SetText("<color=#aa7722>" + CurrentProfile.GetWeightedPP(ppAmount) + "</color> " + GetPPLabel());
             ProfilePPText.SetText($"<color=yellow>Profile</color> {GetPPLabel()}");
-            ProfilePPTextValue.SetText("<color=purple>" + CurrentProfile.GetProfilePP(weightedPpAmount) + "</color> " + GetPPLabel());
+            string profilePp = $"{CurrentProfile.GetProfilePPRaw(ppAmount)}";
+            if (profilePp[0] == '-') profilePp = "Unknown";
+            ProfilePPTextValue.SetText("<color=purple>" + profilePp + "</color> " + GetPPLabel());
         }
         [UIAction(nameof(RefreshProfilePP))] private void RefreshProfilePP()
         {
-            CurrentProfile.ReloadScores();
-            UpdateProfilePP();
+            Task.Run(RefreshProfileScores);
+        }
+        private void RefreshProfileScores()
+        {
+            if (Monitor.TryEnter(ProfileLock))
+            {
+                try
+                {
+                    ReloadDataButton.interactable = false;
+                    CurrentProfile.ReloadScores();
+                    UpdateProfilePP();
+                    UpdateProfile();
+                }
+                finally
+                {
+                    ReloadDataButton.interactable = true;
+                    Monitor.Exit(ProfileLock);
+                }
+            }
         }
         [UIAction(nameof(SaveSettings))] private void SaveSettings()
         {
@@ -327,6 +350,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 foreach (GameObject go in Parser.GetObjectsWithTag(s))
                     go.SetActive(false);
             CaptureTab.IsVisible = IsBL;
+            ProfileTab.IsVisible = CurrentLeaderboard != Leaderboards.Accsaber;
             MapID.gameObject.SetActive(!ShowTrueID);
             TrueMapID.gameObject.SetActive(ShowTrueID);
         }
@@ -337,6 +361,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             BSEvents.levelCleared += (transition, results) =>
             {
                 Instance.ClearMapTabs();
+                TheCounter.theCounter = null;
                 float finalAcc = results.totalCutScore / (float)results.maxCutScore;
                 float[] ratings = Instance.CurrentCalculator.SelectRatings(TheCounter.LastMap.StarRating, TheCounter.LastMap.AccRating, TheCounter.LastMap.PassRating, TheCounter.LastMap.TechRating);
                 Profile.GetProfile(Calculator.UsingDefault ? PC.DefaultLeaderboard : PC.Leaderboard, Targeter.PlayerID)
@@ -566,6 +591,8 @@ namespace BLPPCounter.Settings.SettingHandlers
             {
                 yield return new WaitForEndOfFrame();
                 CaptureTab.IsVisible = IsBL;
+                ProfileTab.IsVisible = CurrentLeaderboard != Leaderboards.Accsaber;
+                //if (CurrentTab.Equals("Capture") && !IsBL || CurrentTab.Equals("Profile") && CurrentLeaderboard == Leaderboards.Accsaber)
             }
             void Update()
             {

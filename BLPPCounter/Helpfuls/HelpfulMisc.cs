@@ -411,7 +411,8 @@ namespace BLPPCounter.Helpfuls
         /// <returns>Whether or not the api will provide enough info to calculate pp.</returns>
         public static bool StatusIsUsable(int status) => (status > 0 && status <= 3) || status == 6 || (PluginConfig.Instance.UseUnranked && status == 0);
         /// <summary>
-        /// Checks if a given map selection is usable. If it is using a score saber map, then it is always usable. Otherwise, it checks the beat leader status against the list below:
+        /// Checks if a given map selection is usable. If it is using a score saber map or an acc saber map, then it is always usable. 
+        /// Otherwise, it checks the beat leader status against the list below:
         /// <list type="bullet">
         ///     <item>
         ///     <term>Unranked</term>
@@ -438,7 +439,6 @@ namespace BLPPCounter.Helpfuls
         /// <param name="ms">The map selection to check.</param>
         /// <returns>Whether or not the map selection has a usable status.</returns>
         public static bool StatusIsUsable(MapSelection ms) => ms.Mode.Equals(Utils.Map.SS_MODE_NAME) || ms.Mode.Equals(Utils.Map.AP_MODE_NAME) || StatusIsUsable((int)ms.MapData.Item2["status"]);
-        public static bool StatusIsUsable(JToken diffData) => StatusIsUsable((int)diffData["status"]);
         /// <summary>
         /// Create a square matrix (a matrix with all arrays inside it being the same size).
         /// </summary>
@@ -493,6 +493,14 @@ namespace BLPPCounter.Helpfuls
             ss.slider.value = currentVal; //1.34.2 and below
 #endif
         }
+        /// <summary>
+        /// Ties 2 <see cref="SliderSetting"/>s together so that the value of the <paramref name="max"/> <see cref="SliderSetting"/> never goes below
+        /// the value of the <paramref name="min"/> <see cref="SliderSetting"/>, and the value of the <paramref name="min"/> <see cref="SliderSetting"/>
+        /// never goes above the value of the <paramref name="max"/> <see cref="SliderSetting"/>. Should a <see cref="SliderSetting"/> break this rule, 
+        /// instead of preventing it, this function will simply set the <see cref="SliderSetting"/> to match the value of the other.
+        /// </summary>
+        /// <param name="min">The <see cref="SliderSetting"/> that sets the minimum of the other.</param>
+        /// <param name="max">The <see cref="SliderSetting"/> that sets the maximum of the other.</param>
         public static void CoupleMinMaxSliders(SliderSetting min, SliderSetting max)
         {
 #if NEW_VERSION
@@ -507,6 +515,11 @@ namespace BLPPCounter.Helpfuls
         {
             Plugin.Log.Info(vars.Aggregate("", (total, current) => total + $", {current.varName} = {current.value}").Substring(2));
         }
+        /// <summary>
+        /// Sets the increment for the given <see cref="SliderSetting"/>s to the given number.
+        /// </summary>
+        /// <param name="incrementNum">The number to set the increment to.</param>
+        /// <param name="toSet">The <see cref="SliderSetting"/>s to set.</param>
         public static void SetIncrements(int incrementNum, params SliderSetting[] toSet)
         {
             foreach (SliderSetting s in toSet)
@@ -520,8 +533,19 @@ namespace BLPPCounter.Helpfuls
 #endif
             }
         }
-        public static IEnumerable TupleToEnumerable(ITuple tuple) =>
+        /// <summary>
+        /// Takes any given <see cref="ITuple"/> and converts it into an <see cref="IEnumerable{T}">IEnumerable&lt;object&gt;</see>.
+        /// </summary>
+        /// <param name="tuple">The <see cref="ITuple"/> to convert.</param>
+        /// <returns>Outputs an <see cref="IEnumerable{T}">IEnumerable&lt;object&gt;</see> that contains the tuple objects in order.</returns>
+        public static IEnumerable<object> TupleToEnumerable(ITuple tuple) =>
             Enumerable.Range(0, tuple.Length).Select(i => tuple[i]?.ToString());
+        /// <summary>
+        /// Checks if a given <see cref="IEnumerable"/> is filled with only default values. 
+        /// </summary>
+        /// <param name="vals">The <see cref="IEnumerable"/> to check.</param>
+        /// <returns>If there is at least one value that is not the default value in <paramref name="vals"/>, this will return false.
+        /// Otherwise, it returns true.</returns>
         public static bool FilledWithDefaults<T>(this IEnumerable<T> vals)
         {
             foreach (T val in vals)
@@ -535,5 +559,75 @@ namespace BLPPCounter.Helpfuls
         /// <param name="name">The key to attempt to move into.</param>
         /// <returns>Either the child <see cref="JToken">JToken</see> or if it is null the parent <see cref="JToken">JToken</see>.</returns>
         public static JToken TryEnter(this JToken data, string name) => data[name] ?? data;
+        /// <summary>
+        /// Inserts a value at <paramref name="insertIndex"/>, sifting all values at and below <paramref name="insertIndex"/> down.
+        /// This will remove the value at the last index and return it. This action does not change the size of <paramref name="arr"/>.
+        /// </summary>
+        /// <param name="arr">The array to preform this action on. The array must be of length 2 or greater.</param>
+        /// <param name="insertIndex">The index to insert the value at. Must be within the bounds of <paramref name="arr"/>.</param>
+        /// <param name="value">The value to be inserted.</param>
+        /// <returns>The value at the last index in <paramref name="arr"/>.</returns>
+        public static T SiftDown<T>(T[] arr, int insertIndex, T value)
+        {
+            if (arr.Length <= insertIndex || insertIndex < 0 || arr.Length < 2) return default;
+            T outp = arr[arr.Length - 1];
+            for (int i = arr.Length - 1; i > insertIndex; i--)
+                arr[i] = arr[i - 1];
+            arr[insertIndex] = value;
+            return outp;
+        }
+        /// <summary>
+        /// Inserts a value at <paramref name="insertIndex"/>, sifting all values at and below <paramref name="insertIndex"/> down while also multiplying by <paramref name="mult"/>.
+        /// This will remove the value at the last index and return it. This action does not change the size of <paramref name="arr"/>.
+        /// </summary>
+        /// <param name="arr">The array to preform this action on. The array must be of length 2 or greater.</param>
+        /// <param name="insertIndex">The index to insert the value at. Must be within the bounds of <paramref name="arr"/>.</param>
+        /// <param name="value">The value to be inserted.</param>
+        /// <param name="mult">The mutliplier to apply to all values that get sifted down.</param>
+        /// <returns>The value at the last index in <paramref name="arr"/></returns>
+        public static float SiftDown(float[] arr, int insertIndex, float value, float mult)
+        {
+            if (arr.Length <= insertIndex || insertIndex < 0 || arr.Length < 2) return default;
+            float outp = arr[arr.Length - 1];
+            for (int i = arr.Length - 1; i > insertIndex; i--)
+                arr[i] = arr[i - 1] * mult;
+            arr[insertIndex] = value;
+            return outp;
+        }
+        /// <summary>
+        /// Inserts a value at <paramref name="insertIndex"/>, sifting all values at and below <paramref name="insertIndex"/> down until
+        /// <paramref name="endIndex"/> is reached. Once <paramref name="endIndex"/> is reached, the value there will be replaced, with the original
+        /// value being returned. This action does not change the size of <paramref name="arr"/>.
+        /// </summary>
+        /// <param name="arr">The array to preform this action on. The array must be of length 2 or greater.</param>
+        /// <param name="insertIndex">The index to insert the value at. Must be within the bounds of the array.</param>
+        /// <param name="endIndex">The index of the value that will be removed and returned. This value must be smaller than <paramref name="insertIndex"/>.
+        /// If this value is greater than the length of <paramref name="arr"/>, it will be set to the last index. No values after this index will be touched.</param>
+        /// <param name="value">The value to be inserted.</param>
+        /// <returns>The value at <paramref name="endIndex"/> in <paramref name="arr"/>.</returns>
+        public static T SiftDown<T>(T[] arr, int insertIndex, int endIndex, T value)
+        {
+            if (arr.Length - 1 <= insertIndex || insertIndex < 0 || endIndex <= insertIndex || arr.Length < 2) return default;
+            if (endIndex >= arr.Length) endIndex = arr.Length - 1;
+            T outp = arr[endIndex];
+            for (int i = endIndex; i > insertIndex; i--)
+                arr[i] = arr[i - 1];
+            arr[insertIndex] = value;
+            return outp;
+        }
+        /// <summary>
+        /// Given a sorted array (smallest to largest) <paramref name="arr"/> and a <paramref name="value"/>, find where this value is to be inserted.
+        /// </summary>
+        /// <typeparam name="T">A type that can be compared using <see cref="IComparable{T}"/></typeparam>
+        /// <param name="arr">The sorted array to check (is not modified).</param>
+        /// <param name="value">the value to check for insertion.</param>
+        /// <returns>The index where the value should be inserted.</returns>
+        public static int FindInsertValue<T>(T[] arr, T value) where T : IComparable<T>
+        {
+            if (arr is null || arr.Length == 0 || (value?.Equals(default(T)) ?? false)) return -1;
+            int index = Array.BinarySearch(arr, value);
+            if (index >= 0) return index;
+            return -index - 1;
+        }
     }
 }
