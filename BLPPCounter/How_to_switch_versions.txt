@@ -6,8 +6,8 @@ How to switch versions:
 	Once this is done, make sure to save.
 	Step 2: Go to the file "BLPPCounter.csproj.user". Inside, you should find a regex string in a comment (or you can take it from here: "(?<=\\)(?:\d+\.){2}\d+").
 		- Press ctrl+f, paste in the regex code, press alt+e to enable regex mode, Open find and replace mode, type in the version you would like, and press replace all.
-	Step 3: Go to the file "SimpleSettings.bsml". Uncomment the line below the version you want.
 
 Quick list of files to check when changing versions:
+	- BLPPCounter Properties
 	- BLPPCounter.csproj.user
-	- SimpleSettings.bsml
+	- manifest.json

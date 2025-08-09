@@ -1,22 +1,16 @@
-  <!-- For 1.37.0 and above -->
 <vertical spacing='1'>
-  <!-- For 1.34.2 and below -->
-<!--settings-container  spacing='1' pref-height='70' vertical-fit='PreferredSize'-->
+    <horizontal>
+    <button text='Go Back' align='Left' click-event='back'/>
+    <button id='SaveButton' text='Save' align='Right' on-click='SaveChanges'/>
+  </horizontal>
+  <custom-list id='UICustomizer' contents='UISettings' show-scrollbar='true' cell-size='20' pref-width='100'>
+    <vertical spacing='0' bg='round-rect-panel' bg-color='#CCC' horizontal-fit='Unconstrained' pad='2'>
       <horizontal>
-      <button text='Go Back' align='Left' click-event='back'/>
-      <button id='SaveButton' text='Save' align='Right' on-click='SaveChanges'/>
-    </horizontal>
-    <custom-list id='UICustomizer' contents='UISettings' show-scrollbar='true' cell-size='20' pref-width='100'>
-      <vertical spacing='0' bg='round-rect-panel' bg-color='#CCC' horizontal-fit='Unconstrained' pad='2'>
-        <horizontal>
-          <text text='~Text' align='Left'/>
-          <text text='Enabled' align='Right'/>
-        </horizontal>
-        <checkbox-setting text='~Description' apply-on-change='true' value='Usable'/>
-        <text text='~Type' rich-text='true' align='Center'/>
-      </vertical>
-    </custom-list>
-  <!-- For 1.37.0 and above -->
+        <text text='~Text' align='Left'/>
+        <text text='Enabled' align='Right'/>
+      </horizontal>
+      <checkbox-setting text='~Description' apply-on-change='true' value='Usable'/>
+      <text text='~Type' rich-text='true' align='Center'/>
     </vertical>
-  <!-- For 1.34.2 and below -->
-    <!--/settings-container-->
+  </custom-list>
+</vertical>
