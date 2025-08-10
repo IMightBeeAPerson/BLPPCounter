@@ -25,7 +25,7 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;NEW_VERSION</DefineConstants>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <Optimize>true</Optimize>
@@ -204,32 +204,32 @@
     <Compile Include="Utils\API Handlers\BLAPI.cs" />
     <Compile Include="Utils\API Handlers\SSAPI.cs" />
     <Compile Include="Utils\API Handlers\Throttler.cs" />
-    <None Include="Utils\BoolStorage.cs" />
-    <Compile Include="Utils\Leaderboards.cs" />
-    <Compile Include="Utils\Profile.cs" />
+    <None Include="Utils\Special Utils\BoolStorage.cs" />
+    <Compile Include="Utils\Enums\Leaderboards.cs" />
+    <Compile Include="Utils\Serializable Classes\Profile.cs" />
     <Compile Include="Utils\Special Utils\FilledList.cs" />
     <Compile Include="Utils\API Handlers\APIHandler.cs" />
-    <Compile Include="Utils\ColorMatch.cs" />
-    <Compile Include="Utils\CustomAlias.cs" />
-    <Compile Include="Utils\CustomTarget.cs" />
+    <Compile Include="Utils\Serializable Classes\ColorMatch.cs" />
+    <Compile Include="Utils\Serializable Classes\CustomAlias.cs" />
+    <Compile Include="Utils\Serializable Classes\CustomTarget.cs" />
     <Compile Include="Utils\List Settings\AliasListInfo.cs" />
     <Compile Include="Utils\List Settings\ColorListInfo.cs" />
     <Compile Include="Utils\List Settings\FormatListInfo.cs" />
-    <Compile Include="Utils\FormatRelation.cs" />
+    <Compile Include="Utils\Misc Classes\FormatRelation.cs" />
     <Compile Include="Utils\List Settings\ValueListInfo.cs" />
-    <Compile Include="Utils\Map.cs" />
+    <Compile Include="Utils\Misc Classes\Map.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="BLPPCounterController.cs" />
     <Compile Include="TheCounter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Utils\MapSelection.cs" />
-    <Compile Include="Utils\PlaylistLoader.cs" />
-    <Compile Include="Utils\PPType.cs" />
+    <Compile Include="Utils\Misc Classes\MapSelection.cs" />
+    <Compile Include="Utils\Misc Classes\PlaylistLoader.cs" />
+    <Compile Include="Utils\Enums\PPType.cs" />
     <Compile Include="Utils\List Settings\SettingToggleInfo.cs" />
-    <Compile Include="Utils\SystemColorConverter.cs" />
-    <Compile Include="Utils\Table.cs" />
-    <Compile Include="Utils\Targeter.cs" />
-    <Compile Include="Utils\TimeLooper.cs" />
+    <Compile Include="Utils\Converters\SystemColorConverter.cs" />
+    <Compile Include="Utils\Misc Classes\Table.cs" />
+    <Compile Include="Utils\Misc Classes\Targeter.cs" />
+    <Compile Include="Utils\Misc Classes\TimeLooper.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="manifest.json" />

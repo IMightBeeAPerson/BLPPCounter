@@ -1,8 +1,6 @@
 ﻿using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.API_Handlers;
-using IPA.Config.Stores.Attributes;
-using JetBrains.Annotations;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -10,8 +8,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
 using UnityEngine;
 
 namespace BLPPCounter.Utils
@@ -73,11 +69,13 @@ namespace BLPPCounter.Utils
             TotalPP = -1;
             PlusOne = -1;
             InitScores();
-            Plugin.Log.Info($"Scores Length: {Scores.Length}\nNew Scores: {HelpfulMisc.Print(Scores)}");
-            Plugin.Log.Info($"Weighted Scores Length: {WeightedScores.Length}\nNew Weighted Scores: {HelpfulMisc.Print(WeightedScores)}");
         }
         #endregion
         #region Static Functions
+        /// <summary>
+        /// Saves the given <paramref name="profile"/> to the <see cref="LoadedProfiles"/> dictionary.
+        /// </summary>
+        /// <param name="profile">The <see cref="Profile"/> to save.</param>
         public static void SaveProfile(Profile profile)
         {
             if (LoadedProfiles.ContainsKey(profile.ID))
@@ -85,6 +83,9 @@ namespace BLPPCounter.Utils
             else
                 LoadedProfiles.Add(profile.ID, profile);
         }
+        /// <summary>
+        /// Saves all profiles loaded in the <see cref="LoadedProfiles"/> dictionary to the file at the path <see cref="HelpfulPaths.PROFILE_DATA"/>.
+        /// </summary>
         internal static void SaveAllProfiles()
         {
             if (LoadedProfiles.Count == 0) return;
@@ -94,6 +95,9 @@ namespace BLPPCounter.Utils
                 fs.Write(data, 0, data.Length);
             //Plugin.Log.Info("Profiles have been saved.");
         }
+        /// <summary>
+        /// Loads all profiles from the file at the path <see cref="HelpfulPaths.PROFILE_DATA"/> and saves it to the dictionary <see cref="LoadedProfiles"/>.
+        /// </summary>
         internal static void LoadAllProfiles()
         {
             if (!File.Exists(HelpfulPaths.PROFILE_DATA)) return;
@@ -113,6 +117,13 @@ namespace BLPPCounter.Utils
             }
             //Plugin.Log.Info("Profiles have been loaded.");
         }
+        /// <summary>
+        /// Gets a profile using the given <paramref name="leaderboard"/> and <paramref name="userID"/> from the <see cref="LoadedProfiles"/> dictionary.
+        /// If the <see cref="Profile"/> is not found in the dictionary, then this function will create a new one, add it to the dictionary, and return it.
+        /// </summary>
+        /// <param name="leaderboard">The leaderboard to use.</param>
+        /// <param name="userID">The user ID (Steam ID) to use.</param>
+        /// <returns>The <see cref="Profile"/> either from the <see cref="LoadedProfiles"/> dictionary or newly made. This will never return null.</returns>
         public static Profile GetProfile(Leaderboards leaderboard, string userID)
         {
             if (LoadedProfiles.TryGetValue(GetID(leaderboard, userID), out Profile profile))
@@ -124,11 +135,29 @@ namespace BLPPCounter.Utils
                 return profile;
             }
         }
+        /// <summary>
+        /// Attempts to get a <see cref="Profile"/> using the given <paramref name="leaderboard"/> and <paramref name="userID"/>.
+        /// </summary>
+        /// <param name="leaderboard">The leaderboard to use.</param>
+        /// <param name="userID">The user ID (Steam ID) to use.</param>
+        /// <returns>Either the <see cref="Profile"/> from the dictionary or, if it is not found, null.</returns>
         public static Profile TryGetProfile(Leaderboards leaderboard, string userID) => 
             LoadedProfiles.ContainsKey(GetID(leaderboard, userID)) ? LoadedProfiles[GetID(leaderboard, userID)] : null;
+        /// <summary>
+        /// Converts a given <paramref name="leaderboard"/> and <paramref name="userID"/> into an ID string used as the key in the <see cref="LoadedProfiles"/>
+        /// dictionary.
+        /// </summary>
+        /// <param name="leaderboard">The leaderboard to use.</param>
+        /// <param name="userID">The user ID (Steam ID) to use.</param>
+        /// <returns>A string containing the <paramref name="userID"/> and <paramref name="leaderboard"/> (leaderboard as an int).</returns>
         public static string GetID(Leaderboards leaderboard, string userID) => userID + "_" + (int)leaderboard;
         #endregion
         #region Misc Functions
+        /// <summary>
+        /// Given the <paramref name="scoreNum"/> (NOT zero indexed, starts at 1), returns what weight that score will have.
+        /// </summary>
+        /// <param name="scoreNum">The number score to weight (NOT zero indexed, starts at 1).</param>
+        /// <returns>The weight for the given score index.</returns>
         private float GetWeight(int scoreNum)
         {
             switch (Leaderboard)
@@ -143,6 +172,11 @@ namespace BLPPCounter.Utils
                     return 1;
             }
         }
+        /// <summary>
+        /// Given the weight of a score, this will find the weight of the next score (ex: Given the weight of score #5, it finds the weight for score #6).
+        /// </summary>
+        /// <param name="lastWeight">The weight of a score.</param>
+        /// <returns>The weight of a score directly after <paramref name="lastWeight"/>.</returns>
         private float GetNextWeight(float lastWeight)
         {
             switch (Leaderboard)
@@ -157,6 +191,11 @@ namespace BLPPCounter.Utils
                     return lastWeight;
             }
         }
+        /// <summary>
+        /// Given the weight of a score, this will find the weight of the previous score (ex: Given the weight of score #5, it will find the weight for score #4).
+        /// </summary>
+        /// <param name="lastWeight">The weight of the score.</param>
+        /// <returns>The weight directly before <paramref name="lastWeight"/>.</returns>
         private float GetPreviousWeight(float lastWeight)
         {
             switch (Leaderboard)
@@ -171,6 +210,9 @@ namespace BLPPCounter.Utils
                     return lastWeight;
             }
         }
+        /// <summary>
+        /// Populates the <see cref="WeightedScores"/> array using the <see cref="Scores"/> array by weighting each value.
+        /// </summary>
         private void WeightScores()
         {
             WeightedScores = new float[Scores.Length];
@@ -182,6 +224,10 @@ namespace BLPPCounter.Utils
             }
             //Plugin.Log.Info($"Scores: {HelpfulMisc.Print(Scores)}\nWeighted Scores: {HelpfulMisc.Print(WeightedScores)}");
         }
+        /// <summary>
+        /// Simple switch statement for how many scores to ask the API for so that we can accurately calculate <see cref="PlusOne"/>.
+        /// </summary>
+        /// <returns>The number of scores needed to calculate <see cref="PlusOne"/>.</returns>
         private int GetPlusOneCount()
         {
             switch (Leaderboard)
@@ -207,9 +253,36 @@ namespace BLPPCounter.Utils
             while (i < WeightedScores.Length && WeightedScores[i] > weightedPP) i++;
             return i + 1;
         }
-        public float GetWeightedPP(float rawPP) => (float)Math.Round(GetWeight(GetScoreIndex(rawPP)) * rawPP, PluginConfig.Instance.DecimalPrecision);
+        /// <summary>
+        /// Given <paramref name="rawPP"/>, finds what the weighted value is.
+        /// </summary>
+        /// <param name="rawPP">The raw pp value.</param>
+        /// <returns>Either the weighted value of <paramref name="rawPP"/>, or -1. This returns -1 when <paramref name="rawPP"/> is lower than the
+        /// lowest score in the <see cref="Scores"/> array.</returns>
+        public float GetWeightedPP(float rawPP)
+        {
+            if (Scores[Scores.Length - 1] > rawPP) return -1;
+            return (float)Math.Round(GetWeight(GetScoreIndex(rawPP)) * rawPP, PluginConfig.Instance.DecimalPrecision);
+        }
+        /// <summary>
+        /// Given <paramref name="weightedPP"/>, calculate how much pp this will gain to the profile of the player.
+        /// </summary>
+        /// <param name="weightedPP">The weighted pp value.</param>
+        /// <returns>The profile PP gained.</returns>
         public float GetProfilePP(float weightedPP) => GetProfilePP(weightedPP, WeightedScores, GetScoreIndexWeighted(weightedPP));
+        /// <summary>
+        /// Given <paramref name="rawPP"/>, calculate how much pp this will gain to the profile of the player.
+        /// </summary>
+        /// <param name="rawPP">The raw pp value.</param>
+        /// <returns>The profile PP gained.</returns>
         public float GetProfilePPRaw(float rawPP) => GetProfilePP(GetWeightedPP(rawPP), WeightedScores, GetScoreIndex(rawPP));
+        /// <summary>
+        /// The main profile PP calculator function.
+        /// </summary>
+        /// <param name="pp">The weighted pp value.</param>
+        /// <param name="scores">The loaded weighted pp values in an array.</param>
+        /// <param name="index">The score number (NOT zero index, starts at 1).</param>
+        /// <returns>The profile pp gained from such a score.</returns>
         private float GetProfilePP(float pp, float[] scores, int index)
         {
             float weightedSum = TotalPP;
@@ -219,6 +292,10 @@ namespace BLPPCounter.Utils
             float outp = (float)Math.Round(pp - (1.0f - GetWeight(2)) * weightedSum, PluginConfig.Instance.DecimalPrecision);
             return outp < 0 ? 0 : outp;
         }
+        /// <summary>
+        /// Calculates the plus one value using internal variables.
+        /// </summary>
+        /// <returns>What raw pp score is needed to gain one profile pp.</returns>
         public float CalculatePlusOne()
         {
             int i = 0;
@@ -248,6 +325,10 @@ namespace BLPPCounter.Utils
             return i < WeightedScores.Length ?
                 (float)Math.Round((1 + shiftWeight * weightedSum) / GetWeight(i + 1), PluginConfig.Instance.DecimalPrecision) : 0;
         }
+        /// <summary>
+        /// Adds a play to the <see cref="Scores"/> array.
+        /// </summary>
+        /// <param name="rawPP">The raw pp value to add to this <see cref="Profile"/>.</param>
         public void AddPlay(float rawPP)
         {
             if (float.IsNaN(rawPP) || Scores[Scores.Length - 1] > rawPP) return;
