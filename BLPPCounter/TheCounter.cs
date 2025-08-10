@@ -283,6 +283,8 @@ namespace BLPPCounter
             PercentNeededFormatter = null;
         }
         public override void CounterDestroy() {
+            PpInfoTabHandler.Instance.CompletedMap((float)(totalHitscore / maxHitscore));
+            LastMap = default;
             usingDefaultLeaderboard = false;
             if (hasNotifiers) 
                 ChangeNotifiers(false);
@@ -472,17 +474,14 @@ namespace BLPPCounter
                 sc.scoringForNoteFinishedEvent += OnNoteScored;
                 wall.headDidEnterObstacleEvent += OnWallHit;
                 bomb.noteWasCutEvent += OnBombHit;
-                BSEvents.levelCleared += ClearCounterCaller;
             } else
             {
                 sc.scoringForNoteFinishedEvent -= OnNoteScored;
                 wall.headDidEnterObstacleEvent -= OnWallHit;
                 bomb.noteWasCutEvent -= OnBombHit;
-                BSEvents.levelCleared -= ClearCounterCaller;
             }
             hasNotifiers = a;
         }
-        private void ClearCounterCaller(StandardLevelScenesTransitionSetupDataSO slstsdso, LevelCompletionResults lcr) => ClearCounter();
         public static void ClearCounter() => LastMap = default;
         public static void ForceLoadMaps()
         {

@@ -1,29 +1,30 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
+using BeatSaberMarkupLanguage.Components;
+using BeatSaberMarkupLanguage.Components.Settings;
+using BeatSaberMarkupLanguage.Parser;
+using BLPPCounter.CalculatorStuffs;
+using BLPPCounter.Counters;
 using BLPPCounter.Helpfuls;
+using BLPPCounter.Patches;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
+using BLPPCounter.Utils.API_Handlers;
+using BS_Utils.Utilities;
+using HMUI;
+using IPA.Utilities;
+using Newtonsoft.Json.Linq;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using TMPro;
-using Newtonsoft.Json.Linq;
-using BLPPCounter.Counters;
-using BLPPCounter.CalculatorStuffs;
-using System.Threading.Tasks;
 using System.Threading;
-using HMUI;
-using BLPPCounter.Patches;
+using System.Threading.Tasks;
+using TMPro;
 using UnityEngine;
-using System.Collections;
-using static GameplayModifiers;
-using BeatSaberMarkupLanguage.Parser;
-using BeatSaberMarkupLanguage.Components.Settings;
-using BS_Utils.Utilities;
-using BLPPCounter.Utils.API_Handlers;
-using BeatSaberMarkupLanguage.Components;
-using IPA.Utilities;
 using UnityEngine.Profiling;
 using UnityEngine.UI;
+using static BeatmapLevelSO.GetBeatmapLevelDataResult;
+using static GameplayModifiers;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -309,6 +310,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (profilePp[0] == '-') profilePp = "Unknown";
             ProfilePPTextValue.SetText("<color=purple>" + profilePp + "</color> " + GetPPLabel());
         }
+        /*[UIAction(nameof(DoTestThing))] private void DoTestThing()
+        {
+            CurrentProfile.AddPlay(ProfilePPSlider.Value);
+            UpdateProfilePP();
+            UpdateProfile();
+        }*/
         [UIAction(nameof(RefreshProfilePP))] private void RefreshProfilePP()
         {
             Task.Run(RefreshProfileScores);
@@ -362,10 +369,6 @@ namespace BLPPCounter.Settings.SettingHandlers
             {
                 Instance.ClearMapTabs();
                 TheCounter.theCounter = null;
-                float finalAcc = results.totalCutScore / (float)results.maxCutScore;
-                float[] ratings = Instance.CurrentCalculator.SelectRatings(TheCounter.LastMap.StarRating, TheCounter.LastMap.AccRating, TheCounter.LastMap.PassRating, TheCounter.LastMap.TechRating);
-                Profile.GetProfile(Calculator.UsingDefault ? PC.DefaultLeaderboard : PC.Leaderboard, Targeter.PlayerID)
-                .AddPlay(Instance.CurrentCalculator.Inflate(Instance.CurrentCalculator.GetSummedPp(finalAcc, ratings)));
             };
             InitFormatters();
             Instance = new PpInfoTabHandler();
@@ -583,6 +586,13 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region Misc Functions
+        internal void CompletedMap(float finalAcc)
+        {
+            if (float.IsNaN(finalAcc)) return;
+            float[] ratings = Instance.CurrentCalculator.SelectRatings(TheCounter.LastMap.StarRating, TheCounter.LastMap.AccRating, TheCounter.LastMap.PassRating, TheCounter.LastMap.TechRating);
+            Profile.GetProfile(Calculator.UsingDefault ? PC.DefaultLeaderboard : PC.Leaderboard, Targeter.PlayerID)
+            .AddPlay(Instance.CurrentCalculator.Inflate(Instance.CurrentCalculator.GetSummedPp(finalAcc, ratings)));
+        }
         public string GetPPLabel() => CurrentLeaderboard == Leaderboards.Accsaber ? "ap" : "pp";
         public void UpdateTabDisplay(bool forceUpdate = false, bool runAsync = true) 
         {
