@@ -130,12 +130,17 @@
   </tab>
 
   <tab tags='tabs' tab-name='Settings'>
-    <settings-container anchor-pos-y='~TabPos'>
+    <tab-selector tab-tag='SettingsTab' anchor-pos-y='-8'/>
+
+    <tab tags='SettingsTab' tab-name='Info Settings'>
       <vertical spacing='2' child-expand-height='true' horizontal-fit='PreferredSize' pref-width='100' vertical-fit='PreferredSize'>
-        <vertical spacing='0' horizontal-fit='PreferredSize' pref-width='100'>
-          <button text='Save' on-click='SaveSettings'/>
-          <text text='Custom Accuracy Settings' align='Center' font-size='6'/>
-        </vertical>
+        <checkbox-setting text='Show true ID' apply-on-change='true' value='ShowTrueID' hover-hint='Whether or not to show the leaderboard ID or actual beatsaber id'/>
+      </vertical>
+    </tab>
+    
+    <tab tags='SettingsTab' tab-name='Custom Settings'>
+      <vertical spacing='2' child-expand-height='true' horizontal-fit='PreferredSize' pref-width='100' vertical-fit='PreferredSize' anchor-pos-y='-8'>
+        <button text='Save' on-click='SaveSettings'/>
         <vertical spacing='0' horizontal-fit='PreferredSize' pref-width='100'>
           <slider-setting id='MinAccSlider' text='Minimum Accuracy' increment='0.05' integer-only='false' min='0' max='100' show-buttons='true' apply-on-change='true' value='PercentSliderMin' formatter='PercentFormat'/>
           <slider-setting id='MaxAccSlider' text='Maximum Accuracy' increment='0.05' integer-only='false' min='0' max='100' show-buttons='true' apply-on-change='true' value='PercentSliderMax' formatter='PercentFormat'/>
@@ -145,9 +150,7 @@
           <slider-setting id='MaxPPSlider' text='Maximum PP' increment='5' integer-only='true' min='0' max='3000' show-buttons='true' apply-on-change='true' value='PPSliderMax' formatter='PPFormat'/>
         </vertical>
         <increment-setting text='Increments' increment='1' integer-only='true' min='0' max='50' apply-on-change='true' value='SliderIncrementNum'/>
-        <text text='Misc. Settings' align='Center' font-size='6'/>
-        <checkbox-setting text='Show true ID' apply-on-change='true' value='ShowTrueID' hover-hint='Whether or not to show the leaderboard ID or actual beatsaber id'/>
       </vertical>
-    </settings-container>
+    </tab>
   </tab>
 </bg>
