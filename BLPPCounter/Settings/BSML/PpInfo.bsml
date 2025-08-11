@@ -152,5 +152,6 @@
         <increment-setting text='Increments' increment='1' integer-only='true' min='0' max='50' apply-on-change='true' value='SliderIncrementNum'/>
       </vertical>
     </tab>
+    
   </tab>
 </bg>
