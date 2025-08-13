@@ -127,12 +127,12 @@ namespace BLPPCounter.Utils
         public void SetValues(string[][] values)
         {
             Values = values;
-            FormattingUpdated = false;
+            ContainerUpdated = false;
         }
         public void SetNames(string[] names)
         {
             Names = names;
-            FormattingUpdated = false;
+            ContainerUpdated = false;
         }
         public void UpdateTable(bool removeHighlights = false)
         {
@@ -300,7 +300,7 @@ namespace BLPPCounter.Utils
             for (int i = 0; i < Values.Length; i++)
                 rows[i + 2] = GetRow(i + 1); //Skips over row[1] because that is dash row.
 
-            if (!softUpdate) //Only recalculate the dash line if some value had to be updated, otherwise skip and just reuse what was already made.
+            if (!softUpdate || Container.text.IndexOf('\n') < 0) //Only recalculate the dash line if some value had to be updated, otherwise skip and just reuse what was already made.
             {
                 float spacerSize = GetLen(Prefix), dashSize = GetLen("-"); //Get sizes of the 2 "objects" that make up row[1], the Prefix (aka spacer) and dash.
                 if (_HasEndColumn) spacerSize *= 2; //since Prefix and Suffix are made up of the same characters, their lengths are the same.
@@ -318,10 +318,9 @@ namespace BLPPCounter.Utils
                 FormattingUpdated = true; //Make sure this is true, because if it wasn't then formatting has been updated.
             } else
             {
-                string content = Container.text; //Gets the text in the container (this line can only be reached if Container text had been set.
+                string content = Container.text; //Gets the text in the container (this line can only be reached if Container text had been set).
                 content = content.Substring(content.IndexOf('\n')); //Removes the header line from the string.
-                if (content.IndexOf('\n') > 1) //Makes sure that content has the \n to avoid going outside of bounds.
-                    content = content.Substring(1, content.IndexOf('\n') - 1); //Removes everything after the second line (aka the dash line). Importantly it also removes the \n at the start and end of the line.
+                content = content.Substring(1, content.IndexOf('\n', 2) - 1); //Removes everything after the second line (aka the dash line). Importantly it also removes the \n at the start and end of the line.
                 rows[1] = content; //Set the row[1] to be the dash line.
             }
             return rows.Aggregate((total, str) => total + str + '\n'); //Combine rows into one string and returns that string.

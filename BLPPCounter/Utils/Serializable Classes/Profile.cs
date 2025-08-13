@@ -205,9 +205,11 @@ namespace BLPPCounter.Utils
         /// </summary>
         /// <param name="userID">The player who set the score.</param>
         /// <param name="hash">The hash of the map the score was set on.</param>
-        /// <param name="acc">The accuracy the player set for the score</param>
+        /// <param name="acc">The accuracy the player set for the score.</param>
+        /// <param name="mapName">The name of the map the score was set on.</param>
+        /// <param name="mapDiff">The difficulty of the map that the score was set on.</param>
         /// <returns>Whether or not the score was good enough to enter any leaderboard's <see cref="Scores"/> array.</returns>
-        public static bool AddPlay(string userID, string hash, float acc)
+        public static bool AddPlay(string userID, string hash, float acc, string mapName, BeatmapDifficulty mapDiff)
         {
             int currentNum = 1;
             Leaderboards allowed = APIHandler.GetRankedLeaderboards(hash), current;
@@ -221,7 +223,7 @@ namespace BLPPCounter.Utils
                 if ((allowed & current) != Leaderboards.None)
                 {
                     Calculator calc = Calculator.GetCalc(current);
-                    goodScore |= GetProfile(current, userID).AddPlay(calc.Inflate(calc.GetSummedPp(acc, calc.SelectRatings(ratings))));
+                    goodScore |= GetProfile(current, userID).AddPlay(calc.Inflate(calc.GetSummedPp(acc, calc.SelectRatings(ratings))), mapName, mapDiff);
                 }
                 currentNum <<= 1;
             }
@@ -393,8 +395,10 @@ namespace BLPPCounter.Utils
         /// Adds a play to the <see cref="Scores"/> array.
         /// </summary>
         /// <param name="rawPP">The raw pp value to add to this <see cref="Profile"/>.</param>
+        /// <param name="mapName">The name of the map this was set on.</param>
+        /// <param name="diff">The difficulty of the map that this score set on.</param>
         /// <returns>Returns whether or not the score was good enough to enter the <see cref="Scores"/> array.</returns>
-        public bool AddPlay(float rawPP)
+        public bool AddPlay(float rawPP, string mapName, BeatmapDifficulty diff)
         {
             if (float.IsNaN(rawPP) || Scores[Scores.Length - 1] > rawPP) return false;
             Plugin.Log.Debug($"Recieved score: " + rawPP);
@@ -404,8 +408,11 @@ namespace BLPPCounter.Utils
             float profilePP = GetProfilePP(GetWeightedPP(rawPP), WeightedScores, index + 1);
             if (profilePP > 0) TotalPP += profilePP;
             HelpfulMisc.SiftDown(Scores, index, rawPP);
+            HelpfulMisc.SiftDown(ScoreNames, index, mapName);
+            HelpfulMisc.SiftDown(ScoreDiffs, index, diff.ToString());
             HelpfulMisc.SiftDown(WeightedScores, index, GetWeight(index + 1) * rawPP, GetWeight(2));
             PlusOne = CalculatePlusOne();
+            InitTable();
             return true;
         }
         #endregion

@@ -75,7 +75,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private static readonly string[] SelectionButtonTags = new string[4] { "SSButton", "NMButton", "FSButton", "SFButton" };
         private Table ClanTableTable, RelativeTableTable, PPTableTable, PercentTableTable;
         public bool ChangeTabSettings = false;
-        internal (float FinalAcc, string Hash) FinalMapData;
+        internal (float FinalAcc, string Hash, string MapName, BeatmapDifficulty Difficulty) FinalMapData;
         #region Relative Counter
         private static Func<string> GetTarget, GetNoScoreTarget;
         private float TargetPP = 0;
@@ -311,13 +311,13 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (profilePp[0] == '-') profilePp = "Unknown";
             ProfilePPTextValue.SetText("<color=purple>" + profilePp + "</color> " + GetPPLabel());
         }
-        [UIAction(nameof(DoTestThing))] private void DoTestThing()
+        /*[UIAction(nameof(DoTestThing))] private void DoTestThing()
         {
             //CurrentProfile.AddPlay(ProfilePPSlider.Value);
             //UpdateProfilePP();
             //UpdateProfile();
-            CompletedMap(0.975f, Sldvc.beatmapLevel.levelID.Split('_')[2]);
-        }
+            CompletedMap(0.975f, Sldvc.beatmapLevel.levelID.Split('_')[2], Sldvc.beatmapLevel.songName, Sldvc.selectedDifficultyBeatmap.difficulty);
+        }*/
         [UIAction(nameof(RefreshProfilePP))] private void RefreshProfilePP()
         {
             Task.Run(RefreshProfileScores);
@@ -353,9 +353,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             if (CurrentProfile.PlayTable is null)
                 Profile.TextContainer = PlayTable;
-            if (CurrentProfile.PlayTable.ContainerUpdated)
-                CurrentProfile.PlayTable.ClearTable(fillWithBlankSpace: false);
-            CurrentProfile.PlayTable.UpdateTable();
+            if (!CurrentProfile.PlayTable.ContainerUpdated)
+                CurrentProfile.PlayTable.UpdateTable();
         }
         [UIAction("#UpdateCurrentTable")] private void UpdateCurrentTable() => BuildTable();
         [UIAction("#UpdateCurrentTab")] private void UpdateCurrentTab() => UpdateTabDisplay(true);
@@ -612,19 +611,19 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             ClearMapTabs();
             TheCounter.theCounter = null;
-            CompletedMap(FinalMapData.FinalAcc, FinalMapData.Hash);
+            CompletedMap(FinalMapData.FinalAcc, FinalMapData.Hash, FinalMapData.MapName, FinalMapData.Difficulty);
             TheCounter.LastMap = default;
         }
         /*private void FailedMap(StandardLevelScenesTransitionSetupDataSO transition, LevelCompletionResults results)
         {
             FinalMapData = default;
         }*/
-        private void CompletedMap(float finalAcc, string hash)
+        private void CompletedMap(float finalAcc, string hash, string mapName, BeatmapDifficulty diff)
         {
             if (float.IsNaN(finalAcc)) return;
             Task.Run(() =>
             {
-                if (Profile.AddPlay(Targeter.PlayerID, hash, finalAcc))
+                if (Profile.AddPlay(Targeter.PlayerID, hash, finalAcc, mapName, diff))
                     UpdateTabDisplay(forceUpdate: true, runAsync: false);
             });
             FinalMapData = default;

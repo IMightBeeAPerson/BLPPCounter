@@ -284,9 +284,9 @@ namespace BLPPCounter
         }
         public override void CounterDestroy() {
 #if NEW_VERSION
-            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), beatmap.levelID.Split('_')[2]);
+            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), beatmap.levelID.Split('_')[2], beatmap.level.songName, beatmap.difficulty);
 #else
-            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), beatmap.level.levelID.Split('_')[2]);
+            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), beatmap.level.levelID.Split('_')[2], beatmap.level.songName, beatmap.difficulty);
 #endif
             usingDefaultLeaderboard = false;
             if (hasNotifiers) 

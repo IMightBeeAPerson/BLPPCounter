@@ -119,8 +119,10 @@
       </horizontal>
       <!--button text='Test' on-click='DoTestThing' align='Center'/-->
       <button text='Show Top Plays' click-event='ShowPlayTable' align='Center'/>
-      <modal show-event='ShowPlayTable' click-off-closes='true' bg-color='#CCC'>
-        <text id='PlayTable' align='Center' font-size='3.5'/>
+      <modal show-event='ShowPlayTable' click-off-closes='true'>
+        <vertical bg='round-rect-panel' bg-color='#CCC'>
+          <text id='PlayTable' text='' align='Center' font-size='3.5'/>
+        </vertical>
       </modal>
       <slider-setting id='ProfilePPSlider' text='To Get' color='#A020F0' increment='5' integer-only='true' min='~PPSliderMin' max='~PPSliderMax' show-buttons='true' apply-on-change='true' value='ProfileTestPp' formatter='PPFormat'/>
       <horizontal>
