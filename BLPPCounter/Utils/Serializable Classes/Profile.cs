@@ -1,5 +1,8 @@
-﻿using BLPPCounter.Helpfuls;
+﻿using BeatLeader.Models;
+using BLPPCounter.CalculatorStuffs;
+using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
+using BLPPCounter.Settings.SettingHandlers;
 using BLPPCounter.Utils.API_Handlers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -8,6 +11,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using TMPro;
 using UnityEngine;
 
 namespace BLPPCounter.Utils
@@ -18,6 +22,19 @@ namespace BLPPCounter.Utils
         #region Static Variables
         private static readonly float[] AccsaberConsts;
         private static readonly Dictionary<string, Profile> LoadedProfiles = new Dictionary<string, Profile>();
+        internal static TextMeshProUGUI TextContainer 
+        {
+            private get => textContainer;
+            set
+            {
+                bool doUpdate = textContainer is null;
+                textContainer = value;
+                if (doUpdate)
+                    foreach (Profile profile in LoadedProfiles.Values)
+                        profile.InitTable();
+            }
+        }
+        private static TextMeshProUGUI textContainer = null;
         #endregion
         #region Variables
         [JsonIgnore]
@@ -26,6 +43,10 @@ namespace BLPPCounter.Utils
         private readonly Leaderboards Leaderboard;
         [JsonProperty(nameof(Scores), Required = Required.DisallowNull)]
         private float[] Scores;
+        [JsonProperty(nameof(ScoreNames), Required = Required.DisallowNull)]
+        private string[] ScoreNames;
+        [JsonProperty(nameof(ScoreDiffs), Required = Required.DisallowNull)]
+        private string[] ScoreDiffs;
         [JsonIgnore]
         private float[] WeightedScores;
         [JsonProperty(nameof(TotalPP), Required = Required.DisallowNull)]
@@ -34,6 +55,8 @@ namespace BLPPCounter.Utils
         private readonly string UserID;
         [JsonProperty(nameof(PlusOne), Required = Required.DisallowNull)]
         public float PlusOne { get; private set; } = -1.0f;
+        [JsonIgnore]
+        public Table PlayTable { get; private set; }
         #endregion
         #region Init
         static Profile()
@@ -56,13 +79,39 @@ namespace BLPPCounter.Utils
             if (TotalPP < 0)
             {
                 APIHandler api = APIHandler.GetAPI(Leaderboard);
-                Scores = api.GetScores(UserID, GetPlusOneCount());
+                var scoreData = api.GetScores(UserID, GetPlusOneCount());
+                Scores = scoreData.Select(token => token.rawPP).ToArray();
+                ScoreNames = scoreData.Select(token => token.MapName).ToArray();
+                ScoreDiffs = scoreData.Select(token => token.Difficulty.ToString()).ToArray();
                 TotalPP = api.GetProfilePP(UserID);
                 if (Scores is null) Scores = new float[1] { 0.0f };
+                InitTable();
             }
             WeightScores();
             if (PlusOne < 0)
                 PlusOne = CalculatePlusOne();
+        }
+        private void InitTable()
+        {
+            if (TextContainer is null) return;
+            const int PlaysToShow = 10;
+            string label = Leaderboard == Leaderboards.Accsaber ? "AP" : "PP";
+            string[] names = new string[4] { "Score #", "Name", "Diff", label };
+            string[][] values = new string[Math.Min(PlaysToShow, Scores.Length)][];
+            for (int i = 0; i < values.Length; i++)
+                values[i] = new string[] {
+                $"<color=#0F0>#{i + 1}</color>",
+                ScoreNames[i],
+                ScoreDiffs[i],
+                $"<color=purple>{Math.Round(Scores[i], PluginConfig.Instance.DecimalPrecision)}</color> {label}"
+                };
+            if (PlayTable is null)
+                PlayTable = new Table(TextContainer, values, names)
+                {
+                    HasEndColumn = true
+                };
+            else
+                PlayTable.SetValues(values);
         }
         public void ReloadScores()
         {
@@ -151,6 +200,33 @@ namespace BLPPCounter.Utils
         /// <param name="userID">The user ID (Steam ID) to use.</param>
         /// <returns>A string containing the <paramref name="userID"/> and <paramref name="leaderboard"/> (leaderboard as an int).</returns>
         public static string GetID(Leaderboards leaderboard, string userID) => userID + "_" + (int)leaderboard;
+        /// <summary>
+        /// Adds a given play to all leaderboards that the play is ranked on.
+        /// </summary>
+        /// <param name="userID">The player who set the score.</param>
+        /// <param name="hash">The hash of the map the score was set on.</param>
+        /// <param name="acc">The accuracy the player set for the score</param>
+        /// <returns>Whether or not the score was good enough to enter any leaderboard's <see cref="Scores"/> array.</returns>
+        public static bool AddPlay(string userID, string hash, float acc)
+        {
+            int currentNum = 1;
+            Leaderboards allowed = APIHandler.GetRankedLeaderboards(hash), current;
+            if (allowed == Leaderboards.None) return false;
+            int leaderCount = (int)Math.Log((int)allowed, 2) + 1;
+            float[] ratings = new float[] {TheCounter.LastMap.StarRating, TheCounter.LastMap.AccRating, TheCounter.LastMap.PassRating, TheCounter.LastMap.TechRating};
+            bool goodScore = false;
+            for (int i = 0; i < leaderCount; i++)
+            {
+                current = (Leaderboards)currentNum;
+                if ((allowed & current) != Leaderboards.None)
+                {
+                    Calculator calc = Calculator.GetCalc(current);
+                    goodScore |= GetProfile(current, userID).AddPlay(calc.Inflate(calc.GetSummedPp(acc, calc.SelectRatings(ratings))));
+                }
+                currentNum <<= 1;
+            }
+            return goodScore;
+        }
         #endregion
         #region Misc Functions
         /// <summary>
@@ -241,18 +317,6 @@ namespace BLPPCounter.Utils
                     return 0;
             }
         }
-        private int GetScoreIndex(float rawPP)
-        {
-            int i = 0;
-            while (i < Scores.Length && Scores[i] > rawPP) i++;
-            return i + 1;
-        }
-        public int GetScoreIndexWeighted(float weightedPP)
-        {
-            int i = 0;
-            while (i < WeightedScores.Length && WeightedScores[i] > weightedPP) i++;
-            return i + 1;
-        }
         /// <summary>
         /// Given <paramref name="rawPP"/>, finds what the weighted value is.
         /// </summary>
@@ -262,20 +326,20 @@ namespace BLPPCounter.Utils
         public float GetWeightedPP(float rawPP)
         {
             if (Scores[Scores.Length - 1] > rawPP) return -1;
-            return (float)Math.Round(GetWeight(GetScoreIndex(rawPP)) * rawPP, PluginConfig.Instance.DecimalPrecision);
+            return (float)Math.Round(GetWeight(HelpfulMisc.ReverseBinarySearch(Scores, rawPP) + 1) * rawPP, PluginConfig.Instance.DecimalPrecision);
         }
         /// <summary>
         /// Given <paramref name="weightedPP"/>, calculate how much pp this will gain to the profile of the player.
         /// </summary>
         /// <param name="weightedPP">The weighted pp value.</param>
         /// <returns>The profile PP gained.</returns>
-        public float GetProfilePP(float weightedPP) => GetProfilePP(weightedPP, WeightedScores, GetScoreIndexWeighted(weightedPP));
+        public float GetProfilePP(float weightedPP) => GetProfilePP(weightedPP, WeightedScores, HelpfulMisc.ReverseBinarySearch(WeightedScores, weightedPP) + 1);
         /// <summary>
         /// Given <paramref name="rawPP"/>, calculate how much pp this will gain to the profile of the player.
         /// </summary>
         /// <param name="rawPP">The raw pp value.</param>
         /// <returns>The profile PP gained.</returns>
-        public float GetProfilePPRaw(float rawPP) => GetProfilePP(GetWeightedPP(rawPP), WeightedScores, GetScoreIndex(rawPP));
+        public float GetProfilePPRaw(float rawPP) => GetProfilePP(GetWeightedPP(rawPP), WeightedScores, HelpfulMisc.ReverseBinarySearch(Scores, rawPP) + 1);
         /// <summary>
         /// The main profile PP calculator function.
         /// </summary>
@@ -329,15 +393,20 @@ namespace BLPPCounter.Utils
         /// Adds a play to the <see cref="Scores"/> array.
         /// </summary>
         /// <param name="rawPP">The raw pp value to add to this <see cref="Profile"/>.</param>
-        public void AddPlay(float rawPP)
+        /// <returns>Returns whether or not the score was good enough to enter the <see cref="Scores"/> array.</returns>
+        public bool AddPlay(float rawPP)
         {
-            if (float.IsNaN(rawPP) || Scores[Scores.Length - 1] > rawPP) return;
-            int index = Scores.Length - HelpfulMisc.FindInsertValue(Scores.Reverse().ToArray(), rawPP);
+            if (float.IsNaN(rawPP) || Scores[Scores.Length - 1] > rawPP) return false;
+            Plugin.Log.Debug($"Recieved score: " + rawPP);
+            int index = HelpfulMisc.ReverseBinarySearch(Scores, rawPP);
+            Plugin.Log.Debug("AddPlay Index: " +  index);
+            if (index >= Scores.Length) return false;
             float profilePP = GetProfilePP(GetWeightedPP(rawPP), WeightedScores, index + 1);
             if (profilePP > 0) TotalPP += profilePP;
             HelpfulMisc.SiftDown(Scores, index, rawPP);
             HelpfulMisc.SiftDown(WeightedScores, index, GetWeight(index + 1) * rawPP, GetWeight(2));
             PlusOne = CalculatePlusOne();
+            return true;
         }
         #endregion
     }

@@ -141,10 +141,11 @@ namespace BLPPCounter.Utils
             Container.text = ToString();
             ContainerUpdated = true;
         }
-        public void ClearTable()
+        public void ClearTable(bool fillWithBlankSpace = true)
         {
-            Container.text = new string('\n', Values[0].Length);
-            ContainerUpdated = false;
+            if (fillWithBlankSpace) Container.text = new string('\n', Values[0].Length);
+            else Container.text = string.Empty;
+                ContainerUpdated = false;
         }
         public void ChangeValue(int row, int column, string newValue)
         {
@@ -319,7 +320,8 @@ namespace BLPPCounter.Utils
             {
                 string content = Container.text; //Gets the text in the container (this line can only be reached if Container text had been set.
                 content = content.Substring(content.IndexOf('\n')); //Removes the header line from the string.
-                content = content.Substring(1, content.IndexOf('\n') - 1); //Removes everything after the second line (aka the dash line). Importantly it also removes the \n at the start and end of the line.
+                if (content.IndexOf('\n') > 1) //Makes sure that content has the \n to avoid going outside of bounds.
+                    content = content.Substring(1, content.IndexOf('\n') - 1); //Removes everything after the second line (aka the dash line). Importantly it also removes the \n at the start and end of the line.
                 rows[1] = content; //Set the row[1] to be the dash line.
             }
             return rows.Aggregate((total, str) => total + str + '\n'); //Combine rows into one string and returns that string.

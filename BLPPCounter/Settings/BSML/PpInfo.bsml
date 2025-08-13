@@ -117,6 +117,11 @@
         <button id='ReloadDataButton' text='Reload Data' hover-hint='Reloads ALL profile scores (this is slow)' on-click='RefreshProfilePP' align='Left'/>
         <button text='Input play PP' on-click='UpdateProfilePP' align='Right'/>
       </horizontal>
+      <!--button text='Test' on-click='DoTestThing' align='Center'/-->
+      <button text='Show Top Plays' click-event='ShowPlayTable' align='Center'/>
+      <modal show-event='ShowPlayTable' click-off-closes='true' bg-color='#CCC'>
+        <text id='PlayTable' align='Center' font-size='3.5'/>
+      </modal>
       <slider-setting id='ProfilePPSlider' text='To Get' color='#A020F0' increment='5' integer-only='true' min='~PPSliderMin' max='~PPSliderMax' show-buttons='true' apply-on-change='true' value='ProfileTestPp' formatter='PPFormat'/>
       <horizontal>
       <text id='WeightedText' text='' align='Left'/>

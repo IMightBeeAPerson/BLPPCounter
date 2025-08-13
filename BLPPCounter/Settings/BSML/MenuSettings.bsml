@@ -17,7 +17,7 @@
       </vertical>
       <text text='Leaderboard Settings' align='Center'/>
       <vertical spacing='1'>
-        <list-setting text='Leaderboard' apply-on-change='true' value='Leaderboard' options='Leaderboards' hover-hint='Choose which leaderboard to use (Only Beatleader has all features!)'/>
+        <list-setting text='Leaderboard' apply-on-change='true' value='Leaderboard' options='LeaderboardList' hover-hint='Choose which leaderboard to use (Only Beatleader has all features!)'/>
         <checkbox-setting text='Default to leaderboard' apply-on-change='true' value='DefaultToLeaderboard' hover-hint='If the map is not usable for the selected leaderboard, try to default to the below leaderboard'/>
         <list-setting id='DefLeader' text='Default Leaderboard' apply-on-change='true' value='DefaultLeaderboard' options='DefaultLeaderboards' hover-hint='The leaderboard to default on (cannot be the same as selected leaderboard)'/>
         <checkbox-setting text='Show On Unranked Maps' apply-on-change='true' value='UseUnranked' hover-hint='Patreons of BL can see ratings for unranked maps'/>

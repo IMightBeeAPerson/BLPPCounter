@@ -283,8 +283,11 @@ namespace BLPPCounter
             PercentNeededFormatter = null;
         }
         public override void CounterDestroy() {
-            PpInfoTabHandler.Instance.CompletedMap((float)(totalHitscore / maxHitscore));
-            LastMap = default;
+#if NEW_VERSION
+            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), beatmap.levelID.Split('_')[2]);
+#else
+            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), beatmap.level.levelID.Split('_')[2]);
+#endif
             usingDefaultLeaderboard = false;
             if (hasNotifiers) 
                 ChangeNotifiers(false);
@@ -465,8 +468,8 @@ namespace BLPPCounter
 #else
             APIHandler.GetAPI(usingDefaultLeaderboard).AddMap(Data, beatmap.level.levelID.Split('_')[2].ToUpper()); // 1.34.2 and below
 #endif
-        #endregion
-        #region Helper Methods
+#endregion
+#region Helper Methods
         private void ChangeNotifiers(bool a)
         {
             if (a)

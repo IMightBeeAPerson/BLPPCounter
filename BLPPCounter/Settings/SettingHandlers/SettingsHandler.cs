@@ -169,8 +169,17 @@ namespace BLPPCounter.Settings.SettingHandlers
                 PropertyChanged(this, new PropertyChangedEventArgs(nameof(Leaderboard)));
             }
         }
-        [UIValue(nameof(Leaderboards))]
-        public List<object> Leaderboards = Enum.GetNames(typeof(Leaderboards)).Take(3).Cast<object>().ToList();
+        [UIValue(nameof(LeaderboardList))]
+        public List<object> LeaderboardList
+        {
+            get
+            {
+                List<object> outp = new List<object>((int)Math.Log((int)Leaderboards.All + 1, 2));
+                for (int i = 1; i < (int)Leaderboards.All; i <<= 1)
+                    outp.Add(((Leaderboards)i).ToString());
+                return outp;
+            }
+        }
         [UIValue(nameof(DefaultToLeaderboard))]
         public bool DefaultToLeaderboard
         {
@@ -184,7 +193,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             set { PC.DefaultLeaderboard = (Leaderboards)Enum.Parse(typeof(Leaderboards), value); PropertyChanged(this, new PropertyChangedEventArgs(nameof(DefaultLeaderboard))); }
         }
         [UIValue(nameof(DefaultLeaderboards))]
-        public List<object> DefaultLeaderboards => Leaderboards.Where(l => !l.Equals(Leaderboard)).ToList();
+        public List<object> DefaultLeaderboards => LeaderboardList.Where(l => !l.Equals(Leaderboard)).ToList();
         [UIValue(nameof(LeaderInLabel))] 
         public bool LeaderInLabel
         {

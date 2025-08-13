@@ -1,4 +1,5 @@
-﻿using BLPPCounter.CalculatorStuffs;
+﻿using BeatLeader.Utils;
+using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using IPA.Config.Data;
@@ -82,19 +83,32 @@ namespace BLPPCounter.Utils.API_Handlers
                 (float)Math.Round(BLCalc.Instance.Inflate(BLCalc.Instance.GetSummedPp((int)a["modifiedScore"] / maxScore, acc, pass, tech)), PluginConfig.Instance.DecimalPrecision)).ToArray();
             }
         }
-        public override float[] GetScores(string userId, int count)
+        public override (string, BeatmapDifficulty, float)[] GetScores(string userId, int count)
         {
             const int MaxCountToPage = 100;
-            List<float> outp = new List<float>();
+            const int MaxCountForBSPage = 50;
+            List<(string, BeatmapDifficulty, float)> outp = new List<(string, BeatmapDifficulty, float)>();
             int pageNum = 1;
             while (count >= MaxCountToPage)
             {
-                outp.AddRange(JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.BLAPI_PLAYERSCORES, userId, pageNum, MaxCountToPage)))?["data"].Children().Select(token => (float)token["score"]["pp"]).ToArray());
+                (string, BeatmapDifficulty, float)[] current = JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.BLAPI_PLAYERSCORES, userId, pageNum, MaxCountToPage)))?["data"].Children().Select(token => (token["leaderboard"]["songHash"].ToString(), Map.FromValue((int)token["leaderboard"]["difficulty"]), (float)token["score"]["pp"])).ToArray();
+                int i = 0, reps = 0;
+                string hashes;
+                while (reps * MaxCountForBSPage < MaxCountToPage)
+                {
+                    for (hashes = string.Format(HelpfulPaths.BSAPI_HASH, ""); i < MaxCountForBSPage * (reps + 1); i++)
+                        hashes += current[i].Item1 + ',';
+                    string[] names = JToken.Parse(CallAPI_String(hashes.Substring(0, hashes.Length - 1), forceNoHeader: true)).Children().Select(token => token.First["name"].ToString()).ToArray();
+                    for (int j = 0, k = i - MaxCountForBSPage; j < names.Length; j++, k++)
+                        current[k].Item1 = names[j];
+                    reps++;
+                }
+                outp.AddRange(current);
                 count -= MaxCountToPage;
                 pageNum++;
             }
             if (count > 0)
-                outp.AddRange(JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.BLAPI_PLAYERSCORES, userId, pageNum, count)))?["data"].Children().Select(token => (float)token["score"]["pp"]).ToArray());
+                outp.AddRange(JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.BLAPI_PLAYERSCORES, userId, pageNum, count)))?["data"].Children().Select(token => (token["leaderboard"]["songHash"].ToString(), Map.FromValue((int)token["leaderboard"]["difficulty"]), (float)token["score"]["pp"])).ToArray());
             return outp.ToArray();
         }
         public override float GetProfilePP(string userId)

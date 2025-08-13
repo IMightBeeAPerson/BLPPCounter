@@ -8,6 +8,6 @@ namespace BLPPCounter.Utils
 {
     public enum Leaderboards //bitmask
     {
-        Beatleader = 1, Scoresaber = 2, Accsaber = 4, All = Beatleader | Scoresaber | Accsaber
+        None = 0, Beatleader = 1, Scoresaber = 2, Accsaber = 4, All = Beatleader | Scoresaber | Accsaber
     }
 }

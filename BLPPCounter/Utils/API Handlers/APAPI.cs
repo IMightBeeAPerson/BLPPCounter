@@ -51,7 +51,7 @@ namespace BLPPCounter.Utils.API_Handlers
             return APCalc.Instance.GetPp(acc, complexity)[0];
         }
         public override int GetScore(JToken scoreData) => (int)scoreData["baseScore"];
-        public override float[] GetScores(string userId, int count)
+        public override (string, BeatmapDifficulty, float)[] GetScores(string userId, int count)
         {
             return null;
         }

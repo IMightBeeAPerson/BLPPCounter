@@ -75,6 +75,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private static readonly string[] SelectionButtonTags = new string[4] { "SSButton", "NMButton", "FSButton", "SFButton" };
         private Table ClanTableTable, RelativeTableTable, PPTableTable, PercentTableTable;
         public bool ChangeTabSettings = false;
+        internal (float FinalAcc, string Hash) FinalMapData;
         #region Relative Counter
         private static Func<string> GetTarget, GetNoScoreTarget;
         private float TargetPP = 0;
@@ -170,6 +171,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
 
         [UIComponent(nameof(ProfileTab))] private Tab ProfileTab;
+        [UIComponent(nameof(PlayTable))] private TextMeshProUGUI PlayTable;
         [UIComponent(nameof(PlusOneText))] private TextMeshProUGUI PlusOneText;
         [UIComponent(nameof(ReloadDataButton))] private Button ReloadDataButton;
         [UIComponent(nameof(ProfilePPSlider))] private SliderSetting ProfilePPSlider;
@@ -177,7 +179,6 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(WeightedTextValue))] private TextMeshProUGUI WeightedTextValue;
         [UIComponent(nameof(ProfilePPText))] private TextMeshProUGUI ProfilePPText;
         [UIComponent(nameof(ProfilePPTextValue))] private TextMeshProUGUI ProfilePPTextValue;
-
 
         [UIValue(nameof(TestAcc))] private float TestAcc 
         {
@@ -302,7 +303,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         [UIAction(nameof(UpdateProfilePP))] private void UpdateProfilePP()
         {
-            float ppAmount = ProfilePPSlider.Value;
+            float ppAmount = Mathf.Round(ProfilePPSlider.Value);
             WeightedText.SetText($"<color=green>Weighted</color> {GetPPLabel()}");
             WeightedTextValue.SetText("<color=#aa7722>" + CurrentProfile.GetWeightedPP(ppAmount) + "</color> " + GetPPLabel());
             ProfilePPText.SetText($"<color=yellow>Profile</color> {GetPPLabel()}");
@@ -310,12 +311,13 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (profilePp[0] == '-') profilePp = "Unknown";
             ProfilePPTextValue.SetText("<color=purple>" + profilePp + "</color> " + GetPPLabel());
         }
-        /*[UIAction(nameof(DoTestThing))] private void DoTestThing()
+        [UIAction(nameof(DoTestThing))] private void DoTestThing()
         {
-            CurrentProfile.AddPlay(ProfilePPSlider.Value);
-            UpdateProfilePP();
-            UpdateProfile();
-        }*/
+            //CurrentProfile.AddPlay(ProfilePPSlider.Value);
+            //UpdateProfilePP();
+            //UpdateProfile();
+            CompletedMap(0.975f, Sldvc.beatmapLevel.levelID.Split('_')[2]);
+        }
         [UIAction(nameof(RefreshProfilePP))] private void RefreshProfilePP()
         {
             Task.Run(RefreshProfileScores);
@@ -347,6 +349,14 @@ namespace BLPPCounter.Settings.SettingHandlers
             PC.SliderIncrementNum = _SliderIncrementNum;
             PC.ShowTrueID = _ShowTrueID;
         }
+        [UIAction("#ShowPlayTable")] private void ShowPlayTable()
+        {
+            if (CurrentProfile.PlayTable is null)
+                Profile.TextContainer = PlayTable;
+            if (CurrentProfile.PlayTable.ContainerUpdated)
+                CurrentProfile.PlayTable.ClearTable(fillWithBlankSpace: false);
+            CurrentProfile.PlayTable.UpdateTable();
+        }
         [UIAction("#UpdateCurrentTable")] private void UpdateCurrentTable() => BuildTable();
         [UIAction("#UpdateCurrentTab")] private void UpdateCurrentTab() => UpdateTabDisplay(true);
         [UIAction("#post-parse")] private void DoStuff()
@@ -365,13 +375,9 @@ namespace BLPPCounter.Settings.SettingHandlers
         #region Inits
         static PpInfoTabHandler()
         {
-            BSEvents.levelCleared += (transition, results) =>
-            {
-                Instance.ClearMapTabs();
-                TheCounter.theCounter = null;
-            };
             InitFormatters();
             Instance = new PpInfoTabHandler();
+            Instance.ChangeMapListeners(true);
             TabSelectionPatch.AddToTabSelectedAction(TabName, () =>
             {
                 if (Instance.Sldvc != null && Instance.Gmpc != null)
@@ -486,7 +492,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 ratings = newArr;
             }
             int len = ratings.Length / 4; //divide by 4 because 3 speed mods + 1 no mod
-            Plugin.Log.Info($"rating len: {ratings.Length}, len: {len}");
+            //Plugin.Log.Info($"rating len: {ratings.Length}, len: {len}");
             for (int i = 0; i < arr.Length; i++)
                 arr[i][1] = "<color=#0c0>" + valueCalc.Invoke(ratings.Skip(i * len).Take(len).ToArray()) + "</color>" + suffix;
             if (!Mathf.Approximately(CurrentModMultiplier, 1.0f)) for (int i = 0; i < arr.Length; i++)
@@ -586,12 +592,42 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region Misc Functions
-        internal void CompletedMap(float finalAcc)
+        private void ChangeMapListeners(bool toEnable)
+        {
+            if (toEnable)
+            {
+                BSEvents.levelCleared += SucceededMap;
+                /*BSEvents.levelFailed += FailedMap;
+                BSEvents.levelQuit += FailedMap;
+                BSEvents.levelRestarted += FailedMap;*/
+            } else
+            {
+                BSEvents.levelCleared -= SucceededMap;
+                /*BSEvents.levelFailed -= FailedMap;
+                BSEvents.levelQuit -= FailedMap;
+                BSEvents.levelRestarted -= FailedMap;*/
+            }
+        }
+        private void SucceededMap(StandardLevelScenesTransitionSetupDataSO transition, LevelCompletionResults results)
+        {
+            ClearMapTabs();
+            TheCounter.theCounter = null;
+            CompletedMap(FinalMapData.FinalAcc, FinalMapData.Hash);
+            TheCounter.LastMap = default;
+        }
+        /*private void FailedMap(StandardLevelScenesTransitionSetupDataSO transition, LevelCompletionResults results)
+        {
+            FinalMapData = default;
+        }*/
+        private void CompletedMap(float finalAcc, string hash)
         {
             if (float.IsNaN(finalAcc)) return;
-            float[] ratings = Instance.CurrentCalculator.SelectRatings(TheCounter.LastMap.StarRating, TheCounter.LastMap.AccRating, TheCounter.LastMap.PassRating, TheCounter.LastMap.TechRating);
-            Profile.GetProfile(Calculator.UsingDefault ? PC.DefaultLeaderboard : PC.Leaderboard, Targeter.PlayerID)
-            .AddPlay(Instance.CurrentCalculator.Inflate(Instance.CurrentCalculator.GetSummedPp(finalAcc, ratings)));
+            Task.Run(() =>
+            {
+                if (Profile.AddPlay(Targeter.PlayerID, hash, finalAcc))
+                    UpdateTabDisplay(forceUpdate: true, runAsync: false);
+            });
+            FinalMapData = default;
         }
         public string GetPPLabel() => CurrentLeaderboard == Leaderboards.Accsaber ? "ap" : "pp";
         public void UpdateTabDisplay(bool forceUpdate = false, bool runAsync = true) 

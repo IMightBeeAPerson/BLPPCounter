@@ -629,5 +629,45 @@ namespace BLPPCounter.Helpfuls
             if (index >= 0) return index;
             return -index - 1;
         }
+        /// <summary>
+        /// Standard binary serach, but assumes <paramref name="arr"/> is sorted from greatest to least instead of least to greatest.
+        /// The same thing as passing a least to greatest array into <seealso cref="Array.BinarySearch(Array, object)"/>.
+        /// </summary>
+        /// <param name="arr">The array to preform the search on.</param>
+        /// <param name="value">The value to search for.</param>
+        /// <returns>Either the index of <paramref name="value"/> will be returned, or the index of the highest value without going over.
+        /// It will return the arr length if the given value is less than all of the other values.</returns>
+        public static int ReverseBinarySearch<T>(T[] arr, T value) where T : IComparable<T>
+        {
+            int mid = arr.Length / 2, compareVal = arr[mid].CompareTo(value), arrLeft = arr.Length / 2;
+            bool complete = false, plusOne = arr.Length % 2 == 1;
+            while (!complete)
+            {
+                if (plusOne) arrLeft++;
+                plusOne = arrLeft % 2 == 1;
+                arrLeft >>= 1;
+                if (arrLeft == 0)
+                {
+                    arrLeft++;
+                    complete = true;
+                }
+                if (compareVal > 0)
+                    mid += arrLeft;
+                else if (compareVal < 0)
+                    mid -= arrLeft;
+                compareVal = arr[mid].CompareTo(value);
+                if (complete && compareVal > 0)
+                    mid++;
+            }
+            //Plugin.Log.Info($"The array: {Print(arr)}\nThe value: {value}\nPlaced at index {mid}, which has the value " + (mid < arr.Length ? arr[mid].ToString() : "out of bounds") + ".");
+            return mid;
+        }
+        /*float[] ConvertArr(double[] arr)
+        {
+            float[] outp = new float[arr.Length];
+            for (int i = 0; i < arr.Length; i++)
+                outp[i] = (float)arr[i];
+            return outp;
+        }*/
     }
 }

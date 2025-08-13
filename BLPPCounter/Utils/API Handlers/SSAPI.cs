@@ -63,19 +63,19 @@ namespace BLPPCounter.Utils.API_Handlers
         }
         public override float GetPP(JToken scoreData) => (float)scoreData["pp"];
         public override int GetScore(JToken scoreData) => (int)scoreData["modifiedScore"];
-        public override float[] GetScores(string userId, int count)
+        public override (string, BeatmapDifficulty, float)[] GetScores(string userId, int count)
         {
             const int MaxCountToPage = 100;
             int pageNum = 1;
-            List<float> outp = new List<float>();
+            List<(string, BeatmapDifficulty, float)> outp = new List<(string, BeatmapDifficulty, float)>();
             while (count >= MaxCountToPage)
             {
-                outp.AddRange(JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_PLAYERSCORES, userId, MaxCountToPage, pageNum)))?["playerScores"].Children().Select(token => (float)token["score"]["pp"]));
+                outp.AddRange(JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_PLAYERSCORES, userId, MaxCountToPage, pageNum)))?["playerScores"].Children().Select(token => (token["leaderboard"]["songName"].ToString(), Map.FromValue((int)token["leaderboard"]["difficulty"]["difficulty"]),(float)token["score"]["pp"])));
                 count -= MaxCountToPage;
                 pageNum++;
             }
             if (count > 0)
-                outp.AddRange(JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_PLAYERSCORES, userId, count, pageNum)))?["playerScores"].Children().Select(token => (float)token["score"]["pp"]));
+                outp.AddRange(JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_PLAYERSCORES, userId, count, pageNum)))?["playerScores"].Children().Select(token => (token["leaderboard"]["songName"].ToString(), Map.FromValue((int)token["leaderboard"]["difficulty"]["difficulty"]), (float)token["score"]["pp"])));
             return outp.ToArray();
         }
         public override float GetProfilePP(string userId)

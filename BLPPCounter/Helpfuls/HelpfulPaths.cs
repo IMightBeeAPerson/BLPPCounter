@@ -54,6 +54,10 @@ namespace BLPPCounter.Helpfuls
         public static readonly string APAPI_LEADERBOARDID = "https://api.accsaber.com/ranked-maps/{0}"; //Scoresaber_id
         public static readonly string APAPI_PLAYERID = "https://api.accsaber.com/players/{0}"; //user_id
 
+        public static readonly string BSAPI = "https://api.beatsaver.com/";
+        public static readonly string BSAPI_MAPID = "https://api.beatsaver.com/maps/id/{0}";
+        public static readonly string BSAPI_HASH = "https://api.beatsaver.com/maps/hash/{0}";
+
         public static readonly string TAOHABLE_API = "https://raw.githubusercontent.com/HypersonicSharkz/SmartSongSuggest/master/TaohSongSuggest/Configuration/InitialData/SongLibrary.json";
         public static readonly string TAOHABLE_META = "https://raw.githubusercontent.com/HypersonicSharkz/SmartSongSuggest/master/TaohSongSuggest/Configuration/InitialData/Files.meta";
         #endregion

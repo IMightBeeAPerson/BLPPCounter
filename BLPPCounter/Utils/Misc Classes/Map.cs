@@ -57,6 +57,7 @@ namespace BLPPCounter.Utils
             value = Get(difficulty);
             return value != null;
         }
+        public string[] GetModes() => data.Keys.ToArray();
         public void Combine(Map other)
         {
             foreach(string s in other.data.Keys)

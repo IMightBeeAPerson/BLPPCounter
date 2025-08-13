@@ -5,6 +5,8 @@ using System.Net.Http;
 using BLPPCounter.Settings.Configs;
 using UnityEngine.Windows.Speech;
 using System.Collections.Generic;
+using BLPPCounter.Helpfuls;
+using System.Linq;
 
 namespace BLPPCounter.Utils.API_Handlers
 {
@@ -65,7 +67,7 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract float GetPP(JToken scoreData);
         public abstract int GetScore(JToken scoreData);
         public abstract float[] GetScoregraph(MapSelection ms);
-        public abstract float[] GetScores(string userId, int count);
+        public abstract (string MapName, BeatmapDifficulty Difficulty, float rawPP)[] GetScores(string userId, int count);
         public abstract float GetProfilePP(string userId);
         internal abstract void AddMap(Dictionary<string, Map> Data, string hash);
         public static APIHandler GetAPI(bool useDefault = false) => GetAPI(!useDefault ? PluginConfig.Instance.Leaderboard : PluginConfig.Instance.DefaultLeaderboard);
@@ -83,6 +85,18 @@ namespace BLPPCounter.Utils.API_Handlers
                 default:
                     return null;
             }
+        }
+        public static Leaderboards GetRankedLeaderboards(string hash)
+        {
+            Leaderboards outp = Leaderboards.None;
+            CallAPI_Static(string.Format(HelpfulPaths.BSAPI_HASH, hash), out HttpContent data, forceNoHeader: true);
+            string strData = data?.ReadAsStringAsync().Result;
+            if (strData is null) return outp;
+            JToken parsedData = JToken.Parse(strData);
+            outp |= (bool)parsedData["ranked"] ? Leaderboards.Scoresaber : Leaderboards.None;
+            outp |= ((bool)parsedData["blRanked"] || (bool)parsedData["blQualified"]) ? Leaderboards.Beatleader : Leaderboards.None;
+            outp |= TheCounter.Data[hash].GetModes().Contains(Map.AP_MODE_NAME) ? Leaderboards.Accsaber : Leaderboards.None;
+            return outp;
         }
     }
 }
