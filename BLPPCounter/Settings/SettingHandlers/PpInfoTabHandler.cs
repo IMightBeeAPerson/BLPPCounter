@@ -353,8 +353,13 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             if (CurrentProfile.PlayTable is null)
                 Profile.TextContainer = PlayTable;
-            if (!CurrentProfile.PlayTable.ContainerUpdated)
+            IEnumerator DelayUpdate()
+            {
+                yield return new WaitForEndOfFrame();
                 CurrentProfile.PlayTable.UpdateTable();
+            }
+            //if (!CurrentProfile.PlayTable.ContainerUpdated)
+                Sldvc.StartCoroutine(DelayUpdate());
         }
         [UIAction("#UpdateCurrentTable")] private void UpdateCurrentTable() => BuildTable();
         [UIAction("#UpdateCurrentTab")] private void UpdateCurrentTab() => UpdateTabDisplay(true);

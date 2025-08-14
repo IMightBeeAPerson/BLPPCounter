@@ -14,7 +14,6 @@ namespace BLPPCounter.Utils
 {
     internal class Table: INotifyPropertyChanged
     {
-#pragma warning disable IDE0051
         public event PropertyChangedEventHandler PropertyChanged;
 
         public int Spaces
@@ -127,12 +126,12 @@ namespace BLPPCounter.Utils
         public void SetValues(string[][] values)
         {
             Values = values;
-            ContainerUpdated = false;
+            FormattingUpdated = ContainerUpdated = false;
         }
         public void SetNames(string[] names)
         {
             Names = names;
-            ContainerUpdated = false;
+            FormattingUpdated = ContainerUpdated = false;
         }
         public void UpdateTable(bool removeHighlights = false)
         {
@@ -141,15 +140,15 @@ namespace BLPPCounter.Utils
             Container.text = ToString();
             ContainerUpdated = true;
         }
-        public void ClearTable(bool fillWithBlankSpace = true)
+        public void ClearTable()
         {
-            if (fillWithBlankSpace) Container.text = new string('\n', Values[0].Length);
-            else Container.text = string.Empty;
-                ContainerUpdated = false;
+            Container.text = new string('\n', Values[0].Length);
+            ContainerUpdated = false;
         }
         public void ChangeValue(int row, int column, string newValue)
         {
             Values[row][column] = newValue; //Set Value to new value no matter the state of the table.
+            ContainerUpdated = false; //Since a value has been changed, the current container display is no longer up to date.
             if (!FormattingUpdated) return; //If formatting hasn't been updated, then nothing more needs to be done. Exit.
             float len = GetLen(newValue); //Get the length of the new Value (in pixels).
             if (len < MaxLengths[column]) //Check if this length is within the maximum length of the column.
@@ -210,12 +209,15 @@ namespace BLPPCounter.Utils
         private float GetLenWithSpacers(string str)
         {
             MatchCollection mc = Regex.Matches(str, "(?<=<space=)[^p]+");
-            //float addedSpace = mc.Aggregate(0.0f, (total, match) => total + float.Parse(match.Value)); // 1.37.0 and above
+#if NEW_VERSION
+            float addedSpace = mc.Aggregate(0.0f, (total, match) => total + float.Parse(match.Value)); // 1.37.0 and above
+#else
             float addedSpace = mc.OfType<Match>().Aggregate(0.0f, (total, match) => total + float.Parse(match.Value)); // 1.34.2 and below
+#endif
             return GetLenWithoutRich(str) + addedSpace;
         }
         private string GetRow(int rowIndex) => FormattingUpdated ? 
-            Prefix + TableValues[rowIndex].Aggregate((total, current) => total + current + Spacer) + Suffix : //If formatting is updated then a row is simply the Prefix + all table values combined (with a spacer between them) + Suffix.
+            Prefix + TableValues[rowIndex].Skip(1).Aggregate(TableValues[rowIndex][0], (total, current) => total + Spacer + current) + Suffix : //If formatting is updated then a row is simply the Prefix + all table values combined (with a spacer between them) + Suffix.
             FormatRow(rowIndex); //If formatting is not updated, then update the format :D.
         private string FormatRow(int rowIndex)
         {
@@ -300,7 +302,7 @@ namespace BLPPCounter.Utils
             for (int i = 0; i < Values.Length; i++)
                 rows[i + 2] = GetRow(i + 1); //Skips over row[1] because that is dash row.
 
-            if (!softUpdate || Container.text.IndexOf('\n') < 0) //Only recalculate the dash line if some value had to be updated, otherwise skip and just reuse what was already made.
+            if (!softUpdate) //Only recalculate the dash line if some value had to be updated, otherwise skip and just reuse what was already made.
             {
                 float spacerSize = GetLen(Prefix), dashSize = GetLen("-"); //Get sizes of the 2 "objects" that make up row[1], the Prefix (aka spacer) and dash.
                 if (_HasEndColumn) spacerSize *= 2; //since Prefix and Suffix are made up of the same characters, their lengths are the same.
