@@ -83,32 +83,46 @@ namespace BLPPCounter.Utils.API_Handlers
                 (float)Math.Round(BLCalc.Instance.Inflate(BLCalc.Instance.GetSummedPp((int)a["modifiedScore"] / maxScore, acc, pass, tech)), PluginConfig.Instance.DecimalPrecision)).ToArray();
             }
         }
-        public override (string, BeatmapDifficulty, float)[] GetScores(string userId, int count)
+        public override (string, BeatmapDifficulty, float, string)[] GetScores(string userId, int count)
         {
             const int MaxCountToPage = 100;
-            const int MaxCountForBSPage = 50;
-            List<(string, BeatmapDifficulty, float)> outp = new List<(string, BeatmapDifficulty, float)>();
+            List<(string, BeatmapDifficulty, float, string)> outp = new List<(string, BeatmapDifficulty, float, string)>();
             int pageNum = 1;
             while (count >= MaxCountToPage)
             {
-                (string, BeatmapDifficulty, float)[] current = JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.BLAPI_PLAYERSCORES, userId, pageNum, MaxCountToPage)))?["data"].Children().Select(token => (token["leaderboard"]["songHash"].ToString(), Map.FromValue((int)token["leaderboard"]["difficulty"]), (float)token["score"]["pp"])).ToArray();
-                int i = 0, reps = 0;
-                string hashes;
-                while (reps * MaxCountForBSPage < MaxCountToPage)
-                {
-                    for (hashes = string.Format(HelpfulPaths.BSAPI_HASH, ""); i < MaxCountForBSPage * (reps + 1); i++)
-                        hashes += current[i].Item1 + ',';
-                    string[] names = JToken.Parse(CallAPI_String(hashes.Substring(0, hashes.Length - 1), forceNoHeader: true)).Children().Select(token => token.First["name"].ToString()).ToArray();
-                    for (int j = 0, k = i - MaxCountForBSPage; j < names.Length; j++, k++)
-                        current[k].Item1 = names[j];
-                    reps++;
-                }
-                outp.AddRange(current);
+                var current = JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.BLAPI_PLAYERSCORES, userId, pageNum, MaxCountToPage)))?["data"].Children().Select(token => {
+                    string mapID = token["leaderboard"]["id"].ToString();
+                    return (
+                    token["leaderboard"]["songHash"].ToString(),
+                    Map.FromValue((int)token["leaderboard"]["difficulty"]),
+                    (float)token["score"]["pp"],
+                    mapID.Contains('x') ? mapID.Substring(0, mapID.IndexOf('x')) : mapID.Substring(0, mapID.Length - 2)
+                    );
+                }).ToArray();
+                string[] names = GetBSData(current.Select(tuple => tuple.Item1).ToArray(), "name");
+                for (int i = 0; i < names.Length; i++)
+                    current[i].Item1 = names[i];
                 count -= MaxCountToPage;
                 pageNum++;
+                outp.AddRange(current);
             }
             if (count > 0)
-                outp.AddRange(JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.BLAPI_PLAYERSCORES, userId, pageNum, count)))?["data"].Children().Select(token => (token["leaderboard"]["songHash"].ToString(), Map.FromValue((int)token["leaderboard"]["difficulty"]), (float)token["score"]["pp"])).ToArray());
+            {
+                var current = JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.BLAPI_PLAYERSCORES, userId, pageNum, count)))?["data"].Children().Select(token =>
+                {
+                    string mapID = token["leaderboard"]["id"].ToString();
+                    return (
+                    token["leaderboard"]["songHash"].ToString(),
+                    Map.FromValue((int)token["leaderboard"]["difficulty"]),
+                    (float)token["score"]["pp"],
+                    mapID.Contains('x') ? mapID.Substring(0, mapID.IndexOf('x')) : mapID.Substring(0, mapID.Length - 2)
+                    );
+                }).ToArray();
+                string[] names = GetBSData(current.Select(tuple => tuple.Item1).ToArray(), "name");
+                for (int i = 0; i < names.Length; i++)
+                    current[i].Item1 = names[i];
+                outp.AddRange(current);
+            }
             return outp.ToArray();
         }
         public override float GetProfilePP(string userId)

@@ -730,12 +730,6 @@ namespace BLPPCounter.Helpfuls
 
             return outp;
         }
-        /*
-         enum Test { First = 1, Second = 2, Third = 4, Forth = 8, Fifth = 16 }
-        Test[] arr = new Test[] { Test.First, Test.Second, Test.Third, Test.Fifth, Test.Forth };
-        long[] stored = myFunc(arr);
-        Print(stored)
-         */
         /*float[] ConvertArr(double[] arr)
         {
             float[] outp = new float[arr.Length];

@@ -35,6 +35,7 @@ namespace BLPPCounter.Utils
             }
         }
         private static TextMeshProUGUI textContainer = null;
+        private static bool Deserializing = false;
         #endregion
         #region Variables
         [JsonIgnore]
@@ -49,6 +50,8 @@ namespace BLPPCounter.Utils
         private ulong[] ScoreDiffs;
         [JsonIgnore]
         private BeatmapDifficulty[] ActualScoreDiffs;
+        [JsonProperty(nameof(ScoreIDs), Required = Required.DisallowNull)]
+        private string[] ScoreIDs;
         [JsonIgnore]
         private float[] WeightedScores;
         [JsonProperty(nameof(TotalPP), Required = Required.DisallowNull)]
@@ -78,6 +81,7 @@ namespace BLPPCounter.Utils
         }
         private void InitScores()
         {
+            if (Deserializing) return;
             if (TotalPP < 0)
             {
                 APIHandler api = APIHandler.GetAPI(Leaderboard);
@@ -86,29 +90,40 @@ namespace BLPPCounter.Utils
                 ScoreNames = scoreData.Select(token => token.MapName).ToArray();
                 ActualScoreDiffs = scoreData.Select(token => token.Difficulty).ToArray();
                 ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
+                ScoreIDs = scoreData.Select(token => token.MapKey).ToArray();
                 TotalPP = api.GetProfilePP(UserID);
                 if (Scores is null) Scores = new float[1] { 0.0f };
                 InitTable();
             }
-            else
-                ActualScoreDiffs = HelpfulMisc.UncompressEnums<BeatmapDifficulty>(ScoreDiffs);
-                WeightScores();
+            WeightScores();
             if (PlusOne < 0)
                 PlusOne = CalculatePlusOne();
+        }
+        private void PostInit()
+        {
+            ActualScoreDiffs = HelpfulMisc.UncompressEnums<BeatmapDifficulty>(ScoreDiffs);
+            WeightScores();
         }
         private void InitTable()
         {
             if (TextContainer is null) return;
             const int PlaysToShow = 10;
             string label = Leaderboard == Leaderboards.Accsaber ? "AP" : "PP";
-            string[] names = new string[4] { "Score #", "Name", "Diff", label };
+            string[] names = new string[5] { 
+                "<color=#FA0>Score #</color>",
+                "Beatmap Name",
+                "<color=#0F0>D</color><color=#070>i</color><color=#700>f</color><color=#C16>f</color>",
+                $"<color=purple>{label}</color>",
+                "<color=#4AF>Key</color>" 
+            };
             string[][] values = new string[Math.Min(PlaysToShow, Scores.Length)][];
             for (int i = 0; i < values.Length; i++)
                 values[i] = new string[] {
-                $"<color=#0F0>#{i + 1}</color>",
+                $"<color=#FA0>#{i + 1}</color>",
                 ScoreNames[i],
-                ActualScoreDiffs[i].ToString(),
-                $"<color=purple>{Math.Round(Scores[i], PluginConfig.Instance.DecimalPrecision)}</color> {label}"
+                ColorizeDiff(ActualScoreDiffs[i]),
+                $"<color=purple>{Math.Round(Scores[i], PluginConfig.Instance.DecimalPrecision)}</color> {label}",
+                $"<color=#4AF>{ScoreIDs[i]}</color>"
                 };
             if (PlayTable is null)
                 PlayTable = new Table(TextContainer, values, names)
@@ -126,6 +141,24 @@ namespace BLPPCounter.Utils
         }
         #endregion
         #region Static Functions
+        private static string ColorizeDiff(BeatmapDifficulty diff)
+        {
+            switch (diff)
+            {
+                case BeatmapDifficulty.Easy:
+                    return "<color=#0F0>Easy</color>";
+                case BeatmapDifficulty.Normal:
+                    return "<color=#070>Normal</color>";
+                case BeatmapDifficulty.Hard:
+                    return "<color=#700>Hard</color>";
+                case BeatmapDifficulty.Expert:
+                    return "<color=#C16>Expert</color>";
+                case BeatmapDifficulty.ExpertPlus:
+                    return "<color=#F0F>Expert+</color>";
+                default:
+                    return null;
+            }
+        }
         /// <summary>
         /// Saves the given <paramref name="profile"/> to the <see cref="LoadedProfiles"/> dictionary.
         /// </summary>
@@ -164,11 +197,14 @@ namespace BLPPCounter.Utils
                 Plugin.Log.Error("Profiles failed to load!\n" + e.ToString());
                 return;
             }
+            Deserializing = true;
             foreach (JToken profileItem in profiles)
             {
                 Profile profile = profileItem.ToObject<Profile>();
+                profile.PostInit();
                 LoadedProfiles.Add(profile.ID, profile);
             }
+            Deserializing = false;
             //Plugin.Log.Info("Profiles have been loaded.");
         }
         /// <summary>

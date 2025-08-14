@@ -14,7 +14,7 @@ namespace BLPPCounter.Utils.API_Handlers
 {
     internal abstract class APIHandler
     {
-        protected static readonly TimeSpan ClientTimeout = new TimeSpan(0, 0, 3);
+        protected static readonly TimeSpan ClientTimeout = new TimeSpan(0, 0, 5);
         protected static readonly HttpClient client = new HttpClient
         {
             Timeout = ClientTimeout
@@ -26,15 +26,15 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract bool CallAPI(string path, out HttpContent content, bool quiet = false, bool forceNoHeader = false);
         public static bool CallAPI_Static(string path, out HttpContent content, bool quiet = false, bool forceNoHeader = false)
         { //This is done to allow for default api calls that aren't to the leaderboard
-            Plugin.Log.Debug("API Call: " + path);
             DateTime rn = DateTime.Now;
-            while (rn - LastTimeout < ClientTimeout)
-            {
-                Plugin.Log.Warn($"API Call is being delayed by {(rn - LastTimeout).Seconds} second(s).");
-                Thread.Sleep(rn - LastTimeout);
-            }
             try
             {
+                Plugin.Log.Debug("API Call: " + path);
+                while (rn - LastTimeout < ClientTimeout)
+                {
+                    Plugin.Log.Warn($"API Call is being delayed by {(rn - LastTimeout).Seconds} second(s).");
+                    Thread.Sleep(rn - LastTimeout);
+                }
                 HttpResponseMessage hrm = client.GetAsync(new Uri(path)).Result;
                 hrm.EnsureSuccessStatusCode();
                 content = hrm.Content;
@@ -57,6 +57,41 @@ namespace BLPPCounter.Utils.API_Handlers
 
                 return false;
             }
+        }
+        public static string[] GetBSData(string[] hashes, params string[] path)
+        {
+            const int MaxCountForBSPage = 25;
+            int i = 0, reps = 1;
+            string hashString;
+            List<string> outp = new List<string>(hashes.Length);
+            while (reps * MaxCountForBSPage <= hashes.Length)
+            {
+                for (hashString = string.Format(HelpfulPaths.BSAPI_HASH, ""); i < MaxCountForBSPage * reps; i++)
+                    hashString += hashes[i] + ',';
+                CallAPI_Static(hashString.Substring(0, hashString.Length - 1), out HttpContent content, forceNoHeader: true);
+                outp.AddRange(JToken.Parse(content.ReadAsStringAsync().Result).Children().Select(token =>
+                {
+                    token = token.First;
+                    for (int ii = 0; ii < path.Length; ii++)
+                        token = token[path[ii]];
+                    return token.ToString();
+                }));
+                reps++;
+            }
+            if (hashes.Length % MaxCountForBSPage != 0)
+            {
+                for (hashString = string.Format(HelpfulPaths.BSAPI_HASH, ""); i < hashes.Length; i++)
+                    hashString += hashes[i] + ',';
+                CallAPI_Static(hashString.Substring(0, hashString.Length - 1), out HttpContent content, forceNoHeader: true);
+                outp.AddRange(JToken.Parse(content.ReadAsStringAsync().Result).Children().Select(token =>
+                {
+                    token = token.First;
+                    for (int ii = 0; ii < path.Length; ii++)
+                        token = token[path[ii]];
+                    return token.ToString();
+                }));
+            }
+            return outp.ToArray();
         }
         
         public HttpContent CallAPI(string path, bool quiet = false, bool forceNoHeader = false)
@@ -84,7 +119,7 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract float GetPP(JToken scoreData);
         public abstract int GetScore(JToken scoreData);
         public abstract float[] GetScoregraph(MapSelection ms);
-        public abstract (string MapName, BeatmapDifficulty Difficulty, float rawPP)[] GetScores(string userId, int count);
+        public abstract (string MapName, BeatmapDifficulty Difficulty, float rawPP, string MapKey)[] GetScores(string userId, int count);
         public abstract float GetProfilePP(string userId);
         internal abstract void AddMap(Dictionary<string, Map> Data, string hash);
         public static APIHandler GetAPI(bool useDefault = false) => GetAPI(!useDefault ? PluginConfig.Instance.Leaderboard : PluginConfig.Instance.DefaultLeaderboard);
