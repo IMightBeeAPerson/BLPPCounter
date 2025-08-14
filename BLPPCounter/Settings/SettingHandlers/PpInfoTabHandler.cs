@@ -11,7 +11,6 @@ using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
 using BS_Utils.Utilities;
 using HMUI;
-using IPA.Utilities;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections;
@@ -21,9 +20,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
-using UnityEngine.Profiling;
 using UnityEngine.UI;
-using static BeatmapLevelSO.GetBeatmapLevelDataResult;
 using static GameplayModifiers;
 
 namespace BLPPCounter.Settings.SettingHandlers
@@ -305,7 +302,9 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             float ppAmount = Mathf.Round(ProfilePPSlider.Value);
             WeightedText.SetText($"<color=green>Weighted</color> {GetPPLabel()}");
-            WeightedTextValue.SetText("<color=#aa7722>" + CurrentProfile.GetWeightedPP(ppAmount) + "</color> " + GetPPLabel());
+            string weightedPp = $"{CurrentProfile.GetWeightedPP(ppAmount)}";
+            if (weightedPp[0] == '-') weightedPp = "Unknown";
+            WeightedTextValue.SetText("<color=#aa7722>" + weightedPp + "</color> " + GetPPLabel());
             ProfilePPText.SetText($"<color=yellow>Profile</color> {GetPPLabel()}");
             string profilePp = $"{CurrentProfile.GetProfilePPRaw(ppAmount)}";
             if (profilePp[0] == '-') profilePp = "Unknown";

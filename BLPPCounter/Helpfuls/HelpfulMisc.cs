@@ -641,14 +641,14 @@ namespace BLPPCounter.Helpfuls
         {
             int mid = arr.Length / 2, compareVal = arr[mid].CompareTo(value), arrLeft = arr.Length / 2;
             bool complete = false, plusOne = arr.Length % 2 == 1;
-            while (!complete)
+            while (!complete && compareVal != 0)
             {
                 if (plusOne) arrLeft++;
                 plusOne = arrLeft % 2 == 1;
                 arrLeft >>= 1;
                 if (arrLeft == 0)
                 {
-                    arrLeft++;
+                    if (compareVal < 0) arrLeft++;
                     complete = true;
                 }
                 if (compareVal > 0)

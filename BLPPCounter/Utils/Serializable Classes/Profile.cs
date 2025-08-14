@@ -101,8 +101,18 @@ namespace BLPPCounter.Utils
         }
         private void PostInit()
         {
-            ActualScoreDiffs = HelpfulMisc.UncompressEnums<BeatmapDifficulty>(ScoreDiffs);
-            WeightScores();
+            try
+            {
+                ActualScoreDiffs = HelpfulMisc.UncompressEnums<BeatmapDifficulty>(ScoreDiffs);
+                WeightScores();
+            }
+            catch (Exception)
+            {
+                Plugin.Log.Warn("Json file missing important data for loading, using APIs to load instead.");
+                Deserializing = false;
+                ReloadScores();
+                Deserializing = true;
+            }
         }
         private void InitTable()
         {
