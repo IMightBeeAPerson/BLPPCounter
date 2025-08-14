@@ -46,7 +46,9 @@ namespace BLPPCounter.Utils
         [JsonProperty(nameof(ScoreNames), Required = Required.DisallowNull)]
         private string[] ScoreNames;
         [JsonProperty(nameof(ScoreDiffs), Required = Required.DisallowNull)]
-        private string[] ScoreDiffs;
+        private ulong[] ScoreDiffs;
+        [JsonIgnore]
+        private BeatmapDifficulty[] ActualScoreDiffs;
         [JsonIgnore]
         private float[] WeightedScores;
         [JsonProperty(nameof(TotalPP), Required = Required.DisallowNull)]
@@ -82,12 +84,15 @@ namespace BLPPCounter.Utils
                 var scoreData = api.GetScores(UserID, GetPlusOneCount());
                 Scores = scoreData.Select(token => token.rawPP).ToArray();
                 ScoreNames = scoreData.Select(token => token.MapName).ToArray();
-                ScoreDiffs = scoreData.Select(token => token.Difficulty.ToString()).ToArray();
+                ActualScoreDiffs = scoreData.Select(token => token.Difficulty).ToArray();
+                ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
                 TotalPP = api.GetProfilePP(UserID);
                 if (Scores is null) Scores = new float[1] { 0.0f };
                 InitTable();
             }
-            WeightScores();
+            else
+                ActualScoreDiffs = HelpfulMisc.UncompressEnums<BeatmapDifficulty>(ScoreDiffs);
+                WeightScores();
             if (PlusOne < 0)
                 PlusOne = CalculatePlusOne();
         }
@@ -102,7 +107,7 @@ namespace BLPPCounter.Utils
                 values[i] = new string[] {
                 $"<color=#0F0>#{i + 1}</color>",
                 ScoreNames[i],
-                ScoreDiffs[i],
+                ActualScoreDiffs[i].ToString(),
                 $"<color=purple>{Math.Round(Scores[i], PluginConfig.Instance.DecimalPrecision)}</color> {label}"
                 };
             if (PlayTable is null)
@@ -409,9 +414,10 @@ namespace BLPPCounter.Utils
             if (profilePP > 0) TotalPP += profilePP;
             HelpfulMisc.SiftDown(Scores, index, rawPP);
             HelpfulMisc.SiftDown(ScoreNames, index, mapName);
-            HelpfulMisc.SiftDown(ScoreDiffs, index, diff.ToString());
+            HelpfulMisc.SiftDown(ActualScoreDiffs, index, diff);
             HelpfulMisc.SiftDown(WeightedScores, index, GetWeight(index + 1) * rawPP, GetWeight(2));
             PlusOne = CalculatePlusOne();
+            ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
             InitTable();
             return true;
         }

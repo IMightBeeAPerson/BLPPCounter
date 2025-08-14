@@ -28,10 +28,10 @@ namespace BLPPCounter.Utils.API_Handlers
         { //This is done to allow for default api calls that aren't to the leaderboard
             Plugin.Log.Debug("API Call: " + path);
             DateTime rn = DateTime.Now;
-            while (LastTimeout - rn < ClientTimeout)
+            while (rn - LastTimeout < ClientTimeout)
             {
-                Plugin.Log.Warn($"API Call is being delayed by {(LastTimeout - rn).Seconds} second(s).");
-                Thread.Sleep(LastTimeout - rn);
+                Plugin.Log.Warn($"API Call is being delayed by {(rn - LastTimeout).Seconds} second(s).");
+                Thread.Sleep(rn - LastTimeout);
             }
             try
             {
@@ -51,6 +51,7 @@ namespace BLPPCounter.Utils.API_Handlers
                 {
                     Plugin.Log.Error("API request failed due to there being a timeout. This should never happen, and means that we are sending too many calls.");
                     Plugin.Log.Error($"A {ClientTimeout.Seconds} second delay has been added to avoid spamming the api.");
+                    LastTimeout = DateTime.Now;
                 }
                 content = null;
 

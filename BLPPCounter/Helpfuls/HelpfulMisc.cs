@@ -659,9 +659,83 @@ namespace BLPPCounter.Helpfuls
                 if (complete && compareVal > 0)
                     mid++;
             }
-            //Plugin.Log.Info($"The array: {Print(arr)}\nThe value: {value}\nPlaced at index {mid}, which has the value " + (mid < arr.Length ? arr[mid].ToString() : "out of bounds") + ".");
             return mid;
         }
+        /// <summary>
+        /// Compresses <see cref="Enum"/>s into a series of numbers.
+        /// </summary>
+        /// <typeparam name="T">The type of an <see cref="Enum"/>.</typeparam>
+        /// <param name="arr">The array of <see cref="Enum"/>s to compress.</param>
+        /// <returns>An array of <see cref="ulong"/>s. There will be an extra number at the end of <paramref name="arr"/> if there are extra bits left over. You can either
+        /// leave it there or store it seperately as a <see cref="byte"/>.</returns>
+        public static ulong[] CompressEnums<T>(T[] arr) where T : Enum
+        {
+            const int LongBits = 64;
+            ulong max = 0;
+            foreach (T item in Enum.GetValues(typeof(T)))
+                max = Math.Max(Convert.ToUInt64(item), max);
+            int bitsPerEnum = (int)Math.Ceiling(Math.Log(max, 2)) + 1;
+            ulong[] outp = new ulong[1 + (int)Math.Ceiling(bitsPerEnum * arr.Length / (double)LongBits)];
+
+            int currentBit = 0, index = 0;
+            outp[0] = 0;
+            foreach (T item in arr)
+            {
+                outp[index] |= Convert.ToUInt64(item) << currentBit;
+                currentBit = currentBit + bitsPerEnum > LongBits ? 0 : currentBit + bitsPerEnum;
+                if (currentBit == 0) index++;
+            }
+            outp[outp.Length - 1] = currentBit != 0 ? (ulong)(currentBit / bitsPerEnum) : 0;
+            return outp;
+        }
+        /// <summary>
+        /// Given an array of <see cref="ulong"/>s from the method <see cref="CompressEnums{T}(T[])"/> and the type of <see cref="Enum"/>, converts the data
+        /// back to an <see cref="Enum"/> array.
+        /// </summary>
+        /// <typeparam name="T">The type of <see cref="Enum"/> to convert back to.</typeparam>
+        /// <param name="arr">The array of <see cref="ulong"/>s.</param>
+        /// <param name="extraLength">The optional byte from <paramref name="arr"/>. If it is still in the array leave this blank.</param>
+        /// <returns>The array of <see cref="Enum"/>s, in the order they were originally stored.</returns>
+        public static T[] UncompressEnums<T>(ulong[] arr, byte extraLength = 65) where T : Enum
+        {
+            const int LongBits = 64;
+            ulong max = 0;
+            bool ignoreLast = false;
+            if (extraLength > LongBits)
+            {
+                extraLength = (byte)arr[arr.Length - 1];
+                ignoreLast = true;
+            }
+            Dictionary<ulong, T> typeConverter = new Dictionary<ulong, T>();
+            foreach (T item in Enum.GetValues(typeof(T)))
+            {
+                ulong itemNum = Convert.ToUInt64(item);
+                max = Math.Max(itemNum, max);
+                typeConverter.Add(itemNum, item);
+            }
+            int bitsPerEnum = (int)Math.Ceiling(Math.Log(max, 2)) + 1;
+            T[] outp = new T[(int)Math.Ceiling((double)LongBits / bitsPerEnum * (ignoreLast ? arr.Length - 2 : arr.Length) + extraLength)];
+
+            ulong currentBits = (ulong)Math.Pow(2, bitsPerEnum) - 1;
+            int usedBits = 0, index = 0;
+            for (int i = 0; i < outp.Length; i++, usedBits += bitsPerEnum)
+            {
+                if (usedBits > LongBits - bitsPerEnum)
+                {
+                    index++;
+                    usedBits = 0;
+                }
+                outp[i] = typeConverter[(arr[index] & (currentBits << usedBits)) >> usedBits];
+            }
+
+            return outp;
+        }
+        /*
+         enum Test { First = 1, Second = 2, Third = 4, Forth = 8, Fifth = 16 }
+        Test[] arr = new Test[] { Test.First, Test.Second, Test.Third, Test.Fifth, Test.Forth };
+        long[] stored = myFunc(arr);
+        Print(stored)
+         */
         /*float[] ConvertArr(double[] arr)
         {
             float[] outp = new float[arr.Length];
