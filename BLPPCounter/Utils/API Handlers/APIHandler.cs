@@ -7,23 +7,34 @@ using UnityEngine.Windows.Speech;
 using System.Collections.Generic;
 using BLPPCounter.Helpfuls;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
 
 namespace BLPPCounter.Utils.API_Handlers
 {
     internal abstract class APIHandler
     {
+        protected static readonly TimeSpan ClientTimeout = new TimeSpan(0, 0, 3);
         protected static readonly HttpClient client = new HttpClient
         {
-            Timeout = new TimeSpan(0, 0, 3)
+            Timeout = ClientTimeout
         };
+        private static DateTime LastTimeout = DateTime.MinValue;
+
         public static bool UsingDefault = false;
 
         public abstract bool CallAPI(string path, out HttpContent content, bool quiet = false, bool forceNoHeader = false);
         public static bool CallAPI_Static(string path, out HttpContent content, bool quiet = false, bool forceNoHeader = false)
         { //This is done to allow for default api calls that aren't to the leaderboard
+            Plugin.Log.Debug("API Call: " + path);
+            DateTime rn = DateTime.Now;
+            while (LastTimeout - rn < ClientTimeout)
+            {
+                Plugin.Log.Warn($"API Call is being delayed by {(LastTimeout - rn).Seconds} second(s).");
+                Thread.Sleep(LastTimeout - rn);
+            }
             try
             {
-                Plugin.Log.Debug("API Call: " + path);
                 HttpResponseMessage hrm = client.GetAsync(new Uri(path)).Result;
                 hrm.EnsureSuccessStatusCode();
                 content = hrm.Content;
@@ -35,6 +46,11 @@ namespace BLPPCounter.Utils.API_Handlers
                 {
                     Plugin.Log.Error($"API request failed\nPath: {path}\nError: {e.Message}");
                     Plugin.Log.Debug(e);
+                }
+                if (rn - DateTime.Now > ClientTimeout)
+                {
+                    Plugin.Log.Error("API request failed due to there being a timeout. This should never happen, and means that we are sending too many calls.");
+                    Plugin.Log.Error($"A {ClientTimeout.Seconds} second delay has been added to avoid spamming the api.");
                 }
                 content = null;
 

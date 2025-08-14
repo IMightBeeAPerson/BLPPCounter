@@ -358,7 +358,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 yield return new WaitForEndOfFrame();
                 CurrentProfile.PlayTable.UpdateTable();
             }
-            //if (!CurrentProfile.PlayTable.ContainerUpdated)
+            if (!CurrentProfile.PlayTable.ContainerUpdated)
                 Sldvc.StartCoroutine(DelayUpdate());
         }
         [UIAction("#UpdateCurrentTable")] private void UpdateCurrentTable() => BuildTable();
