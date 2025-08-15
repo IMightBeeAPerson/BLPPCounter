@@ -732,7 +732,8 @@ namespace BLPPCounter
             Plugin.Log.Debug("Taoh data not up to date! Loading...");
             string filePath = HelpfulPaths.TAOHABLE_DATA;
             byte[] data = null;
-            if (APIHandler.CallAPI_Static(HelpfulPaths.TAOHABLE_API, out HttpContent content))
+            (bool succeeded, HttpContent content) = APIHandler.CallAPI_Static(HelpfulPaths.TAOHABLE_API).Result;
+            if (succeeded)
                 data = content.ReadAsByteArrayAsync().Result;
             if (File.Exists(filePath)) File.Delete(filePath); 
             using (FileStream fs = File.OpenWrite(filePath))

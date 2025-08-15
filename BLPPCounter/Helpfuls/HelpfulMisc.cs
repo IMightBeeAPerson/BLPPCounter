@@ -1,27 +1,28 @@
-﻿using BLPPCounter.Utils;
-using System;
-using System.CodeDom.Compiler;
-using System.CodeDom;
-using System.IO;
-using System.Text.RegularExpressions;
-using static GameplayModifiers;
-using System.Drawing;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
+﻿using BeatLeader.Models;
+using BeatSaberMarkupLanguage;
+using BeatSaberMarkupLanguage.Components.Settings;
 using BeatSaberMarkupLanguage.Parser;
 using BeatSaberMarkupLanguage.ViewControllers;
-using BeatSaberMarkupLanguage;
+using BLPPCounter.CalculatorStuffs;
+using BLPPCounter.Settings.Configs;
+using BLPPCounter.Utils;
+using IPA.Config.Data;
+using Newtonsoft.Json.Linq;
+using System;
+using System.CodeDom;
+using System.CodeDom.Compiler;
+using System.Collections;
+using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using TMPro;
 using UnityEngine.TextCore;
-using Newtonsoft.Json.Linq;
-using BeatSaberMarkupLanguage.Components.Settings;
-using BLPPCounter.Settings.Configs;
-using BeatLeader.Models;
-using System.Runtime.CompilerServices;
-using System.Collections;
-using IPA.Config.Data;
-using BLPPCounter.CalculatorStuffs;
+using static BeatmapLevelSO.GetBeatmapLevelDataResult;
+using static GameplayModifiers;
 namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
@@ -639,27 +640,30 @@ namespace BLPPCounter.Helpfuls
         /// It will return the arr length if the given value is less than all of the other values.</returns>
         public static int ReverseBinarySearch<T>(T[] arr, T value) where T : IComparable<T>
         {
-            int mid = arr.Length / 2, compareVal = arr[mid].CompareTo(value), arrLeft = arr.Length / 2;
-            bool complete = false, plusOne = arr.Length % 2 == 1;
-            while (!complete && compareVal != 0)
+            int low = 0;
+            int high = arr.Length - 1;
+
+            while (low <= high)
             {
-                if (plusOne) arrLeft++;
-                plusOne = arrLeft % 2 == 1;
-                arrLeft >>= 1;
-                if (arrLeft == 0)
+                int mid = (low + high) / 2;
+                int cmp = arr[mid].CompareTo(value);
+
+                if (cmp == 0)
+                    return mid;
+
+                if (cmp > 0)
                 {
-                    if (compareVal < 0) arrLeft++;
-                    complete = true;
+                    // mid value > value, move right (since descending)
+                    low = mid + 1;
                 }
-                if (compareVal > 0)
-                    mid += arrLeft;
-                else if (compareVal < 0)
-                    mid -= arrLeft;
-                compareVal = arr[mid].CompareTo(value);
-                if (complete && compareVal > 0)
-                    mid++;
+                else
+                {
+                    // mid value < value, move left
+                    high = mid - 1;
+                }
             }
-            return mid;
+
+            return low; // first index where value <= arr[i], or arr.Length if value is smallest
         }
         /// <summary>
         /// Compresses <see cref="Enum"/>s into a series of numbers.
@@ -671,22 +675,53 @@ namespace BLPPCounter.Helpfuls
         public static ulong[] CompressEnums<T>(T[] arr) where T : Enum
         {
             const int LongBits = 64;
+
             ulong max = 0;
             foreach (T item in Enum.GetValues(typeof(T)))
                 max = Math.Max(Convert.ToUInt64(item), max);
-            int bitsPerEnum = (int)Math.Ceiling(Math.Log(max, 2)) + 1;
-            ulong[] outp = new ulong[1 + (int)Math.Ceiling(bitsPerEnum * arr.Length / (double)LongBits)];
+            if (max <= 0) return null; //Means that this is an Enum with one value, literally useless to store.
 
-            int currentBit = 0, index = 0;
-            outp[0] = 0;
+            int bitsPerEnum = (int)Math.Ceiling(Math.Log(max + 1, 2));
+            List<ulong> outp = new List<ulong>(1 + (int)Math.Ceiling(bitsPerEnum * arr.Length / (double)LongBits));
+            int currentBit = 0;
+            ulong current = 0;
+
             foreach (T item in arr)
             {
-                outp[index] |= Convert.ToUInt64(item) << currentBit;
-                currentBit = currentBit + bitsPerEnum > LongBits ? 0 : currentBit + bitsPerEnum;
-                if (currentBit == 0) index++;
+                ulong value = Convert.ToUInt64(item);
+
+                if (currentBit + bitsPerEnum <= LongBits)
+                {
+                    current |= value << currentBit;
+                    currentBit += bitsPerEnum;
+                }
+                else
+                {
+                    int bitsInFirst = LongBits - currentBit;
+                    int bitsInSecond = bitsPerEnum - bitsInFirst;
+
+                    ulong firstPart = value & ((1UL << bitsInFirst) - 1);
+                    ulong secondPart = value >> bitsInFirst;
+
+                    current |= firstPart << currentBit;
+                    outp.Add(current);
+
+                    current = secondPart;
+                    currentBit = bitsInSecond;
+                }
+
+                if (currentBit == LongBits)
+                {
+                    outp.Add(current);
+                    current = 0;
+                    currentBit = 0;
+                }
             }
-            outp[outp.Length - 1] = currentBit != 0 ? (ulong)(currentBit / bitsPerEnum) : 0;
-            return outp;
+
+            if (currentBit > 0 || outp.Count == 0)
+                outp.Add(current);
+
+            return outp.ToArray();
         }
         /// <summary>
         /// Given an array of <see cref="ulong"/>s from the method <see cref="CompressEnums{T}(T[])"/> and the type of <see cref="Enum"/>, converts the data
@@ -699,36 +734,56 @@ namespace BLPPCounter.Helpfuls
         public static T[] UncompressEnums<T>(ulong[] arr, byte extraLength = 65) where T : Enum
         {
             const int LongBits = 64;
-            ulong max = 0;
+
             bool ignoreLast = false;
             if (extraLength > LongBits)
             {
                 extraLength = (byte)arr[arr.Length - 1];
                 ignoreLast = true;
             }
-            Dictionary<ulong, T> typeConverter = new Dictionary<ulong, T>();
+
+            ulong max = 0;
             foreach (T item in Enum.GetValues(typeof(T)))
-            {
-                ulong itemNum = Convert.ToUInt64(item);
-                max = Math.Max(itemNum, max);
-                typeConverter.Add(itemNum, item);
-            }
-            int bitsPerEnum = (int)Math.Ceiling(Math.Log(max, 2)) + 1;
-            T[] outp = new T[(int)Math.Ceiling((double)LongBits / bitsPerEnum * (ignoreLast ? arr.Length - 2 : arr.Length) + extraLength)];
+                max = Math.Max(Convert.ToUInt64(item), max);
+            int bitsPerEnum = (int)Math.Ceiling(Math.Log(max + 1, 2));
 
-            ulong currentBits = (ulong)Math.Pow(2, bitsPerEnum) - 1;
-            int usedBits = 0, index = 0;
-            for (int i = 0; i < outp.Length; i++, usedBits += bitsPerEnum)
+            int numEnums = (arr.Length - (ignoreLast ? 1 : 0)) * LongBits / bitsPerEnum;
+            if (extraLength > 0 && ignoreLast) numEnums -= bitsPerEnum - extraLength;
+            List<T> outp = new List<T>(numEnums);
+
+            int bitPosition = 0;
+            int ulongIndex = 0;
+            for (int i = 0; i < numEnums; i++)
             {
-                if (usedBits > LongBits - bitsPerEnum)
+                int bitsLeftInCurrent = LongBits - bitPosition;
+
+                ulong value;
+                if (bitsLeftInCurrent >= bitsPerEnum)
                 {
-                    index++;
-                    usedBits = 0;
+                    // All bits in current ulong
+                    value = (arr[ulongIndex] >> bitPosition) & ((1UL << bitsPerEnum) - 1);
+                    bitPosition += bitsPerEnum;
                 }
-                outp[i] = typeConverter[(arr[index] & (currentBits << usedBits)) >> usedBits];
+                else
+                {
+                    // Split across current and next ulong
+                    ulong part1 = arr[ulongIndex] >> bitPosition;
+                    ulong part2 = arr[++ulongIndex] & ((1UL << (bitsPerEnum - bitsLeftInCurrent)) - 1);
+                    value = part1 | (part2 << bitsLeftInCurrent);
+                    bitPosition = bitsPerEnum - bitsLeftInCurrent;
+                }
+
+                if (bitPosition == LongBits)
+                {
+                    bitPosition = 0;
+                    ulongIndex++;
+                }
+
+                outp.Add((T)Enum.ToObject(typeof(T), value));
             }
 
-            return outp;
+            return outp.ToArray(); 
+            //ChatGPT makes debugging this 20x easier.
         }
         /*float[] ConvertArr(double[] arr)
         {

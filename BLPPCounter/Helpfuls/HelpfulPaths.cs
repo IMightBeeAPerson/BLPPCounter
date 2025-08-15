@@ -48,7 +48,7 @@ namespace BLPPCounter.Helpfuls
         public static readonly string SSAPI_USERID = "https://scoresaber.com/api/player/{0}/{1}"; //user_id, either "basic", "full", or "scores"
         public static readonly string SSAPI_DIFFS = "https://scoresaber.com/api/leaderboard/get-difficulties/{0}"; //hash
         public static readonly string SSAPI_LEADERBOARDID = "https://scoresaber.com/api/leaderboard/by-id/{0}/{1}"; //leaderboard_id, either "info" or "scores"
-        public static readonly string SSAPI_PLAYERSCORES = "https://scoresaber.com/api/player/{0}/scores?limit={1}&sort=top&page={2}"; //user_id, count, page
+        public static readonly string SSAPI_PLAYERSCORES = "https://scoresaber.com/api/player/{0}/scores?limit={2}&sort=top&page={1}"; //user_id, page, count
 
         public static readonly string APAPI = "https://api.accsaber.com/"; //No documentation here, doc at https://github.com/accsaber/accsaber-plugin/blob/main/EndpointResearch/ENDPOINTS.md
         public static readonly string APAPI_LEADERBOARDID = "https://api.accsaber.com/ranked-maps/{0}"; //Scoresaber_id
@@ -67,7 +67,8 @@ namespace BLPPCounter.Helpfuls
             string path = THE_FOLDER;
             if (!Directory.Exists(path)) Directory.CreateDirectory(path);
             path = Path.Combine(path, "TaohableData.json");
-            if (!APIHandler.CallAPI_Static(TAOHABLE_META, out HttpContent content))
+            (bool succeeded, HttpContent content) = APIHandler.CallAPI_Static(TAOHABLE_META).Result;
+            if (!succeeded)
                 throw new Exception("Taoh's meta file is not available. This means either internet is down or I need to go yell at someone.");
             JToken TaohHeaders = JToken.Parse(content.ReadAsStringAsync().Result);
             bool headersGood = true;

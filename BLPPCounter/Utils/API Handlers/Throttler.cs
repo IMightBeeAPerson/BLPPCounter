@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,25 +27,33 @@ namespace BLPPCounter.Utils.API_Handlers
             locker = new object();
         }
 
-        public void Call()
+        public async Task Call()
         {
+            int restTime = 0;
             lock (locker)
             {
                 TimeSpan diff = DateTime.UtcNow - CycleStartTime;
+
                 if (diff.TotalSeconds >= CycleLength)
                 {
                     CallsThisCycle = 0;
                     CycleStartTime = DateTime.UtcNow;
                 }
-                else CallsThisCycle++;
-                if (CallsThisCycle >= CallsPerCycle)
+
+                CallsThisCycle++;
+
+                if (CallsThisCycle > CallsPerCycle)
                 {
-                    int restTime = CycleLength * 1000 - diff.Milliseconds;
-                    Plugin.Log.Info("Throttling calls for " + restTime + "ms.");
+                    restTime = (int)(CycleLength * 1000 - diff.TotalMilliseconds);
                     Thread.Sleep(restTime);
-                    CallsThisCycle = 0;
-                    CycleStartTime = DateTime.UtcNow;
+                    CallsThisCycle = 1;
+                    CycleStartTime = DateTime.UtcNow.AddMilliseconds(restTime);
                 }
+            }
+            if (restTime > 0)
+            {
+                Plugin.Log.Info("Throttling calls for " + restTime + "ms.");
+                await Task.Delay(restTime);
             }
         }
     }

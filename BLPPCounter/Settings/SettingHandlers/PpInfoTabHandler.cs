@@ -169,7 +169,10 @@ namespace BLPPCounter.Settings.SettingHandlers
 
         [UIComponent(nameof(ProfileTab))] private Tab ProfileTab;
         [UIComponent(nameof(PlayTable))] private TextMeshProUGUI PlayTable;
+        [UIComponent(nameof(PlayTableOptions))] private RectTransform PlayTableOptions_Bounds;
         [UIComponent(nameof(PlayTableOptions))] private VerticalLayoutGroup PlayTableOptions;
+        [UIComponent(nameof(PlayTableButtons))] private HorizontalLayoutGroup PlayTableButtons;
+        [UIObject(nameof(PlayTableModal))] private GameObject PlayTableModal;
         [UIComponent(nameof(PlusOneText))] private TextMeshProUGUI PlusOneText;
         [UIComponent(nameof(ReloadDataButton))] private Button ReloadDataButton;
         [UIComponent(nameof(ProfilePPSlider))] private SliderSetting ProfilePPSlider;
@@ -340,8 +343,34 @@ namespace BLPPCounter.Settings.SettingHandlers
                 }
             }
         }
-        [UIAction(nameof(PlayTable_PageUp))] private void PlayTable_PageUp() => CurrentProfile?.PageUp();
-        [UIAction(nameof(PlayTable_PageDown))] private void PlayTable_PageDown() => CurrentProfile?.PageDown();
+        private IEnumerator DelayUpdateTable(Table theTable)
+        {
+            yield return new WaitForEndOfFrame();
+            theTable.UpdateTable();
+            PlayTableOptions_Bounds.sizeDelta = new Vector2(theTable.TableWidth, theTable.TableHeight * 0.5f);
+            PlayTableOptions.spacing = -10;
+            const int ButtonWidths = 50;
+            (PlayTableModal.transform as RectTransform).sizeDelta = new Vector2(PlayTableOptions_Bounds.sizeDelta.x, PlayTableOptions_Bounds.sizeDelta.y * 3f);
+
+        }
+        [UIAction(nameof(PlayTable_PageUp))] private void PlayTable_PageUp()
+        {
+            if (CurrentProfile is null || CurrentProfile.PlayTable is null) return;
+            CurrentProfile.PageUp();
+            Sldvc?.StartCoroutine(DelayUpdateTable(CurrentProfile.PlayTable));
+        }
+        [UIAction(nameof(PlayTable_PageTop))] private void PlayTable_PageTop()
+        {
+            if (CurrentProfile is null || CurrentProfile.PlayTable is null) return;
+            CurrentProfile.PageTop();
+            Sldvc?.StartCoroutine(DelayUpdateTable(CurrentProfile.PlayTable));
+        }
+        [UIAction(nameof(PlayTable_PageDown))] private void PlayTable_PageDown()
+        {
+            if (CurrentProfile is null || CurrentProfile.PlayTable is null) return;
+            CurrentProfile.PageDown();
+            Sldvc?.StartCoroutine(DelayUpdateTable(CurrentProfile.PlayTable));
+        }
         [UIAction(nameof(SaveSettings))] private void SaveSettings()
         {
             PC.PercentSliderMin = _PercentSliderMin;
@@ -359,16 +388,9 @@ namespace BLPPCounter.Settings.SettingHandlers
                 Profile.TextContainer = PlayTable;
                 theTable = CurrentProfile.PlayTable;
             }
-            IEnumerator DelayUpdate()
-            {
-                yield return new WaitForEndOfFrame();
-                theTable.UpdateTable();
-                //PlayTableOptions.anchoredPosition = new Vector2(theTable.TableWidth / -2 - 15, PlayTableOptions.anchoredPosition.y);
-                //PlayTableOptions.anchoredPosition = new Vector2(PlayTableOptions.anchoredPosition.x, theTable.TableHeight / -2 - 8 + 15);
-                PlayTableOptions.spacing = theTable.TableHeight / 2 + 8;
-            }
+            
             if (!theTable.ContainerUpdated)
-                Sldvc.StartCoroutine(DelayUpdate());
+                Sldvc.StartCoroutine(DelayUpdateTable(theTable));
         }
         [UIAction("#UpdateCurrentTable")] private void UpdateCurrentTable() => BuildTable();
         [UIAction("#UpdateCurrentTab")] private void UpdateCurrentTab() => UpdateTabDisplay(true);

@@ -89,11 +89,11 @@ namespace BLPPCounter.Utils
             {
                 APIHandler api = APIHandler.GetAPI(Leaderboard);
                 var scoreData = api.GetScores(UserID, GetPlusOneCount());
-                Scores = scoreData.Select(token => token.rawPP).ToArray();
+                Scores = scoreData.Select(token => token.RawPP).ToArray();
                 ScoreNames = scoreData.Select(token => token.MapName).ToArray();
                 ActualScoreDiffs = scoreData.Select(token => token.Difficulty).ToArray();
                 ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
-                ScoreIDs = scoreData.Select(token => token.MapKey).ToArray();
+                ScoreIDs = scoreData.Select(token => token.MapId).ToArray();
                 TotalPP = api.GetProfilePP(UserID);
                 if (Scores is null) Scores = new float[1] { 0.0f };
                 InitTable();
@@ -107,6 +107,7 @@ namespace BLPPCounter.Utils
             try
             {
                 ActualScoreDiffs = HelpfulMisc.UncompressEnums<BeatmapDifficulty>(ScoreDiffs);
+                if (ActualScoreDiffs.Length != Scores.Length) throw new Exception();
                 WeightScores();
             }
             catch (Exception)
@@ -133,6 +134,7 @@ namespace BLPPCounter.Utils
             if (PageNumber * PlaysToShow > Scores.Length) PageNumber = Scores.Length / PlaysToShow;
             if (PageNumber <= 0) PageNumber = 1;
             for (int i = 0, j = (PageNumber - 1) * PlaysToShow; i < values.Length; i++, j++)
+            {
                 values[i] = new string[] {
                 $"<color=#FA0>#{j + 1}</color>",
                 ScoreNames[j],
@@ -140,6 +142,7 @@ namespace BLPPCounter.Utils
                 $"<color=purple>{Math.Round(Scores[j], PluginConfig.Instance.DecimalPrecision)}</color> {label}",
                 $"<color=#4AF>{ScoreIDs[j]}</color>"
                 };
+            }
             if (PlayTable is null)
                 PlayTable = new Table(TextContainer, values, names)
                 {
@@ -305,12 +308,17 @@ namespace BLPPCounter.Utils
         #region Misc Functions
         public void PageUp()
         {
-            PageNumber++;
+            PageNumber--;
             InitTable();
         }
         public void PageDown()
         {
-            PageNumber--;
+            PageNumber++;
+            InitTable();
+        }
+        public void PageTop()
+        {
+            PageNumber = 1;
             InitTable();
         }
         /// <summary>

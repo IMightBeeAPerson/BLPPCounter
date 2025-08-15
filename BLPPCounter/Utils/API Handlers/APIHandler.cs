@@ -9,6 +9,7 @@ using BLPPCounter.Helpfuls;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace BLPPCounter.Utils.API_Handlers
 {
@@ -19,90 +20,179 @@ namespace BLPPCounter.Utils.API_Handlers
         {
             Timeout = ClientTimeout
         };
-        private static DateTime LastTimeout = DateTime.MinValue;
+        private static Throttler BSThrottler = new Throttler(50, 10);
 
         public static bool UsingDefault = false;
 
-        public abstract bool CallAPI(string path, out HttpContent content, bool quiet = false, bool forceNoHeader = false);
-        public static bool CallAPI_Static(string path, out HttpContent content, bool quiet = false, bool forceNoHeader = false)
-        { //This is done to allow for default api calls that aren't to the leaderboard
-            DateTime rn = DateTime.Now;
-            try
+        public abstract (bool Succeeded, HttpContent Content) CallAPI(string path, bool quiet = false, bool forceNoHeader = false);
+        public static async Task<(bool Success, HttpContent Content)> CallAPI_Static(
+        string path,
+        Throttler throttler = null,
+        bool quiet = false,
+        int maxRetries = 3)
+        {
+            const int initialRetryDelayMs = 500;
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
-                Plugin.Log.Debug("API Call: " + path);
-                while (rn - LastTimeout < ClientTimeout)
+                try
                 {
-                    Plugin.Log.Warn($"API Call is being delayed by {(rn - LastTimeout).Seconds} second(s).");
-                    Thread.Sleep(rn - LastTimeout);
-                }
-                HttpResponseMessage hrm = client.GetAsync(new Uri(path)).Result;
-                hrm.EnsureSuccessStatusCode();
-                content = hrm.Content;
-                return true;
-            }
-            catch (Exception e)
-            {
-                if (!quiet)
-                {
-                    Plugin.Log.Error($"API request failed\nPath: {path}\nError: {e.Message}");
-                    Plugin.Log.Debug(e);
-                }
-                if (rn - DateTime.Now > ClientTimeout)
-                {
-                    Plugin.Log.Error("API request failed due to there being a timeout. This should never happen, and means that we are sending too many calls.");
-                    Plugin.Log.Error($"A {ClientTimeout.Seconds} second delay has been added to avoid spamming the api.");
-                    LastTimeout = DateTime.Now;
-                }
-                content = null;
+                    if (throttler != null)
+                        await throttler.Call();
 
-                return false;
+                    Plugin.Log.Debug("API Call: " + path);
+
+                    HttpResponseMessage response = await client.GetAsync(new Uri(path)).ConfigureAwait(false);
+                    response.EnsureSuccessStatusCode();
+
+                    return (true, response.Content);
+                }
+                catch (Exception e)
+                {
+                    if (!quiet)
+                    {
+                        Plugin.Log.Error($"API request failed (attempt {attempt}/{maxRetries})\nPath: {path}\nError: {e.Message}");
+                        Plugin.Log.Debug(e);
+                    }
+
+                    if (attempt < maxRetries)
+                    {
+                        // Exponential backoff delay
+                        int delay = initialRetryDelayMs * (int)Math.Pow(2, attempt - 1);
+                        Plugin.Log.Info($"Retrying in {delay} ms...");
+                        await Task.Delay(delay).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        if (!quiet)
+                            Plugin.Log.Error($"API request failed after {maxRetries} attempts. Returning failure.");
+                        return (false, null);
+                    }
+                }
             }
+
+            // This line should never be reached
+            return (false, null);
         }
-        public static string[] GetBSData(string[] hashes, params string[] path)
+
+        /// <summary>
+        /// Asks the BeatSaver API for data.
+        /// </summary>
+        /// <param name="hashes">The hashes to ask BeatSaver for data on.</param>
+        /// <param name="path">The Json path(s) to grab the data of.</param>
+        /// <returns>The data in string form, in the order that it was recieved.</returns>
+        public static async Task<string[]> GetBSData(string[] hashes, int maxConcurrency = 5, int maxRetries = 3, params string[] path)
         {
             const int MaxCountForBSPage = 50;
-            int i = 0, reps = 1;
-            string hashString;
-            List<string> outp = new List<string>(hashes.Length);
-            while (reps * MaxCountForBSPage <= hashes.Length)
+            const int initialRetryDelayMs = 500;
+
+            var results = new string[hashes.Length];
+            var semaphore = new SemaphoreSlim(maxConcurrency);
+
+            // Initial batching
+            var batchTasks = Enumerable.Range(0, (hashes.Length + MaxCountForBSPage - 1) / MaxCountForBSPage)
+                .Select(batchIndex => ProcessBatch(batchIndex))
+                .ToArray();
+
+            await Task.WhenAll(batchTasks);
+
+            // Retry loop for missing hashes across all batches
+            var missingIndices = Enumerable.Range(0, hashes.Length).Where(i => results[i] == null).ToList();
+
+            for (int attempt = 1; attempt <= maxRetries && missingIndices.Count > 0; attempt++)
             {
-                for (hashString = string.Format(HelpfulPaths.BSAPI_HASH, ""); i < MaxCountForBSPage * reps; i++)
-                    hashString += hashes[i] + ',';
-                CallAPI_Static(hashString.Substring(0, hashString.Length - 1), out HttpContent content, forceNoHeader: true);
-                outp.AddRange(JToken.Parse(content.ReadAsStringAsync().Result).Children().Select(token =>
+                var retryBatches = missingIndices
+                    .Select((index, i) => new { index, batch = i / MaxCountForBSPage })
+                    .GroupBy(x => x.batch)
+                    .Select(g => g.Select(x => x.index).ToList())
+                    .ToList();
+
+                foreach (var batch in retryBatches)
                 {
-                    token = token.First;
-                    for (int ii = 0; ii < path.Length; ii++)
-                        token = token[path[ii]];
-                    return token.ToString();
-                }));
-                reps++;
+                    await semaphore.WaitAsync();
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            if (BSThrottler != null)
+                                await BSThrottler.Call().ConfigureAwait(false);
+
+                            string hashString = string.Join(",", batch.Select(i => hashes[i]));
+                            string apiPath = string.Format(HelpfulPaths.BSAPI_HASH, hashString);
+
+                            (bool succeeded, HttpContent content) = await CallAPI_Static(apiPath, BSThrottler);
+                            if (!succeeded) return;
+
+                            var hashData = JToken.Parse(await content.ReadAsStringAsync().ConfigureAwait(false)).Children().ToList();
+                            var returnedHashes = new HashSet<string>();
+
+                            for (int i = 0; i < hashData.Count; i++)
+                            {
+                                JToken token = hashData[i].First;
+                                foreach (var p in path)
+                                    token = token?[p];
+
+                                string hash = hashes[batch[i]];
+                                results[batch[i]] = token?.ToString();
+                                returnedHashes.Add(hash);
+                            }
+                        }
+                        finally
+                        {
+                            semaphore.Release();
+                        }
+                    });
+                }
+
+                // Wait before next retry if there are still missing
+                await Task.Delay(initialRetryDelayMs * (int)Math.Pow(2, attempt - 1)).ConfigureAwait(false);
+                missingIndices = missingIndices.Where(i => results[i] == null).ToList();
             }
-            if (hashes.Length % MaxCountForBSPage != 0)
+
+            // Fill any remaining missing values with null
+            foreach (int i in missingIndices)
+                results[i] = null;
+
+            return results;
+
+            async Task ProcessBatch(int batchIndex)
             {
-                for (hashString = string.Format(HelpfulPaths.BSAPI_HASH, ""); i < hashes.Length; i++)
-                    hashString += hashes[i] + ',';
-                CallAPI_Static(hashString.Substring(0, hashString.Length - 1), out HttpContent content, forceNoHeader: true);
-                outp.AddRange(JToken.Parse(content.ReadAsStringAsync().Result).Children().Select(token =>
+                await semaphore.WaitAsync();
+                try
                 {
-                    token = token.First;
-                    for (int ii = 0; ii < path.Length; ii++)
-                        token = token[path[ii]];
-                    return token.ToString();
-                }));
+                    int start = batchIndex * MaxCountForBSPage;
+                    int count = Math.Min(MaxCountForBSPage, hashes.Length - start);
+                    string hashString = string.Join(",", hashes.Skip(start).Take(count));
+                    string apiPath = string.Format(HelpfulPaths.BSAPI_HASH, hashString);
+
+                    (bool succeeded, HttpContent content) = await CallAPI_Static(apiPath, BSThrottler);
+                    if (!succeeded)
+                    {
+                        // leave these indices as null for retry
+                        return;
+                    }
+
+                    var hashData = JToken.Parse(await content.ReadAsStringAsync().ConfigureAwait(false)).Children().ToList();
+                    for (int i = 0; i < hashData.Count; i++)
+                    {
+                        JToken token = hashData[i].First;
+                        foreach (var p in path)
+                            token = token?[p];
+                        results[start + i] = token?.ToString();
+                    }
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
             }
-            return outp.ToArray();
         }
-        
-        public HttpContent CallAPI(string path, bool quiet = false, bool forceNoHeader = false)
-        {
-            CallAPI(path, out HttpContent content, quiet, forceNoHeader);
-            return content;
-        }
+
+
+
         public string CallAPI_String(string path, bool quiet = false, bool forceNoHeader = false) =>
-            CallAPI(path, quiet, forceNoHeader)?.ReadAsStringAsync().Result;
+            CallAPI(path, quiet, forceNoHeader).Item2?.ReadAsStringAsync().Result;
         public byte[] CallAPI_Bytes(string path, bool quiet = false, bool forceNoHeader = false) =>
-            CallAPI(path, quiet, forceNoHeader)?.ReadAsByteArrayAsync().Result;
+            CallAPI(path, quiet, forceNoHeader).Item2?.ReadAsByteArrayAsync().Result;
         public abstract float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1);
         public abstract bool MapIsUsable(JToken diffData);
         public abstract bool AreRatingsNull(JToken diffData);
@@ -119,7 +209,64 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract float GetPP(JToken scoreData);
         public abstract int GetScore(JToken scoreData);
         public abstract float[] GetScoregraph(MapSelection ms);
-        public abstract (string MapName, BeatmapDifficulty Difficulty, float rawPP, string MapKey)[] GetScores(string userId, int count);
+        public abstract (string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId)[] GetScores(string userId, int count);
+        protected async Task<(string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId)[]> GetScores(
+        string userId, int count, string apiPathFormat, string scoreArrayPath,
+        Func<JToken, (string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId)> tokenSelector,
+        Func<(string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId), string, ((string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId) Data, string ExtraOutp)> replaceSelector,
+        string jsonPath, int maxConcurrency = 5, Throttler throttler = null)
+        {
+            const int MaxCountToPage = 100;
+            int totalPages = (int)Math.Ceiling(count / (double)MaxCountToPage);
+            var semaphore = new SemaphoreSlim(maxConcurrency);
+            var pageTasks = new List<Task<(int PageIndex, (string, BeatmapDifficulty, float, string)[])>>();
+
+            for (int pageNum = 1; pageNum <= totalPages; pageNum++)
+            {
+                int localPageNum = pageNum; //For async issues.
+                int startIndex = (localPageNum - 1) * MaxCountToPage;
+                int pageCount = Math.Min(MaxCountToPage, count - startIndex);
+
+                pageTasks.Add(Task.Run(async () =>
+                {
+                    await semaphore.WaitAsync();
+                    try
+                    {
+                        string apiPath = string.Format(apiPathFormat, userId, localPageNum, pageCount);
+                        var response = await CallAPI_Static(apiPath, throttler: throttler);
+                        if (!response.Success) return (localPageNum, Array.Empty<(string, BeatmapDifficulty, float, string)>());
+
+                        List<JToken> dataTokens = JToken.Parse(await response.Content.ReadAsStringAsync().ConfigureAwait(false))?[scoreArrayPath]?.Children().ToList();
+                        if (dataTokens == null || dataTokens.Count == 0)
+                            return (localPageNum, Array.Empty<(string, BeatmapDifficulty, float, string)>());
+
+                        var current = dataTokens.Select(tokenSelector).ToArray();
+
+                        string[] mapHashes = current.Select(data => replaceSelector.Invoke(data, "").ExtraOutp).ToArray();
+                        string[] names = await GetBSData(mapHashes, path: jsonPath);
+
+                        for (int i = 0; i < current.Length; i++)
+                            current[i] = replaceSelector.Invoke(current[i], names[i]).Data;
+
+                        return (localPageNum, current);
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                }));
+            }
+
+            var results = await Task.WhenAll(pageTasks).ConfigureAwait(false);
+
+            var orderedResults = results
+                .OrderBy(r => r.PageIndex)
+                .SelectMany(r => r.Item2)
+                .ToArray();
+
+            return orderedResults;
+        }
+
         public abstract float GetProfilePP(string userId);
         internal abstract void AddMap(Dictionary<string, Map> Data, string hash);
         public static APIHandler GetAPI(bool useDefault = false) => GetAPI(!useDefault ? PluginConfig.Instance.Leaderboard : PluginConfig.Instance.DefaultLeaderboard);
@@ -141,7 +288,7 @@ namespace BLPPCounter.Utils.API_Handlers
         public static Leaderboards GetRankedLeaderboards(string hash)
         {
             Leaderboards outp = Leaderboards.None;
-            CallAPI_Static(string.Format(HelpfulPaths.BSAPI_HASH, hash), out HttpContent data, forceNoHeader: true);
+            (_, HttpContent data) = CallAPI_Static(string.Format(HelpfulPaths.BSAPI_HASH, hash), BLAPI.Throttle).Result;
             string strData = data?.ReadAsStringAsync().Result;
             if (strData is null) return outp;
             JToken parsedData = JToken.Parse(strData);

@@ -119,13 +119,13 @@
       </horizontal>
       <!--button text='Test' on-click='DoTestThing' align='Center'/-->
       <button text='Show Top Plays' click-event='ShowPlayTable' align='Center'/>
-      <modal show-event='ShowPlayTable' click-off-closes='true' move-to-center='true'>
-        <vertical id='PlayTableOptions' child-expand-height='true' child-expand-width='true' vertical-fit='Unconstrained' horizontal-fit='Unconstrained'>
+      <modal id='PlayTableModal' show-event='ShowPlayTable' click-off-closes='true' move-to-center='true'>
+        <vertical id='PlayTableOptions' child-expand-height='false' child-expand-width='false' bg='round-rect-panel' bg-color='#000'>
           <text id='PlayTable' text='' align='Center' font-size='3.5'/>
-          <horizontal spacing='30'>
+          <horizontal spacing='20' align='Center'>
             <button text='Page Up' align='Left' on-click='PlayTable_PageUp'/>
+            <button text='Page Top' align='Center' on-click='PlayTable_PageTop'/>
             <button text='Page Down' align='Right' on-click='PlayTable_PageDown'/>
-            <text text=''/>
           </horizontal>
         </vertical>
       </modal>

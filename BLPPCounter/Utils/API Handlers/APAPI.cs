@@ -16,15 +16,16 @@ namespace BLPPCounter.Utils.API_Handlers
         private static readonly Throttler Throttle = new Throttler(400, 60);
         internal static APAPI Instance { get; private set; } = new APAPI();
         private APAPI() { }
-        public override bool CallAPI(string path, out HttpContent content, bool quiet = false, bool forceNoHeader = false)
+        public override (bool, HttpContent) CallAPI(string path, bool quiet = false, bool forceNoHeader = false)
         {
             const string LinkHeader = "https://";
             const string LeaderboardHeader = "accsaber";
             if (!forceNoHeader && !path.Substring(0, LinkHeader.Length).Equals(LinkHeader))
                 path = HelpfulPaths.APAPI + path;
+            Throttler t = null;
             if (path.Substring(LinkHeader.Length, LeaderboardHeader.Length).Equals(LeaderboardHeader))
-                Throttle.Call();
-            return CallAPI_Static(path, out content, quiet, forceNoHeader);
+                t = Throttle;
+            return CallAPI_Static(path, t, quiet).Result;
         }
         public override float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1) => new float[1] { (float)diffData["complexity"] };
         public override float[] GetRatings(JToken diffData) => new float[1] { (float)diffData["complexity"] };

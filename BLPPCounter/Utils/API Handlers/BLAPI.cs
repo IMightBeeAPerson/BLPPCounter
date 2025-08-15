@@ -10,6 +10,7 @@ using System.Drawing;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.Remoting.Metadata.W3cXsd2001;
+using System.Threading.Tasks;
 using static AlphabetScrollInfo;
 using static GameplayModifiers;
 
@@ -17,18 +18,19 @@ namespace BLPPCounter.Utils.API_Handlers
 {
     internal class BLAPI: APIHandler
     {
-        private static readonly Throttler Throttle = new Throttler(100, 15);
+        internal static readonly Throttler Throttle = new Throttler(100, 15);
         internal static BLAPI Instance { get; private set; } = new BLAPI();
         private BLAPI() { }
-        public override bool CallAPI(string path, out HttpContent content, bool quiet = false, bool forceNoHeader = false)
+        public override (bool, HttpContent) CallAPI(string path, bool quiet = false, bool forceNoHeader = false)
         {
             const string LinkHeader = "https://";
             const string LeaderboardHeader = "api.beatleader";
             if (!forceNoHeader && !path.Substring(0, LinkHeader.Length).Equals(LinkHeader))
                 path = HelpfulPaths.BLAPI + path;
-            if (path.Substring(LinkHeader.Length, LeaderboardHeader.Length).Equals(LeaderboardHeader)) 
-                Throttle.Call();
-            return CallAPI_Static(path, out content, quiet, forceNoHeader);
+            Throttler t = null;
+            if (path.Substring(LinkHeader.Length, LeaderboardHeader.Length).Equals(LeaderboardHeader))
+                t = Throttle;
+            return CallAPI_Static(path, t, quiet).Result;
         }
         public override float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1)
         {
@@ -83,47 +85,33 @@ namespace BLPPCounter.Utils.API_Handlers
                 (float)Math.Round(BLCalc.Instance.Inflate(BLCalc.Instance.GetSummedPp((int)a["modifiedScore"] / maxScore, acc, pass, tech)), PluginConfig.Instance.DecimalPrecision)).ToArray();
             }
         }
-        public override (string, BeatmapDifficulty, float, string)[] GetScores(string userId, int count)
+        public override (string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId)[] GetScores(string userId, int count)
         {
-            const int MaxCountToPage = 100;
-            List<(string, BeatmapDifficulty, float, string)> outp = new List<(string, BeatmapDifficulty, float, string)>();
-            int pageNum = 1;
-            while (count >= MaxCountToPage)
-            {
-                var current = JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.BLAPI_PLAYERSCORES, userId, pageNum, MaxCountToPage)))?["data"].Children().Select(token => {
-                    string mapID = token["leaderboard"]["id"].ToString();
-                    return (
-                    token["leaderboard"]["songHash"].ToString(),
-                    Map.FromValue((int)token["leaderboard"]["difficulty"]),
-                    (float)token["score"]["pp"],
-                    mapID.Contains('x') ? mapID.Substring(0, mapID.IndexOf('x')) : mapID.Substring(0, mapID.Length - 2)
-                    );
-                }).ToArray();
-                string[] names = GetBSData(current.Select(tuple => tuple.Item1).ToArray(), "name");
-                for (int i = 0; i < names.Length; i++)
-                    current[i].Item1 = names[i];
-                count -= MaxCountToPage;
-                pageNum++;
-                outp.AddRange(current);
-            }
-            if (count > 0)
-            {
-                var current = JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.BLAPI_PLAYERSCORES, userId, pageNum, count)))?["data"].Children().Select(token =>
+            return GetScores(
+                userId,
+                count,
+                HelpfulPaths.BLAPI_PLAYERSCORES,
+                "data",
+                token =>
                 {
                     string mapID = token["leaderboard"]["id"].ToString();
+                    string cleanMapId = mapID.Contains('x') ? mapID.Substring(0, mapID.IndexOf('x')) : mapID.Substring(0, mapID.Length - 2);
                     return (
-                    token["leaderboard"]["songHash"].ToString(),
-                    Map.FromValue((int)token["leaderboard"]["difficulty"]),
-                    (float)token["score"]["pp"],
-                    mapID.Contains('x') ? mapID.Substring(0, mapID.IndexOf('x')) : mapID.Substring(0, mapID.Length - 2)
+                        token["leaderboard"]["songHash"].ToString(),
+                        Map.FromValue((int)token["leaderboard"]["difficulty"]),
+                        (float)token["score"]["pp"],
+                        cleanMapId
                     );
-                }).ToArray();
-                string[] names = GetBSData(current.Select(tuple => tuple.Item1).ToArray(), "name");
-                for (int i = 0; i < names.Length; i++)
-                    current[i].Item1 = names[i];
-                outp.AddRange(current);
-            }
-            return outp.ToArray();
+                },
+                (data, repData) =>
+                {
+                    if (repData is null || repData.Equals(string.Empty)) return (data, data.MapName);
+                    data.MapName = repData;
+                    return (data, data.MapName);
+                },
+                "name",
+                throttler: Throttle
+            ).Result;
         }
         public override float GetProfilePP(string userId)
         {
