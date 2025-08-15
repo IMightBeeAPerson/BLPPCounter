@@ -169,6 +169,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 
         [UIComponent(nameof(ProfileTab))] private Tab ProfileTab;
         [UIComponent(nameof(PlayTable))] private TextMeshProUGUI PlayTable;
+        [UIComponent(nameof(PlayTableOptions))] private VerticalLayoutGroup PlayTableOptions;
         [UIComponent(nameof(PlusOneText))] private TextMeshProUGUI PlusOneText;
         [UIComponent(nameof(ReloadDataButton))] private Button ReloadDataButton;
         [UIComponent(nameof(ProfilePPSlider))] private SliderSetting ProfilePPSlider;
@@ -339,6 +340,8 @@ namespace BLPPCounter.Settings.SettingHandlers
                 }
             }
         }
+        [UIAction(nameof(PlayTable_PageUp))] private void PlayTable_PageUp() => CurrentProfile?.PageUp();
+        [UIAction(nameof(PlayTable_PageDown))] private void PlayTable_PageDown() => CurrentProfile?.PageDown();
         [UIAction(nameof(SaveSettings))] private void SaveSettings()
         {
             PC.PercentSliderMin = _PercentSliderMin;
@@ -350,14 +353,21 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         [UIAction("#ShowPlayTable")] private void ShowPlayTable()
         {
-            if (CurrentProfile.PlayTable is null)
+            Table theTable = CurrentProfile.PlayTable;
+            if (theTable is null)
+            {
                 Profile.TextContainer = PlayTable;
+                theTable = CurrentProfile.PlayTable;
+            }
             IEnumerator DelayUpdate()
             {
                 yield return new WaitForEndOfFrame();
-                CurrentProfile.PlayTable.UpdateTable();
+                theTable.UpdateTable();
+                //PlayTableOptions.anchoredPosition = new Vector2(theTable.TableWidth / -2 - 15, PlayTableOptions.anchoredPosition.y);
+                //PlayTableOptions.anchoredPosition = new Vector2(PlayTableOptions.anchoredPosition.x, theTable.TableHeight / -2 - 8 + 15);
+                PlayTableOptions.spacing = theTable.TableHeight / 2 + 8;
             }
-            if (!CurrentProfile.PlayTable.ContainerUpdated)
+            if (!theTable.ContainerUpdated)
                 Sldvc.StartCoroutine(DelayUpdate());
         }
         [UIAction("#UpdateCurrentTable")] private void UpdateCurrentTable() => BuildTable();

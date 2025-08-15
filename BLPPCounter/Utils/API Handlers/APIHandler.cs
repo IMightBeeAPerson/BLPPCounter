@@ -60,7 +60,7 @@ namespace BLPPCounter.Utils.API_Handlers
         }
         public static string[] GetBSData(string[] hashes, params string[] path)
         {
-            const int MaxCountForBSPage = 25;
+            const int MaxCountForBSPage = 50;
             int i = 0, reps = 1;
             string hashString;
             List<string> outp = new List<string>(hashes.Length);

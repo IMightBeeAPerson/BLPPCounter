@@ -95,7 +95,7 @@
           <button text='Select' pref-height='5' font-size='3' on-click='SelectSF' tags='SFButton'/>
         </vertical>
       </horizontal>
-      <horizontal id='PPTable_BG' active='false' bg='round-rect-panel' bg-color='#000' pad-left='3'>
+      <horizontal id='PPTable_BG' active='false' bg='round-rect-panel' bg-color='#CCC' pad-left='3'>
         <text id='PPTable' text='&#10;&#10;&#10;&#10;&#10;&#10;' align='Center' font-size='3.5'/>
         <vertical spacing='3.5' pref-height='20' vertical-fit='PreferredSize' pad-top='11'>
           <button text='Select' pref-height='5' font-size='3' on-click='SelectSS' tags='SSButton'/>
@@ -119,8 +119,15 @@
       </horizontal>
       <!--button text='Test' on-click='DoTestThing' align='Center'/-->
       <button text='Show Top Plays' click-event='ShowPlayTable' align='Center'/>
-      <modal show-event='ShowPlayTable' click-off-closes='true'>
-        <text id='PlayTable' text='' align='Center' font-size='3.5'/>
+      <modal show-event='ShowPlayTable' click-off-closes='true' move-to-center='true'>
+        <vertical id='PlayTableOptions' child-expand-height='true' child-expand-width='true' vertical-fit='Unconstrained' horizontal-fit='Unconstrained'>
+          <text id='PlayTable' text='' align='Center' font-size='3.5'/>
+          <horizontal spacing='30'>
+            <button text='Page Up' align='Left' on-click='PlayTable_PageUp'/>
+            <button text='Page Down' align='Right' on-click='PlayTable_PageDown'/>
+            <text text=''/>
+          </horizontal>
+        </vertical>
       </modal>
       <slider-setting id='ProfilePPSlider' text='To Get' color='#A020F0' increment='5' integer-only='true' min='~PPSliderMin' max='~PPSliderMax' show-buttons='true' apply-on-change='true' value='ProfileTestPp' formatter='PPFormat'/>
       <horizontal>

@@ -80,8 +80,10 @@ namespace BLPPCounter.Utils
         public bool FormatValueUpdated { get; private set; } //Whether or not a value that effects formatting has been updated.
         public bool FormattingUpdated { get; private set; } //Whether or not the formatting has been updated (specifically TableValues).
         public bool ContainerUpdated { get; private set; } //Whether or not the container has been updated in the UpdateTable() method.
+        public float TableWidth { get; private set; } //The width of the table in pixels.
+        public float TableHeight { get; private set; } //The height of the table in pixels.
         private bool SoftUpdate => FormatValueUpdated && FormattingUpdated; //True only when the only things to have changed have been accounted for (ex: cell text changed) or highlighting has been changed.
-        private float[] MaxLengths; //The max length in pixels of a column
+        private float[] MaxLengths; //The max length in pixels of a column.
         private string Prefix, Format, Spacer, Suffix; //The prefix, formatting, spacer, and suffix for each row. 
         private readonly HashSet<(int Row, int Column)> HighlightQueue; //This is filled when the highlight method is called and the table hasn't been updated yet. When the table updates, this is used to highlight it while processing.
         private readonly HashSet<(int Row, int Column)> UsedHighlights; //This is filled with highlights currently in the table right now, and they are removed when the highlight is cleared or goes back into the queue.
@@ -117,6 +119,11 @@ namespace BLPPCounter.Utils
             FormattingUpdated = false;
             FormatValueUpdated = false;
             ContainerUpdated = false;
+
+            //Set TableWidth and TableHeight to 0 (it is set correctly once it has been updated).
+            TableWidth = 0;
+            TableHeight = 0;
+
             //This is a special line to fix an error in the font where people don't set the width for spaces, which screws up highlighting.
             if (Container.font.characterLookupTable[' '].glyph.metrics.width == 0) Container.font.MakeSpacesHaveSpace();
         }
@@ -126,12 +133,12 @@ namespace BLPPCounter.Utils
         public void SetValues(string[][] values)
         {
             Values = values;
-            FormattingUpdated = ContainerUpdated = false;
+            FormattingUpdated = false;
         }
         public void SetNames(string[] names)
         {
             Names = names;
-            FormattingUpdated = ContainerUpdated = false;
+            FormattingUpdated = false;
         }
         public void UpdateTable(bool removeHighlights = false)
         {
@@ -304,19 +311,24 @@ namespace BLPPCounter.Utils
 
             if (!softUpdate) //Only recalculate the dash line if some value had to be updated, otherwise skip and just reuse what was already made.
             {
-                float spacerSize = GetLen(Prefix), dashSize = GetLen("-"); //Get sizes of the 2 "objects" that make up row[1], the Prefix (aka spacer) and dash.
-                if (_HasEndColumn) spacerSize *= 2; //since Prefix and Suffix are made up of the same characters, their lengths are the same.
-                float maxSpace = _MaxWidth > 0 ? _MaxWidth : GetLenWithSpacers(rows[0]); //Length of the line in pixels.
-                int dashCount = (int)Math.Ceiling((maxSpace - spacerSize) / dashSize); //The amount of dashes.
-                rows[1] = Prefix + "<space={0}px>" + new string('-', dashCount); //Sets row[1] to the prefix + space tag + the amount of dashes that was calculated
-                float spaceLength = maxSpace - dashSize * dashCount - spacerSize * 2; //The length in pixels that the spacer(s) need to be set to
-                if (_HasEndColumn) //Add last part of there is a Suffix
-                {
-                    rows[1] += "<space={1}px>" + Suffix; //Adds the last part, the spacing and the suffix, to row[1].
-                    rows[1] = string.Format(rows[1], spaceLength / 2, spaceLength / 2); //Format row[1] with the correct spacing, centering the dashes between the prefix and suffix.
-                }
-                else
-                    rows[1] = string.Format(rows[1], spaceLength); //Format row[1] with the correct spacing, simply putting the correct amount of space at the start for the dashes to line up with the rest of the table.
+                float dashSize = GetLen("-"); //Get sizes of what one dash is. This will be updated later to be more precise.
+                //Length of the line in pixels (without spacers).
+                float maxSpace = _MaxWidth > 0 ? _MaxWidth : GetLenWithSpacers(rows[0].Substring(Prefix.Length, rows[0].Length - Prefix.Length - (_HasEndColumn ? Suffix.Length : 0))); 
+                int dashCount = -1; //inits the dashCount variable out here so that it is in scope for later use.
+                float realDashSize = 0;
+                do
+                { //Since the size of a dash changes based off how many there are, we will loop until we match with 2 decimal points of precision.
+                    if (dashCount > 0) //All this really does is avoids redoing the dashSize on the first iteration.
+                    {
+                        realDashSize = GetLen(new string('-', dashCount)); //Calculates the actual length of the dash line by directly asking Unity.
+                        dashSize = realDashSize / dashCount; //The new size of dashSize, based on the size of the placed dashes.
+                    }
+                    dashCount = (int)Math.Ceiling(maxSpace / dashSize); //The amount of dashes.
+                } while (Math.Round(realDashSize - dashSize * dashCount, 2) != 0); //Checks if the calculated dash size equals the actual one within 2 decimals places.
+                float spaceLength = maxSpace - dashSize * dashCount; //The length in pixels that the spacer(s) need to be set to.
+                if (_HasEndColumn) spaceLength /= 2; //If there is a suffix, divide by 2 since the spacing will be distributed between the front and back.
+                rows[1] = $"{Prefix}<space={spaceLength}px>{new string('-', dashCount)}"; //Sets row[1] to the prefix + space tag + the amount of dashes that was calculated
+                if (_HasEndColumn) rows[1] += $"<space={spaceLength}px>{Suffix}"; //Adds the last part, the spacing and the suffix, to row[1].
                 FormattingUpdated = true; //Make sure this is true, because if it wasn't then formatting has been updated.
             } else
             {
@@ -325,6 +337,8 @@ namespace BLPPCounter.Utils
                 content = content.Substring(1, content.IndexOf('\n', 2) - 1); //Removes everything after the second line (aka the dash line). Importantly it also removes the \n at the start and end of the line.
                 rows[1] = content; //Set the row[1] to be the dash line.
             }
+            TableWidth = GetLenWithSpacers(rows[0]); //Sets the width of the table to the width of the top row. Because the shape of the table is a rectangle, this should be the width of all rows.
+            TableHeight = Container.GetPreferredValues("|").y * rows.Length; //Sets the table height to the height of the tallest text multiplied by the number of rows.
             return rows.Aggregate((total, str) => total + str + '\n'); //Combine rows into one string and returns that string.
         }
     }

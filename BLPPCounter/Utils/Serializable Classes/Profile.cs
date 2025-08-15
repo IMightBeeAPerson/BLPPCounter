@@ -62,6 +62,8 @@ namespace BLPPCounter.Utils
         public float PlusOne { get; private set; } = -1.0f;
         [JsonIgnore]
         public Table PlayTable { get; private set; }
+        [JsonIgnore]
+        private int PageNumber;
         #endregion
         #region Init
         static Profile()
@@ -77,6 +79,7 @@ namespace BLPPCounter.Utils
         {
             Leaderboard = leaderboard;
             UserID = userID;
+            PageNumber = 1;
             InitScores();
         }
         private void InitScores()
@@ -127,13 +130,15 @@ namespace BLPPCounter.Utils
                 "<color=#4AF>Key</color>" 
             };
             string[][] values = new string[Math.Min(PlaysToShow, Scores.Length)][];
-            for (int i = 0; i < values.Length; i++)
+            if (PageNumber * PlaysToShow > Scores.Length) PageNumber = Scores.Length / PlaysToShow;
+            if (PageNumber <= 0) PageNumber = 1;
+            for (int i = 0, j = (PageNumber - 1) * PlaysToShow; i < values.Length; i++, j++)
                 values[i] = new string[] {
-                $"<color=#FA0>#{i + 1}</color>",
-                ScoreNames[i],
-                ColorizeDiff(ActualScoreDiffs[i]),
-                $"<color=purple>{Math.Round(Scores[i], PluginConfig.Instance.DecimalPrecision)}</color> {label}",
-                $"<color=#4AF>{ScoreIDs[i]}</color>"
+                $"<color=#FA0>#{j + 1}</color>",
+                ScoreNames[j],
+                ColorizeDiff(ActualScoreDiffs[j]),
+                $"<color=purple>{Math.Round(Scores[j], PluginConfig.Instance.DecimalPrecision)}</color> {label}",
+                $"<color=#4AF>{ScoreIDs[j]}</color>"
                 };
             if (PlayTable is null)
                 PlayTable = new Table(TextContainer, values, names)
@@ -208,13 +213,29 @@ namespace BLPPCounter.Utils
                 return;
             }
             Deserializing = true;
-            foreach (JToken profileItem in profiles)
+            try
             {
-                Profile profile = profileItem.ToObject<Profile>();
-                profile.PostInit();
-                LoadedProfiles.Add(profile.ID, profile);
+                foreach (JToken profileItem in profiles)
+                {
+                    Profile profile = profileItem.ToObject<Profile>();
+                    profile.PostInit();
+                    LoadedProfiles.Add(profile.ID, profile);
+                }
             }
-            Deserializing = false;
+            catch (Exception e)
+            {
+                Plugin.Log.Error("Profiles failed to load!");
+                if (e is JsonSerializationException)
+                {
+                    Plugin.Log.Error($"The {HelpfulPaths.PROFILE_DATA} file has bad json data in it. Deleting it.");
+                    File.Delete(HelpfulPaths.PROFILE_DATA);
+                }
+                else Plugin.Log.Error(e);
+            }
+            finally
+            {
+                Deserializing = false;
+            }
             //Plugin.Log.Info("Profiles have been loaded.");
         }
         /// <summary>
@@ -282,6 +303,16 @@ namespace BLPPCounter.Utils
         }
         #endregion
         #region Misc Functions
+        public void PageUp()
+        {
+            PageNumber++;
+            InitTable();
+        }
+        public void PageDown()
+        {
+            PageNumber--;
+            InitTable();
+        }
         /// <summary>
         /// Given the <paramref name="scoreNum"/> (NOT zero indexed, starts at 1), returns what weight that score will have.
         /// </summary>
