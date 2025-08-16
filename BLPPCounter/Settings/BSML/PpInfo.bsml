@@ -119,14 +119,17 @@
       </horizontal>
       <!--button text='Test' on-click='DoTestThing' align='Center'/-->
       <button text='Show Top Plays' click-event='ShowPlayTable' align='Center'/>
-      <modal id='PlayTableModal' show-event='ShowPlayTable' click-off-closes='true' move-to-center='true'>
-        <vertical id='PlayTableOptions' child-expand-height='false' child-expand-width='false' bg='round-rect-panel' bg-color='#000'>
+      <modal id='PlayTableModal' show-event='ShowPlayTable' hide-event='HidePlayTable' click-off-closes='true' move-to-center='true'>
+        <vertical id='PlayTableOptions' child-expand-height='false' child-expand-width='false' bg='round-rect-panel' bg-color='#CCC'>
           <text id='PlayTable' text='' align='Center' font-size='3.5'/>
-          <horizontal spacing='20' align='Center'>
-            <button text='Page Up' align='Left' on-click='PlayTable_PageUp'/>
-            <button text='Page Top' align='Center' on-click='PlayTable_PageTop'/>
-            <button text='Page Down' align='Right' on-click='PlayTable_PageDown'/>
-          </horizontal>
+          <vertical spacing='-5'>
+            <horizontal id='PlayTableButtons' spacing='20' align='Center'>
+              <button text='Page Up' align='Left' on-click='PlayTable_PageUp'/>
+              <button text='Page Top' align='Center' on-click='PlayTable_PageTop'/>
+              <button text='Page Down' align='Right' on-click='PlayTable_PageDown'/>
+            </horizontal>
+            <button text='Close Leaderboard' click-event='HidePlayTable' align='Center'/>
+          </vertical>
         </vertical>
       </modal>
       <slider-setting id='ProfilePPSlider' text='To Get' color='#A020F0' increment='5' integer-only='true' min='~PPSliderMin' max='~PPSliderMax' show-buttons='true' apply-on-change='true' value='ProfileTestPp' formatter='PPFormat'/>

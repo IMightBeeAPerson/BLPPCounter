@@ -16,7 +16,7 @@ namespace BLPPCounter.Utils.API_Handlers
         private static readonly Throttler Throttle = new Throttler(400, 60);
         internal static APAPI Instance { get; private set; } = new APAPI();
         private APAPI() { }
-        public override (bool, HttpContent) CallAPI(string path, bool quiet = false, bool forceNoHeader = false)
+        public override Task<(bool, HttpContent)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false)
         {
             const string LinkHeader = "https://";
             const string LeaderboardHeader = "accsaber";
@@ -25,7 +25,7 @@ namespace BLPPCounter.Utils.API_Handlers
             Throttler t = null;
             if (path.Substring(LinkHeader.Length, LeaderboardHeader.Length).Equals(LeaderboardHeader))
                 t = Throttle;
-            return CallAPI_Static(path, t, quiet).Result;
+            return CallAPI_Static(path, t, quiet);
         }
         public override float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1) => new float[1] { (float)diffData["complexity"] };
         public override float[] GetRatings(JToken diffData) => new float[1] { (float)diffData["complexity"] };
@@ -35,44 +35,44 @@ namespace BLPPCounter.Utils.API_Handlers
         public override string GetHash(JToken diffData) => diffData["songHash"].ToString();
         public override bool MapIsUsable(JToken diffData) => !(diffData is null) && GetRatings(diffData)[0] > 0;
         public override bool AreRatingsNull(JToken diffData) => diffData["complexity"] is null;
-        public override int GetMaxScore(JToken diffData) => (int)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, diffData["leaderboardId"], "info")))["maxScore"];
-        public override int GetMaxScore(string hash, int diffNum, string modeName) => GetMaxScore(JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)))["difficulty"]);
+        public override int GetMaxScore(JToken diffData) => (int)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, diffData["leaderboardId"], "info")).Result)["maxScore"];
+        public override async Task<int> GetMaxScore(string hash, int diffNum, string modeName) => GetMaxScore(JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)).ConfigureAwait(false))["difficulty"]);
         public override JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName) => diffData;
-        public override string GetHashData(string hash, int diffNum)
+        public override async Task<string> GetHashData(string hash, int diffNum)
         {
-            string id = JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)))["id"].ToString();
-            return CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, id), true);
+            string id = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)).ConfigureAwait(false))["id"].ToString();
+            return await CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, id), true).ConfigureAwait(false);
         }
-        public override JToken GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false) => 
+        public override Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false) => 
             SSAPI.Instance.GetScoreData(userId, hash, diff, mode, quiet);
         public override float GetPP(JToken scoreData)
         {
             float acc = (float)scoreData["accuracy"];
-            float complexity = (float)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, scoreData["id"].ToString()), true))["complexity"];
+            float complexity = (float)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, scoreData["id"].ToString()), true).Result)["complexity"];
             return APCalc.Instance.GetPp(acc, complexity)[0];
         }
         public override int GetScore(JToken scoreData) => (int)scoreData["baseScore"];
-        public override (string, BeatmapDifficulty, float, string)[] GetScores(string userId, int count)
+        public override Task<(string, BeatmapDifficulty, float, string)[]> GetScores(string userId, int count)
         {
             return null;
         }
-        public override float GetProfilePP(string userId)
+        public override async Task<float> GetProfilePP(string userId)
         {
-            return (float)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.APAPI_PLAYERID, userId)))?["ap"];
+            return (float)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_PLAYERID, userId)).ConfigureAwait(false))?["ap"];
         }
-        public override float[] GetScoregraph(MapSelection ms) => SSAPI.Instance.GetScoregraph(ms);
-        internal override void AddMap(Dictionary<string, Map> Data, string hash)
+        public override Task<float[]> GetScoregraph(MapSelection ms) => SSAPI.Instance.GetScoregraph(ms);
+        internal override async Task AddMap(Dictionary<string, Map> Data, string hash)
         {
             try
             {
-                JEnumerable<JToken> diffs = JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_DIFFS, hash))).Children();
+                JEnumerable<JToken> diffs = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_DIFFS, hash)).ConfigureAwait(false)).Children();
                 Stack<int> ids = new Stack<int>(diffs.Count());
                 foreach (JToken diff in diffs)
                     ids.Push((int)diff["leaderboardId"]);
                 while (ids.Count > 0)
                 {
                     string songId = ids.Pop().ToString();
-                    JToken mapInfo = JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, songId)));
+                    JToken mapInfo = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, songId)).ConfigureAwait(false));
                     Map map = Map.ConvertAPToTaoh(hash, songId, mapInfo);
                     if (Data.ContainsKey(hash))
                         Data[hash].Combine(map);

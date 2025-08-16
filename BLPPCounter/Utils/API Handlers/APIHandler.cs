@@ -24,7 +24,7 @@ namespace BLPPCounter.Utils.API_Handlers
 
         public static bool UsingDefault = false;
 
-        public abstract (bool Succeeded, HttpContent Content) CallAPI(string path, bool quiet = false, bool forceNoHeader = false);
+        public abstract Task<(bool Succeeded, HttpContent Content)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false);
         public static async Task<(bool Success, HttpContent Content)> CallAPI_Static(
         string path,
         Throttler throttler = null,
@@ -186,13 +186,18 @@ namespace BLPPCounter.Utils.API_Handlers
                 }
             }
         }
-
-
-
-        public string CallAPI_String(string path, bool quiet = false, bool forceNoHeader = false) =>
-            CallAPI(path, quiet, forceNoHeader).Item2?.ReadAsStringAsync().Result;
-        public byte[] CallAPI_Bytes(string path, bool quiet = false, bool forceNoHeader = false) =>
-            CallAPI(path, quiet, forceNoHeader).Item2?.ReadAsByteArrayAsync().Result;
+        public async Task<string> CallAPI_String(string path, bool quiet = false, bool forceNoHeader = false)
+        {
+            var data = await CallAPI(path, quiet, forceNoHeader).ConfigureAwait(false);
+            if (!data.Succeeded) return null;
+            return await data.Content.ReadAsStringAsync().ConfigureAwait(false);
+        }
+        public async Task<byte[]> CallAPI_Bytes(string path, bool quiet = false, bool forceNoHeader = false)
+        {
+            var data = await CallAPI(path, quiet, forceNoHeader).ConfigureAwait(false);
+            if (!data.Succeeded) return null;
+            return await data.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+        }
         public abstract float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1);
         public abstract bool MapIsUsable(JToken diffData);
         public abstract bool AreRatingsNull(JToken diffData);
@@ -200,16 +205,16 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract string GetDiffName(JToken diffData);
         public abstract string GetLeaderboardId(JToken diffData);
         public abstract int GetMaxScore(JToken diffData);
-        public abstract int GetMaxScore(string hash, int diffNum, string modeName);
+        public abstract Task<int> GetMaxScore(string hash, int diffNum, string modeName);
         public abstract float[] GetRatings(JToken diffData);
         public abstract JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName);
-        public abstract string GetHashData(string hash, int diffNum);
+        public abstract Task<string> GetHashData(string hash, int diffNum);
         public abstract string GetHash(JToken diffData);
-        public abstract JToken GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false);
+        public abstract Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false);
         public abstract float GetPP(JToken scoreData);
         public abstract int GetScore(JToken scoreData);
-        public abstract float[] GetScoregraph(MapSelection ms);
-        public abstract (string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId)[] GetScores(string userId, int count);
+        public abstract Task<float[]> GetScoregraph(MapSelection ms);
+        public abstract Task<(string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId)[]> GetScores(string userId, int count);
         protected async Task<(string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId)[]> GetScores(
         string userId, int count, string apiPathFormat, string scoreArrayPath,
         Func<JToken, (string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId)> tokenSelector,
@@ -267,8 +272,8 @@ namespace BLPPCounter.Utils.API_Handlers
             return orderedResults;
         }
 
-        public abstract float GetProfilePP(string userId);
-        internal abstract void AddMap(Dictionary<string, Map> Data, string hash);
+        public abstract Task<float> GetProfilePP(string userId);
+        internal abstract Task AddMap(Dictionary<string, Map> Data, string hash);
         public static APIHandler GetAPI(bool useDefault = false) => GetAPI(!useDefault ? PluginConfig.Instance.Leaderboard : PluginConfig.Instance.DefaultLeaderboard);
         public static APIHandler GetSelectedAPI() => GetAPI(UsingDefault);
         public static APIHandler GetAPI(Leaderboards leaderboard)
@@ -285,11 +290,12 @@ namespace BLPPCounter.Utils.API_Handlers
                     return null;
             }
         }
-        public static Leaderboards GetRankedLeaderboards(string hash)
+        public static async Task<Leaderboards> GetRankedLeaderboards(string hash)
         {
             Leaderboards outp = Leaderboards.None;
-            (_, HttpContent data) = CallAPI_Static(string.Format(HelpfulPaths.BSAPI_HASH, hash), BLAPI.Throttle).Result;
-            string strData = data?.ReadAsStringAsync().Result;
+            (_, HttpContent data) = await CallAPI_Static(string.Format(HelpfulPaths.BSAPI_HASH, hash), BLAPI.Throttle).ConfigureAwait(false);
+            if (data is null) return outp;
+            string strData = await data.ReadAsStringAsync().ConfigureAwait(false);
             if (strData is null) return outp;
             JToken parsedData = JToken.Parse(strData);
             outp |= (bool)parsedData["ranked"] ? Leaderboards.Scoresaber : Leaderboards.None;

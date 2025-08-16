@@ -676,53 +676,62 @@ namespace BLPPCounter.Helpfuls
         {
             const int LongBits = 64;
 
+            if (arr == null || arr.Length == 0)
+                return Array.Empty<ulong>();
+
+            // Determine bits per enum
             ulong max = 0;
             foreach (T item in Enum.GetValues(typeof(T)))
                 max = Math.Max(Convert.ToUInt64(item), max);
-            if (max <= 0) return null; //Means that this is an Enum with one value, literally useless to store.
+            if (max == 0) return new ulong[] { 0 }; // Single-value enum
 
             int bitsPerEnum = (int)Math.Ceiling(Math.Log(max + 1, 2));
-            List<ulong> outp = new List<ulong>(1 + (int)Math.Ceiling(bitsPerEnum * arr.Length / (double)LongBits));
-            int currentBit = 0;
-            ulong current = 0;
+
+            // Total bits needed
+            int totalBits = arr.Length * bitsPerEnum;
+            int numUlongs = (totalBits + LongBits - 1) / LongBits;
+
+            ulong[] result = new ulong[numUlongs + 1]; // +1 for potential extra bits length
+            int bitPos = 0;
+            int ulongIndex = 0;
 
             foreach (T item in arr)
             {
                 ulong value = Convert.ToUInt64(item);
+                int bitsLeft = LongBits - bitPos;
 
-                if (currentBit + bitsPerEnum <= LongBits)
+                if (bitsLeft >= bitsPerEnum)
                 {
-                    current |= value << currentBit;
-                    currentBit += bitsPerEnum;
+                    result[ulongIndex] |= value << bitPos;
+                    bitPos += bitsPerEnum;
                 }
                 else
                 {
-                    int bitsInFirst = LongBits - currentBit;
+                    int bitsInFirst = bitsLeft;
                     int bitsInSecond = bitsPerEnum - bitsInFirst;
 
                     ulong firstPart = value & ((1UL << bitsInFirst) - 1);
                     ulong secondPart = value >> bitsInFirst;
 
-                    current |= firstPart << currentBit;
-                    outp.Add(current);
-
-                    current = secondPart;
-                    currentBit = bitsInSecond;
+                    result[ulongIndex] |= firstPart << bitPos;
+                    ulongIndex++;
+                    result[ulongIndex] = secondPart;
+                    bitPos = bitsInSecond;
                 }
 
-                if (currentBit == LongBits)
+                if (bitPos == LongBits)
                 {
-                    outp.Add(current);
-                    current = 0;
-                    currentBit = 0;
+                    ulongIndex++;
+                    bitPos = 0;
                 }
             }
 
-            if (currentBit > 0 || outp.Count == 0)
-                outp.Add(current);
+            // Store the number of bits used in the last ulong (if not full)
+            result[result.Length - 1] = bitPos > 0 ? (ulong)bitPos : 0;
 
-            return outp.ToArray();
+            return result;
         }
+
         /// <summary>
         /// Given an array of <see cref="ulong"/>s from the method <see cref="CompressEnums{T}(T[])"/> and the type of <see cref="Enum"/>, converts the data
         /// back to an <see cref="Enum"/> array.
@@ -735,56 +744,68 @@ namespace BLPPCounter.Helpfuls
         {
             const int LongBits = 64;
 
+            // Determine if the last ulong is an "extra" partial byte
             bool ignoreLast = false;
-            if (extraLength > LongBits)
+            if (extraLength > LongBits) // default magic value means "not provided"
             {
                 extraLength = (byte)arr[arr.Length - 1];
                 ignoreLast = true;
             }
 
+            // Find how many bits are needed to store each enum
             ulong max = 0;
             foreach (T item in Enum.GetValues(typeof(T)))
                 max = Math.Max(Convert.ToUInt64(item), max);
-            int bitsPerEnum = (int)Math.Ceiling(Math.Log(max + 1, 2));
+            int bitsPerEnum = max == 0 ? 1 : (int)Math.Ceiling(Math.Log(max + 1, 2));
 
-            int numEnums = (arr.Length - (ignoreLast ? 1 : 0)) * LongBits / bitsPerEnum;
-            if (extraLength > 0 && ignoreLast) numEnums -= bitsPerEnum - extraLength;
-            List<T> outp = new List<T>(numEnums);
+            // Total number of usable bits in the array
+            int totalBits = (arr.Length - (ignoreLast ? 1 : 0)) * LongBits;
+            if (ignoreLast && extraLength > 0)
+                totalBits -= LongBits - extraLength;
 
-            int bitPosition = 0;
-            int ulongIndex = 0;
+            int numEnums = totalBits / bitsPerEnum;
+
+            T[] result = new T[numEnums];
+
+            int bitPos = 0;    // Bit position inside the current ulong
+            int ulongIndex = 0; // Index of the current ulong in arr
+
             for (int i = 0; i < numEnums; i++)
             {
-                int bitsLeftInCurrent = LongBits - bitPosition;
-
                 ulong value;
-                if (bitsLeftInCurrent >= bitsPerEnum)
+                int bitsLeft = LongBits - bitPos;
+
+                if (bitsLeft >= bitsPerEnum)
                 {
-                    // All bits in current ulong
-                    value = (arr[ulongIndex] >> bitPosition) & ((1UL << bitsPerEnum) - 1);
-                    bitPosition += bitsPerEnum;
+                    // Case 1: Enum fits entirely in current ulong
+                    value = (arr[ulongIndex] >> bitPos) & ((1UL << bitsPerEnum) - 1);
+                    bitPos += bitsPerEnum;
                 }
                 else
                 {
-                    // Split across current and next ulong
-                    ulong part1 = arr[ulongIndex] >> bitPosition;
-                    ulong part2 = arr[++ulongIndex] & ((1UL << (bitsPerEnum - bitsLeftInCurrent)) - 1);
-                    value = part1 | (part2 << bitsLeftInCurrent);
-                    bitPosition = bitsPerEnum - bitsLeftInCurrent;
-                }
-
-                if (bitPosition == LongBits)
-                {
-                    bitPosition = 0;
+                    // Case 2: Enum spans current and next ulong
+                    ulong part1 = arr[ulongIndex] >> bitPos; // take remaining bits from current ulong
+                    ulong part2 = 0;
+                    if (ulongIndex + 1 < arr.Length)
+                        part2 = arr[ulongIndex + 1] & ((1UL << (bitsPerEnum - bitsLeft)) - 1); // take remaining from next ulong
+                    value = part1 | (part2 << bitsLeft);
+                    bitPos = bitsPerEnum - bitsLeft;
                     ulongIndex++;
                 }
 
-                outp.Add((T)Enum.ToObject(typeof(T), value));
+                // Move to next ulong if we consumed all bits in the current one
+                if (bitPos >= LongBits)
+                {
+                    bitPos -= LongBits;
+                    ulongIndex++;
+                }
+
+                result[i] = (T)Enum.ToObject(typeof(T), value);
             }
 
-            return outp.ToArray(); 
-            //ChatGPT makes debugging this 20x easier.
+            return result;
         }
+
         /*float[] ConvertArr(double[] arr)
         {
             float[] outp = new float[arr.Length];

@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 
@@ -88,13 +89,13 @@ namespace BLPPCounter.Utils
             if (TotalPP < 0)
             {
                 APIHandler api = APIHandler.GetAPI(Leaderboard);
-                var scoreData = api.GetScores(UserID, GetPlusOneCount());
+                var scoreData = api.GetScores(UserID, GetPlusOneCount()).Result;
                 Scores = scoreData.Select(token => token.RawPP).ToArray();
                 ScoreNames = scoreData.Select(token => token.MapName).ToArray();
                 ActualScoreDiffs = scoreData.Select(token => token.Difficulty).ToArray();
                 ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
                 ScoreIDs = scoreData.Select(token => token.MapId).ToArray();
-                TotalPP = api.GetProfilePP(UserID);
+                TotalPP = api.GetProfilePP(UserID).Result;
                 if (Scores is null) Scores = new float[1] { 0.0f };
                 InitTable();
             }
@@ -107,11 +108,13 @@ namespace BLPPCounter.Utils
             try
             {
                 ActualScoreDiffs = HelpfulMisc.UncompressEnums<BeatmapDifficulty>(ScoreDiffs);
+                Plugin.Log.Info($"ActualScoreDiffs length: {ActualScoreDiffs.Length} || Scores Length: {Scores.Length}");
                 if (ActualScoreDiffs.Length != Scores.Length) throw new Exception();
                 WeightScores();
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                Plugin.Log.Error(e);
                 Plugin.Log.Warn("Json file missing important data for loading, using APIs to load instead.");
                 Deserializing = false;
                 ReloadScores();
@@ -215,30 +218,33 @@ namespace BLPPCounter.Utils
                 Plugin.Log.Error("Profiles failed to load!\n" + e.ToString());
                 return;
             }
-            Deserializing = true;
-            try
+            Task.Run(() =>
             {
-                foreach (JToken profileItem in profiles)
+                try
                 {
-                    Profile profile = profileItem.ToObject<Profile>();
-                    profile.PostInit();
-                    LoadedProfiles.Add(profile.ID, profile);
+                    Deserializing = true;
+                    foreach (JToken profileItem in profiles)
+                    {
+                        Profile profile = profileItem.ToObject<Profile>();
+                        profile.PostInit();
+                        LoadedProfiles.Add(profile.ID, profile);
+                    }
                 }
-            }
-            catch (Exception e)
-            {
-                Plugin.Log.Error("Profiles failed to load!");
-                if (e is JsonSerializationException)
+                catch (Exception e)
                 {
-                    Plugin.Log.Error($"The {HelpfulPaths.PROFILE_DATA} file has bad json data in it. Deleting it.");
-                    File.Delete(HelpfulPaths.PROFILE_DATA);
+                    Plugin.Log.Error("Profiles failed to load!");
+                    if (e is JsonSerializationException)
+                    {
+                        Plugin.Log.Error($"The {HelpfulPaths.PROFILE_DATA} file has bad json data in it. Deleting it.");
+                        File.Delete(HelpfulPaths.PROFILE_DATA);
+                    }
+                    else Plugin.Log.Error(e);
                 }
-                else Plugin.Log.Error(e);
-            }
-            finally
-            {
-                Deserializing = false;
-            }
+                finally
+                {
+                    Deserializing = false;
+                }
+            });
             //Plugin.Log.Info("Profiles have been loaded.");
         }
         /// <summary>
@@ -287,7 +293,7 @@ namespace BLPPCounter.Utils
         public static bool AddPlay(string userID, string hash, float acc, string mapName, BeatmapDifficulty mapDiff)
         {
             int currentNum = 1;
-            Leaderboards allowed = APIHandler.GetRankedLeaderboards(hash), current;
+            Leaderboards allowed = APIHandler.GetRankedLeaderboards(hash).Result, current;
             if (allowed == Leaderboards.None) return false;
             int leaderCount = (int)Math.Log((int)allowed, 2) + 1;
             float[] ratings = new float[] {TheCounter.LastMap.StarRating, TheCounter.LastMap.AccRating, TheCounter.LastMap.PassRating, TheCounter.LastMap.TechRating};

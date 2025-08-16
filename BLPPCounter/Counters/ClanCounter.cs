@@ -11,6 +11,7 @@ using TMPro;
 using SiraUtil.Affinity;
 using BLPPCounter.Utils.List_Settings;
 using BLPPCounter.Utils.API_Handlers;
+using System.Threading.Tasks;
 
 namespace BLPPCounter.Counters
 {
@@ -295,9 +296,9 @@ namespace BLPPCounter.Counters
             string id = Targeter.TargetID, check;
             mapCaptured = false;
             owningClan = "None";
-            check = BLAPI.Instance.CallAPI_String($"https://api.beatleader.xyz/player/{id}");
+            check = BLAPI.Instance.CallAPI_String($"https://api.beatleader.xyz/player/{id}").Result;
             if (playerClanId < 0 && check.Length > 0) playerClanId = ParseId(JToken.Parse(check));
-            check = BLAPI.Instance.CallAPI_String($"{string.Format(HelpfulPaths.BLAPI_CLAN, mapId)}?page=1&count=1");
+            check = BLAPI.Instance.CallAPI_String($"{string.Format(HelpfulPaths.BLAPI_CLAN, mapId)}?page=1&count=1").Result;
             if (check.Length == 0) return null;
             JToken clanData = JToken.Parse(check);
             if ((int)clanData["difficulty"]["status"] != 3) return null; //Map isn't ranked
@@ -307,7 +308,7 @@ namespace BLPPCounter.Counters
             if (clanData.Count() > 0) clanId = (int)clanData["clan"]["id"]; else return null;
             mapCaptured = clanId <= 0 || clanId == playerClanId;
             float pp = (float)clanData["pp"];
-            check = RequestClanLeaderboard(id, mapId, playerClanId);
+            check = RequestClanLeaderboard(id, mapId, playerClanId).Result;
             if (check.Length == 0) return new float[1] { pp }; //No scores are set, so player must capture it by themselves.
             JEnumerable<JToken> scores = JToken.Parse(check)["associatedScores"].Children();
             List<float> actualPpVals = new List<float>();
@@ -361,10 +362,10 @@ namespace BLPPCounter.Counters
         }
         #endregion
         #region API Requests
-        private static string RequestClanLeaderboard(string id, string mapId, int playerClanId)
+        private static async Task<string> RequestClanLeaderboard(string id, string mapId, int playerClanId)
         {
-            int clanId = playerClanId > 0 ? playerClanId : ParseId(APIHandler.GetSelectedAPI().CallAPI_String($"{HelpfulPaths.BLAPI}player/{id}", forceNoHeader: true));
-            return APIHandler.GetSelectedAPI().CallAPI_String($"{HelpfulPaths.BLAPI}leaderboard/clanRankings/{mapId}/clan/{clanId}?count=100&page=1", forceNoHeader: true);
+            int clanId = playerClanId > 0 ? playerClanId : ParseId(await BLAPI.Instance.CallAPI_String($"{HelpfulPaths.BLAPI}player/{id}", forceNoHeader: true).ConfigureAwait(false));
+            return await BLAPI.Instance.CallAPI_String($"{HelpfulPaths.BLAPI}leaderboard/clanRankings/{mapId}/clan/{clanId}?count=100&page=1", forceNoHeader: true).ConfigureAwait(false);
         }
         #endregion
         #region Helper Functions

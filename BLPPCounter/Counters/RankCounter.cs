@@ -102,7 +102,7 @@ namespace BLPPCounter.Counters
         {
             string songId = map.MapData.Item1;
             APIHandler api = APIHandler.GetSelectedAPI();
-            mapPP = api.GetScoregraph(map);
+            mapPP = api.GetScoregraph(map).Result;
             Array.Sort(mapPP);//, (a,b) => (int)(b - a));
             //Plugin.Log.Debug($"[{string.Join(", ", mapPP)}]");
         }

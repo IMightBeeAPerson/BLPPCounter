@@ -150,7 +150,7 @@ namespace BLPPCounter.Counters
             //Plugin.Log.Debug(data.ToString());
             if (data is null)
             {
-                data = BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true);
+                data = BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true).Result;
                 if (data is null)
                 {
                     useReplay = false;
@@ -158,7 +158,7 @@ namespace BLPPCounter.Counters
                 }
             }
             string replay = (string)data["replay"];
-            byte[] replayData = BLAPI.Instance.CallAPI_Bytes(replay, true) ?? throw new Exception("The replay link from the API is bad! (replay link failed to return data)");
+            byte[] replayData = BLAPI.Instance.CallAPI_Bytes(replay, true).Result ?? throw new Exception("The replay link from the API is bad! (replay link failed to return data)");
             ReplayDecoder.TryDecodeReplay(replayData, out bestReplay);
             noteArray = bestReplay.notes.ToArray();
             ReplayMods = bestReplay.info.modifiers.ToLower();
@@ -182,21 +182,21 @@ namespace BLPPCounter.Counters
         {
             loadingReplay = caughtUp = false;
             catchUpNotes = 0;
-            Task t = Task.Run(() =>
+            Task t = Task.Run(async () =>
             {
                 loadingReplay = true;
-                SetupDataAsync(map);
+                await SetupDataAsync(map).ConfigureAwait(false);
                 loadingReplay = false;
                 CatchupBest();
                 if (catchUpNotes == 0)
                     UpdateCounter(1, 0, 0, 1);
             });
         }
-        private void SetupDataAsync(MapSelection map)
+        private async Task SetupDataAsync(MapSelection map)
         {
             try
             {
-                JToken playerData = APIHandler.GetSelectedAPI().GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), PC.Leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true);
+                JToken playerData = await APIHandler.GetSelectedAPI().GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), PC.Leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true).ConfigureAwait(false);
                 if (playerData is null)
                 {
                     Plugin.Log.Warn("Relative counter cannot be loaded due to the player never having played this map before! (API didn't return the corrent status)");

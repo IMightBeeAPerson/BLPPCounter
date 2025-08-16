@@ -347,10 +347,11 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             yield return new WaitForEndOfFrame();
             theTable.UpdateTable();
-            PlayTableOptions_Bounds.sizeDelta = new Vector2(theTable.TableWidth, theTable.TableHeight * 0.5f);
-            PlayTableOptions.spacing = -10;
-            const int ButtonWidths = 50;
-            (PlayTableModal.transform as RectTransform).sizeDelta = new Vector2(PlayTableOptions_Bounds.sizeDelta.x, PlayTableOptions_Bounds.sizeDelta.y * 3f);
+            PlayTableOptions_Bounds.sizeDelta = new Vector2(theTable.TableWidth, theTable.TableHeight * 0.225f);
+            PlayTableOptions.spacing = 0f;
+            const int ButtonWidths = 60;
+            PlayTableButtons.spacing = (theTable.TableWidth - ButtonWidths) / 2f;
+            (PlayTableModal.transform as RectTransform).sizeDelta = new Vector2(PlayTableOptions_Bounds.sizeDelta.x, PlayTableOptions_Bounds.sizeDelta.y * 6f);
 
         }
         [UIAction(nameof(PlayTable_PageUp))] private void PlayTable_PageUp()
@@ -458,7 +459,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             return CurrentCalculator.GetAcc(CurrentAPI.GetPP(CurrentDiff.Scoredata), PC.DecimalPrecision, CurrentAPI.GetRatings(CurrentDiff.Diffdata));
         }
 
-        private float UpdateTargetPP()
+        private async Task<float> UpdateTargetPP()
         {
 #if NEW_VERSION
             CurrentMap = Sldvc.beatmapKey; // 1.37.0 and above
@@ -473,22 +474,22 @@ namespace BLPPCounter.Settings.SettingHandlers
             string mode = CurrentMap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName; // 1.34.2 and below
 #endif
         APIHandler api = CurrentAPI;
-            JToken scoreData = api.GetScoreData(
+            JToken scoreData = await api.GetScoreData(
                 Targeter.TargetID,
                 Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(),
                 CurrentMap.difficulty.ToString().Replace("+", "Plus"),
                 mode,
                 true //Debug option, just prevents prints when the API was called.
-                );
+                ).ConfigureAwait(false);
             TargetHasScore = !(scoreData is null);
             if (!TargetHasScore) { UpdateDiff(); return 0.0f; } //target doesn't have a score on this diff.
             JToken diffData = null;
             try
             {
-                JToken rawDiffData = JToken.Parse(api.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(), Map.FromDiff(CurrentMap.difficulty)));
+                JToken rawDiffData = JToken.Parse(await api.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(), Map.FromDiff(CurrentMap.difficulty)).ConfigureAwait(false));
                 diffData = api.SelectSpecificDiff(rawDiffData, Map.FromDiff(CurrentMap.difficulty), mode);
                 BeatmapID = api.GetLeaderboardId(diffData);
-                TrueBeatmapID = IsBL ? BeatmapID.Replace('x', (char)0).Substring(0, BeatmapID.Length - 2) : JToken.Parse(BLAPI.Instance.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(), Map.FromDiff(CurrentMap.difficulty)))["song"]["id"].ToString().Replace('x', (char)0);
+                TrueBeatmapID = IsBL ? BeatmapID.Replace('x', (char)0).Substring(0, BeatmapID.Length - 2) : JToken.Parse(await BLAPI.Instance.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(), Map.FromDiff(CurrentMap.difficulty)).ConfigureAwait(false))["song"]["id"].ToString().Replace('x', (char)0);
                 BeatmapName = api.GetSongName(rawDiffData);
             } catch (Exception)
             { //This exception should only happen when a map isn't on the radar of the selected leaderboard (aka unranked), and thus doesn't need to be broadcasted.
@@ -746,7 +747,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (IsPPMode) PC.TestAccAmount = TestAcc;
             else PC.TestPPAmount = TestPp;
         }
-        private void UpdateDiff()
+        private async Task UpdateDiff()
         {
             APIHandler api = CurrentAPI;
 #if NEW_VERSION
@@ -756,13 +757,13 @@ namespace BLPPCounter.Settings.SettingHandlers
             int val = Map.FromDiff(Sldvc.selectedDifficultyBeatmap.difficulty); // 1.34.2 and above
             string modeName = Sldvc.selectedDifficultyBeatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;
 #endif
-            string jsonData = api.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2], val);
+            string jsonData = await api.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2], val).ConfigureAwait(false);
             if (jsonData is null) return;
             JToken tokens = JToken.Parse(jsonData);
             BeatmapName = api.GetSongName(tokens);
             tokens = api.SelectSpecificDiff(tokens, val, modeName);
             BeatmapID = api.GetLeaderboardId(tokens);
-            TrueBeatmapID = IsBL ? BeatmapID.Replace('x', (char)0).Substring(0, BeatmapID.Length - 2) : JToken.Parse(BLAPI.Instance.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(), Map.FromDiff(CurrentMap.difficulty)))["song"]["id"].ToString().Replace('x', (char)0);
+            TrueBeatmapID = IsBL ? BeatmapID.Replace('x', (char)0).Substring(0, BeatmapID.Length - 2) : JToken.Parse(await BLAPI.Instance.GetHashData(Sldvc.beatmapLevel.levelID.Split('_')[2].ToLower(), Map.FromDiff(CurrentMap.difficulty)).ConfigureAwait(false))["song"]["id"].ToString().Replace('x', (char)0);
             CurrentDiff = (tokens, CurrentDiff.Scoredata);
             MapDiffText = HelpfulMisc.AddSpaces(api.GetDiffName(CurrentDiff.Diffdata));
             MapModeText = HelpfulMisc.AddSpaces(modeName);
@@ -775,8 +776,8 @@ namespace BLPPCounter.Settings.SettingHandlers
             PlusOneText.SetText($"<color=#00FF00>{CurrentProfile.PlusOne}</color> {GetPPLabel()}");
             UpdateProfilePP();
         }
-        public void Refresh(bool forceRefresh = false) => Task.Run(() => DoRefresh(forceRefresh));
-        private void DoRefresh(bool forceRefresh)
+        public Task Refresh(bool forceRefresh = false) => DoRefresh(forceRefresh);
+        private async Task DoRefresh(bool forceRefresh)
         {
 #if NEW_VERSION
             if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && Sldvc.beatmapKey.Equals(CurrentMap))) return; // 1.37.0 and above
@@ -791,7 +792,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 {
                     CurrentLeaderboard = PC.Leaderboard;
                     UpdateMods();
-                    TargetPP = UpdateTargetPP();
+                    TargetPP = await UpdateTargetPP().ConfigureAwait(false);
                     UpdateTabDisplay(forceRefresh, false);
                 }
                 catch (Exception e) 
