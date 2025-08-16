@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace BLPPCounter.Utils
 {
@@ -21,7 +22,7 @@ namespace BLPPCounter.Utils
 
         public static async void GenerateClanNames()
         {
-            string clanInfo = RequestClan((await BS_Utils.Gameplay.GetUserInfo.GetUserAsync()).platformUserId);
+            string clanInfo = RequestClan((await BS_Utils.Gameplay.GetUserInfo.GetUserAsync().ConfigureAwait(false)).platformUserId);
             if (clanInfo.Length == 0)
             {
                 theTargets = new List<object>();
