@@ -172,6 +172,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(PlayTableOptions))] private RectTransform PlayTableOptions_Bounds;
         [UIComponent(nameof(PlayTableOptions))] private VerticalLayoutGroup PlayTableOptions;
         [UIComponent(nameof(PlayTableButtons))] private HorizontalLayoutGroup PlayTableButtons;
+        [UIComponent(nameof(PlayTableButton))] private Button PlayTableButton;
         [UIObject(nameof(PlayTableModal))] private GameObject PlayTableModal;
         [UIComponent(nameof(PlusOneText))] private TextMeshProUGUI PlusOneText;
         [UIComponent(nameof(ReloadDataButton))] private Button ReloadDataButton;
@@ -349,10 +350,10 @@ namespace BLPPCounter.Settings.SettingHandlers
             theTable.UpdateTable();
             PlayTableOptions_Bounds.sizeDelta = new Vector2(theTable.TableWidth, theTable.TableHeight * 0.225f);
             PlayTableOptions.spacing = 0f;
-            const int ButtonWidths = 60;
+            const int ButtonWidths = 20;
             PlayTableButtons.spacing = (theTable.TableWidth - ButtonWidths) / 2f;
             (PlayTableModal.transform as RectTransform).sizeDelta = new Vector2(PlayTableOptions_Bounds.sizeDelta.x, PlayTableOptions_Bounds.sizeDelta.y * 6f);
-
+            //theTable.SpawnButtonsForColumn(5, str => Plugin.Log.Info("Button Pressed! Id: " + str), PlayTableButton);
         }
         [UIAction(nameof(PlayTable_PageUp))] private void PlayTable_PageUp()
         {

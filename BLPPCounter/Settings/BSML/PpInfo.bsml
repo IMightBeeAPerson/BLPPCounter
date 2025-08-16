@@ -128,7 +128,7 @@
               <button text='Page Top' align='Center' on-click='PlayTable_PageTop'/>
               <button text='Page Down' align='Right' on-click='PlayTable_PageDown'/>
             </horizontal>
-            <button text='Close Leaderboard' click-event='HidePlayTable' align='Center'/>
+            <button id='PlayTableButton' text='Close Leaderboard' click-event='HidePlayTable' align='Center'/>
           </vertical>
         </vertical>
       </modal>

@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace BLPPCounter.Utils
 {
@@ -71,7 +72,7 @@ namespace BLPPCounter.Utils
         private int _MaxWidth = -1; //<= 0 means no max width
         private Color _HighlightColor = new Color(1, 1, 0, 0.5f); //Color used when highlighting text.
 
-        private readonly TextMeshProUGUI Container;
+        public readonly TextMeshProUGUI Container;
         private string[][] Values; //Values given to be in the table. Can only be set so that no one can just change a value without notifying this object.
         private string[] Names; //The top row, names of each column.
         private float[][] SpacingValues; //The amount of space to make the tables line up for each value. Includes Names, is in pixels.
@@ -80,14 +81,17 @@ namespace BLPPCounter.Utils
         public bool FormatValueUpdated { get; private set; } //Whether or not a value that effects formatting has been updated.
         public bool FormattingUpdated { get; private set; } //Whether or not the formatting has been updated (specifically TableValues).
         public bool ContainerUpdated { get; private set; } //Whether or not the container has been updated in the UpdateTable() method.
+
         public float TableWidth { get; private set; } //The width of the table in pixels.
         public float TableHeight { get; private set; } //The height of the table in pixels.
+
         private bool SoftUpdate => FormatValueUpdated && FormattingUpdated; //True only when the only things to have changed have been accounted for (ex: cell text changed) or highlighting has been changed.
         private float[] MaxLengths; //The max length in pixels of a column.
         private string Prefix, Format, Spacer, Suffix; //The prefix, formatting, spacer, and suffix for each row. 
         private readonly HashSet<(int Row, int Column)> HighlightQueue; //This is filled when the highlight method is called and the table hasn't been updated yet. When the table updates, this is used to highlight it while processing.
         private readonly HashSet<(int Row, int Column)> UsedHighlights; //This is filled with highlights currently in the table right now, and they are removed when the highlight is cleared or goes back into the queue.
 
+        internal List<Button> TableButtons { get; private set; } = new List<Button>();
         /// <summary>
         /// Initialize a table, given a matrix of values and an array of headers (or names). 
         /// </summary>
@@ -146,6 +150,11 @@ namespace BLPPCounter.Utils
                 RequeueHighlights();
             Container.text = ToString();
             ContainerUpdated = true;
+
+            // Resize the RectTransform to match the table’s size
+            RectTransform rt = Container.rectTransform;
+            rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, TableWidth / Container.canvas.scaleFactor);
+            rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, TableHeight / Container.canvas.scaleFactor);
         }
         public void ClearTable()
         {
@@ -211,6 +220,92 @@ namespace BLPPCounter.Utils
             }
             UsedHighlights.Clear(); //Clears used highlights once they are all back into the queue.
         }
+
+        /// <summary>
+        /// Spawns buttons aligned to the given column of the table.
+        /// </summary>
+        /// <param name="buttonPrefab">Prefab of the button to spawn</param>
+        /// <param name="column">Which table column to align with</param>
+        /// <param name="onClick">Action callback when a button is clicked, passes row/col ID string</param>
+        /// <param name="labels">Optional array of labels for buttons</param>
+        public void SpawnButtonsForColumn(int column, Action<string> onClick, Button buttonPrefab, string[] labels = null)
+        {
+            if (!FormatValueUpdated || buttonPrefab == null) return;
+
+            // Destroy old buttons
+            foreach (Button b in TableButtons)
+                if (b != null) UnityEngine.Object.Destroy(b.gameObject);
+            TableButtons.Clear();
+
+            // Force TMP mesh update
+            Container.ForceMeshUpdate();
+            TMP_TextInfo textInfo = Container.textInfo;
+            RectTransform containerRT = Container.rectTransform;
+
+            // --- Determine column width (widest text in column) ---
+            float columnWidth = 0f;
+            for (int row = 0; row < textInfo.lineCount - 2; row++)
+            {
+                string text = labels != null && row < labels.Length ? labels[row] : $"{row}_{column}";
+                float textLen = GetLen(text);
+                if (textLen > columnWidth) columnWidth = textLen;
+            }
+
+            // --- Compute start of current column with spacer adjustments ---
+            float aLength = GetLen("a");
+            float columnStart = GetLen(Prefix + 'a') - aLength;        // start after prefix
+            float spacer = GetLen('a' + Spacer + 'a') - 2 * aLength;   // spacer width
+            for (int c = 0; c < column; c++)
+                columnStart += MaxLengths[c] + spacer;
+            columnStart -= spacer;
+            columnStart += column < Names.Length ? spacer : GetLen('a' + Suffix) - aLength;
+
+            // --- Column center X offset ---
+            float xOffset = -TableWidth / 2f + columnStart + (column >= Names.Length ? columnWidth : MaxLengths[column]) / 2f;
+
+            // --- Loop through rows (skip first 2 lines) ---
+            for (int row = 2; row < textInfo.lineCount; row++)
+            {
+                TMP_LineInfo line = textInfo.lineInfo[row];
+                float lineHeight = Mathf.Abs(line.ascender - line.descender);
+                float lineMidY = (line.ascender + line.descender) / 2f;
+
+                string text = labels != null && row - 2 < labels.Length ? labels[row - 2] : $"{row - 2}_{column}";
+
+                // Adjust X offset to center the button over the text
+                float buttonOffsetX = xOffset + (columnWidth - GetLen(text)) / 2f;
+
+                // Instantiate button
+                Button btn = UnityEngine.Object.Instantiate(buttonPrefab, containerRT);
+                RectTransform btnRT = btn.GetComponent<RectTransform>();
+                btnRT.pivot = btnRT.anchorMin = btnRT.anchorMax = new Vector2(0.5f, 0.5f);
+                btnRT.sizeDelta = new Vector2(columnWidth, lineHeight);
+                btnRT.anchoredPosition = new Vector2(buttonOffsetX, lineMidY);
+
+                string buttonId = $"{row - 2}_{column}";
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() => onClick?.Invoke(buttonId));
+
+                // Update label and center it
+                TextMeshProUGUI label = btn.GetComponentInChildren<TextMeshProUGUI>();
+                if (label != null)
+                {
+                    label.enableAutoSizing = true;
+                    label.fontSizeMin = 4;
+                    label.fontSizeMax = Container.fontSize;
+                    label.alignment = TextAlignmentOptions.Center;
+                    label.color = Color.white;
+
+                    RectTransform labelRT = label.GetComponent<RectTransform>();
+                    labelRT.pivot = labelRT.anchorMin = labelRT.anchorMax = new Vector2(0.5f, 0.5f);
+                    labelRT.sizeDelta = btnRT.sizeDelta;
+
+                    label.text = (labels != null && row - 2 < labels.Length) ? labels[row - 2] : buttonId;
+                }
+                TableButtons.Add(btn);
+            }
+        }
+
         private float GetLen(string str) => Container.GetPreferredValues(str).x;
         private float GetLenWithoutRich(string str) => GetLen(Regex.Replace(str, "<[^>]+>", ""));
         private float GetLenWithSpacers(string str)

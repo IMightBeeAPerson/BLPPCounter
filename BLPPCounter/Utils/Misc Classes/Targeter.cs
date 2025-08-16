@@ -22,7 +22,7 @@ namespace BLPPCounter.Utils
 
         public static async void GenerateClanNames()
         {
-            string clanInfo = RequestClan((await BS_Utils.Gameplay.GetUserInfo.GetUserAsync().ConfigureAwait(false)).platformUserId);
+            string clanInfo = RequestClan((await BS_Utils.Gameplay.GetUserInfo.GetUserAsync()).platformUserId);
             if (clanInfo.Length == 0)
             {
                 theTargets = new List<object>();

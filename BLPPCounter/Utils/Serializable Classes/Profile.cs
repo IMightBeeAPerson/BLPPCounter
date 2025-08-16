@@ -108,8 +108,7 @@ namespace BLPPCounter.Utils
             try
             {
                 ActualScoreDiffs = HelpfulMisc.UncompressEnums<BeatmapDifficulty>(ScoreDiffs);
-                Plugin.Log.Info($"ActualScoreDiffs length: {ActualScoreDiffs.Length} || Scores Length: {Scores.Length}");
-                if (ActualScoreDiffs.Length != Scores.Length) throw new Exception();
+                if (ActualScoreDiffs.Length != Scores.Length) throw new Exception($"ScoreDiffs array length does not equal the Scores array length\nActualScoreDiffs length: {ActualScoreDiffs.Length} || Scores Length: {Scores.Length}");
                 WeightScores();
             }
             catch (Exception e)
@@ -129,7 +128,7 @@ namespace BLPPCounter.Utils
             string[] names = new string[5] { 
                 "<color=#FA0>Score #</color>",
                 "Beatmap Name",
-                "<color=#0F0>D</color><color=#070>i</color><color=#700>f</color><color=#C16>f</color>",
+                "<color=#0F0>D</color><color=#FF0>i</color><color=#F70>f</color><color=#C16>f</color>",
                 $"<color=purple>{label}</color>",
                 "<color=#4AF>Key</color>" 
             };
@@ -140,17 +139,19 @@ namespace BLPPCounter.Utils
             {
                 values[i] = new string[] {
                 $"<color=#FA0>#{j + 1}</color>",
-                ScoreNames[j],
+                ClampSongName(ScoreNames[j]),
                 ColorizeDiff(ActualScoreDiffs[j]),
                 $"<color=purple>{Math.Round(Scores[j], PluginConfig.Instance.DecimalPrecision)}</color> {label}",
                 $"<color=#4AF>{ScoreIDs[j]}</color>"
                 };
             }
             if (PlayTable is null)
+            {
                 PlayTable = new Table(TextContainer, values, names)
                 {
                     HasEndColumn = true
                 };
+            }
             else
                 PlayTable.SetValues(values);
         }
@@ -162,6 +163,12 @@ namespace BLPPCounter.Utils
         }
         #endregion
         #region Static Functions
+        private static string ClampSongName(string songName)
+        {
+            const int MaxNameLength = 40;
+            if (songName.Length < MaxNameLength) return songName;
+            return songName.Substring(0, MaxNameLength) + "...";
+        }
         private static string ColorizeDiff(BeatmapDifficulty diff)
         {
             switch (diff)
@@ -169,9 +176,9 @@ namespace BLPPCounter.Utils
                 case BeatmapDifficulty.Easy:
                     return "<color=#0F0>Easy</color>";
                 case BeatmapDifficulty.Normal:
-                    return "<color=#070>Normal</color>";
+                    return "<color=#FF0>Normal</color>";
                 case BeatmapDifficulty.Hard:
-                    return "<color=#700>Hard</color>";
+                    return "<color=#F70>Hard</color>";
                 case BeatmapDifficulty.Expert:
                     return "<color=#C16>Expert</color>";
                 case BeatmapDifficulty.ExpertPlus:

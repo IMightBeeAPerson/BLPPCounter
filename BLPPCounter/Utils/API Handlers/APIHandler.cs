@@ -24,12 +24,8 @@ namespace BLPPCounter.Utils.API_Handlers
 
         public static bool UsingDefault = false;
 
-        public abstract Task<(bool Succeeded, HttpContent Content)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false);
-        public static async Task<(bool Success, HttpContent Content)> CallAPI_Static(
-        string path,
-        Throttler throttler = null,
-        bool quiet = false,
-        int maxRetries = 3)
+        public abstract Task<(bool Success, HttpContent Content)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false);
+        public static async Task<(bool Success, HttpContent Content)> CallAPI_Static(string path, Throttler throttler = null, bool quiet = false, int maxRetries = 3)
         {
             const int initialRetryDelayMs = 500;
             for (int attempt = 1; attempt <= maxRetries; attempt++)
@@ -189,13 +185,13 @@ namespace BLPPCounter.Utils.API_Handlers
         public async Task<string> CallAPI_String(string path, bool quiet = false, bool forceNoHeader = false)
         {
             var data = await CallAPI(path, quiet, forceNoHeader).ConfigureAwait(false);
-            if (!data.Succeeded) return null;
+            if (!data.Success) return null;
             return await data.Content.ReadAsStringAsync().ConfigureAwait(false);
         }
         public async Task<byte[]> CallAPI_Bytes(string path, bool quiet = false, bool forceNoHeader = false)
         {
             var data = await CallAPI(path, quiet, forceNoHeader).ConfigureAwait(false);
-            if (!data.Succeeded) return null;
+            if (!data.Success) return null;
             return await data.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
         }
         public abstract float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1);
@@ -219,9 +215,9 @@ namespace BLPPCounter.Utils.API_Handlers
         string userId, int count, string apiPathFormat, string scoreArrayPath,
         Func<JToken, (string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId)> tokenSelector,
         Func<(string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId), string, ((string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId) Data, string ExtraOutp)> replaceSelector,
-        string jsonPath, int maxConcurrency = 5, Throttler throttler = null)
+        Throttler throttler = null, params string[] jsonPath)
         {
-            const int MaxCountToPage = 100;
+            const int MaxCountToPage = 100, maxConcurrency = 5;
             int totalPages = (int)Math.Ceiling(count / (double)MaxCountToPage);
             var semaphore = new SemaphoreSlim(maxConcurrency);
             var pageTasks = new List<Task<(int PageIndex, (string, BeatmapDifficulty, float, string)[])>>();

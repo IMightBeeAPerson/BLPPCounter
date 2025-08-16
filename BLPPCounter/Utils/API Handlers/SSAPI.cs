@@ -84,8 +84,8 @@ namespace BLPPCounter.Utils.API_Handlers
                     data.MapId = repData;
                     return (data, data.MapId);
                 },
-                "id",
-                throttler: Throttle
+                Throttle,
+                "id"
             ).ConfigureAwait(false);
         }
         public override async Task<float> GetProfilePP(string userId)

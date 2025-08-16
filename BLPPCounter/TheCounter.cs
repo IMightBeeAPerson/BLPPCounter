@@ -739,7 +739,7 @@ namespace BLPPCounter
             using (FileStream fs = File.OpenWrite(filePath))
                 fs.Write(data, 0, data.Length); //For some reason Stream.Write isn't implemented
         }
-        private static void AddMap(string data) 
+        /*private static void AddMap(string data) 
         {
             try
             {
@@ -760,7 +760,7 @@ namespace BLPPCounter
                 Plugin.Log.Warn("Error adding map to cache: " + e.Message);
                 Plugin.Log.Debug(e);
             }
-        }
+        }*/
         private bool SetupMapData()
         {
             JToken data;

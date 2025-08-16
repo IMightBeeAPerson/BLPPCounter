@@ -24,7 +24,7 @@ namespace BLPPCounter.Utils
         {
             if (long.TryParse(str, out long id))
             {
-                (bool succeeded, HttpContent data) = APIHandler.CallAPI_Static($"{HelpfulPaths.BLAPI}player/{id}").Result;
+                (bool succeeded, HttpContent data) = APIHandler.CallAPI_Static($"{HelpfulPaths.BLAPI}player/{id}", BLAPI.Throttle).Result;
                 if (succeeded) return new CustomTarget(JObject.Parse(data.ReadAsStringAsync().Result)["name"].ToString(), id);
                 else throw new ArgumentException("The ID provided does not exist.");
             }
@@ -32,7 +32,7 @@ namespace BLPPCounter.Utils
         }
         private static CustomTarget ConvertToIdAlias(string str)
         {
-            (bool succeeded, HttpContent data) = APIHandler.CallAPI_Static($"{HelpfulPaths.BLAPI}player/{str.ToLower()}").Result;
+            (bool succeeded, HttpContent data) = APIHandler.CallAPI_Static($"{HelpfulPaths.BLAPI}player/{str.ToLower()}", BLAPI.Throttle).Result;
             if (succeeded)
             {
                 string strData = data.ReadAsStringAsync().Result;
