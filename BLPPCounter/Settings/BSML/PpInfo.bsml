@@ -3,7 +3,7 @@
   
     <tab-selector id='MainTabSelector' tab-tag='tabs' select-cell='ChangeTab'/>
   
-    <tab tags='tabs' tab-name='Info'>
+    <tab id='InfoTab' tags='tabs' tab-name='Info'>
       <vertical spacing='2' vertical-fit='PreferredSize' pref-height='50' anchor-pos-y='-2' horizontal-fit='PreferredSize' pref-width='75' child-expand-height='false'>
         <vertical spacing='1' horizontal-fit='PreferredSize' pref-width='75'>
           <horizontal>
@@ -117,7 +117,7 @@
         <button id='ReloadDataButton' text='Reload Data' hover-hint='Reloads ALL profile scores (this is slow)' on-click='RefreshProfilePP' align='Left'/>
         <button text='Input play PP' on-click='UpdateProfilePP' align='Right'/>
       </horizontal>
-      <!--button text='Test' on-click='DoTestThing' align='Center'/-->
+      <button text='Test' on-click='DoTestThing' align='Center'/>
       <button text='Show Top Plays' click-event='ShowPlayTable' align='Center'/>
       <modal id='PlayTableModal' show-event='ShowPlayTable' hide-event='HidePlayTable' click-off-closes='true' move-to-center='true'>
         <vertical id='PlayTableOptions' child-expand-height='false' child-expand-width='false' bg='round-rect-panel' bg-color='#CCC'>

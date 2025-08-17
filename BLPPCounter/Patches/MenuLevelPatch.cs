@@ -20,7 +20,6 @@ namespace BLPPCounter.Patches
             if (firstActivation)
             {
                 PpInfoTabHandler.Instance.Sldvc = __instance;
-                if (PpInfoTabHandler.Instance.Gmpc is null) return;
                 PpInfoTabHandler.Instance.SldvcInit();
             }
         }

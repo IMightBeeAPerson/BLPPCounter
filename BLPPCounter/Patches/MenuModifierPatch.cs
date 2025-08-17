@@ -16,8 +16,6 @@ namespace BLPPCounter.Patches
         internal static void Prefix(GameplayModifiersPanelController __instance)
         {
             PpInfoTabHandler.Instance.Gmpc = __instance;
-            if (PpInfoTabHandler.Instance.Sldvc is null) return;
-            //PpInfoTabHandler.Instance.GmpcInit();
         }
     }
 }

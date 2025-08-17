@@ -91,7 +91,10 @@ namespace BLPPCounter.Utils
         private readonly HashSet<(int Row, int Column)> HighlightQueue; //This is filled when the highlight method is called and the table hasn't been updated yet. When the table updates, this is used to highlight it while processing.
         private readonly HashSet<(int Row, int Column)> UsedHighlights; //This is filled with highlights currently in the table right now, and they are removed when the highlight is cleared or goes back into the queue.
 
-        internal List<Button> TableButtons { get; private set; } = new List<Button>();
+        private bool HasButtonsBeenAdded => CurrentButtonColumn > -1; //This bool tracks whether or not Value has had the extra column for the buttons added or not.
+        internal List<Button> TableButtons { get; private set; }
+        private int CurrentButtonColumn; //The column that the buttons are at currently. -1 if none.
+
         /// <summary>
         /// Initialize a table, given a matrix of values and an array of headers (or names). 
         /// </summary>
@@ -127,6 +130,10 @@ namespace BLPPCounter.Utils
             //Set TableWidth and TableHeight to 0 (it is set correctly once it has been updated).
             TableWidth = 0;
             TableHeight = 0;
+
+            //Setup the button adder variables
+            CurrentButtonColumn = -1;
+            TableButtons = new List<Button>();
 
             //This is a special line to fix an error in the font where people don't set the width for spaces, which screws up highlighting.
             if (Container.font.characterLookupTable[' '].glyph.metrics.width == 0) Container.font.MakeSpacesHaveSpace();
@@ -228,13 +235,22 @@ namespace BLPPCounter.Utils
         /// <param name="column">Which table column to align with</param>
         /// <param name="onClick">Action callback when a button is clicked, passes row/col ID string</param>
         /// <param name="labels">Optional array of labels for buttons</param>
-        public void SpawnButtonsForColumn(int column, Action<string> onClick, Button buttonPrefab, string[] labels = null)
+        public void SpawnButtonsForColumn(int column, Action<string> onClick, Button buttonPrefab, string columnName = null, string[] labels = null)
         {
-            if (!FormatValueUpdated || buttonPrefab == null) return;
+            //Check for nulls
+            if (!FormatValueUpdated || buttonPrefab is null) return;
+
+            //Reset changes if they have been made
+            if (HasButtonsBeenAdded)
+            {
+                Names = Names.RemoveElement(CurrentButtonColumn);
+                Values = Values.RemoveElement(CurrentButtonColumn);
+                MaxLengths = MaxLengths.RemoveElement(CurrentButtonColumn);
+            }
 
             // Destroy old buttons
             foreach (Button b in TableButtons)
-                if (b != null) UnityEngine.Object.Destroy(b.gameObject);
+                if (!(b is null)) UnityEngine.Object.Destroy(b.gameObject);
             TableButtons.Clear();
 
             // Force TMP mesh update
@@ -262,6 +278,17 @@ namespace BLPPCounter.Utils
 
             // --- Column center X offset ---
             float xOffset = -TableWidth / 2f + columnStart + (column >= Names.Length ? columnWidth : MaxLengths[column]) / 2f;
+
+            // --- Add in the extra column ---
+            if (!(columnName is null))
+            {
+                Names = Names.InsertElement(column, columnName);
+                MaxLengths = MaxLengths.InsertElement(column, columnWidth);
+                string[] hold = new string[Values[0].Length];
+                for (int row = 0; row < hold.Length; row++)
+                    hold[row] = "";
+                Values = Values.InsertElement(column, hold);
+            }
 
             // --- Loop through rows (skip first 2 lines) ---
             for (int row = 2; row < textInfo.lineCount; row++)
@@ -304,6 +331,11 @@ namespace BLPPCounter.Utils
                 }
                 TableButtons.Add(btn);
             }
+            if (HasButtonsBeenAdded || !(columnName is null))
+                ContainerUpdated = false;
+            if (!(columnName is null))
+                CurrentButtonColumn = column;
+            else CurrentButtonColumn = -1;
         }
 
         private float GetLen(string str) => Container.GetPreferredValues(str).x;
@@ -347,7 +379,8 @@ namespace BLPPCounter.Utils
         private void CalculateRowSpacing(int columnIndex)
         {
             float[] columnLengths = Values.Select(arr => GetLenWithoutRich(arr[columnIndex])).Prepend(GetLenWithoutRich(Names[columnIndex])).ToArray();
-            MaxLengths[columnIndex] = columnLengths.Aggregate((total, current) => Math.Max(total, current));
+            if (columnIndex != CurrentButtonColumn)
+                MaxLengths[columnIndex] = columnLengths.Aggregate((total, current) => Math.Max(total, current));
             for (int j = 0; j < columnLengths.Length; j++) 
                 SpacingValues[j][columnIndex] = MaxLengths[columnIndex] - columnLengths[j];
         }

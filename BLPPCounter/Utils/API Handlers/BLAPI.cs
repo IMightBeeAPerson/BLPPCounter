@@ -21,7 +21,7 @@ namespace BLPPCounter.Utils.API_Handlers
         internal static readonly Throttler Throttle = new Throttler(100, 15);
         internal static BLAPI Instance { get; private set; } = new BLAPI();
         private BLAPI() { }
-        public override async Task<(bool, HttpContent)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false)
+        public override async Task<(bool, HttpContent)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3)
         {
             const string LinkHeader = "https://";
             const string LeaderboardHeader = "api.beatleader";
@@ -30,7 +30,7 @@ namespace BLPPCounter.Utils.API_Handlers
             Throttler t = null;
             if (path.Substring(LinkHeader.Length, LeaderboardHeader.Length).Equals(LeaderboardHeader))
                 t = Throttle;
-            return await CallAPI_Static(path, t, quiet).ConfigureAwait(false);
+            return await CallAPI_Static(path, t, quiet, maxRetries).ConfigureAwait(false);
         }
         public override float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1)
         {
@@ -63,7 +63,7 @@ namespace BLPPCounter.Utils.API_Handlers
             await CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash)).ConfigureAwait(false);
         public override async Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false)
         {
-            string outp = await CallAPI_String(string.Format(HelpfulPaths.BLAPI_SCORE, userId, hash, diff, mode), quiet).ConfigureAwait(false);
+            string outp = await CallAPI_String(string.Format(HelpfulPaths.BLAPI_SCORE, userId, hash, diff, mode), quiet, maxRetries: 1).ConfigureAwait(false);
             if (outp is null || outp.Length == 0) return null;
             return JToken.Parse(outp);
         }

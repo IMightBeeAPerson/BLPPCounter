@@ -24,7 +24,7 @@ namespace BLPPCounter.Utils.API_Handlers
 
         public static bool UsingDefault = false;
 
-        public abstract Task<(bool Success, HttpContent Content)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false);
+        public abstract Task<(bool Success, HttpContent Content)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3);
         public static async Task<(bool Success, HttpContent Content)> CallAPI_Static(string path, Throttler throttler = null, bool quiet = false, int maxRetries = 3)
         {
             const int initialRetryDelayMs = 500;
@@ -182,15 +182,15 @@ namespace BLPPCounter.Utils.API_Handlers
                 }
             }
         }
-        public async Task<string> CallAPI_String(string path, bool quiet = false, bool forceNoHeader = false)
+        public async Task<string> CallAPI_String(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3)
         {
-            var data = await CallAPI(path, quiet, forceNoHeader).ConfigureAwait(false);
+            var data = await CallAPI(path, quiet, forceNoHeader, maxRetries).ConfigureAwait(false);
             if (!data.Success) return null;
             return await data.Content.ReadAsStringAsync().ConfigureAwait(false);
         }
-        public async Task<byte[]> CallAPI_Bytes(string path, bool quiet = false, bool forceNoHeader = false)
+        public async Task<byte[]> CallAPI_Bytes(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3)
         {
-            var data = await CallAPI(path, quiet, forceNoHeader).ConfigureAwait(false);
+            var data = await CallAPI(path, quiet, forceNoHeader, maxRetries).ConfigureAwait(false);
             if (!data.Success) return null;
             return await data.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
         }

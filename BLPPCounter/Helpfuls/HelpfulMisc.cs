@@ -805,6 +805,25 @@ namespace BLPPCounter.Helpfuls
 
             return result;
         }
+        public static T[] RemoveElement<T>(this T[] arr, int index)
+        {
+            List<T> hold = arr.ToList();
+            hold.RemoveAt(index);
+            return hold.ToArray();
+        }
+        public static T[] InsertElement<T>(this T[] arr, int index, T value)
+        {
+            if (index >= arr.Length)
+                return arr.Append(value).ToArray();
+            List<T> hold = arr.ToList();
+            hold.Insert(index, value);
+            return hold.ToArray();
+        }
+        public static string ClampString(this string str, int maxLength)
+        {
+            if (str.Length < maxLength) return str;
+            return str.Substring(0, maxLength);
+        }
 
         /*float[] ConvertArr(double[] arr)
         {

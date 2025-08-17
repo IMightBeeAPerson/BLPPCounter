@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using BLPPCounter.Settings.SettingHandlers;
+using HarmonyLib;
 using HMUI;
 using JetBrains.Annotations;
 using System;
@@ -24,8 +25,9 @@ namespace BLPPCounter.Patches
         private static void Postfix(SegmentedControl __instance)
         {
             if (LoadedObjects.Contains(__instance.GetHashCode())) return;
-            if (!__instance.name.Equals("BSMLTabSelector")) { LoadedObjects.Add(__instance.GetHashCode()); return; }
-            string tabSelectorCells = __instance.cells.Aggregate("", (total, cell) => cell is TextSegmentedControlCell tscc ? total + ", " + tscc.text : total);
+            if (!__instance.name.Equals("BSMLTabSelector") || PpInfoTabHandler.Instance.MainTabSelector.textSegmentedControl.Equals(__instance))
+            { LoadedObjects.Add(__instance.GetHashCode()); return; }
+            string tabSelectorCells = __instance.cells.Aggregate("", (total, cell) => cell is TextSegmentedControlCell tscc ? total + ", " + tscc.text : total).Substring(2);
             if (LastLoadedTabSelector.Equals(tabSelectorCells))
             {
                 if (__instance.cells[0] is TextSegmentedControlCell tscc && !tscc.text.Equals(LastSelectedModTab))
@@ -40,7 +42,8 @@ namespace BLPPCounter.Patches
             {
                 ModTabSelected += str =>
                 {
-                    if (str.Equals("Mods") && LastSelectedModTab.Length != 0 && TabGotSelected.ContainsKey(LastSelectedModTab)) TabGotSelected[LastSelectedModTab]?.Invoke();
+                    if (str.Equals("Mods") && LastSelectedModTab.Length != 0 && TabGotSelected.ContainsKey(LastSelectedModTab)) 
+                        TabGotSelected[LastSelectedModTab]?.Invoke();
                 };
                 __instance.didSelectCellEvent += (sc, index) =>
                 {
@@ -66,8 +69,9 @@ namespace BLPPCounter.Patches
                 TabNames.Remove(s);
                 void CellEvent(SegmentedControl sc, int index)
                 {
+                    string currentName = s;
                     LastSelectedModTab = sc.cells[index] is TextSegmentedControlCell tscc ? tscc.text : "";
-                    if (LastSelectedModTab.Equals(s)) TabGotSelected[s]?.Invoke();
+                    if (LastSelectedModTab.Equals(currentName)) TabGotSelected[currentName]?.Invoke();
                 }
                 __instance.didSelectCellEvent += CellEvent;
                 CellEvent(__instance, 0);

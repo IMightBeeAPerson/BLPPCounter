@@ -9,6 +9,7 @@ using BLPPCounter.Patches;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
+using BLPPCounter.Utils.Misc_Classes;
 using BS_Utils.Utilities;
 using HMUI;
 using Newtonsoft.Json.Linq;
@@ -16,6 +17,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
@@ -28,9 +30,9 @@ namespace BLPPCounter.Settings.SettingHandlers
     public class PpInfoTabHandler
     {
 #pragma warning disable IDE0051, IDE0044
-        #region Misc Static Variables & Injects
-        internal StandardLevelDetailViewController Sldvc;
-        internal GameplayModifiersPanelController Gmpc;
+        #region Misc Static Variables & Controllers
+        internal StandardLevelDetailViewController Sldvc { private get; set; }
+        internal GameplayModifiersPanelController Gmpc { private get; set; }
         public static PpInfoTabHandler Instance { get; }
         private static PluginConfig PC => PluginConfig.Instance;
         public static readonly string TabName = "PP Calculator";
@@ -44,7 +46,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         private IDifficultyBeatmap CurrentMap; // 1.34.2 and below
 #endif
         private (JToken Diffdata, JToken Scoredata) CurrentDiff;
-        private object RefreshLock = new object(), ProfileLock = new object();
+        private AsyncLock RefreshLock = new AsyncLock();
+        private object ProfileLock = new object();
         private bool SelectButtonsOn = false;
         private Leaderboards CurrentLeaderboard = PC.Leaderboard;
         private Calculator CurrentCalculator => Calculator.GetCalc(CurrentLeaderboard);
@@ -92,7 +95,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private bool UsesMods => CurrentCalculator.UsesModifiers;
         private bool IsBL => CurrentLeaderboard == Leaderboards.Beatleader;
 
-        [UIComponent(nameof(MainTabSelector))] private TabSelector MainTabSelector;
+        [UIComponent(nameof(MainTabSelector))] internal TabSelector MainTabSelector;
 
         [UIValue(nameof(ShowTrueID))] private bool ShowTrueID
         {
@@ -218,6 +221,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(ClanTarget))] private TextMeshProUGUI ClanTarget;
         [UIComponent(nameof(PPTarget))] private TextMeshProUGUI PPTarget;
 
+        [UIComponent(nameof(InfoTab))] private Tab InfoTab;
         [UIComponent(nameof(SpeedModText))] private TextMeshProUGUI SpeedModText;
         [UIComponent(nameof(ModMultText))] private TextMeshProUGUI ModMultText;
         [UIComponent(nameof(PrefixLabels))] private TextMeshProUGUI PrefixLabels;
@@ -230,7 +234,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIValue(nameof(BeatmapName))] private string BeatmapName
         {
             get => _BeatmapName;
-            set { if (MapName is null) return; MapName.text = $"<color=#777777>Map Name: <color=#aaaaaa>{value}</color>"; _BeatmapName = value; }
+            set { if (MapName is null) return; MapName.text = $"<color=#777777>Map Name: <color=#aaaaaa>{value.ClampString(25)}</color>"; _BeatmapName = value; }
         }
         private string _BeatmapName = "";
         [UIValue(nameof(BeatmapID))] private string BeatmapID
@@ -315,13 +319,14 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (profilePp[0] == '-') profilePp = "Unknown";
             ProfilePPTextValue.SetText("<color=purple>" + profilePp + "</color> " + GetPPLabel());
         }
-        /*[UIAction(nameof(DoTestThing))] private void DoTestThing()
+        [UIAction(nameof(DoTestThing))]
+        private void DoTestThing()
         {
             //CurrentProfile.AddPlay(ProfilePPSlider.Value);
             //UpdateProfilePP();
             //UpdateProfile();
             CompletedMap(0.975f, Sldvc.beatmapLevel.levelID.Split('_')[2], Sldvc.beatmapLevel.songName, Sldvc.selectedDifficultyBeatmap.difficulty);
-        }*/
+        }
         [UIAction(nameof(RefreshProfilePP))] private void RefreshProfilePP()
         {
             Task.Run(RefreshProfileScores);
@@ -344,34 +349,34 @@ namespace BLPPCounter.Settings.SettingHandlers
                 }
             }
         }
-        private IEnumerator DelayUpdateTable(Table theTable)
+        private IEnumerator DelayUpdatePlayTable(Table theTable)
         {
             yield return new WaitForEndOfFrame();
             theTable.UpdateTable();
             PlayTableOptions_Bounds.sizeDelta = new Vector2(theTable.TableWidth, theTable.TableHeight * 0.225f);
             PlayTableOptions.spacing = 0f;
-            const int ButtonWidths = 20;
+            const int ButtonWidths = 60; //correct value: 60
             PlayTableButtons.spacing = (theTable.TableWidth - ButtonWidths) / 2f;
             (PlayTableModal.transform as RectTransform).sizeDelta = new Vector2(PlayTableOptions_Bounds.sizeDelta.x, PlayTableOptions_Bounds.sizeDelta.y * 6f);
-            //theTable.SpawnButtonsForColumn(5, str => Plugin.Log.Info("Button Pressed! Id: " + str), PlayTableButton);
+            //theTable.SpawnButtonsForColumn(5, str => Plugin.Log.Info("Button Pressed! Id: " + str), PlayTableButton, "Buttons");
         }
         [UIAction(nameof(PlayTable_PageUp))] private void PlayTable_PageUp()
         {
             if (CurrentProfile is null || CurrentProfile.PlayTable is null) return;
             CurrentProfile.PageUp();
-            Sldvc?.StartCoroutine(DelayUpdateTable(CurrentProfile.PlayTable));
+            Sldvc?.StartCoroutine(DelayUpdatePlayTable(CurrentProfile.PlayTable));
         }
         [UIAction(nameof(PlayTable_PageTop))] private void PlayTable_PageTop()
         {
             if (CurrentProfile is null || CurrentProfile.PlayTable is null) return;
             CurrentProfile.PageTop();
-            Sldvc?.StartCoroutine(DelayUpdateTable(CurrentProfile.PlayTable));
+            Sldvc?.StartCoroutine(DelayUpdatePlayTable(CurrentProfile.PlayTable));
         }
         [UIAction(nameof(PlayTable_PageDown))] private void PlayTable_PageDown()
         {
             if (CurrentProfile is null || CurrentProfile.PlayTable is null) return;
             CurrentProfile.PageDown();
-            Sldvc?.StartCoroutine(DelayUpdateTable(CurrentProfile.PlayTable));
+            Sldvc?.StartCoroutine(DelayUpdatePlayTable(CurrentProfile.PlayTable));
         }
         [UIAction(nameof(SaveSettings))] private void SaveSettings()
         {
@@ -392,14 +397,14 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
             
             if (!theTable.ContainerUpdated)
-                Sldvc.StartCoroutine(DelayUpdateTable(theTable));
+                Sldvc.StartCoroutine(DelayUpdatePlayTable(theTable));
         }
         [UIAction("#UpdateCurrentTable")] private void UpdateCurrentTable() => BuildTable();
         [UIAction("#UpdateCurrentTab")] private void UpdateCurrentTab() => UpdateTabDisplay(true);
         [UIAction("#post-parse")] private void DoStuff()
         {
-            HelpfulMisc.CoupleMinMaxSliders(Instance.MinAccSlider, Instance.MaxAccSlider);
-            HelpfulMisc.CoupleMinMaxSliders(Instance.MinPPSlider, Instance.MaxPPSlider);
+            HelpfulMisc.CoupleMinMaxSliders(MinAccSlider, MaxAccSlider);
+            HelpfulMisc.CoupleMinMaxSliders(MinPPSlider, MaxPPSlider);
             foreach (string s in SelectionButtonTags)
                 foreach (GameObject go in Parser.GetObjectsWithTag(s))
                     go.SetActive(false);
@@ -430,17 +435,17 @@ namespace BLPPCounter.Settings.SettingHandlers
                     Instance.ClearMapTabs();
             };
         }
-        internal void SldvcInit() 
-        { 
-            Sldvc.didChangeContentEvent += (a, b) => Refresh();
+        internal void SldvcInit()
+        {
+            Sldvc.didChangeContentEvent += async (a, b) => await Refresh().ConfigureAwait(false);
 #if NEW_VERSION
-            Sldvc.didChangeDifficultyBeatmapEvent += a => Refresh(); // 1.37.0 and above
+            Sldvc.didChangeDifficultyBeatmapEvent += async a => await Refresh().ConfigureAwait(false); // 1.37.0 and above
 #else
-            Sldvc.didChangeDifficultyBeatmapEvent += (a,b) => Refresh(); // 1.34.2 and below
+            Sldvc.didChangeDifficultyBeatmapEvent += async (a, b) => await Refresh().ConfigureAwait(false); // 1.34.2 and below
 #endif
         }
         //internal void GmpcInit() { Gmpc.didChangeGameplayModifiersEvent += UpdateMods; UpdateMods(); }
-            
+
         #endregion
         #region Formatting
         #region Relative Counter
@@ -483,7 +488,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 true //Debug option, just prevents prints when the API was called.
                 ).ConfigureAwait(false);
             TargetHasScore = !(scoreData is null);
-            if (!TargetHasScore) { UpdateDiff(); return 0.0f; } //target doesn't have a score on this diff.
+            if (!TargetHasScore) { await UpdateDiff().ConfigureAwait(false); return 0.0f; } //target doesn't have a score on this diff.
             JToken diffData = null;
             try
             {
@@ -494,7 +499,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 BeatmapName = api.GetSongName(rawDiffData);
             } catch (Exception)
             { //This exception should only happen when a map isn't on the radar of the selected leaderboard (aka unranked), and thus doesn't need to be broadcasted.
-                UpdateDiff(); 
+                await UpdateDiff().ConfigureAwait(false);
                 return 0.0f;
             }
             MapDiffText = HelpfulMisc.AddSpaces(CurrentMap.difficulty.ToString().Replace("+", "Plus"));
@@ -662,35 +667,43 @@ namespace BLPPCounter.Settings.SettingHandlers
             Task.Run(() =>
             {
                 if (Profile.AddPlay(Targeter.PlayerID, hash, finalAcc, mapName, diff))
+                {
                     UpdateTabDisplay(forceUpdate: true, runAsync: false);
+                }
             });
             FinalMapData = default;
         }
         public string GetPPLabel() => CurrentLeaderboard == Leaderboards.Accsaber ? "ap" : "pp";
-        public void UpdateTabDisplay(bool forceUpdate = false, bool runAsync = true) 
+        public Task UpdateTabDisplay(bool forceUpdate = false, bool runAsync = true) 
         {
-            if (CurrentTab.Equals("Settings") || Sldvc is null || CurrentTab.Length == 0 || (!forceUpdate && TabMapInfo[CurrentTab] == CurrentMap)) return;
+            if (CurrentTab.Equals("Settings") || Sldvc is null || CurrentTab.Length == 0 || (!forceUpdate && TabMapInfo[CurrentTab] == CurrentMap)) return Task.CompletedTask;
             IEnumerator WaitThenUpdate()
             {
                 yield return new WaitForEndOfFrame();
                 CaptureTab.IsVisible = IsBL;
                 ProfileTab.IsVisible = CurrentLeaderboard != Leaderboards.Accsaber;
-                //if (CurrentTab.Equals("Capture") && !IsBL || CurrentTab.Equals("Profile") && CurrentLeaderboard == Leaderboards.Accsaber)
+                if (CurrentTab.Equals("Capture") && !IsBL || CurrentTab.Equals("Profile") && CurrentLeaderboard == Leaderboards.Accsaber)
+                {
+                    MainTabSelector.ForceSelectAndNotify(0);
+                    CurrentTab = TabMapInfo.Keys.First();
+                }
             }
-            void Update()
+            async void Update()
             {
+                if (ChangeTabSettings)
+                {
+                    ChangeTabSettings = false;
+                    await WaitThenUpdate().AsTask(Sldvc).ConfigureAwait(false);
+                }
                 bool mapUsable = CurrentAPI.MapIsUsable(CurrentDiff.Diffdata);
                 TabMapInfo[CurrentTab] = CurrentMap;
                 Updates[CurrentTab].Invoke(this);
                 BuildTable();
-                if (ChangeTabSettings)
-                {
-                    ChangeTabSettings = false;
-                    Sldvc?.StartCoroutine(WaitThenUpdate());
-                }
             }
-            if (runAsync) Task.Run(Update);
-            else Update();
+            if (runAsync) 
+                return Task.Run(Update);
+            Update();
+            return Task.CompletedTask;
         }
         private void UpdateInfo()
         {
@@ -780,30 +793,23 @@ namespace BLPPCounter.Settings.SettingHandlers
         public Task Refresh(bool forceRefresh = false) => DoRefresh(forceRefresh);
         private async Task DoRefresh(bool forceRefresh)
         {
+            //Plugin.Log.Info($"ActualMap: {Sldvc?.selectedDifficultyBeatmap.level.songName ?? "null"} || Currently Saved Map: {CurrentMap?.level.songName ?? "null"}");
+            //Plugin.Log.Info("TabSelectionPatch: " + TabSelectionPatch.GetIfTabIsSelected(TabName));
 #if NEW_VERSION
-            if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && Sldvc.beatmapKey.Equals(CurrentMap))) return; // 1.37.0 and above
+            if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && (Sldvc?.beatmapKey.Equals(CurrentMap) ?? false))) return; // 1.37.0 and above
 
 #else
-            if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && Sldvc.selectedDifficultyBeatmap.Equals(CurrentMap))) return; // 1.34.2 and below
+            if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && (Sldvc?.selectedDifficultyBeatmap.Equals(CurrentMap) ?? false))) return; // 1.34.2 and below
 
 #endif
-            if (Monitor.TryEnter(RefreshLock))
+            AsyncLock.Releaser? theLock = await RefreshLock.TryLockAsync().ConfigureAwait(false);
+            if (theLock is null) return;
+            using (theLock.Value)
             {
-                try
-                {
-                    CurrentLeaderboard = PC.Leaderboard;
-                    UpdateMods();
-                    TargetPP = await UpdateTargetPP().ConfigureAwait(false);
-                    UpdateTabDisplay(forceRefresh, false);
-                }
-                catch (Exception e) 
-                { 
-                    Plugin.Log.Error("There was an error!\n" + e); 
-                }
-                finally 
-                {
-                    Monitor.Exit(RefreshLock);
-                }
+                CurrentLeaderboard = PC.Leaderboard;
+                UpdateMods();
+                TargetPP = await UpdateTargetPP().ConfigureAwait(false);
+                await UpdateTabDisplay(forceRefresh, false).ConfigureAwait(false);
             }
         }
         public void ClearMapTabs()

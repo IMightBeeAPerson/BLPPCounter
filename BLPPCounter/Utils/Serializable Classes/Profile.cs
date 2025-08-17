@@ -4,6 +4,7 @@ using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers;
 using BLPPCounter.Utils.API_Handlers;
+using IPA.Config.Data;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -39,6 +40,8 @@ namespace BLPPCounter.Utils
         private static bool Deserializing = false;
         #endregion
         #region Variables
+        [JsonIgnore]
+        private const int PlaysToShow = 10;
         [JsonIgnore]
         private string ID => UserID + "_" + (int)Leaderboard;
         [JsonProperty(nameof(Leaderboard), Required = Required.DisallowNull)]
@@ -89,14 +92,24 @@ namespace BLPPCounter.Utils
             if (TotalPP < 0)
             {
                 APIHandler api = APIHandler.GetAPI(Leaderboard);
-                var scoreData = api.GetScores(UserID, GetPlusOneCount()).Result;
-                Scores = scoreData.Select(token => token.RawPP).ToArray();
-                ScoreNames = scoreData.Select(token => token.MapName).ToArray();
-                ActualScoreDiffs = scoreData.Select(token => token.Difficulty).ToArray();
-                ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
-                ScoreIDs = scoreData.Select(token => token.MapId).ToArray();
+                var scoreData = api.GetScores(UserID, GetPlusOneCount())?.Result;
+                if (scoreData is null)
+                {
+                    Scores = new float[1] { 0.0f };
+                    ScoreNames = new string[1] { "No Scores" };
+                    ActualScoreDiffs = new BeatmapDifficulty[1] { BeatmapDifficulty.Normal };
+                    ScoreDiffs = new ulong[1] { 1UL };
+                    ScoreIDs = new string[1] { "12345" };
+                }
+                else
+                {
+                    Scores = scoreData.Select(token => token.RawPP).ToArray();
+                    ScoreNames = scoreData.Select(token => token.MapName).ToArray();
+                    ActualScoreDiffs = scoreData.Select(token => token.Difficulty).ToArray();
+                    ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
+                    ScoreIDs = scoreData.Select(token => token.MapId).ToArray();
+                }
                 TotalPP = api.GetProfilePP(UserID).Result;
-                if (Scores is null) Scores = new float[1] { 0.0f };
                 InitTable();
             }
             WeightScores();
@@ -122,44 +135,60 @@ namespace BLPPCounter.Utils
         }
         private void InitTable()
         {
-            if (TextContainer is null) return;
-            const int PlaysToShow = 10;
-            string label = Leaderboard == Leaderboards.Accsaber ? "AP" : "PP";
+            //Null check
+            if (TextContainer is null || !(PlayTable is null)) return;
+
+            //Label setup
             string[] names = new string[5] { 
                 "<color=#FA0>Score #</color>",
                 "Beatmap Name",
                 "<color=#0F0>D</color><color=#FF0>i</color><color=#F70>f</color><color=#C16>f</color>",
-                $"<color=purple>{label}</color>",
+                $"<color=purple>{(Leaderboard == Leaderboards.Accsaber ? "AP" : "PP")}</color>",
                 "<color=#4AF>Key</color>" 
             };
-            string[][] values = new string[Math.Min(PlaysToShow, Scores.Length)][];
+
+            //Value setup
+            string[][] values = GetTableValues();
+
+            //PlayTable setup
+            PlayTable = new Table(TextContainer, values, names)
+            {
+                HasEndColumn = true
+            };
+        }
+
+        #endregion
+        #region Reload Functions
+        public void ReloadScores()
+        {
+            TotalPP = -1;
+            PlusOne = -1;
+            InitScores();
+        }
+        public void ReloadTableValues()
+        {
+            if (PlayTable is null) return;
+            PlayTable.SetValues(GetTableValues());
+        }
+        private string[][] GetTableValues()
+        {
+            //Page number clamping
             if (PageNumber * PlaysToShow > Scores.Length) PageNumber = Scores.Length / PlaysToShow;
             if (PageNumber <= 0) PageNumber = 1;
+
+            //Value setup
+            string[][] values = new string[Math.Min(PlaysToShow, Scores.Length - (PageNumber - 1) * PlaysToShow)][];
             for (int i = 0, j = (PageNumber - 1) * PlaysToShow; i < values.Length; i++, j++)
             {
                 values[i] = new string[] {
                 $"<color=#FA0>#{j + 1}</color>",
                 ClampSongName(ScoreNames[j]),
                 ColorizeDiff(ActualScoreDiffs[j]),
-                $"<color=purple>{Math.Round(Scores[j], PluginConfig.Instance.DecimalPrecision)}</color> {label}",
+                $"<color=purple>{Math.Round(Scores[j], PluginConfig.Instance.DecimalPrecision)}</color> {(Leaderboard == Leaderboards.Accsaber ? "AP" : "PP")}",
                 $"<color=#4AF>{ScoreIDs[j]}</color>"
                 };
             }
-            if (PlayTable is null)
-            {
-                PlayTable = new Table(TextContainer, values, names)
-                {
-                    HasEndColumn = true
-                };
-            }
-            else
-                PlayTable.SetValues(values);
-        }
-        public void ReloadScores()
-        {
-            TotalPP = -1;
-            PlusOne = -1;
-            InitScores();
+            return values;
         }
         #endregion
         #region Static Functions
@@ -204,10 +233,11 @@ namespace BLPPCounter.Utils
         internal static void SaveAllProfiles()
         {
             if (LoadedProfiles.Count == 0) return;
-            byte[] data = Encoding.ASCII.GetBytes(JsonConvert.SerializeObject(LoadedProfiles.Values.Select(p => JToken.FromObject(p)), Formatting.Indented));
+            IEnumerable<JToken> data = LoadedProfiles.Where(kvp => int.Parse(kvp.Key.Split('_')[1]) != (int)Leaderboards.Accsaber).Select(p => JToken.FromObject(p.Value));
+            byte[] rawData = Encoding.ASCII.GetBytes(JsonConvert.SerializeObject(data, Formatting.Indented));
             if (File.Exists(HelpfulPaths.PROFILE_DATA)) File.Delete(HelpfulPaths.PROFILE_DATA);
             using (FileStream fs = File.OpenWrite(HelpfulPaths.PROFILE_DATA))
-                fs.Write(data, 0, data.Length);
+                fs.Write(rawData, 0, rawData.Length);
             //Plugin.Log.Info("Profiles have been saved.");
         }
         /// <summary>
@@ -322,17 +352,17 @@ namespace BLPPCounter.Utils
         public void PageUp()
         {
             PageNumber--;
-            InitTable();
+            ReloadTableValues();
         }
         public void PageDown()
         {
             PageNumber++;
-            InitTable();
+            ReloadTableValues();
         }
         public void PageTop()
         {
             PageNumber = 1;
-            InitTable();
+            ReloadTableValues();
         }
         /// <summary>
         /// Given the <paramref name="scoreNum"/> (NOT zero indexed, starts at 1), returns what weight that score will have.
@@ -516,7 +546,7 @@ namespace BLPPCounter.Utils
             HelpfulMisc.SiftDown(WeightedScores, index, GetWeight(index + 1) * rawPP, GetWeight(2));
             PlusOne = CalculatePlusOne();
             ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
-            InitTable();
+            ReloadTableValues();
             return true;
         }
         #endregion

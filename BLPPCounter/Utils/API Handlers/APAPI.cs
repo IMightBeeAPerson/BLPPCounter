@@ -16,7 +16,7 @@ namespace BLPPCounter.Utils.API_Handlers
         private static readonly Throttler Throttle = new Throttler(400, 60);
         internal static APAPI Instance { get; private set; } = new APAPI();
         private APAPI() { }
-        public override Task<(bool, HttpContent)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false)
+        public override Task<(bool, HttpContent)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3)
         {
             const string LinkHeader = "https://";
             const string LeaderboardHeader = "accsaber";
@@ -25,7 +25,7 @@ namespace BLPPCounter.Utils.API_Handlers
             Throttler t = null;
             if (path.Substring(LinkHeader.Length, LeaderboardHeader.Length).Equals(LeaderboardHeader))
                 t = Throttle;
-            return CallAPI_Static(path, t, quiet);
+            return CallAPI_Static(path, t, quiet, maxRetries);
         }
         public override float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1) => new float[1] { (float)diffData["complexity"] };
         public override float[] GetRatings(JToken diffData) => new float[1] { (float)diffData["complexity"] };
@@ -41,14 +41,14 @@ namespace BLPPCounter.Utils.API_Handlers
         public override async Task<string> GetHashData(string hash, int diffNum)
         {
             string id = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)).ConfigureAwait(false))["id"].ToString();
-            return await CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, id), true).ConfigureAwait(false);
+            return await CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, id), true, maxRetries: 1).ConfigureAwait(false);
         }
         public override Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false) => 
             SSAPI.Instance.GetScoreData(userId, hash, diff, mode, quiet);
         public override float GetPP(JToken scoreData)
         {
             float acc = (float)scoreData["accuracy"];
-            float complexity = (float)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, scoreData["id"].ToString()), true).Result)["complexity"];
+            float complexity = (float)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, scoreData["id"].ToString()), true, maxRetries: 1).Result)["complexity"];
             return APCalc.Instance.GetPp(acc, complexity)[0];
         }
         public override int GetScore(JToken scoreData) => (int)scoreData["baseScore"];
