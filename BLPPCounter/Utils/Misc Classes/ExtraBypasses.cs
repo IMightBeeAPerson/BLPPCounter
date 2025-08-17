@@ -1,5 +1,6 @@
 ﻿using BeatSaberMarkupLanguage.Components;
 using BLPPCounter.Patches;
+using HMUI;
 using System.Collections;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -21,9 +22,13 @@ namespace BLPPCounter.Utils.Misc_Classes
         /// </summary>
         public static void ForceSelectAndNotify(this TabSelector selector, int index)
         {
-            if (selector == null || selector.textSegmentedControl == null) return;
-
-            var segmented = selector.textSegmentedControl;
+#if NEW_VERSION
+            if (selector is null || selector.TextSegmentedControl is null) return;
+            TextSegmentedControl segmented = selector.TextSegmentedControl;
+#else
+            if (selector is null || selector.textSegmentedControl is null) return;
+            TextSegmentedControl segmented = selector.textSegmentedControl;
+#endif
             segmented.SelectCellWithNumber(index);
 
             // Explicitly fire TabSelected so content gets updated
@@ -37,7 +42,7 @@ namespace BLPPCounter.Utils.Misc_Classes
         {
             return _tabsField?.GetValue(selector) as object[];
         }
-        #endregion
+#endregion
         #region Coroutine Bypasses
         public static Task AsTask(this IEnumerator coroutine, MonoBehaviour owner)
         {

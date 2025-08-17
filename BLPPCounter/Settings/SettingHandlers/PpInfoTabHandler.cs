@@ -321,14 +321,14 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (profilePp[0] == '-') profilePp = "Unknown";
             ProfilePPTextValue.SetText("<color=purple>" + profilePp + "</color> " + GetPPLabel());
         }
-        [UIAction(nameof(DoTestThing))]
+        /*[UIAction(nameof(DoTestThing))]
         private void DoTestThing()
         {
             //CurrentProfile.AddPlay(ProfilePPSlider.Value);
             //UpdateProfilePP();
             //UpdateProfile();
             CompletedMap(0.975f, Sldvc.beatmapLevel.levelID.Split('_')[2], Sldvc.beatmapLevel.songName, Sldvc.selectedDifficultyBeatmap.difficulty);
-        }
+        }*/
         [UIAction(nameof(RefreshProfilePP))] private void RefreshProfilePP()
         {
             Task.Run(async () => await RefreshProfileScores().ConfigureAwait(false));

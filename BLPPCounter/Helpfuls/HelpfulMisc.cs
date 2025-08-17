@@ -21,7 +21,6 @@ using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using TMPro;
 using UnityEngine.TextCore;
-using static BeatmapLevelSO.GetBeatmapLevelDataResult;
 using static GameplayModifiers;
 namespace BLPPCounter.Helpfuls
 {

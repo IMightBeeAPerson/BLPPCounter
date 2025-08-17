@@ -25,7 +25,11 @@ namespace BLPPCounter.Patches
         private static void Postfix(SegmentedControl __instance)
         {
             if (LoadedObjects.Contains(__instance.GetHashCode())) return;
-            if (!__instance.name.Equals("BSMLTabSelector") || PpInfoTabHandler.Instance.MainTabSelector.textSegmentedControl.Equals(__instance))
+#if NEW_VERSION
+            if (!__instance.name.Equals("BSMLTabSelector") || PpInfoTabHandler.Instance.MainTabSelector.TextSegmentedControl.Equals(__instance))
+#else
+                if (!__instance.name.Equals("BSMLTabSelector") || PpInfoTabHandler.Instance.MainTabSelector.textSegmentedControl.Equals(__instance))
+#endif
             { LoadedObjects.Add(__instance.GetHashCode()); return; }
             string tabSelectorCells = __instance.cells.Aggregate("", (total, cell) => cell is TextSegmentedControlCell tscc ? total + ", " + tscc.text : total).Substring(2);
             if (LastLoadedTabSelector.Equals(tabSelectorCells))
