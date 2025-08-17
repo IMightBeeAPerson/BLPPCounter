@@ -164,6 +164,7 @@ namespace BLPPCounter.Utils
             TotalPP = -1;
             PlusOne = -1;
             InitScores();
+            ReloadTableValues();
         }
         public void ReloadTableValues()
         {
@@ -182,7 +183,7 @@ namespace BLPPCounter.Utils
             {
                 values[i] = new string[] {
                 $"<color=#FA0>#{j + 1}</color>",
-                ClampSongName(ScoreNames[j]),
+                ScoreNames[j].ClampString(40),
                 ColorizeDiff(ActualScoreDiffs[j]),
                 $"<color=purple>{Math.Round(Scores[j], PluginConfig.Instance.DecimalPrecision)}</color> {(Leaderboard == Leaderboards.Accsaber ? "AP" : "PP")}",
                 $"<color=#4AF>{ScoreIDs[j]}</color>"
@@ -192,12 +193,6 @@ namespace BLPPCounter.Utils
         }
         #endregion
         #region Static Functions
-        private static string ClampSongName(string songName)
-        {
-            const int MaxNameLength = 40;
-            if (songName.Length < MaxNameLength) return songName;
-            return songName.Substring(0, MaxNameLength) + "...";
-        }
         private static string ColorizeDiff(BeatmapDifficulty diff)
         {
             switch (diff)
@@ -534,9 +529,9 @@ namespace BLPPCounter.Utils
         public bool AddPlay(float rawPP, string mapName, BeatmapDifficulty diff)
         {
             if (float.IsNaN(rawPP) || Scores[Scores.Length - 1] > rawPP) return false;
-            Plugin.Log.Debug($"Recieved score: " + rawPP);
+            //Plugin.Log.Debug($"Recieved score: " + rawPP);
             int index = HelpfulMisc.ReverseBinarySearch(Scores, rawPP);
-            Plugin.Log.Debug("AddPlay Index: " +  index);
+            //Plugin.Log.Debug("AddPlay Index: " +  index);
             if (index >= Scores.Length) return false;
             float profilePP = GetProfilePP(GetWeightedPP(rawPP), WeightedScores, index + 1);
             if (profilePP > 0) TotalPP += profilePP;

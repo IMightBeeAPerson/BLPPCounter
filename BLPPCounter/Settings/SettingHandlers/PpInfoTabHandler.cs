@@ -46,8 +46,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private IDifficultyBeatmap CurrentMap; // 1.34.2 and below
 #endif
         private (JToken Diffdata, JToken Scoredata) CurrentDiff;
-        private AsyncLock RefreshLock = new AsyncLock();
-        private object ProfileLock = new object();
+        private AsyncLock RefreshLock = new AsyncLock(), ProfileLock = new AsyncLock();
         private bool SelectButtonsOn = false;
         private Leaderboards CurrentLeaderboard = PC.Leaderboard;
         private Calculator CurrentCalculator => Calculator.GetCalc(CurrentLeaderboard);
@@ -88,6 +87,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private bool IsPPMode = true;
 
         private Profile CurrentProfile = null;
+        private bool IsPlayTableOpen = false, UpdatePlayTableOnOpen = false;
         #endregion
         #endregion
         #region UI Variables & components
@@ -329,24 +329,18 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         [UIAction(nameof(RefreshProfilePP))] private void RefreshProfilePP()
         {
-            Task.Run(RefreshProfileScores);
+            Task.Run(async () => await RefreshProfileScores().ConfigureAwait(false));
         }
-        private void RefreshProfileScores()
+        private async Task RefreshProfileScores()
         {
-            if (Monitor.TryEnter(ProfileLock))
+            AsyncLock.Releaser? theLock = await ProfileLock.TryLockAsync().ConfigureAwait(false);
+            if (theLock is null) return;
+            using (theLock.Value)
             {
-                try
-                {
-                    ReloadDataButton.interactable = false;
-                    CurrentProfile.ReloadScores();
-                    UpdateProfilePP();
-                    UpdateProfile();
-                }
-                finally
-                {
-                    ReloadDataButton.interactable = true;
-                    Monitor.Exit(ProfileLock);
-                }
+                ReloadDataButton.interactable = false;
+                CurrentProfile.ReloadScores();
+                await Refresh(true).ConfigureAwait(false);
+                ReloadDataButton.interactable = true;
             }
         }
         private IEnumerator DelayUpdatePlayTable(Table theTable)
@@ -389,16 +383,21 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         [UIAction("#ShowPlayTable")] private void ShowPlayTable()
         {
+            IsPlayTableOpen = true;
             Table theTable = CurrentProfile.PlayTable;
             if (theTable is null)
             {
                 Profile.TextContainer = PlayTable;
                 theTable = CurrentProfile.PlayTable;
             }
-            
-            if (!theTable.ContainerUpdated)
+
+            if (!theTable.ContainerUpdated || UpdatePlayTableOnOpen)
+            {
+                UpdatePlayTableOnOpen = false;
                 Sldvc.StartCoroutine(DelayUpdatePlayTable(theTable));
+            }
         }
+        [UIAction("#HidePlayTable")] private void HidePlayTable() => IsPlayTableOpen = false;
         [UIAction("#UpdateCurrentTable")] private void UpdateCurrentTable() => BuildTable();
         [UIAction("#UpdateCurrentTab")] private void UpdateCurrentTab() => UpdateTabDisplay(true);
         [UIAction("#post-parse")] private void DoStuff()
@@ -664,11 +663,11 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void CompletedMap(float finalAcc, string hash, string mapName, BeatmapDifficulty diff)
         {
             if (float.IsNaN(finalAcc)) return;
-            Task.Run(() =>
+            Task.Run(async () =>
             {
                 if (Profile.AddPlay(Targeter.PlayerID, hash, finalAcc, mapName, diff))
                 {
-                    UpdateTabDisplay(forceUpdate: true, runAsync: false);
+                    await Refresh(true).ConfigureAwait(false);
                 }
             });
             FinalMapData = default;
@@ -810,7 +809,18 @@ namespace BLPPCounter.Settings.SettingHandlers
                 UpdateMods();
                 TargetPP = await UpdateTargetPP().ConfigureAwait(false);
                 await UpdateTabDisplay(forceRefresh, false).ConfigureAwait(false);
+                await UpdatePlayTable().ConfigureAwait(false);
             }
+        }
+        private async Task UpdatePlayTable()
+        {
+            if (CurrentProfile is null)
+                return;
+            if (IsPlayTableOpen)
+                await DelayUpdatePlayTable(CurrentProfile.PlayTable).AsTask(Sldvc).ConfigureAwait(false);
+            else
+                UpdatePlayTableOnOpen = true;
+            Plugin.Log.Info("PlayTable updated.");
         }
         public void ClearMapTabs()
         {

@@ -822,7 +822,7 @@ namespace BLPPCounter.Helpfuls
         public static string ClampString(this string str, int maxLength)
         {
             if (str.Length < maxLength) return str;
-            return str.Substring(0, maxLength);
+            return str.Substring(0, maxLength) + "...";
         }
 
         /*float[] ConvertArr(double[] arr)
