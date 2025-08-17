@@ -132,6 +132,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             {
                 _PPSliderMin = value;
                 CA_PPSliderSlider.ChangeMinValue(value);
+                ProfilePPSlider.ChangeMinValue(value);
             }
         }
         [UIValue(nameof(PPSliderMax))] private int PPSliderMax
@@ -141,6 +142,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             {
                 _PPSliderMax = value;
                 CA_PPSliderSlider.ChangeMaxValue(value);
+                ProfilePPSlider.ChangeMaxValue(value);
             }
         }
         [UIValue(nameof(SliderIncrementNum))]
@@ -351,7 +353,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             PlayTableOptions.spacing = 0f;
             const int ButtonWidths = 60; //correct value: 60
             PlayTableButtons.spacing = (theTable.TableWidth - ButtonWidths) / 2f;
-            (PlayTableModal.transform as RectTransform).sizeDelta = new Vector2(PlayTableOptions_Bounds.sizeDelta.x, PlayTableOptions_Bounds.sizeDelta.y * 6f);
+            (PlayTableModal.transform as RectTransform).sizeDelta = new Vector2(PlayTableOptions_Bounds.sizeDelta.x, PlayTableOptions_Bounds.sizeDelta.y * 7f);
             //theTable.SpawnButtonsForColumn(5, str => Plugin.Log.Info("Button Pressed! Id: " + str), PlayTableButton, "Buttons");
         }
         [UIAction(nameof(PlayTable_PageUp))] private void PlayTable_PageUp()
@@ -820,7 +822,6 @@ namespace BLPPCounter.Settings.SettingHandlers
                 await DelayUpdatePlayTable(CurrentProfile.PlayTable).AsTask(Sldvc).ConfigureAwait(false);
             else
                 UpdatePlayTableOnOpen = true;
-            Plugin.Log.Info("PlayTable updated.");
         }
         public void ClearMapTabs()
         {
@@ -845,7 +846,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void UpdateTabSliders(int amount = -1)
         {
             if (amount <= 0) amount = PC.SliderIncrementNum;
-            HelpfulMisc.SetIncrements(amount, MinPPSlider, MaxPPSlider, MinAccSlider, MaxAccSlider, CA_PPSliderSlider, CA_PercentSliderSlider);
+            HelpfulMisc.SetIncrements(amount, MinPPSlider, MaxPPSlider, MinAccSlider, MaxAccSlider, CA_PPSliderSlider, CA_PercentSliderSlider, ProfilePPSlider);
         }
         #endregion
     }
