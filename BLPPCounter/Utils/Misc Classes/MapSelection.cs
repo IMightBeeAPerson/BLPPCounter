@@ -18,7 +18,7 @@ namespace BLPPCounter.Utils
         public bool IsUsable => HelpfulMisc.StatusIsUsable(this);
         public string Hash => Map.Hash;
 
-        public MapSelection(Map map = default, BeatmapDifficulty diff = default, string mode = default, float passRating = default, float accRating = default, float techRating = default, float starRating = default)
+        public MapSelection(Map map = default, BeatmapDifficulty diff = default, string mode = default, float starRating = default, float accRating = default, float passRating = default, float techRating = default)
         {
             Map = map;
             Difficulty = diff;
@@ -28,13 +28,23 @@ namespace BLPPCounter.Utils
             TechRating = techRating;
             StarRating = starRating;
         }
-
-        public void FixRates(float passRating = default, float accRating = default, float techRating = default, float starRating = default)
+        public MapSelection(Map map = default, BeatmapDifficulty diff = default, string mode = default, params float[] ratings)
         {
-            if (passRating != default) PassRating = passRating;
-            if (accRating != default) AccRating = accRating;
-            if (techRating != default) TechRating = techRating;
+            Map = map;
+            Difficulty = diff;
+            Mode = mode;
+            StarRating = ratings.Length >= 1 ? ratings[0] : default;
+            AccRating = ratings.Length >= 2 ? ratings[1] : default;
+            PassRating = ratings.Length >= 3 ? ratings[2] : default;
+            TechRating = ratings.Length >= 4 ? ratings[3] : default;
+        }
+
+        public void FixRates(float starRating = default, float accRating = default, float passRating = default, float techRating = default)
+        {
             if (starRating != default) StarRating = starRating;
+            if (accRating != default) AccRating = accRating;
+            if (passRating != default) PassRating = passRating;
+            if (techRating != default) TechRating = techRating;
         }
         public (bool, bool) GetDifference(MapSelection other)
         {
@@ -45,7 +55,7 @@ namespace BLPPCounter.Utils
         public override string ToString()
         {
             string mapHash = Map == null ? "null" : Map.Hash;
-            return $"Map: {mapHash}\nDifficulty: {Difficulty}\nMode: {Mode}\nStar Rating: {StarRating}\nPass Rating: {PassRating}\nAcc Rating: {AccRating}\nTech Rating: {TechRating}";
+            return $"Map: {mapHash}\nDifficulty: {Difficulty}\nMode: {Mode}\nStar Rating: {StarRating}\nAcc Rating: {AccRating}\nPass Rating: {PassRating}\nTech Rating: {TechRating}";
         }
         public bool Equals(MapSelection other) {
             if (other.Map == null || Map == null) return base.Equals(other);

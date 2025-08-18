@@ -17,6 +17,7 @@ namespace BLPPCounter.Utils.API_Handlers
         private static readonly Throttler Throttle = new Throttler(50, 10);
         internal static SSAPI Instance { get; private set; } = new SSAPI();
         private SSAPI() { }
+        public override string API_HASH => HelpfulPaths.SSAPI_DIFFS;
         public override async Task<(bool, HttpContent)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3)
         {
             const string LinkHeader = "https://";
@@ -43,7 +44,15 @@ namespace BLPPCounter.Utils.API_Handlers
         }
         public override async Task<int> GetMaxScore(string hash, int diffNum, string modeName) => GetMaxScore(JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)).ConfigureAwait(false)));
         public override float[] GetRatings(JToken diffData) => new float[1] { (float)diffData["stars"] };
-        public override JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName) => diffData;
+        public override JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName)
+        {
+            if (diffData["id"] is null)
+            {
+                string leaderboardId = diffData.Children().Where(token => (int)token["difficulty"] == diffNum && token["mode"].ToString().Substring(4).Equals(modeName)).First()["leaderboardId"].ToString();
+                return JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, leaderboardId, "Info")).Result);
+            }
+            return diffData;
+        }
         public override Task<string> GetHashData(string hash, int diffNum) =>
             CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum));
         public override string GetHash(JToken diffData) => diffData["songHash"].ToString();

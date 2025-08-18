@@ -322,21 +322,36 @@ namespace BLPPCounter.Utils
         /// <param name="mapName">The name of the map the score was set on.</param>
         /// <param name="mapDiff">The difficulty of the map that the score was set on.</param>
         /// <returns>Whether or not the score was good enough to enter any leaderboard's <see cref="Scores"/> array.</returns>
-        public static bool AddPlay(string userID, string hash, float acc, string mapName, BeatmapDifficulty mapDiff)
+        public static async Task<bool> AddPlay(string userID, string hash, float acc, string mapName, BeatmapDifficulty mapDiff, string mode = "Standard")
         {
             int currentNum = 1;
-            Leaderboards allowed = APIHandler.GetRankedLeaderboards(hash).Result, current;
+            Leaderboards allowed = await APIHandler.GetRankedLeaderboards(hash).ConfigureAwait(false), current;
             if (allowed == Leaderboards.None) return false;
-            int leaderCount = (int)Math.Log((int)allowed, 2) + 1;
-            float[] ratings = new float[] {TheCounter.LastMap.StarRating, TheCounter.LastMap.AccRating, TheCounter.LastMap.PassRating, TheCounter.LastMap.TechRating};
+            int leaderCount = (int)Math.Log((int)Leaderboards.All + 1, 2);
+            string currentMode = mode;
+            GameplayModifiers mods = TheCounter.LastMods;
             bool goodScore = false;
             for (int i = 0; i < leaderCount; i++)
             {
                 current = (Leaderboards)currentNum;
                 if ((allowed & current) != Leaderboards.None)
                 {
+                    //Plugin.Log.Info($"Allowed leaderboard: " + current);
+                    switch (current)
+                    {
+                        case Leaderboards.Beatleader:
+                            currentMode = mode;
+                            break;
+                        case Leaderboards.Scoresaber:
+                            currentMode = Map.SS_MODE_NAME;
+                            break;
+                        case Leaderboards.Accsaber:
+                            currentMode = Map.AP_MODE_NAME;
+                            break;
+                    }
                     Calculator calc = Calculator.GetCalc(current);
-                    goodScore |= GetProfile(current, userID).AddPlay(calc.Inflate(calc.GetSummedPp(acc, calc.SelectRatings(ratings))), mapName, mapDiff);
+                    float[] ratings = calc.SelectRatings(TheCounter.GetDifficulty(await TheCounter.GetMap(hash, current).ConfigureAwait(false), mapDiff, current, currentMode, mods, true));
+                    goodScore |= GetProfile(current, userID).AddPlay(calc.Inflate(calc.GetSummedPp(acc, ratings)), mapName, mapDiff);
                 }
                 currentNum <<= 1;
             }
@@ -528,6 +543,7 @@ namespace BLPPCounter.Utils
         /// <returns>Returns whether or not the score was good enough to enter the <see cref="Scores"/> array.</returns>
         public bool AddPlay(float rawPP, string mapName, BeatmapDifficulty diff)
         {
+            //Plugin.Log.Info($"{HelpfulMisc.Print(new object[] { rawPP, mapName, diff })}");
             if (float.IsNaN(rawPP) || Scores[Scores.Length - 1] > rawPP) return false;
             //Plugin.Log.Debug($"Recieved score: " + rawPP);
             int index = HelpfulMisc.ReverseBinarySearch(Scores, rawPP);

@@ -66,9 +66,9 @@ namespace BLPPCounter.CalculatorStuffs
         /// <summary>
         /// In the order of star, acc, pass, tech
         /// </summary>
-        /// <param name="ratings"></param>
-        /// <returns></returns>
-        public abstract float[] SelectRatings(params float[] ratings); //This should be given in the order of: star, acc, pass, tech
+        public abstract float[] SelectRatings(params float[] ratings);
+        public float[] SelectRatings(MapSelection mapDiff) => 
+            SelectRatings(mapDiff.StarRating, mapDiff.AccRating, mapDiff.PassRating, mapDiff.TechRating);
         public float GetSummedPp(float acc, params float[] ratings) => GetPp(acc, ratings).Aggregate(0.0f, (total, current) => total + current);
         /// <summary>
         /// Calculates the pp for given ratings and accuracy, then sums the number and rounds it to the number of decimals given.

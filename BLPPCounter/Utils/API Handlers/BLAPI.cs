@@ -21,6 +21,7 @@ namespace BLPPCounter.Utils.API_Handlers
         internal static readonly Throttler Throttle = new Throttler(100, 15);
         internal static BLAPI Instance { get; private set; } = new BLAPI();
         private BLAPI() { }
+        public override string API_HASH => HelpfulPaths.BLAPI_HASH;
         public override async Task<(bool, HttpContent)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3)
         {
             const string LinkHeader = "https://";

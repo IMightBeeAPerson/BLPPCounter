@@ -16,6 +16,7 @@ namespace BLPPCounter.Utils.API_Handlers
         private static readonly Throttler Throttle = new Throttler(400, 60);
         internal static APAPI Instance { get; private set; } = new APAPI();
         private APAPI() { }
+        public override string API_HASH => HelpfulPaths.SSAPI_DIFFS;
         public override Task<(bool, HttpContent)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3)
         {
             const string LinkHeader = "https://";

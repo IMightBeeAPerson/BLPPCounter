@@ -147,7 +147,6 @@ namespace BLPPCounter.Counters
         public RelativeCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating, map.StarRating) { SetupData(map); }
         private void SetupReplayData(MapSelection map, JToken data)
         {
-            //Plugin.Log.Debug(data.ToString());
             if (data is null)
             {
                 data = BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true).Result;

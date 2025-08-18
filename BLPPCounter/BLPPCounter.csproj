@@ -25,7 +25,7 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;NEW_VERSION</DefineConstants>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <Optimize>true</Optimize>
@@ -81,7 +81,6 @@
       <Private>False</Private>
       <SpecificVersion>False</SpecificVersion>
     </Reference>
-    <Reference Include="UnityEngine.TextCoreFontEngineModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
     <Reference Include="UnityEngine.TextCoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" Condition="$(DefineConstants.Contains('34.2')) == false AND $(DefineConstants.Contains('NEW_VERSION')) == false" />
     <Reference Include="UnityEngine.TextRenderingModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
     <Reference Include="Zenject">
@@ -226,7 +225,7 @@
     <Compile Include="TheCounter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utils\Misc Classes\MapSelection.cs" />
-    <Compile Include="Utils\Misc Classes\PlaylistLoader.cs" />
+    <None Include="Utils\Misc Classes\PlaylistLoader.cs" />
     <Compile Include="Utils\Enums\PPType.cs" />
     <Compile Include="Utils\List Settings\SettingToggleInfo.cs" />
     <Compile Include="Utils\Converters\SystemColorConverter.cs" />

@@ -24,6 +24,7 @@ namespace BLPPCounter.Utils.API_Handlers
 
         public static bool UsingDefault = false;
 
+        public abstract string API_HASH { get; }
         public abstract Task<(bool Success, HttpContent Content)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3);
         public static async Task<(bool Success, HttpContent Content)> CallAPI_Static(string path, Throttler throttler = null, bool quiet = false, int maxRetries = 3)
         {

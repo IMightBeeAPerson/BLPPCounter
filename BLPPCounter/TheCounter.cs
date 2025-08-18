@@ -1,30 +1,30 @@
-using System;
-using System.IO;
-using CountersPlus.Counters.Custom;
-using TMPro;
-using Zenject;
+using BLPPCounter.CalculatorStuffs;
+using BLPPCounter.Counters;
+using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers;
 using BLPPCounter.Utils;
-using BLPPCounter.Helpfuls;
-using BLPPCounter.Counters;
-using System.Collections.Generic;
-using Newtonsoft.Json.Linq;
-using System.Linq;
-using System.Reflection;
-using static GameplayModifiers;
+using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.List_Settings;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
+using BS_Utils.Utilities;
+using CountersPlus.Counters.Custom;
 using ModestTree;
 using Newtonsoft.Json;
-using BS_Utils.Utilities;
-using System.Threading.Tasks;
-using System.Threading;
-using BLPPCounter.CalculatorStuffs;
-using BLPPCounter.Utils.API_Handlers;
+using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.IO;
+using System.Linq;
 using System.Net.Http;
+using System.Reflection;
 using System.Runtime.InteropServices.WindowsRuntime; // Used in 1.37.0 and above
+using System.Threading;
+using System.Threading.Tasks;
+using TMPro;
+using Zenject;
+using static GameplayModifiers;
 namespace BLPPCounter
 {
 
@@ -52,6 +52,7 @@ namespace BLPPCounter
         private static bool dataLoaded = false, fullDisable = false, usingDefaultLeaderboard = false;
         internal static Leaderboards Leaderboard => usingDefaultLeaderboard ? pc.DefaultLeaderboard : pc.Leaderboard;
         internal static MapSelection LastMap;
+        internal static GameplayModifiers LastMods;
         public static IMyCounters theCounter { get; internal set; }
         public static ReadOnlyDictionary<string, Type> StaticFunctions { get; private set; }
         public static ReadOnlyDictionary<string, Type> StaticProperties { get; private set; }
@@ -283,11 +284,13 @@ namespace BLPPCounter
             PercentNeededFormatter = null;
         }
         public override void CounterDestroy() {
+            Plugin.Log.Info($"hash: {beatmap.level.levelID.Split('_')[2]} || songName: {beatmap.level.songName}");
 #if NEW_VERSION
-            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), beatmap.levelID.Split('_')[2], beatmap.songName, beatmapDiff.difficulty);
+            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), beatmap.levelID.Split('_')[2], beatmap.songName, beatmapDiff.difficulty, beatmapDiff.beatmapCharacteristic.serializedName);
 #else
-            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), beatmap.level.levelID.Split('_')[2], beatmap.level.songName, beatmap.difficulty);
+            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), beatmap.level.levelID.Split('_')[2], beatmap.level.songName, beatmap.difficulty, beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName);
 #endif
+            PpInfoTabHandler.Instance.FinalMapDataLoaded = true;
             usingDefaultLeaderboard = false;
             if (hasNotifiers) 
                 ChangeNotifiers(false);
@@ -304,14 +307,14 @@ namespace BLPPCounter
             display = CanvasUtility.CreateTextFromSettings(Settings);
             display.fontSize = (float)pc.FontSize;
             display.text = "Loading...";
-            Task.Run(() =>
+            Task.Run(async () =>
             {
                 loading = true;
-                AsyncCounterInit();
+                await AsyncCounterInit().ConfigureAwait(false);
                 loading = false;
             });
         }
-        private void AsyncCounterInit() 
+        private async Task AsyncCounterInit() 
         {
             if (!dataLoaded)
             {
@@ -344,17 +347,11 @@ namespace BLPPCounter
                     if (theCounter is null || SettingChanged || counterChange || LastMap.Equals(default) || !hash.Equals(LastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
                     {
                         SettingChanged = false;
-                        Data.TryGetValue(hash, out Map m);
-                        if (m == null) 
-                        {
-                            Plugin.Log.Warn("Map not in cache, attempting API call to get map data...");
-                            APIHandler.GetAPI(usingDefaultLeaderboard).AddMap(Data, hash);
-                            m = Data[hash];
-                        }
+                        Map m = await GetMap(hash, Leaderboard).ConfigureAwait(false);
 #if NEW_VERSION
-                        MapSelection ms = new MapSelection(m, beatmapDiff.difficulty, mode, passRating, accRating, techRating, starRating); // 1.34.2 and below
+                        MapSelection ms = new MapSelection(m, beatmapDiff.difficulty, mode, starRating, accRating, passRating, techRating); // 1.34.2 and below
 #else
-                        MapSelection ms = new MapSelection(m, beatmap.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and below
+                        MapSelection ms = new MapSelection(m, beatmap.difficulty, mode, starRating, accRating, passRating, techRating); // 1.37.0 and below
 #endif
                         if (!ms.IsUsable)
                         {
@@ -362,6 +359,7 @@ namespace BLPPCounter
                             goto Failed;
                         } 
                         LastMap = ms;
+                        LastMods = mods;
                         APIHandler.UsingDefault = usingDefaultLeaderboard;
                         Calculator.UsingDefault = usingDefaultLeaderboard;
                         if (!InitCounter())
@@ -398,7 +396,7 @@ namespace BLPPCounter
                 usingDefaultLeaderboard = true;
                 usingDefaultLeaderboard = DisplayNames.Contains(pc.PPType);
                 if (!usingDefaultLeaderboard) return;
-                AsyncCounterInit();
+                await AsyncCounterInit();
             } else
             {
                 enabled = false;
@@ -491,6 +489,22 @@ namespace BLPPCounter
             if (dataLoaded) return;
             Data = new Dictionary<string, Map>();
             InitData();
+        }
+        public static async Task<Map> GetMap(string hash, Leaderboards leaderboard)
+        {
+            if (!Data.TryGetValue(hash, out Map m))
+            {
+                Plugin.Log.Warn("Map not in cache, attempting API call to get map data...");
+                await APIHandler.GetAPI(leaderboard).AddMap(Data, hash).ConfigureAwait(false);
+                m = Data[hash];
+            }
+            return m;
+        }
+        public static MapSelection GetDifficulty(Map m, BeatmapDifficulty diff, Leaderboards leaderboard, string mode = "Standard", GameplayModifiers mods = null, bool quiet = false)
+        {
+            (_, JToken diffData) = m.Get(mode, diff);
+            if (!SetupMapData(diffData, leaderboard, out float[] ratings, mods, quiet)) return default;
+            return new MapSelection(m, diff, mode, ratings);
         }
         private static Func<Func<Dictionary<char, object>, string>> GetTheFormat(string format, out string errorStr, string counter = "") =>
             HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, counter, a => { },
@@ -645,9 +659,9 @@ namespace BLPPCounter
         {
             Plugin.Log.Debug("API Avoidance mode is functioning (probably)!");
 #if NEW_VERSION
-            MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmapDiff.difficulty, mode, passRating, accRating, techRating, starRating); // 1.37.0 and above
+            MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmapDiff.difficulty, mode, starRating, accRating, passRating, techRating); // 1.37.0 and above
 #else
-            MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmap.difficulty, mode, passRating, accRating, techRating, starRating); // 1.34.2 and below
+            MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmap.difficulty, mode, starRating, accRating, passRating, techRating); // 1.34.2 and below
 #endif
             if (!thisMap.IsUsable) return false;
             Plugin.Log.Debug($"Last Map\n-------------------\n{LastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
@@ -739,28 +753,6 @@ namespace BLPPCounter
             using (FileStream fs = File.OpenWrite(filePath))
                 fs.Write(data, 0, data.Length); //For some reason Stream.Write isn't implemented
         }
-        /*private static void AddMap(string data) 
-        {
-            try
-            {
-                JToken dataToken = JObject.Parse(data);
-                JEnumerable<JToken> mapTokens = dataToken["song"]["difficulties"].Children();
-                string hash = ((string)dataToken["song"]["hash"]).ToUpper();
-                string songId = (string)dataToken["song"]["id"];
-                foreach (JToken mapToken in mapTokens)
-                {
-                    Map map = new Map(hash, songId + mapToken["value"] + mapToken["mode"], mapToken);
-                    if (Data.ContainsKey(hash))
-                        Data[hash].Combine(map);
-                    else Data[hash] = map;
-                }
-            }
-            catch (Exception e)
-            {
-                Plugin.Log.Warn("Error adding map to cache: " + e.Message);
-                Plugin.Log.Debug(e);
-            }
-        }*/
         private bool SetupMapData()
         {
             JToken data;
@@ -772,9 +764,10 @@ namespace BLPPCounter
 #endif
             try
             {
-                if (!Data.TryGetValue(hash, out Map theMap))
+                Map theMap = GetMap(hash, Leaderboard).Result;
+                if (theMap is null)
                 {
-                    Plugin.Log.Warn("The map is not in the loaded cache.");
+                    Plugin.Log.Warn("The map is still not in the loaded cache.");
                     return false;
                 }
 #if NEW_VERSION
@@ -793,7 +786,7 @@ namespace BLPPCounter
                             mode = Map.AP_MODE_NAME; 
                             break;
                     }
-                if (!hold.TryGetValue(mode, out var holdInfo))
+                if (!hold.TryGetValue(mode, out (string, JToken) holdInfo))
                 {
                     Plugin.Log.Warn($"The mode '{mode}' doesn't exist.\nKeys: [{string.Join(", ", hold.Keys)}]");
                     return false;
@@ -813,30 +806,63 @@ namespace BLPPCounter
         }
         private bool SetupMapData(JToken data)
         {
-            if (data == null || data.ToString().Length <= 0) return false;
-            //Too lazy to use a switch here, sue me.
-            if (Leaderboard == Leaderboards.Scoresaber)
+            if (!SetupMapData(data, Leaderboard, out float[] ratings, mods))
+                return false;
+            if (ratings.Length == 1)
+                starRating = ratings[0];
+            else
             {
-                starRating = (float)data["starScoreSaber"];
-                Plugin.Log.Info("Stars: " + starRating);
-                return starRating > 0;
+                starRating = ratings[0];
+                accRating = ratings[1];
+                passRating = ratings[2];
+                techRating = ratings[3];
             }
-            if (Leaderboard == Leaderboards.Accsaber)
-            {
-                starRating = (float)data["complexityAccSaber"];
-                Plugin.Log.Info("Complexity: " + starRating);
-                return starRating > 0;
-            }
-            float multiplier = GetStarMultiplier(data);
-            passRating = HelpfulPaths.GetRating(data, PPType.Pass, mods.songSpeed) * multiplier;
-            accRating = HelpfulPaths.GetRating(data, PPType.Acc, mods.songSpeed) * multiplier;
-            techRating = HelpfulPaths.GetRating(data, PPType.Tech, mods.songSpeed) * multiplier;
-            starRating = HelpfulPaths.GetRating(data, PPType.Star, mods.songSpeed);
-            string mod = HelpfulMisc.GetModifierShortname(mods.songSpeed).ToUpper();
-            Plugin.Log.Info(mod.Length > 0 ? $"{mod} Stars: {starRating}\n{mod} Pass Rating: {passRating}\n{mod} Acc Rating: {accRating}\n{mod} Tech Rating: {techRating}" : $"Stars: {starRating}\nPass Rating: {passRating}\nAcc Rating: {accRating}\nTech Rating: {techRating}");
-            return starRating > 0;
+            return true;
         }
-        private float GetStarMultiplier(JToken data)
+        /// <summary>
+        /// Given the difficulty <paramref name="data"/>, <paramref name="mods"/>, and <paramref name="leaderboard"/>,
+        /// find what the star ratings are with as few API calls as possible.
+        /// </summary>
+        /// <param name="data">The difficulty data of the map.</param>
+        /// <param name="leaderboard">The leaderboard in which the map is being checked on.</param>
+        /// <param name="ratings">the ratings of the map. Outputs in the order of star, acc, pass, tech.</param>
+        /// <param name="mods">What mods are used in the map (defaults to null for no mods).</param>
+        /// <param name="quiet">Whether or not for this function to print out the ratings to read.</param>
+        /// <returns>Whether or not the ratings were loaded successfully.</returns>
+        public static bool SetupMapData(JToken data, Leaderboards leaderboard, out float[] ratings, GameplayModifiers mods = null, bool quiet = false)
+        {
+            if (data is null || data.ToString().Length <= 0)
+            {
+                ratings = null;
+                return false;
+            }
+            //Too lazy to use a switch here, sue me.
+            if (leaderboard == Leaderboards.Scoresaber)
+            {
+                ratings = new float[1];
+                ratings[0] = (float)data["starScoreSaber"];
+                if (!quiet) Plugin.Log.Info("Stars: " + ratings[0]);
+                return ratings[0] > 0;
+            }
+            if (leaderboard == Leaderboards.Accsaber)
+            {
+                ratings = new float[1];
+                ratings[0] = (float)data["complexityAccSaber"];
+                if (!quiet) Plugin.Log.Info("Complexity: " + ratings[0]);
+                return ratings[0] > 0;
+            }
+            float multiplier = GetStarMultiplier(data, mods);
+            ratings = new float[4];
+            ratings[0] = HelpfulPaths.GetRating(data, PPType.Star, mods.songSpeed);
+            ratings[1] = HelpfulPaths.GetRating(data, PPType.Acc, mods.songSpeed) * multiplier;
+            ratings[2] = HelpfulPaths.GetRating(data, PPType.Pass, mods.songSpeed) * multiplier;
+            ratings[3] = HelpfulPaths.GetRating(data, PPType.Tech, mods.songSpeed) * multiplier;
+            string mod = HelpfulMisc.GetModifierShortname(mods.songSpeed).ToUpper();
+            if (!quiet) Plugin.Log.Info(mod.Length > 0 ? $"{mod} Stars: {ratings[0]}\n{mod} Acc Rating: {ratings[1]}\n{mod} Pass Rating: {ratings[2]}\n{mod} Tech Rating: {ratings[3]}" : $"Stars: {ratings[0]}\nAcc Rating: {ratings[1]}\nPass Rating: {ratings[2]}\nTech Rating: {ratings[3]}");
+            return ratings[3] > 0;
+        }
+        private float GetStarMultiplier(JToken data) => GetStarMultiplier(data, mods);
+        public static float GetStarMultiplier(JToken data, GameplayModifiers mods)
         {
             if (!Calculator.GetCalc(usingDefaultLeaderboard).UsesModifiers) return 1.0f;
             float outp = 1.0f;

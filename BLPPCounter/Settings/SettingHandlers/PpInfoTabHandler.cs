@@ -74,7 +74,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         private static readonly string[] SelectionButtonTags = new string[4] { "SSButton", "NMButton", "FSButton", "SFButton" };
         private Table ClanTableTable, RelativeTableTable, PPTableTable, PercentTableTable;
         public bool ChangeTabSettings = false;
-        internal (float FinalAcc, string Hash, string MapName, BeatmapDifficulty Difficulty) FinalMapData;
+        internal (float FinalAcc, string Hash, string MapName, BeatmapDifficulty Difficulty, string Mode) FinalMapData;
+        internal bool FinalMapDataLoaded = false;
         #region Relative Counter
         private static Func<string> GetTarget, GetNoScoreTarget;
         private float TargetPP = 0;
@@ -349,11 +350,10 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             yield return new WaitForEndOfFrame();
             theTable.UpdateTable();
-            PlayTableOptions_Bounds.sizeDelta = new Vector2(theTable.TableWidth, theTable.TableHeight * 0.225f);
             PlayTableOptions.spacing = 0f;
             const int ButtonWidths = 60; //correct value: 60
             PlayTableButtons.spacing = (theTable.TableWidth - ButtonWidths) / 2f;
-            (PlayTableModal.transform as RectTransform).sizeDelta = new Vector2(PlayTableOptions_Bounds.sizeDelta.x, PlayTableOptions_Bounds.sizeDelta.y * 7f);
+            (PlayTableModal.transform as RectTransform).sizeDelta = new Vector2(theTable.TableWidth, theTable.TableHeight * 1.5f);
             //theTable.SpawnButtonsForColumn(5, str => Plugin.Log.Info("Button Pressed! Id: " + str), PlayTableButton, "Buttons");
         }
         [UIAction(nameof(PlayTable_PageUp))] private void PlayTable_PageUp()
@@ -655,24 +655,35 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             ClearMapTabs();
             TheCounter.theCounter = null;
-            CompletedMap(FinalMapData.FinalAcc, FinalMapData.Hash, FinalMapData.MapName, FinalMapData.Difficulty);
-            TheCounter.LastMap = default;
+            Task.Run(async () =>
+            {
+                const int Backup = 60; //How many seconds until we give up and end thread.
+                int count = 0;
+                while (count++ < Backup * 2 && !FinalMapDataLoaded) Thread.Sleep(500);
+                if (count < Backup * 2)
+                    await CompletedMap(FinalMapData.FinalAcc, FinalMapData.Hash, FinalMapData.MapName, FinalMapData.Difficulty, FinalMapData.Mode).ConfigureAwait(false);
+                TheCounter.LastMap = default;
+            });
         }
         /*private void FailedMap(StandardLevelScenesTransitionSetupDataSO transition, LevelCompletionResults results)
         {
             FinalMapData = default;
         }*/
-        private void CompletedMap(float finalAcc, string hash, string mapName, BeatmapDifficulty diff)
+        private Task CompletedMap(float finalAcc, string hash, string mapName, BeatmapDifficulty diff, string mode = "Standard")
         {
-            if (float.IsNaN(finalAcc)) return;
-            Task.Run(async () =>
+            //finalAcc = 1.0f;
+            //Plugin.Log.Info(HelpfulMisc.Print(new object[4] { finalAcc, hash, mapName, diff }));
+            if (float.IsNaN(finalAcc)) return Task.CompletedTask;
+            Task outp = Task.Run(async () =>
             {
-                if (Profile.AddPlay(Targeter.PlayerID, hash, finalAcc, mapName, diff))
+                if (await Profile.AddPlay(Targeter.PlayerID, hash, finalAcc, mapName, diff, mode).ConfigureAwait(false))
                 {
                     await Refresh(true).ConfigureAwait(false);
                 }
             });
             FinalMapData = default;
+            FinalMapDataLoaded = false;
+            return outp ?? Task.CompletedTask;
         }
         public string GetPPLabel() => CurrentLeaderboard == Leaderboards.Accsaber ? "ap" : "pp";
         public Task UpdateTabDisplay(bool forceUpdate = false, bool runAsync = true) 
@@ -681,9 +692,10 @@ namespace BLPPCounter.Settings.SettingHandlers
             IEnumerator WaitThenUpdate()
             {
                 yield return new WaitForEndOfFrame();
+                bool update = (CaptureTab.IsVisible != IsBL) || (ProfileTab.IsVisible != (CurrentLeaderboard != Leaderboards.Accsaber));
                 CaptureTab.IsVisible = IsBL;
                 ProfileTab.IsVisible = CurrentLeaderboard != Leaderboards.Accsaber;
-                if (CurrentTab.Equals("Capture") && !IsBL || CurrentTab.Equals("Profile") && CurrentLeaderboard == Leaderboards.Accsaber)
+                if (update)
                 {
                     MainTabSelector.ForceSelectAndNotify(0);
                     CurrentTab = TabMapInfo.Keys.First();
@@ -807,11 +819,19 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (theLock is null) return;
             using (theLock.Value)
             {
-                CurrentLeaderboard = PC.Leaderboard;
-                UpdateMods();
-                TargetPP = await UpdateTargetPP().ConfigureAwait(false);
-                await UpdateTabDisplay(forceRefresh, false).ConfigureAwait(false);
-                await UpdatePlayTable().ConfigureAwait(false);
+                try
+                {
+                    CurrentLeaderboard = PC.Leaderboard;
+                    UpdateMods();
+                    TargetPP = await UpdateTargetPP().ConfigureAwait(false);
+                    await UpdateTabDisplay(forceRefresh, false).ConfigureAwait(false);
+                    await UpdatePlayTable().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    Plugin.Log.Error("There was an issue refreshing the " + TabName + " display!");
+                    Plugin.Log.Error(ex);
+                }
             }
         }
         private async Task UpdatePlayTable()
