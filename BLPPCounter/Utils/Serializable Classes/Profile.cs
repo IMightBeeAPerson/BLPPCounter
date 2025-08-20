@@ -4,6 +4,7 @@ using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers;
 using BLPPCounter.Utils.API_Handlers;
+using BLPPCounter.Utils.Misc_Classes;
 using IPA.Config.Data;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -40,34 +41,21 @@ namespace BLPPCounter.Utils
         private static bool Deserializing = false;
         #endregion
         #region Variables
-        [JsonIgnore]
-        private const int PlaysToShow = 10;
-        [JsonIgnore]
-        private string ID => UserID + "_" + (int)Leaderboard;
-        [JsonProperty(nameof(Leaderboard), Required = Required.DisallowNull)]
-        private readonly Leaderboards Leaderboard;
-        [JsonProperty(nameof(Scores), Required = Required.DisallowNull)]
-        private float[] Scores;
-        [JsonProperty(nameof(ScoreNames), Required = Required.DisallowNull)]
-        private string[] ScoreNames;
-        [JsonProperty(nameof(ScoreDiffs), Required = Required.DisallowNull)]
-        private ulong[] ScoreDiffs;
-        [JsonIgnore]
-        private BeatmapDifficulty[] ActualScoreDiffs;
-        [JsonProperty(nameof(ScoreIDs), Required = Required.DisallowNull)]
-        private string[] ScoreIDs;
-        [JsonIgnore]
-        private float[] WeightedScores;
-        [JsonProperty(nameof(TotalPP), Required = Required.DisallowNull)]
-        private float TotalPP = -1.0f;
-        [JsonProperty(nameof(UserID), Required = Required.DisallowNull)]
-        private readonly string UserID;
-        [JsonProperty(nameof(PlusOne), Required = Required.DisallowNull)]
-        public float PlusOne { get; private set; } = -1.0f;
-        [JsonIgnore]
-        public Table PlayTable { get; private set; }
-        [JsonIgnore]
-        private int PageNumber;
+        [JsonIgnore] private const int PlaysToShow = 10;
+        [JsonIgnore] private string ID => UserID + "_" + (int)Leaderboard;
+        [JsonProperty(nameof(Leaderboard), Required = Required.DisallowNull)] private readonly Leaderboards Leaderboard;
+        [JsonProperty(nameof(Scores), Required = Required.DisallowNull)] private float[] Scores;
+        [JsonProperty(nameof(ScoreNames), Required = Required.DisallowNull)] private string[] ScoreNames;
+        [JsonProperty(nameof(ScoreDiffs), Required = Required.DisallowNull)] private ulong[] ScoreDiffs;
+        [JsonIgnore] private BeatmapDifficulty[] ActualScoreDiffs;
+        [JsonProperty(nameof(ScoreIDs), Required = Required.DisallowNull)] private string[] ScoreIDs;
+        [JsonIgnore] private float[] WeightedScores;
+        [JsonProperty(nameof(TotalPP), Required = Required.DisallowNull)] private float TotalPP = -1.0f;
+        [JsonProperty(nameof(UserID), Required = Required.DisallowNull)] private readonly string UserID;
+        [JsonProperty(nameof(PlusOne), Required = Required.DisallowNull)] public float PlusOne { get; private set; } = -1.0f;
+        [JsonIgnore] public Table PlayTable { get; private set; }
+        [JsonIgnore] private int PageNumber;
+        [JsonIgnore] private Session CurrentSession;
         #endregion
         #region Init
         static Profile()
@@ -110,6 +98,7 @@ namespace BLPPCounter.Utils
                     ScoreIDs = scoreData.Select(token => token.MapId).ToArray();
                 }
                 TotalPP = api.GetProfilePP(UserID).Result;
+                if (CurrentSession is null) CurrentSession = new Session(Leaderboard, TotalPP);
                 InitTable();
             }
             WeightScores();
@@ -325,10 +314,11 @@ namespace BLPPCounter.Utils
         public static async Task<bool> AddPlay(string userID, string hash, float acc, string mapName, BeatmapDifficulty mapDiff, string mode = "Standard")
         {
             int currentNum = 1;
-            Leaderboards allowed = await APIHandler.GetRankedLeaderboards(hash).ConfigureAwait(false), current;
+            Leaderboards current;
+            (Leaderboards allowed, string mapKey) = await APIHandler.GetRankedLeaderboardsAndMapKey(hash, mapDiff, mode).ConfigureAwait(false);
             if (allowed == Leaderboards.None) return false;
             int leaderCount = (int)Math.Log((int)Leaderboards.All + 1, 2);
-            string currentMode = mode;
+            string currentMode;
             GameplayModifiers mods = TheCounter.LastMods;
             bool goodScore = false;
             for (int i = 0; i < leaderCount; i++)
@@ -337,21 +327,10 @@ namespace BLPPCounter.Utils
                 if ((allowed & current) != Leaderboards.None)
                 {
                     //Plugin.Log.Info($"Allowed leaderboard: " + current);
-                    switch (current)
-                    {
-                        case Leaderboards.Beatleader:
-                            currentMode = mode;
-                            break;
-                        case Leaderboards.Scoresaber:
-                            currentMode = Map.SS_MODE_NAME;
-                            break;
-                        case Leaderboards.Accsaber:
-                            currentMode = Map.AP_MODE_NAME;
-                            break;
-                    }
+                    currentMode = TheCounter.SelectMode(mode, current);
                     Calculator calc = Calculator.GetCalc(current);
-                    float[] ratings = calc.SelectRatings(TheCounter.GetDifficulty(await TheCounter.GetMap(hash, current).ConfigureAwait(false), mapDiff, current, currentMode, mods, true));
-                    goodScore |= GetProfile(current, userID).AddPlay(calc.Inflate(calc.GetSummedPp(acc, ratings)), mapName, mapDiff);
+                    float[] ratings = calc.SelectRatings(TheCounter.GetDifficulty(await TheCounter.GetMap(hash, currentMode, current).ConfigureAwait(false), mapDiff, current, currentMode, mods, true));
+                    goodScore |= GetProfile(current, userID).AddPlay(calc.Inflate(calc.GetSummedPp(acc, ratings)), mapName, mapKey, mapDiff);
                 }
                 currentNum <<= 1;
             }
@@ -541,19 +520,21 @@ namespace BLPPCounter.Utils
         /// <param name="mapName">The name of the map this was set on.</param>
         /// <param name="diff">The difficulty of the map that this score set on.</param>
         /// <returns>Returns whether or not the score was good enough to enter the <see cref="Scores"/> array.</returns>
-        public bool AddPlay(float rawPP, string mapName, BeatmapDifficulty diff)
+        public bool AddPlay(float rawPP, string mapName, string mapKey, BeatmapDifficulty diff)
         {
-            //Plugin.Log.Info($"{HelpfulMisc.Print(new object[] { rawPP, mapName, diff })}");
+            Plugin.Log.Info($"{HelpfulMisc.Print(new object[] { rawPP, mapName, diff })}");
             if (float.IsNaN(rawPP) || Scores[Scores.Length - 1] > rawPP) return false;
             //Plugin.Log.Debug($"Recieved score: " + rawPP);
             int index = HelpfulMisc.ReverseBinarySearch(Scores, rawPP);
             //Plugin.Log.Debug("AddPlay Index: " +  index);
             if (index >= Scores.Length) return false;
+            CurrentSession.Scores.Add(new Session.Play(mapName, mapKey, diff, rawPP, GetProfilePPRaw(rawPP)));
             float profilePP = GetProfilePP(GetWeightedPP(rawPP), WeightedScores, index + 1);
             if (profilePP > 0) TotalPP += profilePP;
             HelpfulMisc.SiftDown(Scores, index, rawPP);
             HelpfulMisc.SiftDown(ScoreNames, index, mapName);
             HelpfulMisc.SiftDown(ActualScoreDiffs, index, diff);
+            HelpfulMisc.SiftDown(ScoreIDs, index, mapKey);
             HelpfulMisc.SiftDown(WeightedScores, index, GetWeight(index + 1) * rawPP, GetWeight(2));
             PlusOne = CalculatePlusOne();
             ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);

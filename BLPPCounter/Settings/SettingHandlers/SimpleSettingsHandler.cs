@@ -60,7 +60,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 #else
             BSMLParser.instance.Parse(huh, Container, SettingsHandler.Instance);
 #endif
-            Plugin.Log.Info("Simple Settings has been loaded.");
+            //Plugin.Log.Info("Simple Settings has been loaded.");
         }
         public void ChangeMenuTab(bool removeTab = true)
         {

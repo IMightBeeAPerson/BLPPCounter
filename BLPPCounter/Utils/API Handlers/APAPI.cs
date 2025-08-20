@@ -28,15 +28,15 @@ namespace BLPPCounter.Utils.API_Handlers
                 t = Throttle;
             return CallAPI_Static(path, t, quiet, maxRetries);
         }
-        public override float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1) => new float[1] { (float)diffData["complexity"] };
-        public override float[] GetRatings(JToken diffData) => new float[1] { (float)diffData["complexity"] };
+        public override float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1) => new float[1] { (float)(diffData["complexity"] ?? diffData["complexityAccSaber"]) };
+        public override float[] GetRatings(JToken diffData) => new float[1] { (float)(diffData["complexity"] ?? diffData["complexityAccSaber"]) };
         public override string GetSongName(JToken diffData) => diffData["songName"].ToString();
         public override string GetDiffName(JToken diffData) => diffData["difficulty"].ToString();
         public override string GetLeaderboardId(JToken diffData) => diffData["leaderboardId"].ToString();
         public override string GetHash(JToken diffData) => diffData["songHash"].ToString();
         public override bool MapIsUsable(JToken diffData) => !(diffData is null) && GetRatings(diffData)[0] > 0;
-        public override bool AreRatingsNull(JToken diffData) => diffData["complexity"] is null;
-        public override int GetMaxScore(JToken diffData) => (int)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, diffData["leaderboardId"], "info")).Result)["maxScore"];
+        public override bool AreRatingsNull(JToken diffData) => (diffData["complexity"] ?? diffData["complexityAccSaber"]) is null;
+        public override int GetMaxScore(JToken diffData) => (int)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, diffData["leaderboardId"] ?? diffData["scoreSaberID"], "info")).Result)["maxScore"];
         public override async Task<int> GetMaxScore(string hash, int diffNum, string modeName) => GetMaxScore(JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)).ConfigureAwait(false))["difficulty"]);
         public override JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName) => diffData;
         public override async Task<string> GetHashData(string hash, int diffNum)
@@ -62,9 +62,11 @@ namespace BLPPCounter.Utils.API_Handlers
             return (float)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_PLAYERID, userId)).ConfigureAwait(false))?["ap"];
         }
         public override Task<float[]> GetScoregraph(MapSelection ms) => SSAPI.Instance.GetScoregraph(ms);
-        internal override async Task AddMap(Dictionary<string, Map> Data, string hash)
+        internal override Task AddMap(Dictionary<string, Map> Data, string hash)
         {
-            try
+            //For now imma just assume that all accsaber maps are loaded by Taoh's file.
+            return Task.CompletedTask;
+            /*try
             {
                 JEnumerable<JToken> diffs = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_DIFFS, hash)).ConfigureAwait(false)).Children();
                 Stack<int> ids = new Stack<int>(diffs.Count());
@@ -73,7 +75,13 @@ namespace BLPPCounter.Utils.API_Handlers
                 while (ids.Count > 0)
                 {
                     string songId = ids.Pop().ToString();
-                    JToken mapInfo = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, songId)).ConfigureAwait(false));
+                    string mapInfoStr = await CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, songId)).ConfigureAwait(false);
+                    if (mapInfoStr is null)
+                    {
+                        Plugin.Log.Debug($"The map (id {songId}) was not found to be ranked.");
+                        continue;
+                    }
+                    JToken mapInfo = JToken.Parse(mapInfoStr);
                     Map map = Map.ConvertAPToTaoh(hash, songId, mapInfo);
                     if (Data.ContainsKey(hash))
                         Data[hash].Combine(map);
@@ -84,7 +92,7 @@ namespace BLPPCounter.Utils.API_Handlers
             {
                 Plugin.Log.Warn("Error adding AP map to cache: " + e.Message);
                 Plugin.Log.Debug(e);
-            }
+            }*/
         }
     }
 }

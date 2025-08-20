@@ -39,6 +39,13 @@ namespace BLPPCounter.Utils.API_Handlers
                     Plugin.Log.Debug("API Call: " + path);
 
                     HttpResponseMessage response = await client.GetAsync(new Uri(path)).ConfigureAwait(false);
+                    int status = (int)response.StatusCode;
+                    if (status >= 400 && status < 500)
+                    {
+                        if (!quiet)
+                            Plugin.Log.Error("API request failed, skipping retries due to error code (" + status + ").\nPath: " + path);
+                        break;
+                    }
                     response.EnsureSuccessStatusCode();
 
                     return (true, response.Content);
@@ -67,7 +74,6 @@ namespace BLPPCounter.Utils.API_Handlers
                 }
             }
 
-            // This line should never be reached
             return (false, null);
         }
 
@@ -287,17 +293,30 @@ namespace BLPPCounter.Utils.API_Handlers
                     return null;
             }
         }
-        public static async Task<Leaderboards> GetRankedLeaderboards(string hash)
+        public static async Task<Leaderboards> GetRankedLeaderboards(string hash, BeatmapDifficulty diff, string trueMode)
+        {
+            (bool success, HttpContent data) = await CallAPI_Static(string.Format(HelpfulPaths.BSAPI_HASH, hash), BSThrottler).ConfigureAwait(false);
+            if (!success) return Leaderboards.None;
+            string strData = await data.ReadAsStringAsync().ConfigureAwait(false);
+            if (strData is null) return Leaderboards.None;
+            return GetRankedLeaderboards(JToken.Parse(strData)["versions"].Children().First()["diffs"].Children(), hash, diff, trueMode);
+        }
+        public static async Task<(Leaderboards, string)> GetRankedLeaderboardsAndMapKey(string hash, BeatmapDifficulty diff, string trueMode)
+        {
+            (bool success, HttpContent data) = await CallAPI_Static(string.Format(HelpfulPaths.BSAPI_HASH, hash), BSThrottler).ConfigureAwait(false);
+            if (!success) return (Leaderboards.None, "");
+            string strData = await data.ReadAsStringAsync().ConfigureAwait(false);
+            if (strData is null) return (Leaderboards.None, "");
+            JToken parsedData = JToken.Parse(strData);
+            return (GetRankedLeaderboards(parsedData["versions"].Children().First()["diffs"].Children(), hash, diff, trueMode), parsedData["id"].ToString());
+        }
+        private static Leaderboards GetRankedLeaderboards(JEnumerable<JToken> BSDiffs, string hash, BeatmapDifficulty diff, string trueMode)
         {
             Leaderboards outp = Leaderboards.None;
-            (_, HttpContent data) = await CallAPI_Static(string.Format(HelpfulPaths.BSAPI_HASH, hash), BLAPI.Throttle).ConfigureAwait(false);
-            if (data is null) return outp;
-            string strData = await data.ReadAsStringAsync().ConfigureAwait(false);
-            if (strData is null) return outp;
-            JToken parsedData = JToken.Parse(strData);
-            outp |= (bool)parsedData["ranked"] ? Leaderboards.Scoresaber : Leaderboards.None;
-            outp |= ((bool)parsedData["blRanked"] || (bool)parsedData["blQualified"]) ? Leaderboards.Beatleader : Leaderboards.None;
-            outp |= TheCounter.Data[hash].GetModes().Contains(Map.AP_MODE_NAME) ? Leaderboards.Accsaber : Leaderboards.None;
+            JToken BSData = BSDiffs.First(token => token["difficulty"].ToString().Equals(diff.ToString()) && token["characteristic"].Equals(trueMode));
+            if (BSData["stars"] != null) outp |= Leaderboards.Scoresaber;
+            if (BSData["blStars"] != null) outp |= Leaderboards.Beatleader;
+            if (TheCounter.Data[hash].GetModes().Contains(Map.AP_MODE_NAME)) outp |= Leaderboards.Accsaber;
             return outp;
         }
     }

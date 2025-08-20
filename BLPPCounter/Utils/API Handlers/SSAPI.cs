@@ -32,10 +32,10 @@ namespace BLPPCounter.Utils.API_Handlers
         public override float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1) =>
             new float[1] { (float)diffData["stars"] };
         public override string GetSongName(JToken diffData) => diffData["songName"].ToString();
-        public override string GetDiffName(JToken diffData) => diffData["difficulty"]["difficultyRaw"].ToString().Substring(1).Split('_')[0];
+        public override string GetDiffName(JToken diffData) => Map.FromValue(int.Parse(diffData["difficulty"].ToString())).ToString();
         public override string GetLeaderboardId(JToken diffData) => diffData["id"].ToString();
         public override bool MapIsUsable(JToken diffData) => !(diffData is null) && GetRatings(diffData)[0] > 0;
-        public override bool AreRatingsNull(JToken diffData) => diffData["stars"] is null;
+        public override bool AreRatingsNull(JToken diffData) => (diffData["stars"] ?? diffData["starScoreSaber"]) is null;
         public override int GetMaxScore(JToken diffData)
         {
             int score = (int)(diffData["maxScore"] ?? 0);
@@ -43,7 +43,8 @@ namespace BLPPCounter.Utils.API_Handlers
             return (int)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, diffData["scoreSaberID"], "info")).Result)["maxScore"];
         }
         public override async Task<int> GetMaxScore(string hash, int diffNum, string modeName) => GetMaxScore(JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)).ConfigureAwait(false)));
-        public override float[] GetRatings(JToken diffData) => new float[1] { (float)diffData["stars"] };
+        public override float[] GetRatings(JToken diffData) =>
+            new float[1] { (float)(diffData["stars"] ?? diffData["starScoreSaber"]) };
         public override JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName)
         {
             if (diffData["id"] is null)
@@ -133,8 +134,8 @@ namespace BLPPCounter.Utils.API_Handlers
                     JToken mapInfo = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, songId, "info")).ConfigureAwait(false));
                     if (!(bool)mapInfo["ranked"])
                     {
-                        Plugin.Log.Warn("SS map cannot be added to cache as it is not ranked.");
-                        return;
+                        Plugin.Log.Warn($"SS map \"{mapInfo["songName"]}\" (id {mapInfo["id"]}) cannot be added to cache as it is not ranked.");
+                        continue;
                     }
                     Map map = Map.ConvertSSToTaoh(hash, songId, mapInfo);
                     if (Data.ContainsKey(hash))

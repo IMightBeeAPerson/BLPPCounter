@@ -10,6 +10,7 @@ using IPA.Utilities;
 using System.Text;
 using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Utils.API_Handlers;
+using BLPPCounter.Settings.SettingHandlers;
 
 namespace BLPPCounter.Helpfuls
 {
@@ -115,13 +116,16 @@ namespace BLPPCounter.Helpfuls
         #region Json Paths
         public static float GetRating(JToken data, PPType type, SongSpeed mod = SongSpeed.Normal)
         {
+            if (data is null) return 0;
             if (mod != SongSpeed.Normal && !(data["modifiersRating"] is null)) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
             string path = HelpfulMisc.AddModifier(HelpfulMisc.PPTypeToRating(type), mod);
-            return (float)(data?[path] ?? 0);
+            //Below is a workaround for how Taoh formats his data.
+            if (mod == SongSpeed.Normal && type == PPType.Star && data[path] is null) return (float)(data["star" + HelpfulMisc.ToCapName(PpInfoTabHandler.Instance.CurrentLeaderboard)] ?? 0);
+            return (float)(data[path] ?? 0);
         }
         public static float GetRating(JToken data, PPType type, string modName)
         {
-            if (!modName.Equals("") && !(data["modifiersRating"] is null)) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
+            if (!modName.Equals("") && !(data?["modifiersRating"] is null)) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
             string path = HelpfulMisc.AddModifier(HelpfulMisc.PPTypeToRating(type), modName);
             return (float)(data?[path] ?? 0);
         }
@@ -138,8 +142,11 @@ namespace BLPPCounter.Helpfuls
         {
             if (!Calculator.GetSelectedCalc().UsesModifiers) return 1.0f;
             MatchCollection mc = Regex.Matches(data.TryEnter("difficulty")["modifierValues"].ToString(), "^\\s*\"(.+?)\": *(-?\\d(?:\\.\\d+)?).*$", RegexOptions.Multiline);
-            //string val = mc.FirstOrDefault(m => m.Groups[1].Value.Equals(name))?.Groups[2].Value; // 1.37.0 and above
+#if NEW_VERSION
+            string val = mc.FirstOrDefault(m => m.Groups[1].Value.Equals(name))?.Groups[2].Value; // 1.37.0 and above
+#else
             string val = mc.OfType<Match>().FirstOrDefault(m => m.Groups[1].Value.Equals(name))?.Groups[2].Value; // 1.34.2 and below
+#endif
             return val is null ? 0 : float.Parse(val);
         }
         public static float GetMultiAmounts(JToken data, string[] names) 
@@ -149,6 +156,6 @@ namespace BLPPCounter.Helpfuls
             foreach (string n in names) outp += GetMultiAmount(data, n);
             return outp; 
         }
-        #endregion
+#endregion
     }
 }

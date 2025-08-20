@@ -90,7 +90,7 @@ namespace BLPPCounter.Helpfuls
             modifierName.Equals("") ? name : modifierName + char.ToUpper(name[0]) + name.Substring(1);
         public static (float accRating, float passRating, float techRating) GetRatings(JToken diffData, SongSpeed speed, float modMult = 1.0f)
         {
-            diffData = diffData["difficulty"];
+            if (!(diffData["difficulty"] is null)) diffData = diffData["difficulty"];
             if (speed != SongSpeed.Normal) diffData = diffData["modifiersRating"];
             return (
                 (float)diffData[AddModifier("accRating", speed)] * modMult,
@@ -108,7 +108,7 @@ namespace BLPPCounter.Helpfuls
             {
                 return (0, 0, 0, 0);
             }
-            diffData = diffData["difficulty"];
+            if (!(diffData["difficulty"] is null)) diffData = diffData["difficulty"];
             if (speed != SongSpeed.Normal) diffData = diffData["modifiersRating"];
             return (accRating, passRating, techRating, (float)diffData[AddModifier("stars", speed)] * modMult);
         }
@@ -822,6 +822,20 @@ namespace BLPPCounter.Helpfuls
         {
             if (str.Length < maxLength) return str;
             return str.Substring(0, maxLength) + "...";
+        }
+        public static string ToCapName(Leaderboards leaderboard)
+        {
+            switch (leaderboard)
+            {
+                case Leaderboards.Beatleader:
+                    return "BeatLeader";
+                case Leaderboards.Scoresaber:
+                    return "ScoreSaber";
+                case Leaderboards.Accsaber:
+                    return "AccSaber";
+                default:
+                    return "";
+            }
         }
 
         /*float[] ConvertArr(double[] arr)

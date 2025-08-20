@@ -183,7 +183,7 @@ namespace BLPPCounter
         private int notes, comboNotes, mistakes;
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
-        private string mode;
+        private string mode, songName, hash;
         #endregion
         #region Inits & Overrides
 
@@ -284,11 +284,11 @@ namespace BLPPCounter
             PercentNeededFormatter = null;
         }
         public override void CounterDestroy() {
-            Plugin.Log.Info($"hash: {beatmap.level.levelID.Split('_')[2]} || songName: {beatmap.level.songName}");
+            //Plugin.Log.Info($"hash: {hash} || songName: {songName}");
 #if NEW_VERSION
-            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), beatmap.levelID.Split('_')[2], beatmap.songName, beatmapDiff.difficulty, beatmapDiff.beatmapCharacteristic.serializedName);
+            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), hash, songName, LastMap.difficulty, beatmapDiff.beatmapCharacteristic.serializedName);
 #else
-            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), beatmap.level.levelID.Split('_')[2], beatmap.level.songName, beatmap.difficulty, beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName);
+            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), hash, songName, LastMap.Difficulty, beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName);
 #endif
             PpInfoTabHandler.Instance.FinalMapDataLoaded = true;
             usingDefaultLeaderboard = false;
@@ -300,6 +300,7 @@ namespace BLPPCounter
         public override void CounterInit()
         {
             enabled = hasNotifiers = false;
+            PpInfoTabHandler.Instance.FinalMapDataLoaded = false;
             if (fullDisable) return;
             notes = fcMaxHitscore = comboNotes = fcTotalHitscore = mistakes = 0;
             totalHitscore = maxHitscore = 0.0;
@@ -334,9 +335,11 @@ namespace BLPPCounter
                 if (enabled)
                 {
 #if NEW_VERSION
-                    string hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
+                    hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
+                    songName = beatmap.songName;
 #else
-                    string hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
+                    hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
+                    songName = beatmap.level.songName;
 #endif
                     bool counterChange = theCounter != null && !theCounter.Name.Equals(pc.PPType);
                     if (counterChange)
@@ -347,7 +350,7 @@ namespace BLPPCounter
                     if (theCounter is null || SettingChanged || counterChange || LastMap.Equals(default) || !hash.Equals(LastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
                     {
                         SettingChanged = false;
-                        Map m = await GetMap(hash, Leaderboard).ConfigureAwait(false);
+                        Map m = await GetMap(hash, mode, Leaderboard).ConfigureAwait(false);
 #if NEW_VERSION
                         MapSelection ms = new MapSelection(m, beatmapDiff.difficulty, mode, starRating, accRating, passRating, techRating); // 1.34.2 and below
 #else
@@ -462,9 +465,9 @@ namespace BLPPCounter
         #region API Calls
         private void RequestHashData() =>
 #if NEW_VERSION
-            APIHandler.GetAPI(usingDefaultLeaderboard).AddMap(Data, beatmap.levelID.Split('_')[2].ToUpper()); // 1.37.0 and above
+            APIHandler.GetAPI(usingDefaultLeaderboard).AddMap(Data, hash); // 1.37.0 and above
 #else
-            APIHandler.GetAPI(usingDefaultLeaderboard).AddMap(Data, beatmap.level.levelID.Split('_')[2].ToUpper()); // 1.34.2 and below
+            APIHandler.GetAPI(usingDefaultLeaderboard).AddMap(Data, hash); // 1.34.2 and below
 #endif
 #endregion
 #region Helper Methods
@@ -490,9 +493,10 @@ namespace BLPPCounter
             Data = new Dictionary<string, Map>();
             InitData();
         }
-        public static async Task<Map> GetMap(string hash, Leaderboards leaderboard)
+        public static async Task<Map> GetMap(string hash, string mode, Leaderboards leaderboard)
         {
-            if (!Data.TryGetValue(hash, out Map m))
+            if (!dataLoaded) ForceLoadMaps();
+            if (!Data.TryGetValue(hash, out Map m) || !m.GetModes().Contains(mode))
             {
                 Plugin.Log.Warn("Map not in cache, attempting API call to get map data...");
                 await APIHandler.GetAPI(leaderboard).AddMap(Data, hash).ConfigureAwait(false);
@@ -505,6 +509,18 @@ namespace BLPPCounter
             (_, JToken diffData) = m.Get(mode, diff);
             if (!SetupMapData(diffData, leaderboard, out float[] ratings, mods, quiet)) return default;
             return new MapSelection(m, diff, mode, ratings);
+        }
+        public static string SelectMode(string mainMode, Leaderboards leaderboard)
+        {
+            switch (leaderboard)
+            {
+                case Leaderboards.Scoresaber:
+                    return Map.SS_MODE_NAME;
+                case Leaderboards.Accsaber:
+                    return Map.AP_MODE_NAME;
+                default: 
+                    return mainMode ?? "Standard";
+            }
         }
         private static Func<Func<Dictionary<char, object>, string>> GetTheFormat(string format, out string errorStr, string counter = "") =>
             HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, counter, a => { },
@@ -758,34 +774,25 @@ namespace BLPPCounter
             JToken data;
             string songId;
 #if NEW_VERSION
+            mode = SelectMode(beatmapDiff.beatmapCharacteristic.serializedName, Leaderboard); 
             string hash = beatmap.levelID.Split('_')[2].ToUpper(); // 1.37.0 and above
 #else
+            mode = SelectMode(beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName, Leaderboard);
             string hash = beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
 #endif
             try
             {
-                Map theMap = GetMap(hash, Leaderboard).Result;
+                Map theMap = GetMap(hash, mode, Leaderboard).Result;
                 if (theMap is null)
                 {
                     Plugin.Log.Warn("The map is still not in the loaded cache.");
                     return false;
                 }
 #if NEW_VERSION
-                Dictionary<string, (string, JToken)> hold = theMap.Get(beatmapDiff.difficulty);
-                if (Leaderboard == Leaderboards.Beatleader) mode = beatmapDiff.beatmapCharacteristic.serializedName ?? "Standard"; // 1.37.0 and above
+                Dictionary<string, (string, JToken)> hold = theMap.Get(beatmapDiff.difficulty); // 1.37.0 and above
 #else
-                Dictionary<string, (string, JToken)> hold = theMap.Get(beatmap.difficulty);
-                if (Leaderboard == Leaderboards.Beatleader) mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName ?? "Standard"; // 1.34.2 and below
+                Dictionary<string, (string, JToken)> hold = theMap.Get(beatmap.difficulty); // 1.34.2 and below
 #endif
-                else switch (Leaderboard)
-                    {
-                        case Leaderboards.Scoresaber:
-                            mode = Map.SS_MODE_NAME;
-                            break;
-                        case Leaderboards.Accsaber:
-                            mode = Map.AP_MODE_NAME; 
-                            break;
-                    }
                 if (!hold.TryGetValue(mode, out (string, JToken) holdInfo))
                 {
                     Plugin.Log.Warn($"The mode '{mode}' doesn't exist.\nKeys: [{string.Join(", ", hold.Keys)}]");
