@@ -202,9 +202,11 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(PlayTableButton))] private Button PlayTableButton;
         [UIObject(nameof(PlayTableModal))] private GameObject PlayTableModal;
 
+        [UIObject(nameof(SessionWindow))] private GameObject SessionWindow;
         [UIComponent(nameof(SessionWindow_PlaysSet))] private TextMeshProUGUI SessionWindow_PlaysSet;
-        [UIComponent(nameof(SessionWindow_Leaderboard))] private TextMeshProUGUI SessionWindow_Leaderboard;
         [UIComponent(nameof(SessionWindow_PpGained))] private TextMeshProUGUI SessionWindow_PpGained;
+        [UIComponent(nameof(SessionTable))] private CustomCellListTableData SessionTable;
+        [UIValue(nameof(SessionTable_Infos))] private List<object> SessionTable_Infos => CurrentProfile?.CurrentSession.Info ?? new List<object>(0);
 
         [UIComponent(nameof(PlusOneText))] private TextMeshProUGUI PlusOneText;
         [UIComponent(nameof(ReloadDataButton))] private Button ReloadDataButton;
@@ -376,7 +378,6 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             yield return new WaitForEndOfFrame();
             theTable.UpdateTable();
-            PlayTableOptions.spacing = 0f;
             const int ButtonWidths = 60; //correct value: 60
             PlayTableButtons.spacing = (theTable.TableWidth - ButtonWidths) / 2f;
             (PlayTableModal.transform as RectTransform).sizeDelta = new Vector2(theTable.TableWidth, theTable.TableHeight * 1.5f);
@@ -386,19 +387,19 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             if (CurrentProfile is null || CurrentProfile.PlayTable is null) return;
             CurrentProfile.PageUp();
-            Sldvc?.StartCoroutine(DelayUpdatePlayTable(CurrentProfile.PlayTable));
+            CoroutineHost.Start(DelayUpdatePlayTable(CurrentProfile.PlayTable));
         }
         [UIAction(nameof(PlayTable_PageTop))] private void PlayTable_PageTop()
         {
             if (CurrentProfile is null || CurrentProfile.PlayTable is null) return;
             CurrentProfile.PageTop();
-            Sldvc?.StartCoroutine(DelayUpdatePlayTable(CurrentProfile.PlayTable));
+            CoroutineHost.Start(DelayUpdatePlayTable(CurrentProfile.PlayTable));
         }
         [UIAction(nameof(PlayTable_PageDown))] private void PlayTable_PageDown()
         {
             if (CurrentProfile is null || CurrentProfile.PlayTable is null) return;
             CurrentProfile.PageDown();
-            Sldvc?.StartCoroutine(DelayUpdatePlayTable(CurrentProfile.PlayTable));
+            CoroutineHost.Start(DelayUpdatePlayTable(CurrentProfile.PlayTable));
         }
         [UIAction(nameof(SaveSettings))] private void SaveSettings()
         {
@@ -422,15 +423,24 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (!theTable.ContainerUpdated || UpdatePlayTableOnOpen)
             {
                 UpdatePlayTableOnOpen = false;
-                Sldvc.StartCoroutine(DelayUpdatePlayTable(theTable));
+                CoroutineHost.Start(DelayUpdatePlayTable(theTable));
             }
         }
         [UIAction("#HidePlayTable")] private void HidePlayTable() => IsPlayTableOpen = false;
         [UIAction("#ShowSessionTable")] private void ShowSessionTable()
         {
-            SessionWindow_PlaysSet.SetText("Plays Set: <color=#0F0>" + (CurrentProfile?.CurrentSession.PlaysSet ?? 0) + "</color>");
-            SessionWindow_Leaderboard.SetText(CurrentLeaderboard.ToString());
-            SessionWindow_PpGained.SetText($"Profile {GetPPLabel()} Gained: <color=purple>{CurrentProfile?.CurrentSession.GainedProfilePp ?? 0}</color> {GetPPLabel()}");
+            int hold = CurrentProfile?.CurrentSession.PlaysSet ?? 0;
+            SessionWindow_PlaysSet.SetText($"<color=#0F0>{hold}</color> Score{(hold == 1 ? "" : "s")}");
+            SessionWindow_PpGained.SetText($"+<color=purple>{CurrentProfile?.CurrentSession.GainedProfilePp ?? 0}</color> Profile {GetPPLabel().ToUpper()}.");
+
+            IEnumerator WaitThenUpdate()
+            {
+                yield return new WaitForEndOfFrame();
+                SessionTable.data = SessionTable_Infos;
+                SessionTable.tableView.ReloadData();
+                (SessionWindow.transform as RectTransform).sizeDelta = new Vector2(100, 50);
+            }
+            CoroutineHost.Start(WaitThenUpdate());
         }
         [UIAction("#UpdateCurrentTable")] private void UpdateCurrentTable() => BuildTable();
         [UIAction("#UpdateCurrentTab")] private void UpdateCurrentTab() => UpdateTabDisplay(true);
@@ -541,7 +551,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
             catch (Exception)
             { //This exception should only happen when a map isn't on the radar of the selected leaderboard (aka unranked), and thus doesn't need to be broadcasted.
-                await UpdateDiff().ConfigureAwait(false);
+                await UpdateDiff(true).ConfigureAwait(false);
                 return 0.0f;
             }
             MapDiffText = HelpfulMisc.AddSpaces(CurrentMap.difficulty.ToString().Replace("+", "Plus"));
@@ -593,7 +603,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 tableTableTable.UpdateTable();
                 TurnOnSelectButtons();
             };
-            Task.Run(() => Sldvc.StartCoroutine(DelayRoutine()));
+            Task.Run(() => CoroutineHost.Start(DelayRoutine()));
             //This is done so that the game object is shown before the table is built. Otherwise, the game object gives wrong measurements, which messes up the table.
         }
         private void BuildTable()
@@ -814,7 +824,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (IsPPMode) PC.TestAccAmount = TestAcc;
             else PC.TestPPAmount = TestPp;
         }
-        private async Task UpdateDiff()
+        private async Task UpdateDiff(bool mapFailed = false)
         {
 #if NEW_VERSION
             BeatmapDifficulty diff = Sldvc.beatmapKey.difficulty; // 1.37.0 and below
@@ -826,8 +836,9 @@ namespace BLPPCounter.Settings.SettingHandlers
             string hash = Sldvc.selectedDifficultyBeatmap.level.levelID.Split('_')[2];
 #endif
             string actualModeName = TheCounter.SelectMode(modeName, CurrentLeaderboard);
-            Map map = await TheCounter.GetMap(hash, actualModeName, CurrentLeaderboard).ConfigureAwait(false);
-            bool failed = !map.TryGet(actualModeName, diff, out var val);
+            Map map = mapFailed ? null : await TheCounter.GetMap(hash, actualModeName, CurrentLeaderboard).ConfigureAwait(false);
+            (string MapId, JToken Data) val = default;
+            bool failed = !(map?.TryGet(actualModeName, diff, out val) ?? false);
             if (failed)
             {
                 Plugin.Log.Warn("Map failed to load. Most likely unranked.");

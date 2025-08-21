@@ -20,6 +20,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using TMPro;
+using UnityEngine;
 using UnityEngine.TextCore;
 using static GameplayModifiers;
 namespace BLPPCounter.Helpfuls
@@ -203,12 +204,12 @@ namespace BLPPCounter.Helpfuls
         }
         public static bool IsNumber(object o) => IsNumber(o?.GetType());
         public static string SplitByUppercase(string s) => Regex.Replace(s, "(?!^)[A-Z][^A-Z]*", " $&");
-        public static string ConvertColorToHex(Color c) => $"#{ToRgba(c):X8}";
+        public static string ConvertColorToHex(System.Drawing.Color c) => $"#{ToRgba(c):X8}";
         public static string ConvertColorToHex(UnityEngine.Color c) => $"#{ToRgba(c):X8}";
-        public static string ConvertColorToMarkup(Color c) => $"<color={ConvertColorToHex(c)}>";
+        public static string ConvertColorToMarkup(System.Drawing.Color c) => $"<color={ConvertColorToHex(c)}>";
         public static int ArgbToRgba(int argb) => (argb << 8) + (int)((uint)argb >> 24); //can't use triple shift syntax, so best I can do is casting :(
         public static int RgbaToArgb(int rgba) => (int)((uint)rgba >> 8) + (rgba << 24);
-        public static int ToRgba(Color c) => ArgbToRgba(c.ToArgb());
+        public static int ToRgba(System.Drawing.Color c) => ArgbToRgba(c.ToArgb());
         public static int ToRgba(UnityEngine.Color c) => ((int)Math.Round(c.r * 0xFF) << 24) + ((int)Math.Round(c.g * 0xFF) << 16) + ((int)Math.Round(c.b * 0xFF) << 8) + (int)Math.Round(c.a * 0xFF);
         public static UnityEngine.Color TextToColor(string text)
         {
@@ -222,7 +223,7 @@ namespace BLPPCounter.Helpfuls
                     text = text.Substring(len);
                 }
                 else text = text.Substring(1);
-                return ConvertColor(Color.FromArgb(RgbaToArgb(int.Parse(text, System.Globalization.NumberStyles.HexNumber))));
+                return ConvertColor(System.Drawing.Color.FromArgb(RgbaToArgb(int.Parse(text, System.Globalization.NumberStyles.HexNumber))));
             }
             if (text.Contains('"')) text = text.Replace("\"", "");
             return (UnityEngine.Color)(typeof(UnityEngine.Color).GetProperties(BindingFlags.Public | BindingFlags.Static)
@@ -836,6 +837,11 @@ namespace BLPPCounter.Helpfuls
                 default:
                     return "";
             }
+        }
+        public static float GetLineHeight(this TMP_TextInfo textInfo, int line = 0)
+        {
+            TMP_LineInfo lineInfo = textInfo.lineInfo[line];
+            return Mathf.Abs(lineInfo.ascender - lineInfo.descender);
         }
 
         /*float[] ConvertArr(double[] arr)

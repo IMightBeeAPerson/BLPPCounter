@@ -209,6 +209,7 @@
     <Compile Include="Utils\Enums\Leaderboards.cs" />
     <Compile Include="Utils\List Settings\SessionListInfo.cs" />
     <Compile Include="Utils\Misc Classes\AsyncLock.cs" />
+    <Compile Include="Utils\Misc Classes\CoroutineHost.cs" />
     <Compile Include="Utils\Misc Classes\ExtraBypasses.cs" />
     <Compile Include="Utils\Misc Classes\Session.cs" />
     <Compile Include="Utils\Serializable Classes\Profile.cs" />

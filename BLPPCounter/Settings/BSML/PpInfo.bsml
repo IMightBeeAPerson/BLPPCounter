@@ -135,17 +135,25 @@
           </vertical>
         </vertical>
       </modal>
-      <modal id='SessionTableModal' show-event='ShowSessionTable' hide-event='HideSessionTable' click-off-closes='true' move-to-center='true'>
-        <vertical id='SessionTableOptions' child-expand-height='false' child-expand-width='false' bg='round-rect-panel' bg-color='#CCC'>
-          <horizontal spacing='10' pref-height='20'>
-            <text id='SessionWindow_PlaysSet' text='Plays Set: ' align='Left'/>
-            <text id='SessionWindow_Leaderboard' text='Leaderboard Name' align='Center'/>
-            <text id='SessionWindow_PpGained' text='Profile PP Gained: ' align='Right'/>
-          </horizontal>
-          <custom-list align-to-center='true'>
-            
+      <modal id='SessionWindow' show-event='ShowSessionTable' hide-event='HideSessionTable' click-off-closes='true' move-to-center='true'>
+        <horizontal spacing='1' pad-up='30' pref-width='100' id='SessionTableOptions' child-expand-height='false' child-expand-width='false' bg='round-rect-panel' bg-color='#CCC'>
+          <custom-list id='SessionTable' contents='SessionTable_Infos' show-scrollbar='true' cell-size='15' pref-width='50' pref-height='50' align='Left'>
+            <vertical align='Center'>
+              <horizontal spacing='10'>
+                <text text='~BeatmapName' align='Left'/>
+                <text text='~BeatmapKey' align='Right'/>
+              </horizontal>
+              <horizontal spacing='10'>
+                <text text='~PP' align='Left'/>
+                <text text='~ProfilePP' align='Right'/>
+              </horizontal>
+            </vertical>
           </custom-list>
-        </vertical>
+          <vertical spacing='0' align='Right' pref-width='30' pref-height='30' size-delta-y='0'>
+            <text id='SessionWindow_PlaysSet' text='Plays Set: ' align='Center'/>
+            <text id='SessionWindow_PpGained' text='Profile PP Gained: ' align='Center'/>
+          </vertical>
+        </horizontal>
       </modal>
       <slider-setting id='ProfilePPSlider' text='To Get' color='#A020F0' increment='5' integer-only='true' min='~PPSliderMin' max='~PPSliderMax' show-buttons='true' apply-on-change='true' value='ProfileTestPp' formatter='PPFormat'/>
       <horizontal>
