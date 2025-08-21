@@ -118,7 +118,10 @@
         <button text='Input play PP' on-click='UpdateProfilePP' align='Right'/>
       </horizontal>
       <!--button text='Test' on-click='DoTestThing' align='Center'/-->
-      <button text='Show Top Plays' click-event='ShowPlayTable' align='Center'/>
+      <horizontal>
+        <button text='Show Top Plays' click-event='ShowPlayTable' align='Left'/>
+        <button text='Show Session' click-event='ShowSessionTable' align='Right'/>
+      </horizontal>
       <modal id='PlayTableModal' show-event='ShowPlayTable' hide-event='HidePlayTable' click-off-closes='true' move-to-center='true'>
         <vertical id='PlayTableOptions' child-expand-height='false' child-expand-width='false' bg='round-rect-panel' bg-color='#CCC'>
           <text id='PlayTable' text='' align='Center' font-size='3.5'/>
@@ -130,6 +133,10 @@
             </horizontal>
             <button id='PlayTableButton' text='Close Leaderboard' click-event='HidePlayTable' align='Center'/>
           </vertical>
+        </vertical>
+      </modal>
+      <modal id='SessionTableModal' show-event='ShowSessionTable' hide-event='HideSessionTable' click-off-closes='true' move-to-center='true'>
+        <vertical id='SessionTableOptions' child-expand-height='false' child-expand-width='false' bg='round-rect-panel' bg-color='#CCC'>
         </vertical>
       </modal>
       <slider-setting id='ProfilePPSlider' text='To Get' color='#A020F0' increment='5' integer-only='true' min='~PPSliderMin' max='~PPSliderMax' show-buttons='true' apply-on-change='true' value='ProfileTestPp' formatter='PPFormat'/>

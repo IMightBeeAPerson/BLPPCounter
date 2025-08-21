@@ -312,8 +312,9 @@ namespace BLPPCounter.Utils.API_Handlers
         }
         private static Leaderboards GetRankedLeaderboards(JEnumerable<JToken> BSDiffs, string hash, BeatmapDifficulty diff, string trueMode)
         {
+            //Plugin.Log.Debug($"Diff: {diff} || trueMode: {trueMode}\nThe diffs\n{BSDiffs.Print()}");
             Leaderboards outp = Leaderboards.None;
-            JToken BSData = BSDiffs.First(token => token["difficulty"].ToString().Equals(diff.ToString()) && token["characteristic"].Equals(trueMode));
+            JToken BSData = BSDiffs.First(token => token["difficulty"].ToString().Equals(diff.ToString()) && token["characteristic"].ToString().Equals(trueMode));
             if (BSData["stars"] != null) outp |= Leaderboards.Scoresaber;
             if (BSData["blStars"] != null) outp |= Leaderboards.Beatleader;
             if (TheCounter.Data[hash].GetModes().Contains(Map.AP_MODE_NAME)) outp |= Leaderboards.Accsaber;
