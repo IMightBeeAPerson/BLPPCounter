@@ -5,13 +5,14 @@ using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System;
+using BLPPCounter.Utils.API_Handlers;
 
 namespace BLPPCounter.Utils
 {
     public static class Targeter
     {
         public static readonly string NO_TARGET = "None";
-        private static readonly HttpClient client = new HttpClient();
         private static PluginConfig pc => PluginConfig.Instance;
         public static List<object> theTargets;
         public static Dictionary<string, string> nameToId;
@@ -22,7 +23,14 @@ namespace BLPPCounter.Utils
 
         public static async void GenerateClanNames()
         {
-            string clanInfo = RequestClan((await BS_Utils.Gameplay.GetUserInfo.GetUserAsync()).platformUserId);
+            string clanInfo = "";
+            try
+            {
+                clanInfo = await RequestClan((await BS_Utils.Gameplay.GetUserInfo.GetUserAsync()).platformUserId);
+            } catch (Exception ex)
+            {
+                Plugin.Log.Error($"Error getting clan info: {ex}");
+            }
             if (clanInfo.Length == 0)
             {
                 theTargets = new List<object>();
@@ -51,15 +59,19 @@ namespace BLPPCounter.Utils
             theTargets = theTargets.Prepend(name).ToList();
             //Plugin.Log.Info(string.Join(", ", theTargets));
         }
-        public static string RequestClan(string playerID)
+        public static async Task<string> RequestClan(string playerID)
         {
             try
             {
                 PlayerID = playerID;
-                JToken playerData = JToken.Parse(client.GetStringAsync($"https://api.beatleader.xyz/player/{playerID}").Result);
+                (bool success, HttpContent data) = await APIHandler.CallAPI_Static($"https://api.beatleader.com/player/{playerID}", BLAPI.Throttle).ConfigureAwait(false);
+                if (!success) return "";
+                JToken playerData = JToken.Parse(await data.ReadAsStringAsync().ConfigureAwait(false));
                 PlayerName = playerData["name"].ToString();
                 string clan = playerData["clanOrder"].ToString().Split(',')[0];
-                return client.GetStringAsync($"https://api.beatleader.xyz/clan/{clan}?count=100").Result;
+                (success, data) = await APIHandler.CallAPI_Static($"https://api.beatleader.com/clan/{clan}?count=100").ConfigureAwait(false);
+                if (!success) return "";
+                return await data.ReadAsStringAsync().ConfigureAwait(false);
             }
             catch (HttpRequestException e)
             {

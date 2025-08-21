@@ -207,6 +207,7 @@
     <Compile Include="Utils\API Handlers\Throttler.cs" />
     <None Include="Utils\Special Utils\BoolStorage.cs" />
     <Compile Include="Utils\Enums\Leaderboards.cs" />
+    <Compile Include="Utils\List Settings\SessionListInfo.cs" />
     <Compile Include="Utils\Misc Classes\AsyncLock.cs" />
     <Compile Include="Utils\Misc Classes\ExtraBypasses.cs" />
     <Compile Include="Utils\Misc Classes\Session.cs" />

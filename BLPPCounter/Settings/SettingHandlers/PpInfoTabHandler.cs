@@ -194,12 +194,18 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
 
         [UIComponent(nameof(ProfileTab))] private Tab ProfileTab;
+
         [UIComponent(nameof(PlayTable))] private TextMeshProUGUI PlayTable;
         [UIComponent(nameof(PlayTableOptions))] private RectTransform PlayTableOptions_Bounds;
         [UIComponent(nameof(PlayTableOptions))] private VerticalLayoutGroup PlayTableOptions;
         [UIComponent(nameof(PlayTableButtons))] private HorizontalLayoutGroup PlayTableButtons;
         [UIComponent(nameof(PlayTableButton))] private Button PlayTableButton;
         [UIObject(nameof(PlayTableModal))] private GameObject PlayTableModal;
+
+        [UIComponent(nameof(SessionWindow_PlaysSet))] private TextMeshProUGUI SessionWindow_PlaysSet;
+        [UIComponent(nameof(SessionWindow_Leaderboard))] private TextMeshProUGUI SessionWindow_Leaderboard;
+        [UIComponent(nameof(SessionWindow_PpGained))] private TextMeshProUGUI SessionWindow_PpGained;
+
         [UIComponent(nameof(PlusOneText))] private TextMeshProUGUI PlusOneText;
         [UIComponent(nameof(ReloadDataButton))] private Button ReloadDataButton;
         [UIComponent(nameof(ProfilePPSlider))] private SliderSetting ProfilePPSlider;
@@ -342,14 +348,14 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (profilePp[0] == '-') profilePp = "Unknown";
             ProfilePPTextValue.SetText("<color=purple>" + profilePp + "</color> " + GetPPLabel());
         }
-        /*[UIAction(nameof(DoTestThing))]
+        [UIAction(nameof(DoTestThing))]
         private void DoTestThing()
         {
             //CurrentProfile.AddPlay(ProfilePPSlider.Value);
             //UpdateProfilePP();
             //UpdateProfile();
-            CompletedMap(0.975f, Sldvc.beatmapLevel.levelID.Split('_')[2], Sldvc.beatmapLevel.songName, Sldvc.selectedDifficultyBeatmap.difficulty);
-        }*/
+            CompletedMap(0.995f, Sldvc.beatmapLevel.levelID.Split('_')[2], Sldvc.beatmapLevel.songName, Sldvc.selectedDifficultyBeatmap.difficulty);
+        }
         [UIAction(nameof(RefreshProfilePP))] private void RefreshProfilePP()
         {
             Task.Run(async () => await RefreshProfileScores().ConfigureAwait(false));
@@ -420,6 +426,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
         }
         [UIAction("#HidePlayTable")] private void HidePlayTable() => IsPlayTableOpen = false;
+        [UIAction("#ShowSessionTable")] private void ShowSessionTable()
+        {
+            SessionWindow_PlaysSet.SetText("Plays Set: <color=#0F0>" + (CurrentProfile?.CurrentSession.PlaysSet ?? 0) + "</color>");
+            SessionWindow_Leaderboard.SetText(CurrentLeaderboard.ToString());
+            SessionWindow_PpGained.SetText($"Profile {GetPPLabel()} Gained: <color=purple>{CurrentProfile?.CurrentSession.GainedProfilePp ?? 0}</color> {GetPPLabel()}");
+        }
         [UIAction("#UpdateCurrentTable")] private void UpdateCurrentTable() => BuildTable();
         [UIAction("#UpdateCurrentTab")] private void UpdateCurrentTab() => UpdateTabDisplay(true);
         [UIAction("#post-parse")] private void DoStuff()

@@ -318,6 +318,7 @@ namespace BLPPCounter.Utils.API_Handlers
             if (BSData["stars"] != null) outp |= Leaderboards.Scoresaber;
             if (BSData["blStars"] != null) outp |= Leaderboards.Beatleader;
             if (TheCounter.Data[hash].GetModes().Contains(Map.AP_MODE_NAME)) outp |= Leaderboards.Accsaber;
+            //Plugin.Log.Info("Ranked Leaderboards: " + outp);
             return outp;
         }
     }

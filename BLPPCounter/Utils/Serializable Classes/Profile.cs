@@ -6,6 +6,7 @@ using BLPPCounter.Settings.SettingHandlers;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Misc_Classes;
 using IPA.Config.Data;
+using ModestTree;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -55,7 +56,7 @@ namespace BLPPCounter.Utils
         [JsonProperty(nameof(PlusOne), Required = Required.DisallowNull)] public float PlusOne { get; private set; } = -1.0f;
         [JsonIgnore] public Table PlayTable { get; private set; }
         [JsonIgnore] private int PageNumber;
-        [JsonIgnore] private Session CurrentSession;
+        [JsonIgnore] public Session CurrentSession { get; private set; }
         #endregion
         #region Init
         static Profile()
@@ -98,7 +99,7 @@ namespace BLPPCounter.Utils
                     ScoreIDs = scoreData.Select(token => token.MapId).ToArray();
                 }
                 TotalPP = api.GetProfilePP(UserID).Result;
-                if (CurrentSession is null) CurrentSession = new Session(Leaderboard, TotalPP);
+                if (CurrentSession is null) CurrentSession = new Session(Leaderboard, UserID, TotalPP);
                 InitTable();
             }
             WeightScores();
@@ -112,6 +113,7 @@ namespace BLPPCounter.Utils
                 ActualScoreDiffs = HelpfulMisc.UncompressEnums<BeatmapDifficulty>(ScoreDiffs);
                 if (ActualScoreDiffs.Length != Scores.Length) throw new Exception($"ScoreDiffs array length does not equal the Scores array length\nActualScoreDiffs length: {ActualScoreDiffs.Length} || Scores Length: {Scores.Length}");
                 WeightScores();
+                if (CurrentSession is null) CurrentSession = new Session(Leaderboard, UserID, TotalPP);
             }
             catch (Exception e)
             {
@@ -324,13 +326,13 @@ namespace BLPPCounter.Utils
             for (int i = 0; i < leaderCount; i++)
             {
                 current = (Leaderboards)currentNum;
+                //Plugin.Log.Info($"Allowed: {allowed} || Current: {current}");
                 if ((allowed & current) != Leaderboards.None)
                 {
-                    //Plugin.Log.Info($"Allowed leaderboard: " + current);
                     currentMode = TheCounter.SelectMode(mode, current);
                     Calculator calc = Calculator.GetCalc(current);
                     float[] ratings = calc.SelectRatings(TheCounter.GetDifficulty(await TheCounter.GetMap(hash, currentMode, current).ConfigureAwait(false), mapDiff, current, currentMode, mods, true));
-                    goodScore |= GetProfile(current, userID).AddPlay(calc.Inflate(calc.GetSummedPp(acc, ratings)), mapName, mapKey, mapDiff);
+                    goodScore |= GetProfile(current, userID).AddPlay(calc.Inflate(calc.GetSummedPp(acc, ratings)), mapName, mapKey, mapDiff, mode);
                 }
                 currentNum <<= 1;
             }
@@ -520,16 +522,17 @@ namespace BLPPCounter.Utils
         /// <param name="mapName">The name of the map this was set on.</param>
         /// <param name="diff">The difficulty of the map that this score set on.</param>
         /// <returns>Returns whether or not the score was good enough to enter the <see cref="Scores"/> array.</returns>
-        public bool AddPlay(float rawPP, string mapName, string mapKey, BeatmapDifficulty diff)
+        public bool AddPlay(float rawPP, string mapName, string mapKey, BeatmapDifficulty diff, string mode)
         {
-            Plugin.Log.Info($"{HelpfulMisc.Print(new object[] { rawPP, mapName, diff })}");
+            Plugin.Log.Info($"{Leaderboard}: {HelpfulMisc.Print(new object[] { rawPP, mapName, diff })}");
             if (float.IsNaN(rawPP) || Scores[Scores.Length - 1] > rawPP) return false;
             //Plugin.Log.Debug($"Recieved score: " + rawPP);
             int index = HelpfulMisc.ReverseBinarySearch(Scores, rawPP);
             //Plugin.Log.Debug("AddPlay Index: " +  index);
-            if (index >= Scores.Length) return false;
-            CurrentSession.Scores.Add(new Session.Play(mapName, mapKey, diff, rawPP, GetProfilePPRaw(rawPP)));
+            if (index >= Scores.Length || CheckForDupePlay(rawPP, mapKey, diff)) return false;
             float profilePP = GetProfilePP(GetWeightedPP(rawPP), WeightedScores, index + 1);
+            int oldScoreIndex = ScoreIDs.IndexOf(mapKey);
+            CurrentSession.AddPlay(mapName, mapKey, diff, mode, rawPP, profilePP, oldScoreIndex > -1 ? Scores[oldScoreIndex] : -1);
             if (profilePP > 0) TotalPP += profilePP;
             HelpfulMisc.SiftDown(Scores, index, rawPP);
             HelpfulMisc.SiftDown(ScoreNames, index, mapName);
@@ -540,6 +543,17 @@ namespace BLPPCounter.Utils
             ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
             ReloadTableValues();
             return true;
+        }
+        private bool CheckForDupePlay(float rawPP, string mapKey, BeatmapDifficulty diff)
+        {
+            int index = Array.IndexOf(ScoreIDs, mapKey);
+            while (index >= 0 && index + 1 < ScoreIDs.Length)
+            {
+                //Plugin.Log.Info($"Checking index {index} ({mapKey})");
+                if (ActualScoreDiffs[index] == diff && rawPP < Scores[index]) return true;
+                index = Array.IndexOf(ScoreIDs, mapKey, index + 1);
+            }
+            return false;
         }
         #endregion
     }

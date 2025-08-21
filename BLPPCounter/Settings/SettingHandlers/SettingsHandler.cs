@@ -329,7 +329,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             set {PC.Target = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(Target))); }
         }
         [UIValue(nameof(ToTarget))]
-        public List<object> ToTarget => Targeter.theTargets.Prepend(Targeter.NO_TARGET).ToList();
+        public List<object> ToTarget => (Targeter.theTargets ?? new List<object>()).Prepend(Targeter.NO_TARGET).ToList();
         [UIAction(nameof(ResetTarget))]
         public void ResetTarget()
         {
