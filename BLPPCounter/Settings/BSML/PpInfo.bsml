@@ -137,8 +137,8 @@
       </modal>
       <modal id='SessionWindow' show-event='ShowSessionTable' hide-event='HideSessionTable' click-off-closes='true' move-to-center='true'>
         <horizontal spacing='1' pad-up='30' pref-width='100' id='SessionTableOptions' child-expand-height='false' child-expand-width='false' bg='round-rect-panel' bg-color='#CCC'>
-          <custom-list id='SessionTable' contents='SessionTable_Infos' show-scrollbar='true' cell-size='15' pref-width='50' pref-height='50' align='Left'>
-            <vertical align='Center'>
+          <custom-list id='SessionTable' contents='SessionTable_Infos' show-scrollbar='true' cell-size='15' pref-width='50' pref-height='50' clickable-cells='false' align='Left'>
+            <vertical id='SessionTableDiv' align='Center'>
               <horizontal spacing='10'>
                 <text text='~BeatmapName' align='Left'/>
                 <text text='~BeatmapKey' align='Right'/>

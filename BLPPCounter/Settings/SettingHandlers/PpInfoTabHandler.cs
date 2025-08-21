@@ -9,6 +9,7 @@ using BLPPCounter.Patches;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
+using BLPPCounter.Utils.List_Settings;
 using BLPPCounter.Utils.Misc_Classes;
 using BS_Utils.Utilities;
 using HMUI;
@@ -431,13 +432,15 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             int hold = CurrentProfile?.CurrentSession.PlaysSet ?? 0;
             SessionWindow_PlaysSet.SetText($"<color=#0F0>{hold}</color> Score{(hold == 1 ? "" : "s")}");
-            SessionWindow_PpGained.SetText($"+<color=purple>{CurrentProfile?.CurrentSession.GainedProfilePp ?? 0}</color> Profile {GetPPLabel().ToUpper()}.");
+            SessionWindow_PpGained.SetText($"+<color=purple>{CurrentProfile?.CurrentSession.GainedProfilePp ?? 0}</color> Profile {GetPPLabel().ToUpper()}");
 
             IEnumerator WaitThenUpdate()
             {
                 yield return new WaitForEndOfFrame();
                 SessionTable.data = SessionTable_Infos;
                 SessionTable.tableView.ReloadData();
+                /*foreach (SessionListInfo sli in SessionTable_Infos.Cast<SessionListInfo>())
+                    sli.SessionTableDiv.transform.SetAsLastSibling();*/
                 (SessionWindow.transform as RectTransform).sizeDelta = new Vector2(100, 50);
             }
             CoroutineHost.Start(WaitThenUpdate());

@@ -26,18 +26,18 @@
          </modal>
         <custom-list id='FormatEditor' contents='FormatChunks' show-scrollbar='true' pref-width='100' pref-height='60' cell-size='30' select-cell='SelectedCell' clickable-cells='true'>
             <vertical id='BGContainer' bg='round-rect-panel' bg-color='#CCC' horizontal-fit='Unconstrained' pad='2'>
-            <dropdown-list-setting text='Choose Type' apply-on-change='true' value='ChunkStr' options='TypesOfChunks' hover-hint='The types of chunks'/>
-            <string-setting id='TextComp' text='~TextCompLabel' apply-on-change='true' value='Text' formatter='Centerer' active='~ShowTextComp'/>
-            <string-setting id='Text2Comp' text='Enter Value' apply-on-change='true' value='Text2' formatter='Centerer' active='~ShowText2Comp'/>
-            <increment-setting id='Incrementer' text='~IncrementText' value='IncrementVal' integer-only='true' min='1' max='50' increment='1' apply-on-change='true' active='~ShowIncrement'/>
-            <horizontal id='ChoiceContainer' active='~ShowChoice'>
-                <dropdown-list-setting id='Choicer' text='~ChoiceText' apply-on-change='true' value='Text' options='ChoiceOptions'/>
-            </horizontal>
-            <horizontal>
-                <page-button  align='Left' on-click='MoveChunkUp' direction='Up' scale='0.5'/>
-                <button text='Remove Chunk' align='Center' face-color='#FF0000' on-click='RemoveChunk'/>
-                <page-button align='Right' on-click='MoveChunkDown' direction='Down' scale='0.5'/>
-            </horizontal>
+              <dropdown-list-setting text='Choose Type' apply-on-change='true' value='ChunkStr' options='TypesOfChunks' hover-hint='The types of chunks'/>
+              <string-setting id='TextComp' text='~TextCompLabel' apply-on-change='true' value='Text' formatter='Centerer' active='~ShowTextComp'/>
+              <string-setting id='Text2Comp' text='Enter Value' apply-on-change='true' value='Text2' formatter='Centerer' active='~ShowText2Comp'/>
+              <increment-setting id='Incrementer' text='~IncrementText' value='IncrementVal' integer-only='true' min='1' max='50' increment='1' apply-on-change='true' active='~ShowIncrement'/>
+              <horizontal id='ChoiceContainer' active='~ShowChoice'>
+                  <dropdown-list-setting id='Choicer' text='~ChoiceText' apply-on-change='true' value='Text' options='ChoiceOptions'/>
+              </horizontal>
+              <horizontal>
+                  <page-button  align='Left' on-click='MoveChunkUp' direction='Up' scale='0.5'/>
+                  <button text='Remove Chunk' align='Center' face-color='#FF0000' on-click='RemoveChunk'/>
+                  <page-button align='Right' on-click='MoveChunkDown' direction='Down' scale='0.5'/>
+              </horizontal>
             </vertical>
         </custom-list>
         <horizontal>
