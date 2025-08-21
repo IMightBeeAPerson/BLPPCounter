@@ -114,7 +114,7 @@ namespace BLPPCounter.Utils
                 if (ActualScoreDiffs.Length != Scores.Length) throw new Exception($"ScoreDiffs array length does not equal the Scores array length\nActualScoreDiffs length: {ActualScoreDiffs.Length} || Scores Length: {Scores.Length}");
                 WeightScores();
                 if (CurrentSession is null) CurrentSession = new Session(Leaderboard, UserID, TotalPP);
-                CurrentSession.AddPlay(ScoreNames[0], ScoreIDs[0], ActualScoreDiffs[0], "Standard", Scores[0], 20f);
+                //CurrentSession.AddPlay(ScoreNames[0], ScoreIDs[0], ActualScoreDiffs[0], "Standard", Scores[0], 20f);
             }
             catch (Exception e)
             {

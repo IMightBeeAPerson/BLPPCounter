@@ -351,14 +351,14 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (profilePp[0] == '-') profilePp = "Unknown";
             ProfilePPTextValue.SetText("<color=purple>" + profilePp + "</color> " + GetPPLabel());
         }
-        [UIAction(nameof(DoTestThing))]
+        /*[UIAction(nameof(DoTestThing))]
         private void DoTestThing()
         {
             //CurrentProfile.AddPlay(ProfilePPSlider.Value);
             //UpdateProfilePP();
             //UpdateProfile();
             CompletedMap(0.995f, Sldvc.beatmapLevel.levelID.Split('_')[2], Sldvc.beatmapLevel.songName, Sldvc.selectedDifficultyBeatmap.difficulty);
-        }
+        }*/
         [UIAction(nameof(RefreshProfilePP))] private void RefreshProfilePP()
         {
             Task.Run(async () => await RefreshProfileScores().ConfigureAwait(false));
@@ -439,8 +439,6 @@ namespace BLPPCounter.Settings.SettingHandlers
                 yield return new WaitForEndOfFrame();
                 SessionTable.data = SessionTable_Infos;
                 SessionTable.tableView.ReloadData();
-                /*foreach (SessionListInfo sli in SessionTable_Infos.Cast<SessionListInfo>())
-                    sli.SessionTableDiv.transform.SetAsLastSibling();*/
                 (SessionWindow.transform as RectTransform).sizeDelta = new Vector2(100, 50);
             }
             CoroutineHost.Start(WaitThenUpdate());
