@@ -3,7 +3,7 @@
   
     <tab-selector id='MainTabSelector' tab-tag='tabs' select-cell='ChangeTab'/>
   
-    <tab id='InfoTab' tags='tabs' tab-name='Info'>
+    <tab tags='tabs' tab-name='Info'>
       <vertical spacing='2' vertical-fit='PreferredSize' pref-height='50' anchor-pos-y='-2' horizontal-fit='PreferredSize' pref-width='75' child-expand-height='false'>
         <vertical spacing='1' horizontal-fit='PreferredSize' pref-width='75'>
           <horizontal>
@@ -123,7 +123,7 @@
         <button text='Show Session' click-event='ShowSessionTable' align='Right'/>
       </horizontal>
       <modal id='PlayTableModal' show-event='ShowPlayTable' hide-event='HidePlayTable' click-off-closes='true' move-to-center='true'>
-        <vertical id='PlayTableOptions' child-expand-height='false' child-expand-width='false' bg='round-rect-panel' bg-color='#CCC'>
+        <vertical child-expand-height='false' child-expand-width='false' bg='round-rect-panel' bg-color='#CCC'>
           <text id='PlayTable' text='' align='Center' font-size='3.5'/>
           <vertical spacing='-5'>
             <horizontal id='PlayTableButtons' spacing='20' align='Center'>
@@ -131,7 +131,7 @@
               <button text='Page Top' align='Center' on-click='PlayTable_PageTop'/>
               <button text='Page Down' align='Right' on-click='PlayTable_PageDown'/>
             </horizontal>
-            <button id='PlayTableButton' text='Close Leaderboard' click-event='HidePlayTable' align='Center'/>
+            <button text='Close Leaderboard' click-event='HidePlayTable' align='Center'/>
           </vertical>
         </vertical>
       </modal>

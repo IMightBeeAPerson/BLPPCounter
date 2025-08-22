@@ -27,9 +27,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         private static readonly HashSet<string> NonSettingTags = new HashSet<string>(2) { "settings-container", "vertical" };
         #endregion
         #region UI & Normal Variables
-        private bool loaded = false, loadData = true;
+        private bool loaded = false;
+#if !NEW_VERSION
+        private bool loadData = true;
+#endif
         [UIObject(nameof(Container))] private GameObject Container;
-        #endregion
+#endregion
         #region Init Functions
         [UIAction("#post-parse")]
         private void LoadElements()

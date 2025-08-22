@@ -16,7 +16,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 {
     public class CustomAliasHandler: BSMLResourceViewController
     {
-#pragma warning disable IDE0051, IDE0044
+#pragma warning disable IDE0051, IDE0044, CS0649
         public override string ResourceName => "BLPPCounter.Settings.BSML.MenuComponents.AliasSettings.bsml";
         public static CustomAliasHandler Instance { get; } = new CustomAliasHandler();
         private static PluginConfig PC => PluginConfig.Instance;
@@ -83,7 +83,6 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         } // 1.34.2 and below
 #endif
         private string _OldAliasName;
-        [UIValue(nameof(NewAliasName))] private string NewAliasName;
         [UIValue(nameof(CounterNames))]
         private List<object> CounterNames => TheCounter.ValidDisplayNames[Leaderboards.Beatleader].Where(a => MenuSettingsHandler.AllFormatInfo.Any(b => b.Key.Item2.Equals(a)))
             .Append(TheCounter.DisplayName).Cast<object>().ToList();

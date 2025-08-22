@@ -30,7 +30,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 {
     public class PpInfoTabHandler
     {
-#pragma warning disable IDE0051, IDE0044
+#pragma warning disable IDE0051, IDE0044, CS0649
         #region Misc Static Variables & Controllers
         internal StandardLevelDetailViewController Sldvc { private get; set; }
         internal GameplayModifiersPanelController Gmpc { private get; set; }
@@ -197,10 +197,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(ProfileTab))] private Tab ProfileTab;
 
         [UIComponent(nameof(PlayTable))] private TextMeshProUGUI PlayTable;
-        [UIComponent(nameof(PlayTableOptions))] private RectTransform PlayTableOptions_Bounds;
-        [UIComponent(nameof(PlayTableOptions))] private VerticalLayoutGroup PlayTableOptions;
         [UIComponent(nameof(PlayTableButtons))] private HorizontalLayoutGroup PlayTableButtons;
-        [UIComponent(nameof(PlayTableButton))] private Button PlayTableButton;
         [UIObject(nameof(PlayTableModal))] private GameObject PlayTableModal;
 
         [UIObject(nameof(SessionWindow))] private GameObject SessionWindow;
@@ -227,12 +224,14 @@ namespace BLPPCounter.Settings.SettingHandlers
             get => PC.TestPPAmount;
             set => PC.TestPPAmount = value;
         }
+#pragma warning disable CS0414
         [UIValue(nameof(TabPos))]
 #if NEW_VERSION
         private float TabPos = -5.5f;
 #else
         private float TabPos = 0f;
 #endif
+#pragma warning restore CS0414
         [UIComponent(nameof(PercentTable))] private TextMeshProUGUI PercentTable;
         [UIComponent(nameof(PPTable))] private TextMeshProUGUI PPTable;
         [UIComponent("ModeButton")] private TextMeshProUGUI ModeButtonText;
@@ -253,7 +252,6 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(ClanTarget))] private TextMeshProUGUI ClanTarget;
         [UIComponent(nameof(PPTarget))] private TextMeshProUGUI PPTarget;
 
-        [UIComponent(nameof(InfoTab))] private Tab InfoTab;
         [UIComponent(nameof(SpeedModText))] private TextMeshProUGUI SpeedModText;
         [UIComponent(nameof(ModMultText))] private TextMeshProUGUI ModMultText;
         [UIComponent(nameof(PrefixLabels))] private TextMeshProUGUI PrefixLabels;
@@ -345,7 +343,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             WeightedText.SetText($"<color=green>Weighted</color> {GetPPLabel()}");
             string weightedPp = $"{CurrentProfile.GetWeightedPP(ppAmount)}";
             if (weightedPp[0] == '-') weightedPp = "Unknown";
-            WeightedTextValue.SetText("<color=#aa7722>" + weightedPp + "</color> " + GetPPLabel());
+            WeightedTextValue.SetText("<color=#A72>" + weightedPp + "</color> " + GetPPLabel());
             ProfilePPText.SetText($"<color=yellow>Profile</color> {GetPPLabel()}");
             string profilePp = $"{CurrentProfile.GetProfilePPRaw(ppAmount)}";
             if (profilePp[0] == '-') profilePp = "Unknown";
@@ -431,14 +429,19 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction("#ShowSessionTable")] private void ShowSessionTable()
         {
             int hold = CurrentProfile?.CurrentSession.PlaysSet ?? 0;
-            SessionWindow_PlaysSet.SetText($"<color=#0F0>{hold}</color> Score{(hold == 1 ? "" : "s")}");
+            SessionWindow_PlaysSet.SetText($"<color=#0F0>{hold}</color> Top {Profile.GetPlusOneCount(CurrentLeaderboard)} Score{(hold == 1 ? "" : "s")}");
             SessionWindow_PpGained.SetText($"+<color=purple>{CurrentProfile?.CurrentSession.GainedProfilePp ?? 0}</color> Profile {GetPPLabel().ToUpper()}");
 
             IEnumerator WaitThenUpdate()
             {
                 yield return new WaitForEndOfFrame();
+#if NEW_VERSION
+                SessionTable.Data = SessionTable_Infos;
+                SessionTable.TableView.ReloadData();
+#else
                 SessionTable.data = SessionTable_Infos;
                 SessionTable.tableView.ReloadData();
+#endif
                 (SessionWindow.transform as RectTransform).sizeDelta = new Vector2(100, 50);
             }
             CoroutineHost.Start(WaitThenUpdate());
@@ -457,7 +460,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             MapID.gameObject.SetActive(!ShowTrueID);
             TrueMapID.gameObject.SetActive(ShowTrueID);
         }
-        #endregion
+#endregion
         #region Inits
         static PpInfoTabHandler()
         {

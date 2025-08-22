@@ -11,7 +11,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 {
     public class MenuSettingsHandler: BSMLResourceViewController
     {
-#pragma warning disable IDE0044, IDE0051
+#pragma warning disable IDE0044, IDE0051, CS0649
         #region Variables
         private static PluginConfig PC => PluginConfig.Instance;
         public static MenuSettingsHandler Instance { get; } = new MenuSettingsHandler();

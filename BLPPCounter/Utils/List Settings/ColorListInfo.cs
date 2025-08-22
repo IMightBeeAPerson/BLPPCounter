@@ -14,7 +14,9 @@ namespace BLPPCounter.Utils.List_Settings
         private static PluginConfig PC => PluginConfig.Instance;
         internal static Action UpdateSaveButton;
 
+#pragma warning disable CS0649
         [UIComponent(nameof(ColorBox))] private ColorSetting ColorBox;
+#pragma warning restore CS0649
         [UIValue(nameof(ColorValue))] private UnityEngine.Color ColorValue
         {
             get => _ColorValue;

@@ -16,7 +16,7 @@ namespace BLPPCounter.Utils.List_Settings
         //IDE find and replace pattern
         // \)\s*\n?\s*{\s*\n?\s*([^;]+;)\s*\n?\s*}
         //) => $+
-#pragma warning disable IDE0044
+#pragma warning disable IDE0044, CS0414, CS0649
         #region Static Variables
         internal static Action UpdatePreview;
         #endregion
@@ -69,11 +69,13 @@ namespace BLPPCounter.Utils.List_Settings
         [UIValue(nameof(MaxVal))] private float MaxVal;
         [UIValue(nameof(IncrementVal))] private float IncrementVal;
         #endregion
-        #region UI Components
+#region UI Components
+#if !NEW_VERSION
         [UIComponent(nameof(TextBox))] private StringSetting TextBox;
         [UIComponent(nameof(Increment))] private IncrementSetting Increment;
+#endif
 
-        #endregion
+#endregion
         #region Init
         internal ValueListInfo(object givenValue, char token, string name, bool hasWrapper, Func<object, bool, object> valFormat,
             IEnumerable<(string, object)> extraParams, ValueType valType = ValueType.Inferred)

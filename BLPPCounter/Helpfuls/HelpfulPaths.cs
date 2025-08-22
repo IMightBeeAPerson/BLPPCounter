@@ -98,7 +98,7 @@ namespace BLPPCounter.Helpfuls
                         && HelpfulMisc.CompareValues(TaohHeaders, CurrentTaohHeaders, "top10kUpdated", item => DateTime.Parse(item), SimpleComparer) <= 0;
                 } catch (Exception e)
                 {
-                    Plugin.Log.Warn("Oh No! Current Taoh Headers are not parseable! Automatically overriding the problem file.");
+                    Plugin.Log.Warn("Oh No! Current Taoh Headers are not parseable! Automatically overriding the problem file.\n" + e);
                     File.Delete(HEADERS);
                     headersGood = false;
                 }

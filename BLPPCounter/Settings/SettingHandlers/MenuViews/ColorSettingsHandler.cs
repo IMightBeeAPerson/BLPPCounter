@@ -11,6 +11,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 {
     public class ColorSettingsHandler: BSMLResourceViewController
     {
+#pragma warning disable CS0649
         private static PluginConfig PC => PluginConfig.Instance;
         public static ColorSettingsHandler Instance { get; } = new ColorSettingsHandler();
         public override string ResourceName => "BLPPCounter.Settings.BSML.MenuComponents.ColorSettings.bsml";
@@ -38,8 +39,10 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             ColorValues.Clear();
             ColorValues.AddRange(PC.ColorInfos.Select(pi => new ColorListInfo(pi)));
 #if NEW_VERSION
-            ColorEditor.TableView.ReloadData(); // 1.37.0 and above#else
-            ColorEditor.tableView.ReloadData(); // 1.34.2 and below#endif
+            ColorEditor.TableView.ReloadData(); // 1.37.0 and above
+#else
+            ColorEditor.tableView.ReloadData(); // 1.34.2 and below
+#endif
             ColorSaveButton.interactable = false;
         }
         [UIAction(nameof(SaveColors))]

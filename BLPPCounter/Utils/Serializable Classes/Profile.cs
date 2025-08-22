@@ -203,6 +203,19 @@ namespace BLPPCounter.Utils
                     return null;
             }
         }
+        internal static int GetPlusOneCount(Leaderboards leaderboard)
+        {
+            switch (leaderboard)
+            {
+                case Leaderboards.Beatleader:
+                case Leaderboards.Scoresaber:
+                    return 100;
+                case Leaderboards.Accsaber:
+                    return 50;
+                default:
+                    return 0;
+            }
+        }
         /// <summary>
         /// Saves the given <paramref name="profile"/> to the <see cref="LoadedProfiles"/> dictionary.
         /// </summary>
@@ -431,19 +444,7 @@ namespace BLPPCounter.Utils
         /// Simple switch statement for how many scores to ask the API for so that we can accurately calculate <see cref="PlusOne"/>.
         /// </summary>
         /// <returns>The number of scores needed to calculate <see cref="PlusOne"/>.</returns>
-        private int GetPlusOneCount()
-        {
-            switch (Leaderboard)
-            {
-                case Leaderboards.Beatleader:
-                case Leaderboards.Scoresaber:
-                    return 100;
-                case Leaderboards.Accsaber:
-                    return 50;
-                default:
-                    return 0;
-            }
-        }
+        private int GetPlusOneCount() => GetPlusOneCount(Leaderboard);
         /// <summary>
         /// Given <paramref name="rawPP"/>, finds what the weighted value is.
         /// </summary>

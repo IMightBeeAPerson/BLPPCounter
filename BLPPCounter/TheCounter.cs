@@ -286,7 +286,7 @@ namespace BLPPCounter
         public override void CounterDestroy() {
             //Plugin.Log.Info($"hash: {hash} || songName: {songName}");
 #if NEW_VERSION
-            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), hash, songName, LastMap.difficulty, beatmapDiff.beatmapCharacteristic.serializedName);
+            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), hash, songName, LastMap.Difficulty, beatmapDiff.beatmapCharacteristic.serializedName);
 #else
             PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), hash, songName, LastMap.Difficulty, beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName);
 #endif
@@ -724,8 +724,8 @@ namespace BLPPCounter
                     if (result is JObject jo)
                     {
 #if NEW_VERSION
-                        ssRanked = jo.ContainsKey("starScoreSaber") != null;  // 1.37.0 and above
-                        apRanked = jo.ContainsKey("complexityAccSaber") != null;
+                        ssRanked = jo.ContainsKey("starScoreSaber");  // 1.37.0 and above
+                        apRanked = jo.ContainsKey("complexityAccSaber");
 #else
                         ssRanked = jo.Property("starScoreSaber") != null; // 1.34.0 and below 
                         apRanked = jo.Property("complexityAccSaber") != null; 

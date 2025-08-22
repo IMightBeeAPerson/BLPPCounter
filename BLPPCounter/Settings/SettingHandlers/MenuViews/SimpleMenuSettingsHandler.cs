@@ -14,7 +14,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 {
     public class SimpleMenuSettingsHandler : BSMLResourceViewController
     {
-#pragma warning disable IDE0044, IDE0051
+#pragma warning disable IDE0044, IDE0051, CS0649
         public override string ResourceName => "BLPPCounter.Settings.BSML.MenuComponents.SimpleSettings.bsml";
         private static PluginConfig PC => PluginConfig.Instance;
         public static SimpleMenuSettingsHandler Instance { get; private set; } = new SimpleMenuSettingsHandler();

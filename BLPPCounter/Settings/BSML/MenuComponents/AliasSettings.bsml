@@ -25,7 +25,7 @@
         <text id='CounterText' text='Counter:'/>
         <text id='FormatText' text='Format:'/>
         <dropdown-list-setting id='AliasNamePicker' text='Old Alias' apply-on-change='true' value='OldAliasName' options='AliasNames'/>
-        <string-setting id='NewAlias' text='New Alias' value='NewAliasName' apply-on-change='true'/>
+        <string-setting id='NewAlias' text='New Alias' apply-on-change='true'/>
       </vertical>
     </modal>
     <horizontal>
