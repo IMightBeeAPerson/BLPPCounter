@@ -17,6 +17,8 @@ namespace BLPPCounter.Utils.API_Handlers
         private static readonly Throttler Throttle = new Throttler(50, 10);
         internal static SSAPI Instance { get; private set; } = new SSAPI();
         private SSAPI() { }
+        private HashSet<int> UnrankedIds = new HashSet<int>();
+        private HashSet<string> UnrankedHashes = new HashSet<string>();
         public override string API_HASH => HelpfulPaths.SSAPI_DIFFS;
         public override async Task<(bool, HttpContent)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3)
         {
@@ -124,24 +126,28 @@ namespace BLPPCounter.Utils.API_Handlers
         {
             try
             {
+                if (UnrankedHashes.Contains(hash)) return;
                 JEnumerable<JToken> diffs = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_DIFFS, hash)).ConfigureAwait(false)).Children();
-                Stack<int> ids = new Stack<int>(diffs.Count());
+                bool anyRanked = false;
                 foreach (JToken diff in diffs)
-                    ids.Push((int)diff["leaderboardId"]);
-                while (ids.Count > 0)
                 {
-                    string songId = ids.Pop().ToString();
+                    int songId = (int)diff["leaderboardId"];
+                    if (UnrankedIds.Contains(songId)) continue;
                     JToken mapInfo = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, songId, "info")).ConfigureAwait(false));
                     if (!(bool)mapInfo["ranked"])
                     {
-                        Plugin.Log.Warn($"SS map \"{mapInfo["songName"]}\" (id {mapInfo["id"]}) cannot be added to cache as it is not ranked.");
+                        //Plugin.Log.Warn($"SS map \"{mapInfo["songName"]}\" (id {mapInfo["id"]}) cannot be added to cache as it is not ranked.");
+                        UnrankedIds.Add(songId);
                         continue;
                     }
-                    Map map = Map.ConvertSSToTaoh(hash, songId, mapInfo);
+                    Map map = Map.ConvertSSToTaoh(hash, songId.ToString(), mapInfo);
                     if (Data.ContainsKey(hash))
                         Data[hash].Combine(map);
                     else Data[hash] = map;
+                    anyRanked = true;
                 }
+                if (!anyRanked)
+                    UnrankedHashes.Add(hash);
             }
             catch (Exception e)
             {

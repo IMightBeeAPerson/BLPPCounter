@@ -337,6 +337,14 @@ namespace BLPPCounter.Helpfuls
                 outp += ", " + item;
             return $"[{outp.Substring(2)}]";
         }
+        public static string Print(this IEnumerable<string> arr)
+        {
+            if (arr.Count() == 0) return "[]";
+            string outp = "";
+            foreach (string item in arr)
+                outp += ", \"" + item + '"';
+            return $"[{outp.Substring(2)}]";
+        }
         public static string Print<T>(this IEnumerable<T> arr, Func<T, string> valToString)
         {
             if (arr.Count() == 0) return "[]";

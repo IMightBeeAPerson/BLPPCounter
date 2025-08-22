@@ -496,9 +496,9 @@ namespace BLPPCounter
         public static async Task<Map> GetMap(string hash, string mode, Leaderboards leaderboard)
         {
             if (!dataLoaded) ForceLoadMaps();
-            if (!Data.TryGetValue(hash, out Map m) || !m.GetModes().Contains(mode))
+            if ((!Data.TryGetValue(hash, out Map m) || !m.GetModes().Contains(mode)))
             {
-                Plugin.Log.Warn("Map not in cache, attempting API call to get map data...");
+                //Plugin.Log.Warn("Map not in cache, attempting API call to get map data...");
                 await APIHandler.GetAPI(leaderboard).AddMap(Data, hash).ConfigureAwait(false);
                 m = Data[hash];
             }

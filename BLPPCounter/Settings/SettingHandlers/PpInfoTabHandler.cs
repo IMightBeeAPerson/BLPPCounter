@@ -264,31 +264,31 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIValue(nameof(BeatmapName))] private string BeatmapName
         {
             get => _BeatmapName;
-            set { if (MapName is null) return; MapName.text = $"<color=#777777>Map Name: <color=#aaaaaa>{value.ClampString(25)}</color>"; _BeatmapName = value; }
+            set { if (MapName is null) return; MapName.text = $"<color=#777>Map Name: <color=#AAA>{value.ClampString(25)}</color>"; _BeatmapName = value; }
         }
         private string _BeatmapName = "";
         [UIValue(nameof(BeatmapID))] private string BeatmapID
         {
             get => _BeatmapID;
-            set { if (MapID is null) return; MapID.text = $"<color=#777777>Map ID: <color=#aaaaaa>{value}</color>"; _BeatmapID = value; }
+            set { if (MapID is null) return; MapID.text = $"<color=#777>Map ID: <color=#AAA>{value}</color>"; _BeatmapID = value; }
         }
         private string _BeatmapID = "";
         [UIValue(nameof(MapModeText))] private string MapModeText
         {
             get => _MapModeText;
-            set { if (MapID is null) return; MapMode.text = $"<color=#777777>Map Type: <color=#aaaaaa>{value}</color>"; _MapModeText = value; }
+            set { if (MapID is null) return; MapMode.text = $"<color=#777>Map Type: <color=#AAA>{value}</color>"; _MapModeText = value; }
         }
         private string _MapModeText = "";
         [UIValue(nameof(MapDiffText))] private string MapDiffText
         {
             get => _MapDiffText;
-            set { if (MapID is null) return; MapDiff.text = $"<color=#777777>Map Difficulty: <color=#aaaaaa>{value}</color>"; _MapDiffText = value; }
+            set { if (MapID is null) return; MapDiff.text = $"<color=#777>Map Difficulty: <color=#AAA>{value}</color>"; _MapDiffText = value; }
         }
         private string _MapDiffText = "";
         [UIValue(nameof(TrueBeatmapID))] private string TrueBeatmapID
         {
             get => _TrueBeatmapID;
-            set { if (MapID is null) return; TrueMapID.text = $"<color=#777777>True Map ID: <color=#aaaaaa>{value}</color>"; _TrueBeatmapID = value; }
+            set { if (MapID is null) return; TrueMapID.text = $"<color=#777>True Map ID: <color=#AAA>{value}</color>"; _TrueBeatmapID = value; }
         }
         private string _TrueBeatmapID = "";
 #endregion
@@ -845,7 +845,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             bool failed = !(map?.TryGet(actualModeName, diff, out val) ?? false);
             if (failed)
             {
-                Plugin.Log.Warn("Map failed to load. Most likely unranked.");
+                //Plugin.Log.Warn("Map failed to load. Most likely unranked.");
                 map = await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader).ConfigureAwait(false);
                 if (!map.TryGet(modeName, diff, out val))
                 {
