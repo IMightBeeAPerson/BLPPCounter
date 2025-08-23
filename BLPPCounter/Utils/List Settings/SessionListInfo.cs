@@ -1,4 +1,5 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
+using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.SettingHandlers;
 using BLPPCounter.Utils.Misc_Classes;
 using System;
@@ -15,7 +16,7 @@ namespace BLPPCounter.Utils.List_Settings
     internal class SessionListInfo
     {
         internal Session.Play PlayData { get; private set; }
-        [UIValue(nameof(BeatmapName))] public string BeatmapName => "<color=#AAA>" + PlayData.MapName + "</color>";
+        [UIValue(nameof(BeatmapName))] public string BeatmapName => "<color=#AAA>" + PlayData.MapName.ClampString(15) + "</color>";
         [UIValue(nameof(BeatmapKey))] public string BeatmapKey => "<color=#4AF>" + PlayData.MapKey + "</color>";
         [UIValue(nameof(PP))] public string PP => "<color=purple>" + PlayData.Pp + $"</color> {PpInfoTabHandler.Instance.GetPPLabel()}";
         [UIValue(nameof(ProfilePP))] public string ProfilePP => "+<color=yellow>" + PlayData.ProfilePpGained + $"</color> Profile {PpInfoTabHandler.Instance.GetPPLabel().ToUpper()}";

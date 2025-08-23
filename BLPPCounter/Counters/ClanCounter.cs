@@ -296,7 +296,7 @@ namespace BLPPCounter.Counters
             string id = Targeter.TargetID, check;
             mapCaptured = false;
             owningClan = "None";
-            check = BLAPI.Instance.CallAPI_String($"https://api.beatleader.xyz/player/{id}").Result;
+            check = BLAPI.Instance.CallAPI_String($"https://api.beatleader.com/player/{id}").Result;
             if (playerClanId < 0 && check.Length > 0) playerClanId = ParseId(JToken.Parse(check));
             check = BLAPI.Instance.CallAPI_String($"{string.Format(HelpfulPaths.BLAPI_CLAN, mapId)}?page=1&count=1").Result;
             if (check.Length == 0) return null;

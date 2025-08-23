@@ -17,8 +17,8 @@ namespace BLPPCounter.Utils.API_Handlers
         private static readonly Throttler Throttle = new Throttler(50, 10);
         internal static SSAPI Instance { get; private set; } = new SSAPI();
         private SSAPI() { }
-        private HashSet<int> UnrankedIds = new HashSet<int>();
-        private HashSet<string> UnrankedHashes = new HashSet<string>();
+        private readonly HashSet<int> UnrankedIds = new HashSet<int>();
+        private readonly HashSet<string> UnrankedHashes = new HashSet<string>();
         public override string API_HASH => HelpfulPaths.SSAPI_DIFFS;
         public override async Task<(bool, HttpContent)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3)
         {
@@ -126,7 +126,7 @@ namespace BLPPCounter.Utils.API_Handlers
         {
             try
             {
-                if (UnrankedHashes.Contains(hash)) return;
+                if (UnrankedHashes.Contains(hash) || hash is null) return;
                 JEnumerable<JToken> diffs = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_DIFFS, hash)).ConfigureAwait(false)).Children();
                 bool anyRanked = false;
                 foreach (JToken diff in diffs)

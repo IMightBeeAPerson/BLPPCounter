@@ -69,13 +69,6 @@ namespace BLPPCounter.Utils.List_Settings
         [UIValue(nameof(MaxVal))] private float MaxVal;
         [UIValue(nameof(IncrementVal))] private float IncrementVal;
         #endregion
-#region UI Components
-#if !NEW_VERSION
-        [UIComponent(nameof(TextBox))] private StringSetting TextBox;
-        [UIComponent(nameof(Increment))] private IncrementSetting Increment;
-#endif
-
-#endregion
         #region Init
         internal ValueListInfo(object givenValue, char token, string name, bool hasWrapper, Func<object, bool, object> valFormat,
             IEnumerable<(string, object)> extraParams, ValueType valType = ValueType.Inferred)

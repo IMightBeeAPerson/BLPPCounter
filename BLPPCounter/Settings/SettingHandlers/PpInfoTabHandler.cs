@@ -62,7 +62,8 @@ namespace BLPPCounter.Settings.SettingHandlers
             { "Capture", default },
             { "Relative", default },
             { "Custom", default },
-            { "Profile", default }
+            { "Profile", default },
+            { "Settings", default } //This one is only here to provide a list of names
         };
         private readonly Dictionary<string, Action<PpInfoTabHandler>> Updates = new Dictionary<string, Action<PpInfoTabHandler>>()
         {
@@ -75,27 +76,6 @@ namespace BLPPCounter.Settings.SettingHandlers
         private static readonly string[] SelectionButtonTags = new string[4] { "SSButton", "NMButton", "FSButton", "SFButton" };
         private Table ClanTableTable, RelativeTableTable, PPTableTable, PercentTableTable;
         public bool ChangeTabSettings = false;
-        internal (float FinalAcc, string Hash, string MapName, BeatmapDifficulty Difficulty, string Mode) FinalMapData;
-        internal bool FinalMapDataLoaded
-        {
-            get => _FinalMapDataLoaded;
-            set
-            {
-                _FinalMapDataLoaded = value;
-                if (value && MapSucceededCompletion) CompletedMap();
-            }
-        }
-        private bool _FinalMapDataLoaded;
-        private bool MapSucceededCompletion
-        {
-            get => _MapSucceededCompletion;
-            set
-            {
-                _MapSucceededCompletion = value;
-                if (value && FinalMapDataLoaded) CompletedMap();
-            }
-        }
-        private bool _MapSucceededCompletion;
         #region Relative Counter
         private static Func<string> GetTarget, GetNoScoreTarget;
         private float TargetPP = 0;
@@ -710,25 +690,33 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             ClearMapTabs();
             TheCounter.theCounter = null;
-            MapSucceededCompletion = true;
+            Task.Run(async () => {
+                await CompletedMap(HelpfulMisc.GetAcc(transition, results), transition.difficultyBeatmap);
+            });
         }
         /*private void FailedMap(StandardLevelScenesTransitionSetupDataSO transition, LevelCompletionResults results)
         {
             FinalMapData = default;
         }*/
-        private async void CompletedMap()
+        private Task CompletedMap(float finalAcc, IDifficultyBeatmap data)
         {
-            FinalMapDataLoaded = false;
-            MapSucceededCompletion = false;
-            await CompletedMap(FinalMapData.FinalAcc, FinalMapData.Hash, FinalMapData.MapName, FinalMapData.Difficulty, FinalMapData.Mode).ConfigureAwait(false);
-            TheCounter.LastMap = default;
+            return CompletedMap(
+                finalAcc,
+                data.level.levelID.Split('_')[2],
+                data.level.songName,
+                data.difficulty,
+                data.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName
+                );
         }
         private Task CompletedMap(float finalAcc, string hash, string mapName, BeatmapDifficulty diff, string mode = "Standard")
         {
             //finalAcc = 1.0f;
             Plugin.Log.Info(HelpfulMisc.Print(new object[5] { finalAcc, hash, mapName, diff, mode }));
-            FinalMapData = default;
-            if (float.IsNaN(finalAcc)) return Task.CompletedTask;
+            if (float.IsNaN(finalAcc)) 
+            {
+                TheCounter.LastMap = default;
+                return Task.CompletedTask; 
+            }
             Task outp = Task.Run(async () =>
             {
                 if (await Profile.AddPlay(Targeter.PlayerID, hash, finalAcc, mapName, diff, mode).ConfigureAwait(false))
@@ -736,41 +724,57 @@ namespace BLPPCounter.Settings.SettingHandlers
                     await Refresh(true).ConfigureAwait(false);
                 }
             });
+            TheCounter.LastMap = default;
             return outp ?? Task.CompletedTask;
         }
         public string GetPPLabel() => CurrentLeaderboard == Leaderboards.Accsaber ? "ap" : "pp";
         public Task UpdateTabDisplay(bool forceUpdate = false, bool runAsync = true) 
         {
-            if (CurrentTab.Equals("Settings") || Sldvc is null || CurrentTab.Length == 0 || (!forceUpdate && TabMapInfo[CurrentTab] == CurrentMap)) return Task.CompletedTask;
+            if (CurrentTab.Length == 0 || (!forceUpdate && TabMapInfo[CurrentTab] == CurrentMap)) return Task.CompletedTask;
             IEnumerator WaitThenUpdate()
             {
                 yield return new WaitForEndOfFrame();
-                bool update = (CaptureTab.IsVisible != IsBL) || (ProfileTab.IsVisible != ShowProfileTab);
-                CaptureTab.IsVisible = IsBL;
-                ProfileTab.IsVisible = ShowProfileTab;
-                if (update)
+                if ((CaptureTab.IsVisible == IsBL) && (ProfileTab.IsVisible == ShowProfileTab)) 
+                    yield break;
+                int currentTabNum = MainTabSelector.textSegmentedControl.selectedCellNumber;
+
+                bool change = CaptureTab.IsVisible != IsBL;
+                bool keepPos = !change || !CurrentTab.Equals(CaptureTab.TabName);
+                if (change)
                 {
-                    MainTabSelector.ForceSelectAndNotify(0);
-                    CurrentTab = TabMapInfo.Keys.First();
+                    CaptureTab.IsVisible = IsBL;
+                    if (currentTabNum >= TabMapInfo.Keys.ToArray().IndexOf(CaptureTab.TabName))
+                        currentTabNum += IsBL ? 1 : -1;
                 }
+
+                change = ProfileTab.IsVisible != ShowProfileTab;
+                keepPos &= !change || !CurrentTab.Equals(ProfileTab.TabName);
+                if (change)
+                {
+                    ProfileTab.IsVisible = ShowProfileTab;
+                    if (currentTabNum >= TabMapInfo.Keys.ToArray().IndexOf(ProfileTab.TabName))
+                        currentTabNum += ShowProfileTab ? 1 : -1;
+                }
+
+                MainTabSelector.ForceSelectAndNotify(keepPos ? currentTabNum : 0);
+                if (!keepPos) CurrentTab = TabMapInfo.Keys.First();
             }
-            async void Update()
+            async Task Update()
             {
                 if (ChangeTabSettings)
                 {
                     ChangeTabSettings = false;
-                    await WaitThenUpdate().AsTask(Sldvc).ConfigureAwait(false);
+                    await WaitThenUpdate().AsTask(CoroutineHost.Instance).ConfigureAwait(false);
                 }
                 //Plugin.Log.Info("DiffData:\n" + CurrentDiff.Diffdata);
-                bool mapUsable = CurrentAPI.MapIsUsable(CurrentDiff.Diffdata);
+                if (CurrentTab.Equals("Settings")) return;
                 TabMapInfo[CurrentTab] = CurrentMap;
                 Updates[CurrentTab].Invoke(this);
                 BuildTable();
             }
             if (runAsync) 
                 return Task.Run(Update);
-            Update();
-            return Task.CompletedTask;
+            return Update();
         }
         private void UpdateInfo()
         {

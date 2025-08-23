@@ -851,6 +851,54 @@ namespace BLPPCounter.Helpfuls
             TMP_LineInfo lineInfo = textInfo.lineInfo[line];
             return Mathf.Abs(lineInfo.ascender - lineInfo.descender);
         }
+        /// <summary>
+        /// Calculates the final displayed accuracy ratio (0.0f – 1.0f) for a completed level.
+        /// This matches the accuracy shown on the in-game results screen and ignores modifiers,
+        /// since modifiers only affect the final leaderboard score, not the accuracy percentage.
+        /// </summary>
+        /// <param name="results">
+        /// The <see cref="LevelCompletionResults"/> instance produced after finishing a level.
+        /// The field <c>modifiedScore</c> is used as the numerator in the accuracy calculation.
+        /// </param>
+        /// <param name="transitionData">
+        /// The <see cref="StandardLevelScenesTransitionSetupDataSO"/> for the played level.
+        /// This provides access to the <see cref="IDifficultyBeatmap"/> and its
+        /// <see cref="BeatmapData"/>, which is used to determine the total number of scorable notes
+        /// (excluding bombs and walls).
+        /// </param>
+        /// <returns>
+        /// A <see cref="float"/> between <c>0.0f</c> and <c>1.0f</c>, representing the player’s
+        /// final accuracy. For example, a return value of <c>0.9735f</c> corresponds to 97.35%.
+        /// If no valid data is available, this method returns <c>0.0f</c>.
+        /// </returns>
+        public static float GetAcc(StandardLevelScenesTransitionSetupDataSO transitionData, LevelCompletionResults results)
+        {
+            if (results is null || transitionData is null)
+                return 0f;
+
+            // Grab the selected difficulty beatmap
+            IDifficultyBeatmap beatmap = transitionData.difficultyBeatmap;
+            if (beatmap is null)
+                return 0f;
+
+            // Get beatmap data (spawning objects like notes, bombs, walls)
+            IBeatmapDataBasicInfo beatmapData = beatmap.GetBeatmapDataBasicInfoAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+            if (beatmapData is null)
+                return 0f;
+
+            // Count only scorable notes (bombs/walls are excluded)
+            int totalNotes = beatmapData.cuttableNotesCount;
+            if (totalNotes <= 0)
+                return 0f;
+
+            // Use unmodified score (before multipliers) for accuracy
+            int rawScore = results.modifiedScore;
+
+            // Max possible score for this beatmap
+            int maxScore = HelpfulMath.MaxScoreForNotes(totalNotes);
+
+            return (float)rawScore / maxScore;
+        }
 
         /*float[] ConvertArr(double[] arr)
         {

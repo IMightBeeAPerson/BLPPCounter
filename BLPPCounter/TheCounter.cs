@@ -19,7 +19,9 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
+#if NEW_VERSION
 using System.Runtime.InteropServices.WindowsRuntime; // Used in 1.37.0 and above
+#endif
 using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
@@ -183,7 +185,7 @@ namespace BLPPCounter
         private int notes, comboNotes, mistakes;
         private int fcTotalHitscore, fcMaxHitscore;
         private double totalHitscore, maxHitscore;
-        private string mode, songName, hash;
+        private string mode, hash;
         #endregion
         #region Inits & Overrides
 
@@ -285,12 +287,6 @@ namespace BLPPCounter
         }
         public override void CounterDestroy() {
             //Plugin.Log.Info($"hash: {hash} || songName: {songName}");
-#if NEW_VERSION
-            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), hash, songName, LastMap.Difficulty, beatmapDiff.beatmapCharacteristic.serializedName);
-#else
-            PpInfoTabHandler.Instance.FinalMapData = ((float)(totalHitscore / maxHitscore), hash, songName, LastMap.Difficulty, beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName);
-#endif
-            PpInfoTabHandler.Instance.FinalMapDataLoaded = true;
             usingDefaultLeaderboard = false;
             if (hasNotifiers) 
                 ChangeNotifiers(false);
@@ -300,7 +296,6 @@ namespace BLPPCounter
         public override void CounterInit()
         {
             enabled = hasNotifiers = false;
-            PpInfoTabHandler.Instance.FinalMapDataLoaded = false;
             if (fullDisable) return;
             notes = fcMaxHitscore = comboNotes = fcTotalHitscore = mistakes = 0;
             totalHitscore = maxHitscore = 0.0;
@@ -326,20 +321,12 @@ namespace BLPPCounter
             {
                 if (!dataLoaded) RequestHashData();
                 enabled = SetupMapData();
-                if (!enabled && dataLoaded)
-                {
-                    Plugin.Log.Warn("Data load from cache failed. Attempting to load from API.");
-                    RequestHashData();
-                    enabled = SetupMapData();
-                }
                 if (enabled)
                 {
 #if NEW_VERSION
                     hash = beatmap.levelID.Split('_')[2]; // 1.37.0 and above
-                    songName = beatmap.songName;
 #else
                     hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
-                    songName = beatmap.level.songName;
 #endif
                     bool counterChange = theCounter != null && !theCounter.Name.Equals(pc.PPType);
                     if (counterChange)
@@ -463,14 +450,9 @@ namespace BLPPCounter
         }
         #endregion
         #region API Calls
-        private void RequestHashData() =>
-#if NEW_VERSION
-            APIHandler.GetAPI(usingDefaultLeaderboard).AddMap(Data, hash); // 1.37.0 and above
-#else
-            APIHandler.GetAPI(usingDefaultLeaderboard).AddMap(Data, hash); // 1.34.2 and below
-#endif
-#endregion
-#region Helper Methods
+        private void RequestHashData() => APIHandler.GetAPI(usingDefaultLeaderboard).AddMap(Data, hash);
+        #endregion
+        #region Helper Methods
         private void ChangeNotifiers(bool a)
         {
             if (a)
@@ -775,10 +757,10 @@ namespace BLPPCounter
             string songId;
 #if NEW_VERSION
             mode = SelectMode(beatmapDiff.beatmapCharacteristic.serializedName, Leaderboard); 
-            string hash = beatmap.levelID.Split('_')[2].ToUpper(); // 1.37.0 and above
+            hash = beatmap.levelID.Split('_')[2].ToUpper(); // 1.37.0 and above
 #else
             mode = SelectMode(beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName, Leaderboard);
-            string hash = beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
+            hash = beatmap.level.levelID.Split('_')[2].ToUpper(); // 1.34.2 and below
 #endif
             try
             {
