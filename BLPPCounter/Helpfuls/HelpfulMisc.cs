@@ -877,17 +877,28 @@ namespace BLPPCounter.Helpfuls
                 return 0f;
 
             // Grab the selected difficulty beatmap
+#if !NEW_VERSION
             IDifficultyBeatmap beatmap = transitionData.difficultyBeatmap;
             if (beatmap is null)
                 return 0f;
+#endif
+
 
             // Get beatmap data (spawning objects like notes, bombs, walls)
+#if NEW_VERSION
+            transitionData.beatmapLevel.beatmapBasicData.TryGetValue((transitionData.beatmapKey.beatmapCharacteristic, transitionData.beatmapKey.difficulty), out BeatmapBasicData beatmapData);
+#else
             IBeatmapDataBasicInfo beatmapData = beatmap.GetBeatmapDataBasicInfoAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+#endif
             if (beatmapData is null)
                 return 0f;
 
             // Count only scorable notes (bombs/walls are excluded)
+#if NEW_VERSION
+            int totalNotes = beatmapData.notesCount;
+#else
             int totalNotes = beatmapData.cuttableNotesCount;
+#endif
             if (totalNotes <= 0)
                 return 0f;
 

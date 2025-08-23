@@ -691,13 +691,29 @@ namespace BLPPCounter.Settings.SettingHandlers
             ClearMapTabs();
             TheCounter.theCounter = null;
             Task.Run(async () => {
+#if NEW_VERSION
+                await CompletedMap(HelpfulMisc.GetAcc(transition, results), transition.beatmapKey, transition.beatmapLevel);
+#else
                 await CompletedMap(HelpfulMisc.GetAcc(transition, results), transition.difficultyBeatmap);
+#endif
             });
         }
         /*private void FailedMap(StandardLevelScenesTransitionSetupDataSO transition, LevelCompletionResults results)
         {
             FinalMapData = default;
         }*/
+#if NEW_VERSION
+        private Task CompletedMap(float finalAcc, BeatmapKey diffData, BeatmapLevel levelData)
+        {
+            return CompletedMap(
+                finalAcc,
+                levelData.levelID.Split('_')[2],
+                levelData.songName,
+                diffData.difficulty,
+                diffData.beatmapCharacteristic.serializedName
+                );
+        }
+#else
         private Task CompletedMap(float finalAcc, IDifficultyBeatmap data)
         {
             return CompletedMap(
@@ -708,10 +724,11 @@ namespace BLPPCounter.Settings.SettingHandlers
                 data.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName
                 );
         }
+#endif
         private Task CompletedMap(float finalAcc, string hash, string mapName, BeatmapDifficulty diff, string mode = "Standard")
         {
             //finalAcc = 1.0f;
-            Plugin.Log.Info(HelpfulMisc.Print(new object[5] { finalAcc, hash, mapName, diff, mode }));
+            Plugin.Log.Info("Map completion info: " + HelpfulMisc.Print(new object[5] { finalAcc, hash, mapName, diff, mode }));
             if (float.IsNaN(finalAcc)) 
             {
                 TheCounter.LastMap = default;
@@ -736,14 +753,18 @@ namespace BLPPCounter.Settings.SettingHandlers
                 yield return new WaitForEndOfFrame();
                 if ((CaptureTab.IsVisible == IsBL) && (ProfileTab.IsVisible == ShowProfileTab)) 
                     yield break;
+#if NEW_VERSION
+                int currentTabNum = MainTabSelector.TextSegmentedControl.selectedCellNumber;
+#else
                 int currentTabNum = MainTabSelector.textSegmentedControl.selectedCellNumber;
+#endif
 
                 bool change = CaptureTab.IsVisible != IsBL;
                 bool keepPos = !change || !CurrentTab.Equals(CaptureTab.TabName);
                 if (change)
                 {
                     CaptureTab.IsVisible = IsBL;
-                    if (currentTabNum >= TabMapInfo.Keys.ToArray().IndexOf(CaptureTab.TabName))
+                    if (currentTabNum >= TabMapInfo.Keys.ToList().IndexOf(CaptureTab.TabName))
                         currentTabNum += IsBL ? 1 : -1;
                 }
 
@@ -752,7 +773,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 if (change)
                 {
                     ProfileTab.IsVisible = ShowProfileTab;
-                    if (currentTabNum >= TabMapInfo.Keys.ToArray().IndexOf(ProfileTab.TabName))
+                    if (currentTabNum >= TabMapInfo.Keys.ToList().IndexOf(ProfileTab.TabName))
                         currentTabNum += ShowProfileTab ? 1 : -1;
                 }
 

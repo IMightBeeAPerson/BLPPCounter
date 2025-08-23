@@ -54,7 +54,7 @@ namespace BLPPCounter
         private static bool dataLoaded = false, fullDisable = false, usingDefaultLeaderboard = false;
         internal static Leaderboards Leaderboard => usingDefaultLeaderboard ? pc.DefaultLeaderboard : pc.Leaderboard;
         internal static MapSelection LastMap;
-        internal static GameplayModifiers LastMods;
+        internal static GameplayModifiers LastMods = null;
         public static IMyCounters theCounter { get; internal set; }
         public static ReadOnlyDictionary<string, Type> StaticFunctions { get; private set; }
         public static ReadOnlyDictionary<string, Type> StaticProperties { get; private set; }
@@ -306,7 +306,7 @@ namespace BLPPCounter
             Task.Run(async () =>
             {
                 loading = true;
-                await AsyncCounterInit().ConfigureAwait(false);
+                await AsyncCounterInit();
                 loading = false;
             });
         }
@@ -480,7 +480,7 @@ namespace BLPPCounter
             if (!dataLoaded) ForceLoadMaps();
             if ((!Data.TryGetValue(hash, out Map m) || !m.GetModes().Contains(mode)))
             {
-                //Plugin.Log.Warn("Map not in cache, attempting API call to get map data...");
+                Plugin.Log.Warn("Map not in cache, attempting API call to get map data...");
                 await APIHandler.GetAPI(leaderboard).AddMap(Data, hash).ConfigureAwait(false);
                 m = Data[hash];
             }
@@ -842,18 +842,18 @@ namespace BLPPCounter
             }
             float multiplier = GetStarMultiplier(data, mods);
             ratings = new float[4];
-            ratings[0] = HelpfulPaths.GetRating(data, PPType.Star, mods.songSpeed);
-            ratings[1] = HelpfulPaths.GetRating(data, PPType.Acc, mods.songSpeed) * multiplier;
-            ratings[2] = HelpfulPaths.GetRating(data, PPType.Pass, mods.songSpeed) * multiplier;
-            ratings[3] = HelpfulPaths.GetRating(data, PPType.Tech, mods.songSpeed) * multiplier;
-            string mod = HelpfulMisc.GetModifierShortname(mods.songSpeed).ToUpper();
+            SongSpeed songSpeed = mods?.songSpeed ?? SongSpeed.Normal;
+            ratings[0] = HelpfulPaths.GetRating(data, PPType.Star, songSpeed);
+            ratings[1] = HelpfulPaths.GetRating(data, PPType.Acc, songSpeed) * multiplier;
+            ratings[2] = HelpfulPaths.GetRating(data, PPType.Pass, songSpeed) * multiplier;
+            ratings[3] = HelpfulPaths.GetRating(data, PPType.Tech, songSpeed) * multiplier;
+            string mod = HelpfulMisc.GetModifierShortname(songSpeed).ToUpper();
             if (!quiet) Plugin.Log.Info(mod.Length > 0 ? $"{mod} Stars: {ratings[0]}\n{mod} Acc Rating: {ratings[1]}\n{mod} Pass Rating: {ratings[2]}\n{mod} Tech Rating: {ratings[3]}" : $"Stars: {ratings[0]}\nAcc Rating: {ratings[1]}\nPass Rating: {ratings[2]}\nTech Rating: {ratings[3]}");
             return ratings[3] > 0;
         }
-        private float GetStarMultiplier(JToken data) => GetStarMultiplier(data, mods);
         public static float GetStarMultiplier(JToken data, GameplayModifiers mods)
         {
-            if (!Calculator.GetCalc(usingDefaultLeaderboard).UsesModifiers) return 1.0f;
+            if (!Calculator.GetCalc(usingDefaultLeaderboard).UsesModifiers || mods is null) return 1.0f;
             float outp = 1.0f;
             if (mods.ghostNotes) outp += HelpfulPaths.GetMultiAmount(data, "gn");
             if (mods.noArrows) outp += HelpfulPaths.GetMultiAmount(data, "na");
