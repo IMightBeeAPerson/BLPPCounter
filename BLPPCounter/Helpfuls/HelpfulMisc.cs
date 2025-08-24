@@ -616,11 +616,47 @@ namespace BLPPCounter.Helpfuls
         /// <returns>The value at <paramref name="endIndex"/> in <paramref name="arr"/>.</returns>
         public static T SiftDown<T>(T[] arr, int insertIndex, int endIndex, T value)
         {
-            if (arr.Length - 1 <= insertIndex || insertIndex < 0 || endIndex <= insertIndex || arr.Length < 2) return default;
+            if (arr.Length - 1 <= insertIndex || insertIndex < 0 || endIndex < insertIndex || arr.Length < 2) return default;
+            T outp;
+            if (endIndex == insertIndex)
+            {
+                outp = arr[insertIndex];
+                arr[insertIndex] = value;
+                return outp;
+            }
             if (endIndex >= arr.Length) endIndex = arr.Length - 1;
-            T outp = arr[endIndex];
+            outp = arr[endIndex];
             for (int i = endIndex; i > insertIndex; i--)
                 arr[i] = arr[i - 1];
+            arr[insertIndex] = value;
+            return outp;
+        }
+        /// <summary>
+        /// Inserts a value at <paramref name="insertIndex"/>, sifting all values at and below <paramref name="insertIndex"/> down until
+        /// <paramref name="endIndex"/> is reached, while also applying <paramref name="mult"/>. Once <paramref name="endIndex"/> is reached, the value there will be replaced,
+        /// with the original value being returned. This action does not change the size of <paramref name="arr"/>.
+        /// </summary>
+        /// <param name="arr">The array to preform this action on. The array must be of length 2 or greater.</param>
+        /// <param name="insertIndex">The index to insert the value at. Must be within the bounds of the array.</param>
+        /// <param name="endIndex">The index of the value that will be removed and returned. This value must be smaller than <paramref name="insertIndex"/>.
+        /// If this value is greater than the length of <paramref name="arr"/>, it will be set to the last index. No values after this index will be touched.</param>
+        /// <param name="value">The value to be inserted.</param>
+        /// <param name="mult">The mutliplier to apply to all values that get sifted down.</param>
+        /// <returns>The value at <paramref name="endIndex"/> in <paramref name="arr"/>.</returns>
+        public static float SiftDown(float[] arr, int insertIndex, int endIndex, float value, float mult)
+        {
+            if (arr.Length - 1 <= insertIndex || insertIndex < 0 || endIndex < insertIndex || arr.Length < 2) return default;
+            float outp;
+            if (endIndex == insertIndex)
+            {
+                outp = arr[insertIndex];
+                arr[insertIndex] = value;
+                return outp;
+            }
+            if (endIndex >= arr.Length) endIndex = arr.Length - 1;
+            outp = arr[endIndex];
+            for (int i = endIndex; i > insertIndex; i--)
+                arr[i] = arr[i - 1] * mult;
             arr[insertIndex] = value;
             return outp;
         }
@@ -883,7 +919,6 @@ namespace BLPPCounter.Helpfuls
                 return 0f;
 #endif
 
-
             // Get beatmap data (spawning objects like notes, bombs, walls)
 #if NEW_VERSION
             transitionData.beatmapLevel.beatmapBasicData.TryGetValue((transitionData.beatmapKey.beatmapCharacteristic, transitionData.beatmapKey.difficulty), out BeatmapBasicData beatmapData);
@@ -903,20 +938,36 @@ namespace BLPPCounter.Helpfuls
                 return 0f;
 
             // Use unmodified score (before multipliers) for accuracy
-            int rawScore = results.modifiedScore;
+            int rawScore = results.multipliedScore;
+            Plugin.Log.Info($"multipliedScore: {results.multipliedScore} || modifiedScore: {results.modifiedScore}");
 
             // Max possible score for this beatmap
             int maxScore = HelpfulMath.MaxScoreForNotes(totalNotes);
 
             return (float)rawScore / maxScore;
         }
-
-        /*float[] ConvertArr(double[] arr)
+        public static string FormatTime(this TimeSpan time)
         {
-            float[] outp = new float[arr.Length];
-            for (int i = 0; i < arr.Length; i++)
-                outp[i] = (float)arr[i];
-            return outp;
-        }*/
+            if (time.TotalMinutes < 1)
+            {
+                int seconds = (int)Math.Round(time.TotalSeconds);
+                return $"{seconds} second{(seconds == 1 ? "" : "s")} ago";
+            }
+            if (time.TotalHours < 1)
+            {
+                int minutes = (int)Math.Round(time.TotalMinutes);
+                return $"{minutes} minute{(minutes == 1 ? "" : "s")} ago";
+            }
+            int hours = (int)Math.Round(time.TotalHours);
+            return $"{hours} hour{(hours == 1 ? "" : "s")} ago";
+        }
+
+            /*float[] ConvertArr(double[] arr)
+            {
+                float[] outp = new float[arr.Length];
+                for (int i = 0; i < arr.Length; i++)
+                    outp[i] = (float)arr[i];
+                return outp;
+            }*/
     }
 }

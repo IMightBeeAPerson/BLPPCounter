@@ -35,24 +35,5 @@ namespace BLPPCounter.Utils.Misc_Classes
             Scores.Add(new Play(mapName, mapKey, diff, mode, (float)Math.Round(rawPp, PluginConfig.Instance.DecimalPrecision), profilePpGained, (float)Math.Round(oldPp, PluginConfig.Instance.DecimalPrecision)));
             Info.Add(new SessionListInfo(Scores.Last()));
         }
-
-        internal struct Play
-        {
-            public string MapName, MapKey, Mode;
-            public BeatmapDifficulty Difficulty;
-            public float Pp, ProfilePpGained, OldPp;
-            public bool IsImproved => OldPp > 0;
-
-            public Play(string mapName, string mapKey, BeatmapDifficulty difficulty, string mode, float pp, float profilePpGained, float oldPp = -1)
-            {
-                MapName = mapName;
-                MapKey = mapKey;
-                Difficulty = difficulty;
-                Mode = mode;
-                Pp = pp;
-                ProfilePpGained = profilePpGained;
-                OldPp = oldPp;
-            }
-        }
     }
 }

@@ -87,7 +87,7 @@ namespace BLPPCounter.Patches
             TabNames.Add(name);
             TabGotSelected.Add(name, TabSelected);
         }
-        public static bool GetIfTabIsSelected(string tab) => LastSelectedModTab.Equals(tab);
+        public static bool GetIfTabIsSelected(string tab) => tab?.Equals(LastSelectedModTab) ?? false;
         public static void AddToTabSelectedAction(string tab, Action toAdd)
         {
             if (!TabGotSelected.ContainsKey(tab)) return;

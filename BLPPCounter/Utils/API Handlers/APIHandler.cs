@@ -10,6 +10,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using BLPPCounter.Utils.Misc_Classes;
 
 namespace BLPPCounter.Utils.API_Handlers
 {
@@ -217,17 +218,17 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract float GetPP(JToken scoreData);
         public abstract int GetScore(JToken scoreData);
         public abstract Task<float[]> GetScoregraph(MapSelection ms);
-        public abstract Task<(string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId)[]> GetScores(string userId, int count);
-        protected async Task<(string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId)[]> GetScores(
+        public abstract Task<Play[]> GetScores(string userId, int count);
+        protected async Task<Play[]> GetScores(
         string userId, int count, string apiPathFormat, string scoreArrayPath,
-        Func<JToken, (string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId)> tokenSelector,
-        Func<(string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId), string, ((string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId) Data, string ExtraOutp)> replaceSelector,
+        Func<JToken, Play> tokenSelector,
+        Func<Play, string, (Play Data, string ExtraOutp)> replaceSelector,
         Throttler throttler = null, params string[] jsonPath)
         {
             const int MaxCountToPage = 100, maxConcurrency = 5;
             int totalPages = (int)Math.Ceiling(count / (double)MaxCountToPage);
             var semaphore = new SemaphoreSlim(maxConcurrency);
-            var pageTasks = new List<Task<(int PageIndex, (string, BeatmapDifficulty, float, string)[])>>();
+            var pageTasks = new List<Task<(int PageIndex, Play[])>>();
 
             for (int pageNum = 1; pageNum <= totalPages; pageNum++)
             {
@@ -242,11 +243,11 @@ namespace BLPPCounter.Utils.API_Handlers
                     {
                         string apiPath = string.Format(apiPathFormat, userId, localPageNum, pageCount);
                         var response = await CallAPI_Static(apiPath, throttler: throttler);
-                        if (!response.Success) return (localPageNum, Array.Empty<(string, BeatmapDifficulty, float, string)>());
+                        if (!response.Success) return (localPageNum, Array.Empty<Play>());
 
                         List<JToken> dataTokens = JToken.Parse(await response.Content.ReadAsStringAsync().ConfigureAwait(false))?[scoreArrayPath]?.Children().ToList();
                         if (dataTokens == null || dataTokens.Count == 0)
-                            return (localPageNum, Array.Empty<(string, BeatmapDifficulty, float, string)>());
+                            return (localPageNum, Array.Empty<Play>());
 
                         var current = dataTokens.Select(tokenSelector).ToArray();
 

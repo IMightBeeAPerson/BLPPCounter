@@ -26,7 +26,7 @@ namespace BLPPCounter.Utils.Misc_Classes
             return new Releaser(_semaphore);
         }
 
-        public struct Releaser : IDisposable
+        public readonly struct Releaser : IDisposable
         {
             private readonly SemaphoreSlim _semaphore;
             internal Releaser(SemaphoreSlim semaphore) => _semaphore = semaphore;

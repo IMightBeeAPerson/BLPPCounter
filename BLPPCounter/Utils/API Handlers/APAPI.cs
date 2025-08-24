@@ -1,5 +1,6 @@
 ﻿using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
+using BLPPCounter.Utils.Misc_Classes;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -15,6 +16,8 @@ namespace BLPPCounter.Utils.API_Handlers
     {
         private static readonly Throttler Throttle = new Throttler(400, 60);
         internal static APAPI Instance { get; private set; } = new APAPI();
+        private static readonly HashSet<int> UnrankedIds = new HashSet<int>();
+        private static readonly HashSet<string> UnrankedHashes = new HashSet<string>();
         private APAPI() { }
         public override string API_HASH => HelpfulPaths.SSAPI_DIFFS;
         public override Task<(bool, HttpContent)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3)
@@ -53,7 +56,7 @@ namespace BLPPCounter.Utils.API_Handlers
             return APCalc.Instance.GetPp(acc, complexity)[0];
         }
         public override int GetScore(JToken scoreData) => (int)scoreData["baseScore"];
-        public override Task<(string, BeatmapDifficulty, float, string)[]> GetScores(string userId, int count)
+        public override Task<Play[]> GetScores(string userId, int count)
         {
             return null;
         }
@@ -62,37 +65,43 @@ namespace BLPPCounter.Utils.API_Handlers
             return (float)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_PLAYERID, userId)).ConfigureAwait(false))?["ap"];
         }
         public override Task<float[]> GetScoregraph(MapSelection ms) => SSAPI.Instance.GetScoregraph(ms);
-        internal override Task AddMap(Dictionary<string, Map> Data, string hash)
+        internal override async Task AddMap(Dictionary<string, Map> Data, string hash)
         {
-            //For now imma just assume that all accsaber maps are loaded by Taoh's file.
-            return Task.CompletedTask;
-            /*try
+            try
             {
+                if (UnrankedHashes.Contains(hash)) return;
                 JEnumerable<JToken> diffs = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_DIFFS, hash)).ConfigureAwait(false)).Children();
-                Stack<int> ids = new Stack<int>(diffs.Count());
+                bool anyRanked = false;
+                List<int> unrankedIdsToAdd = new List<int>();
                 foreach (JToken diff in diffs)
-                    ids.Push((int)diff["leaderboardId"]);
-                while (ids.Count > 0)
                 {
-                    string songId = ids.Pop().ToString();
+                    int songId = (int)diff["leaderboardId"];
+                    if (UnrankedIds.Contains(songId)) continue;
                     string mapInfoStr = await CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, songId)).ConfigureAwait(false);
                     if (mapInfoStr is null)
                     {
-                        Plugin.Log.Debug($"The map (id {songId}) was not found to be ranked.");
+                        //Plugin.Log.Warn($"AP map \"{mapInfo["songName"]}\" (id {mapInfo["id"]}) cannot be added to cache as it is not ranked.");
+                        unrankedIdsToAdd.Add(songId);
                         continue;
                     }
                     JToken mapInfo = JToken.Parse(mapInfoStr);
-                    Map map = Map.ConvertAPToTaoh(hash, songId, mapInfo);
+                    Map map = Map.ConvertAPToTaoh(hash, songId.ToString(), mapInfo);
                     if (Data.ContainsKey(hash))
                         Data[hash].Combine(map);
                     else Data[hash] = map;
+                    anyRanked = true;
                 }
+                if (!anyRanked)
+                    UnrankedHashes.Add(hash);
+                else if (unrankedIdsToAdd.Count > 0)
+                    foreach (int id in unrankedIdsToAdd)
+                        UnrankedIds.Add(id);
             }
             catch (Exception e)
             {
                 Plugin.Log.Warn("Error adding AP map to cache: " + e.Message);
                 Plugin.Log.Debug(e);
-            }*/
+            }
         }
     }
 }

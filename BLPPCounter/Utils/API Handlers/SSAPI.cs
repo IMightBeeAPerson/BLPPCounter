@@ -1,5 +1,6 @@
 ﻿using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
+using BLPPCounter.Utils.Misc_Classes;
 using IPA.Config.Data;
 using Newtonsoft.Json.Linq;
 using System;
@@ -76,24 +77,25 @@ namespace BLPPCounter.Utils.API_Handlers
         }
         public override float GetPP(JToken scoreData) => (float)scoreData["pp"];
         public override int GetScore(JToken scoreData) => (int)scoreData["modifiedScore"];
-        public override async Task<(string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId)[]> GetScores(string userId, int count)
+        public override async Task<Play[]> GetScores(string userId, int count)
         {
             return await GetScores(
                 userId,
                 count,
                 HelpfulPaths.SSAPI_PLAYERSCORES,
                 "playerScores",
-                token => (
+                token => new Play(
                     token["leaderboard"]["songName"].ToString(),
+                    token["leaderboard"]["songHash"].ToString(),
                     Map.FromValue((int)token["leaderboard"]["difficulty"]["difficulty"]),
-                    (float)token["score"]["pp"],
-                    token["leaderboard"]["songHash"].ToString()
+                    token["leaderboard"]["difficulty"]["gameMode"].ToString().Replace("Solo", ""),
+                    (float)token["score"]["pp"]
                 ),
                 (data, repData) =>
                 {
-                    if (repData is null || repData.Equals(string.Empty)) return (data, data.MapId);
-                    data.MapId = repData;
-                    return (data, data.MapId);
+                    if (repData is null || repData.Equals(string.Empty)) return (data, data.MapKey);
+                    data.MapKey = repData;
+                    return (data, data.MapKey);
                 },
                 Throttle,
                 "id"

@@ -2,6 +2,7 @@
 using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
+using BLPPCounter.Utils.Misc_Classes;
 using IPA.Config.Data;
 using Newtonsoft.Json.Linq;
 using System;
@@ -98,7 +99,7 @@ namespace BLPPCounter.Utils.API_Handlers
                 (float)Math.Round(BLCalc.Instance.Inflate(BLCalc.Instance.GetSummedPp((int)a["modifiedScore"] / maxScore, acc, pass, tech)), PluginConfig.Instance.DecimalPrecision)).ToArray();
             }
         }
-        public override async Task<(string MapName, BeatmapDifficulty Difficulty, float RawPP, string MapId)[]> GetScores(string userId, int count)
+        public override async Task<Play[]> GetScores(string userId, int count)
         {
             return await GetScores(
                 userId,
@@ -109,11 +110,12 @@ namespace BLPPCounter.Utils.API_Handlers
                 {
                     string mapID = token["leaderboard"]["id"].ToString();
                     string cleanMapId = CleanUpId(mapID);
-                    return (
+                    return new Play(
                         token["leaderboard"]["songHash"].ToString(),
+                        cleanMapId,
                         Map.FromValue((int)token["leaderboard"]["difficulty"]),
-                        (float)token["score"]["pp"],
-                        cleanMapId
+                        token["leaderboard"]["modeName"].ToString(),
+                        (float)token["score"]["pp"]
                     );
                 },
                 (data, repData) =>

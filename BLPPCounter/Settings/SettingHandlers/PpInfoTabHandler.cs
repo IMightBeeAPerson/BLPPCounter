@@ -348,6 +348,8 @@ namespace BLPPCounter.Settings.SettingHandlers
             using (theLock.Value)
             {
                 ReloadDataButton.interactable = false;
+                if (CurrentProfile is null)
+                    UpdateProfile();
                 CurrentProfile.ReloadScores();
                 await Refresh(true).ConfigureAwait(false);
                 ReloadDataButton.interactable = true;
@@ -392,6 +394,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction("#ShowPlayTable")] private void ShowPlayTable()
         {
             IsPlayTableOpen = true;
+            if (CurrentProfile is null)
+                UpdateProfile();
             Table theTable = CurrentProfile.PlayTable;
             if (theTable is null)
             {
@@ -422,7 +426,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 SessionTable.data = SessionTable_Infos;
                 SessionTable.tableView.ReloadData();
 #endif
-                (SessionWindow.transform as RectTransform).sizeDelta = new Vector2(100, 50);
+                (SessionWindow.transform as RectTransform).sizeDelta = new Vector2(120, 50);
             }
             CoroutineHost.Start(WaitThenUpdate());
         }
@@ -494,6 +498,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 
         private async Task<float> UpdateTargetPP()
         {
+            if (Sldvc is null) return 0f;
 #if NEW_VERSION
             CurrentMap = Sldvc.beatmapKey; // 1.37.0 and above
 #else
@@ -908,7 +913,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && (Sldvc?.beatmapKey.Equals(CurrentMap) ?? false))) return; // 1.37.0 and above
 
 #else
-            if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && (Sldvc?.selectedDifficultyBeatmap.Equals(CurrentMap) ?? false))) return; // 1.34.2 and below
+            if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && (Sldvc?.selectedDifficultyBeatmap?.Equals(CurrentMap) ?? false))) return; // 1.34.2 and below
 
 #endif
             AsyncLock.Releaser? theLock = await RefreshLock.TryLockAsync().ConfigureAwait(false);

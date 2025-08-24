@@ -24,6 +24,7 @@ namespace BLPPCounter.Utils
     {
 #pragma warning disable IDE0051
         #region Static Variables
+        public static readonly string DEFAULT_MODE = "Standard";
         private static readonly float[] AccsaberConsts;
         private static readonly Dictionary<string, Profile> LoadedProfiles = new Dictionary<string, Profile>();
         internal static TextMeshProUGUI TextContainer 
@@ -44,16 +45,21 @@ namespace BLPPCounter.Utils
         #region Variables
         [JsonIgnore] private const int PlaysToShow = 10;
         [JsonIgnore] private string ID => UserID + "_" + (int)Leaderboard;
+
+        [JsonIgnore] private BeatmapDifficulty[] ActualScoreDiffs;
+        [JsonIgnore] private float[] WeightedScores;
+        [JsonIgnore] private HashSet<int> UnusualModeIndexes;
+
         [JsonProperty(nameof(Leaderboard), Required = Required.DisallowNull)] private readonly Leaderboards Leaderboard;
         [JsonProperty(nameof(Scores), Required = Required.DisallowNull)] private float[] Scores;
         [JsonProperty(nameof(ScoreNames), Required = Required.DisallowNull)] private string[] ScoreNames;
         [JsonProperty(nameof(ScoreDiffs), Required = Required.DisallowNull)] private ulong[] ScoreDiffs;
-        [JsonIgnore] private BeatmapDifficulty[] ActualScoreDiffs;
         [JsonProperty(nameof(ScoreIDs), Required = Required.DisallowNull)] private string[] ScoreIDs;
-        [JsonIgnore] private float[] WeightedScores;
+        [JsonProperty(nameof(UnusualModes), Required = Required.DisallowNull)] private List<(int Index, string Mode)> UnusualModes; //Defaults to "Standard" if not in this list.
         [JsonProperty(nameof(TotalPP), Required = Required.DisallowNull)] private float TotalPP = -1.0f;
         [JsonProperty(nameof(UserID), Required = Required.DisallowNull)] private readonly string UserID;
         [JsonProperty(nameof(PlusOne), Required = Required.DisallowNull)] public float PlusOne { get; private set; } = -1.0f;
+
         [JsonIgnore] public Table PlayTable { get; private set; }
         [JsonIgnore] private int PageNumber;
         [JsonIgnore] public Session CurrentSession { get; private set; }
@@ -81,7 +87,9 @@ namespace BLPPCounter.Utils
             if (TotalPP < 0)
             {
                 APIHandler api = APIHandler.GetAPI(Leaderboard);
-                var scoreData = api.GetScores(UserID, GetPlusOneCount())?.Result;
+                Play[] scoreData = api.GetScores(UserID, GetPlusOneCount())?.GetAwaiter().GetResult();
+                UnusualModeIndexes = new HashSet<int>();
+                UnusualModes = new List<(int Index, string Mode)>();
                 if (scoreData is null)
                 {
                     Scores = new float[1] { 0.0f };
@@ -92,11 +100,23 @@ namespace BLPPCounter.Utils
                 }
                 else
                 {
-                    Scores = scoreData.Select(token => token.RawPP).ToArray();
-                    ScoreNames = scoreData.Select(token => token.MapName).ToArray();
-                    ActualScoreDiffs = scoreData.Select(token => token.Difficulty).ToArray();
+                    Scores = new float[scoreData.Length];
+                    ScoreNames = new string[scoreData.Length];
+                    ActualScoreDiffs = new BeatmapDifficulty[scoreData.Length];
+                    ScoreIDs = new string[scoreData.Length];
+                    for (int i = 0; i < scoreData.Length; i++)
+                    {
+                        Scores[i] = scoreData[i].Pp;
+                        ScoreNames[i] = scoreData[i].MapName;
+                        ActualScoreDiffs[i] = scoreData[i].Difficulty;
+                        ScoreIDs[i] = scoreData[i].MapKey;
+                        if (!scoreData[i].Mode.Equals(DEFAULT_MODE))
+                        {
+                            UnusualModes.Add((i, scoreData[i].Mode));
+                            UnusualModeIndexes.Add(i);
+                        }
+                    }
                     ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
-                    ScoreIDs = scoreData.Select(token => token.MapId).ToArray();
                 }
                 TotalPP = api.GetProfilePP(UserID).Result;
                 if (CurrentSession is null) CurrentSession = new Session(Leaderboard, UserID, TotalPP);
@@ -112,9 +132,13 @@ namespace BLPPCounter.Utils
             {
                 ActualScoreDiffs = HelpfulMisc.UncompressEnums<BeatmapDifficulty>(ScoreDiffs);
                 if (ActualScoreDiffs.Length != Scores.Length) throw new Exception($"ScoreDiffs array length does not equal the Scores array length\nActualScoreDiffs length: {ActualScoreDiffs.Length} || Scores Length: {Scores.Length}");
+                if (UnusualModes is null) throw new Exception($"Modes are not found! (UnusualModes is null)");
+                UnusualModeIndexes = new HashSet<int>(UnusualModes.Count);
+                foreach ((int i, _) in UnusualModes)
+                    UnusualModeIndexes.Add(i);
                 WeightScores();
                 if (CurrentSession is null) CurrentSession = new Session(Leaderboard, UserID, TotalPP);
-                //CurrentSession.AddPlay(ScoreNames[0], ScoreIDs[0], ActualScoreDiffs[0], "Standard", Scores[0], 20f);
+                //CurrentSession.AddPlay(ScoreNames[0], ScoreIDs[0], ActualScoreDiffs[0], "Standard", Scores[0], 20f); //For debugging
             }
             catch (Exception e)
             {
@@ -347,6 +371,14 @@ namespace BLPPCounter.Utils
                     Calculator calc = Calculator.GetCalc(current);
                     float[] ratings = calc.SelectRatings(TheCounter.GetDifficulty(await TheCounter.GetMap(hash, currentMode, current).ConfigureAwait(false), mapDiff, current, currentMode, mods, true));
                     goodScore |= GetProfile(current, userID).AddPlay(calc.Inflate(calc.GetSummedPp(acc, ratings)), mapName, mapKey, mapDiff, mode);
+                    /*try
+                    {
+                        goodScore |= GetProfile(current, userID).AddPlay(calc.Inflate(calc.GetSummedPp(acc, ratings)), mapName, mapKey, mapDiff, mode);
+                    }
+                    catch (Exception e)
+                    {
+                        Plugin.Log.Error($"There was an issue adding play for leaderboard {current}!\n{e}");
+                    }*/
                 }
                 currentNum <<= 1;
             }
@@ -368,6 +400,13 @@ namespace BLPPCounter.Utils
         {
             PageNumber = 1;
             ReloadTableValues();
+        }
+        private string GetMode(int index)
+        {
+            if (index < 0 || index > Scores.Length) throw new ArgumentOutOfRangeException("index");
+            if (!UnusualModeIndexes.Contains(index)) return DEFAULT_MODE;
+            var (Index, Mode) = UnusualModes.FirstOrDefault(vals => vals.Index >= index);
+            return Index == index ? Mode : null;
         }
         /// <summary>
         /// Given the <paramref name="scoreNum"/> (NOT zero indexed, starts at 1), returns what weight that score will have.
@@ -531,31 +570,46 @@ namespace BLPPCounter.Utils
             //Plugin.Log.Debug($"Recieved score: " + rawPP);
             int index = HelpfulMisc.ReverseBinarySearch(Scores, rawPP);
             //Plugin.Log.Debug("AddPlay Index: " +  index);
-            if (index >= Scores.Length || CheckForDupePlay(rawPP, mapKey, diff)) return false;
+            (bool isDupe, bool isBetter) = CheckForDupePlay(rawPP, mapKey, diff, mode, out int dupeIndex);
+            if (index >= Scores.Length || (isDupe && !isBetter)) return false;
             float profilePP = GetProfilePP(GetWeightedPP(rawPP), WeightedScores, index + 1);
             int oldScoreIndex = ScoreIDs.IndexOf(mapKey);
             CurrentSession.AddPlay(mapName, mapKey, diff, mode, rawPP, profilePP, oldScoreIndex > -1 ? Scores[oldScoreIndex] : -1);
             if (profilePP > 0) TotalPP += profilePP;
-            HelpfulMisc.SiftDown(Scores, index, rawPP);
-            HelpfulMisc.SiftDown(ScoreNames, index, mapName);
-            HelpfulMisc.SiftDown(ActualScoreDiffs, index, diff);
-            HelpfulMisc.SiftDown(ScoreIDs, index, mapKey);
-            HelpfulMisc.SiftDown(WeightedScores, index, GetWeight(index + 1) * rawPP, GetWeight(2));
+            if (isDupe)
+            {
+                HelpfulMisc.SiftDown(Scores, index, dupeIndex, rawPP);
+                HelpfulMisc.SiftDown(ScoreNames, index, dupeIndex, mapName);
+                HelpfulMisc.SiftDown(ActualScoreDiffs, index, dupeIndex, diff);
+                HelpfulMisc.SiftDown(ScoreIDs, index, dupeIndex, mapKey);
+                HelpfulMisc.SiftDown(WeightedScores, index, dupeIndex, GetWeight(index + 1) * rawPP, GetWeight(2));
+            }
+            else
+            {
+                HelpfulMisc.SiftDown(Scores, index, rawPP);
+                HelpfulMisc.SiftDown(ScoreNames, index, mapName);
+                HelpfulMisc.SiftDown(ActualScoreDiffs, index, diff);
+                HelpfulMisc.SiftDown(ScoreIDs, index, mapKey);
+                HelpfulMisc.SiftDown(WeightedScores, index, GetWeight(index + 1) * rawPP, GetWeight(2));
+            }
             PlusOne = CalculatePlusOne();
-            ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
+            if (index != dupeIndex)
+                ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
             ReloadTableValues();
             return true;
         }
-        private bool CheckForDupePlay(float rawPP, string mapKey, BeatmapDifficulty diff)
+        private (bool IsDupe, bool IsBetter) CheckForDupePlay(float rawPP, string mapKey, BeatmapDifficulty diff, string mode, out int dupeIndex)
         {
             int index = Array.IndexOf(ScoreIDs, mapKey);
             while (index >= 0 && index + 1 < ScoreIDs.Length)
             {
                 //Plugin.Log.Info($"Checking index {index} ({mapKey})");
-                if (ActualScoreDiffs[index] == diff && rawPP < Scores[index]) return true;
+                dupeIndex = index;
+                if (ActualScoreDiffs[index] == diff && mode.Equals(GetMode(index))) return (true, rawPP > Scores[index]);
                 index = Array.IndexOf(ScoreIDs, mapKey, index + 1);
             }
-            return false;
+            dupeIndex = -1;
+            return (false, false);
         }
         #endregion
     }

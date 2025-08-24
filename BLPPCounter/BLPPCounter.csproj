@@ -212,6 +212,7 @@
     <Compile Include="Utils\Misc Classes\AsyncLock.cs" />
     <Compile Include="Utils\Misc Classes\CoroutineHost.cs" />
     <Compile Include="Utils\Misc Classes\ExtraBypasses.cs" />
+    <Compile Include="Utils\Misc Classes\Play.cs" />
     <Compile Include="Utils\Misc Classes\Session.cs" />
     <Compile Include="Utils\Serializable Classes\Profile.cs" />
     <Compile Include="Utils\Special Utils\FilledList.cs" />
