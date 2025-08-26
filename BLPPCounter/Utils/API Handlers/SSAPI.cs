@@ -1,5 +1,6 @@
 ﻿using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
+using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.Misc_Classes;
 using IPA.Config.Data;
 using Newtonsoft.Json.Linq;
@@ -15,7 +16,7 @@ namespace BLPPCounter.Utils.API_Handlers
 {
     internal class SSAPI : APIHandler
     {
-        private static readonly Throttler Throttle = new Throttler(50, 10);
+        internal static readonly Throttler Throttle = new Throttler(50, 10);
         internal static SSAPI Instance { get; private set; } = new SSAPI();
         private SSAPI() { }
         private readonly HashSet<int> UnrankedIds = new HashSet<int>();
@@ -84,6 +85,7 @@ namespace BLPPCounter.Utils.API_Handlers
                 count,
                 HelpfulPaths.SSAPI_PLAYERSCORES,
                 "playerScores",
+                false,
                 token => new Play(
                     token["leaderboard"]["songName"].ToString(),
                     token["leaderboard"]["songHash"].ToString(),
@@ -91,13 +93,13 @@ namespace BLPPCounter.Utils.API_Handlers
                     token["leaderboard"]["difficulty"]["gameMode"].ToString().Replace("Solo", ""),
                     (float)token["score"]["pp"]
                 ),
+                Throttle,
                 (data, repData) =>
                 {
                     if (repData is null || repData.Equals(string.Empty)) return (data, data.MapKey);
                     data.MapKey = repData;
                     return (data, data.MapKey);
                 },
-                Throttle,
                 "id"
             ).ConfigureAwait(false);
         }

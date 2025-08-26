@@ -106,6 +106,7 @@ namespace BLPPCounter.Utils.API_Handlers
                 count,
                 HelpfulPaths.BLAPI_PLAYERSCORES,
                 "data",
+                false,
                 token =>
                 {
                     string mapID = token["leaderboard"]["id"].ToString();
@@ -118,13 +119,13 @@ namespace BLPPCounter.Utils.API_Handlers
                         (float)token["score"]["pp"]
                     );
                 },
+                Throttle,
                 (data, repData) =>
                 {
                     if (repData is null || repData.Equals(string.Empty)) return (data, data.MapName);
                     data.MapName = repData;
                     return (data, data.MapName);
                 },
-                Throttle,
                 "metadata", "songName"
             ).ConfigureAwait(false);
         }

@@ -108,7 +108,7 @@
   </tab>
 
   <tab id='ProfileTab' tags='tabs' tab-name='Profile'>
-    <vertical spacing='1' vertical-fit='PreferredSize' pref-height='40' anchor-pos-y='0' horizontal-fit='PreferredSize' pref-width='80' child-expand-height='false'>
+    <vertical spacing='1' vertical-fit='PreferredSize' pref-height='50' anchor-pos-y='-3' horizontal-fit='PreferredSize' pref-width='80' child-expand-height='false'>
       <horizontal>
         <text text='+1 pp' align='Left'/>
         <text id='PlusOneText' text='-1 pp' align='Right'/>
@@ -122,6 +122,7 @@
         <button text='Show Top Plays' click-event='ShowPlayTable' align='Left'/>
         <button text='Show Session' click-event='ShowSessionTable' align='Right'/>
       </horizontal>
+      <dropdown-list-setting id='AccSaberSetting' active='false' text='AP Type' apply-on-change='true' options='APCategorySettings' value='APSetting' hover-hint='Which AccSaber Category to use'/>
       <modal id='PlayTableModal' show-event='ShowPlayTable' hide-event='HidePlayTable' click-off-closes='true' move-to-center='true'>
         <vertical child-expand-height='false' child-expand-width='false' bg='round-rect-panel' bg-color='#CCC'>
           <text id='PlayTable' text='' align='Center' font-size='3.5'/>

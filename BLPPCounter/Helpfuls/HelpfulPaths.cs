@@ -51,9 +51,14 @@ namespace BLPPCounter.Helpfuls
         public static readonly string SSAPI_LEADERBOARDID = "https://scoresaber.com/api/leaderboard/by-id/{0}/{1}"; //leaderboard_id, either "info" or "scores"
         public static readonly string SSAPI_PLAYERSCORES = "https://scoresaber.com/api/player/{0}/scores?limit={2}&sort=top&page={1}"; //user_id, page, count
 
-        public static readonly string APAPI = "https://api.accsaber.com/"; //No documentation here, doc at https://github.com/accsaber/accsaber-plugin/blob/main/EndpointResearch/ENDPOINTS.md
+        //No documentation here, doc at https://github.com/accsaber/accsaber-plugin/blob/main/EndpointResearch/ENDPOINTS.md
+        //Or find it yourself here: https://github.com/accsaber/accsaber-backend/blob/main/accsaber-api/src/main/kotlin/de/ixsen/accsaber/api/controllers/PlayerController.kt
+        public static readonly string APAPI = "https://api.accsaber.com/"; 
         public static readonly string APAPI_LEADERBOARDID = "https://api.accsaber.com/ranked-maps/{0}"; //Scoresaber_id
         public static readonly string APAPI_PLAYERID = "https://api.accsaber.com/players/{0}"; //user_id
+        public static readonly string APAPI_SCORES = "https://api.accsaber.com/players/{0}/scores?page={1}&pageSize={2}"; //user_id, page, count
+        public static readonly string APAPI_CATEGORY_SCORES = "https://api.accsaber.com/players/{0}/{1}/scores"; //user_id, accsaber category (true, standard, tech)
+        public static readonly string APAPI_RECENT_SCORE = "https://api.accsaber.com/players/{0}/recent-scores?pageSize=1"; //user_id
 
         public static readonly string BSAPI = "https://api.beatsaver.com/";
         public static readonly string BSAPI_MAPID = "https://api.beatsaver.com/maps/id/{0}";

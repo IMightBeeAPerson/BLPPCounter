@@ -1,5 +1,6 @@
 ﻿using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
+using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.Misc_Classes;
 using Newtonsoft.Json.Linq;
 using System;
@@ -56,13 +57,42 @@ namespace BLPPCounter.Utils.API_Handlers
             return APCalc.Instance.GetPp(acc, complexity)[0];
         }
         public override int GetScore(JToken scoreData) => (int)scoreData["baseScore"];
-        public override Task<Play[]> GetScores(string userId, int count)
+        private Task<Play[]> GetScores(string userId, int count, string path)
         {
-            return null;
+            return GetScores(
+                userId,
+                count,
+                path,
+                null,
+                true,
+                token =>
+                {
+                    string beatmapDiff = token["difficulty"].ToString().Replace("plus", "Plus");
+                    beatmapDiff = char.ToUpper(beatmapDiff[0]) + beatmapDiff.Substring(1);
+                    return new Play(
+                    token["songName"].ToString(),
+                    token["beatsaverKey"].ToString(),
+                    (BeatmapDifficulty)Enum.Parse(typeof(BeatmapDifficulty), beatmapDiff),
+                    Profile.DEFAULT_MODE,
+                    (float)token["ap"]
+                    )
+                    {
+                        AccSaberCategory = (APCategory)Enum.Parse(typeof(APCategory), token["categoryDisplayName"].ToString().Split(' ')[0])
+                    };
+                },
+                Throttle
+                );
         }
+        public override Task<Play[]> GetScores(string userId, int count) => GetScores(userId, count, HelpfulPaths.APAPI_SCORES);
+        public Task<Play[]> GetScores(string userId, int count, APCategory accSaberType) =>
+            GetScores(userId, count, HelpfulPaths.APAPI_CATEGORY_SCORES.Replace("{1}", accSaberType.ToString().ToLower()));
         public override async Task<float> GetProfilePP(string userId)
         {
             return (float)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_PLAYERID, userId)).ConfigureAwait(false))?["ap"];
+        }
+        public async Task<float> GetProfilePP(string userId, APCategory accSaberType)
+        {
+            return (float)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_PLAYERID, userId) + "/" + accSaberType.ToString().ToLower()).ConfigureAwait(false))?["ap"];
         }
         public override Task<float[]> GetScoregraph(MapSelection ms) => SSAPI.Instance.GetScoregraph(ms);
         internal override async Task AddMap(Dictionary<string, Map> Data, string hash)

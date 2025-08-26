@@ -11,6 +11,8 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using BLPPCounter.Utils.Misc_Classes;
+using BLPPCounter.Utils.Enums;
+using ModestTree;
 
 namespace BLPPCounter.Utils.API_Handlers
 {
@@ -220,20 +222,23 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract Task<float[]> GetScoregraph(MapSelection ms);
         public abstract Task<Play[]> GetScores(string userId, int count);
         protected async Task<Play[]> GetScores(
-        string userId, int count, string apiPathFormat, string scoreArrayPath,
-        Func<JToken, Play> tokenSelector,
-        Func<Play, string, (Play Data, string ExtraOutp)> replaceSelector,
-        Throttler throttler = null, params string[] jsonPath)
+        string userId, int count, string apiPathFormat, string scoreArrayPath, bool isZeroIndexed,
+        Func<JToken, Play> tokenSelector, Throttler throttler = null,
+        Func<Play, string, (Play Data, string ExtraOutp)> replaceSelector = null,
+        params string[] jsonPath)
         {
             const int MaxCountToPage = 100, maxConcurrency = 5;
             int totalPages = (int)Math.Ceiling(count / (double)MaxCountToPage);
+            if (isZeroIndexed) totalPages--;
             var semaphore = new SemaphoreSlim(maxConcurrency);
             var pageTasks = new List<Task<(int PageIndex, Play[])>>();
+            bool usesPages = apiPathFormat.Contains("{1}");
 
-            for (int pageNum = 1; pageNum <= totalPages; pageNum++)
+            for (int pageNum = isZeroIndexed ? 0 : 1; pageNum <= totalPages; pageNum++)
             {
+                if (!usesPages) pageNum = totalPages;
                 int localPageNum = pageNum; //For async issues.
-                int startIndex = (localPageNum - 1) * MaxCountToPage;
+                int startIndex = (localPageNum - (isZeroIndexed ? 0 : 1)) * MaxCountToPage;
                 int pageCount = Math.Min(MaxCountToPage, count - startIndex);
 
                 pageTasks.Add(Task.Run(async () =>
@@ -241,21 +246,29 @@ namespace BLPPCounter.Utils.API_Handlers
                     await semaphore.WaitAsync();
                     try
                     {
-                        string apiPath = string.Format(apiPathFormat, userId, localPageNum, pageCount);
+                        string apiPath = usesPages ? string.Format(apiPathFormat, userId, localPageNum, pageCount) : string.Format(apiPathFormat, userId);
                         var response = await CallAPI_Static(apiPath, throttler: throttler);
                         if (!response.Success) return (localPageNum, Array.Empty<Play>());
 
-                        List<JToken> dataTokens = JToken.Parse(await response.Content.ReadAsStringAsync().ConfigureAwait(false))?[scoreArrayPath]?.Children().ToList();
-                        if (dataTokens == null || dataTokens.Count == 0)
+                        string dataTokensStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        if (dataTokensStr is null)
                             return (localPageNum, Array.Empty<Play>());
+                        IEnumerable<JToken> dataTokens = (scoreArrayPath is null ? JToken.Parse(dataTokensStr) : JToken.Parse(dataTokensStr)[scoreArrayPath])?.Children();
+                        if (dataTokens == null || dataTokens.IsEmpty())
+                            return (localPageNum, Array.Empty<Play>());
+                        if (!usesPages && dataTokens.Count() > count)
+                            dataTokens = dataTokens.Take(count);
 
-                        var current = dataTokens.Select(tokenSelector).ToArray();
+                        Play[] current = dataTokens.Select(tokenSelector).ToArray();
 
-                        string[] mapHashes = current.Select(data => replaceSelector.Invoke(data, "").ExtraOutp).ToArray();
-                        string[] names = await GetBSData(mapHashes, path: jsonPath);
+                        if (!(replaceSelector is null))
+                        {
+                            string[] mapHashes = current.Select(data => replaceSelector.Invoke(data, "").ExtraOutp).ToArray();
+                            string[] names = await GetBSData(mapHashes, path: jsonPath);
 
-                        for (int i = 0; i < current.Length; i++)
-                            current[i] = replaceSelector.Invoke(current[i], names[i]).Data;
+                            for (int i = 0; i < current.Length; i++)
+                                current[i] = replaceSelector.Invoke(current[i], names[i]).Data;
+                        }
 
                         return (localPageNum, current);
                     }
@@ -268,7 +281,7 @@ namespace BLPPCounter.Utils.API_Handlers
 
             var results = await Task.WhenAll(pageTasks).ConfigureAwait(false);
 
-            var orderedResults = results
+            Play[] orderedResults = results
                 .OrderBy(r => r.PageIndex)
                 .SelectMany(r => r.Item2)
                 .ToArray();

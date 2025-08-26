@@ -4,6 +4,7 @@ using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers;
 using BLPPCounter.Utils.API_Handlers;
+using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.Misc_Classes;
 using IPA.Config.Data;
 using ModestTree;
@@ -13,6 +14,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using TMPro;
@@ -44,17 +46,21 @@ namespace BLPPCounter.Utils
         #endregion
         #region Variables
         [JsonIgnore] private const int PlaysToShow = 10;
-        [JsonIgnore] private string ID => UserID + "_" + (int)Leaderboard;
+        [JsonIgnore] private string ID => GetID(Leaderboard, UserID, AccSaberType);
+        [JsonIgnore] private bool IsAP => AccSaberType == APCategory.All;
 
         [JsonIgnore] private BeatmapDifficulty[] ActualScoreDiffs;
+        [JsonIgnore] private APCategory[] ActualAPCategories;
         [JsonIgnore] private float[] WeightedScores;
         [JsonIgnore] private HashSet<int> UnusualModeIndexes;
 
         [JsonProperty(nameof(Leaderboard), Required = Required.DisallowNull)] private readonly Leaderboards Leaderboard;
+        [JsonProperty(nameof(AccSaberType), Required = Required.DisallowNull)] private readonly APCategory AccSaberType;
         [JsonProperty(nameof(Scores), Required = Required.DisallowNull)] private float[] Scores;
         [JsonProperty(nameof(ScoreNames), Required = Required.DisallowNull)] private string[] ScoreNames;
         [JsonProperty(nameof(ScoreDiffs), Required = Required.DisallowNull)] private ulong[] ScoreDiffs;
         [JsonProperty(nameof(ScoreIDs), Required = Required.DisallowNull)] private string[] ScoreIDs;
+        [JsonProperty(nameof(APCategories), Required = Required.AllowNull)] private ulong[] APCategories;
         [JsonProperty(nameof(UnusualModes), Required = Required.DisallowNull)] private List<(int Index, string Mode)> UnusualModes; //Defaults to "Standard" if not in this list.
         [JsonProperty(nameof(TotalPP), Required = Required.DisallowNull)] private float TotalPP = -1.0f;
         [JsonProperty(nameof(UserID), Required = Required.DisallowNull)] private readonly string UserID;
@@ -74,20 +80,26 @@ namespace BLPPCounter.Utils
             AccsaberConsts[2] = 1 / AccsaberConsts[1] * (Mathf.Exp(k) - 1); //A number to go to the next weight without big exponents, equal to about 0.480825429323
             AccsaberConsts[3] = 1 / AccsaberConsts[1] * (Mathf.Exp(-k) - 1); //Same function as the last number, just to go to the previous weight. Equal to about -0.322306923919
         }
-        public Profile(Leaderboards leaderboard, string userID)
+        public Profile(Leaderboards leaderboard, string userID, APCategory accSaberType)
         {
             Leaderboard = leaderboard;
             UserID = userID;
+            AccSaberType = accSaberType;
             PageNumber = 1;
             InitScores();
         }
+        public Profile(Leaderboards leaderboard, string userID) : this(leaderboard, userID, leaderboard == Leaderboards.Accsaber ? APCategory.All : APCategory.None)
+        { }
         private void InitScores()
         {
             if (Deserializing) return;
             if (TotalPP < 0)
             {
                 APIHandler api = APIHandler.GetAPI(Leaderboard);
-                Play[] scoreData = api.GetScores(UserID, GetPlusOneCount())?.GetAwaiter().GetResult();
+                bool usingAP = Leaderboard == Leaderboards.Accsaber && AccSaberType != APCategory.All;
+                Play[] scoreData = (usingAP ?
+                    (api as APAPI).GetScores(UserID, GetPlusOneCount(), AccSaberType) : api.GetScores(UserID, GetPlusOneCount()))?
+                    .GetAwaiter().GetResult();
                 UnusualModeIndexes = new HashSet<int>();
                 UnusualModes = new List<(int Index, string Mode)>();
                 if (scoreData is null)
@@ -97,6 +109,7 @@ namespace BLPPCounter.Utils
                     ActualScoreDiffs = new BeatmapDifficulty[1] { BeatmapDifficulty.Normal };
                     ScoreDiffs = new ulong[1] { 1UL };
                     ScoreIDs = new string[1] { "12345" };
+                    ActualAPCategories = null;
                 }
                 else
                 {
@@ -104,12 +117,15 @@ namespace BLPPCounter.Utils
                     ScoreNames = new string[scoreData.Length];
                     ActualScoreDiffs = new BeatmapDifficulty[scoreData.Length];
                     ScoreIDs = new string[scoreData.Length];
+                    if (IsAP) ActualAPCategories = new APCategory[scoreData.Length];
+                    else ActualAPCategories = null;
                     for (int i = 0; i < scoreData.Length; i++)
                     {
                         Scores[i] = scoreData[i].Pp;
                         ScoreNames[i] = scoreData[i].MapName;
                         ActualScoreDiffs[i] = scoreData[i].Difficulty;
                         ScoreIDs[i] = scoreData[i].MapKey;
+                        if (IsAP) ActualAPCategories[i] = scoreData[i].AccSaberCategory;
                         if (!scoreData[i].Mode.Equals(DEFAULT_MODE))
                         {
                             UnusualModes.Add((i, scoreData[i].Mode));
@@ -117,8 +133,9 @@ namespace BLPPCounter.Utils
                         }
                     }
                     ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
+                    APCategories = HelpfulMisc.CompressEnums(ActualAPCategories);
                 }
-                TotalPP = api.GetProfilePP(UserID).Result;
+                TotalPP = (usingAP ? (api as APAPI).GetProfilePP(UserID, AccSaberType) : api.GetProfilePP(UserID)).Result;
                 if (CurrentSession is null) CurrentSession = new Session(Leaderboard, UserID, TotalPP);
                 InitTable();
             }
@@ -155,13 +172,14 @@ namespace BLPPCounter.Utils
             if (TextContainer is null || !(PlayTable is null)) return;
 
             //Label setup
-            string[] names = new string[5] { 
+            string[] names = new string[] { 
                 "<color=#FA0>Score #</color>",
                 "Beatmap Name",
                 "<color=#0F0>D</color><color=#FF0>i</color><color=#F70>f</color><color=#C16>f</color>",
-                $"<color=purple>{(Leaderboard == Leaderboards.Accsaber ? "AP" : "PP")}</color>",
+                $"<color=purple>{(IsAP ? "AP" : "PP")}</color>",
                 "<color=#4AF>Key</color>" 
             };
+            if (IsAP) names = names.Append("<color=#777>Catagory</color>").ToArray();
 
             //Value setup
             string[][] values = GetTableValues();
@@ -201,9 +219,10 @@ namespace BLPPCounter.Utils
                 $"<color=#FA0>#{j + 1}</color>",
                 ScoreNames[j].ClampString(40),
                 ColorizeDiff(ActualScoreDiffs[j]),
-                $"<color=purple>{Math.Round(Scores[j], PluginConfig.Instance.DecimalPrecision)}</color> {(Leaderboard == Leaderboards.Accsaber ? "AP" : "PP")}",
+                $"<color=purple>{Math.Round(Scores[j], PluginConfig.Instance.DecimalPrecision)}</color> {(IsAP ? "AP" : "PP")}",
                 $"<color=#4AF>{ScoreIDs[j]}</color>"
                 };
+                if (IsAP) values[i] = values[i].Append($"<color=#CCC>{ActualAPCategories[j]}</color>").ToArray();
             }
             return values;
         }
@@ -233,9 +252,8 @@ namespace BLPPCounter.Utils
             {
                 case Leaderboards.Beatleader:
                 case Leaderboards.Scoresaber:
-                    return 100;
                 case Leaderboards.Accsaber:
-                    return 50;
+                    return 100;
                 default:
                     return 0;
             }
@@ -257,9 +275,14 @@ namespace BLPPCounter.Utils
         internal static void SaveAllProfiles()
         {
             if (LoadedProfiles.Count == 0) return;
-            IEnumerable<JToken> data = LoadedProfiles.Where(kvp => int.Parse(kvp.Key.Split('_')[1]) != (int)Leaderboards.Accsaber).Select(p => JToken.FromObject(p.Value));
+            IEnumerable<JToken> data = LoadedProfiles.Select(p => JToken.FromObject(p.Value));
+            //IEnumerable<JToken> data = LoadedProfiles.Where(kvp => int.Parse(kvp.Key.Split('_')[1]) != (int)Leaderboards.Accsaber).Select(p => JToken.FromObject(p.Value));
+            /*using (StreamWriter sw = new StreamWriter(HelpfulPaths.PROFILE_DATA))
+            {
+                JsonSerializer serializer = new JsonSerializer();
+                serializer.Serialize(sw, data, typeof(Profile));
+            }*/
             byte[] rawData = Encoding.ASCII.GetBytes(JsonConvert.SerializeObject(data, Formatting.Indented));
-            if (File.Exists(HelpfulPaths.PROFILE_DATA)) File.Delete(HelpfulPaths.PROFILE_DATA);
             using (FileStream fs = File.OpenWrite(HelpfulPaths.PROFILE_DATA))
                 fs.Write(rawData, 0, rawData.Length);
             //Plugin.Log.Info("Profiles have been saved.");
@@ -274,7 +297,8 @@ namespace BLPPCounter.Utils
             try
             {
                 profiles = JToken.Parse(File.ReadAllText(HelpfulPaths.PROFILE_DATA)).Children();
-            } catch (Exception e)
+            }
+            catch (Exception e)
             {
                 Plugin.Log.Error("Profiles failed to load!\n" + e.ToString());
                 return;
@@ -284,9 +308,18 @@ namespace BLPPCounter.Utils
                 try
                 {
                     Deserializing = true;
-                    foreach (JToken profileItem in profiles)
+                    /*JsonSerializer serializer = new JsonSerializer();
+                    IEnumerable<Profile> profiles;
+                    using (StreamReader reader = File.OpenText(HelpfulPaths.PROFILE_DATA))
+                        profiles = serializer.Deserialize(reader, typeof(IEnumerable<Profile>)) as IEnumerable<Profile>;
+                    foreach (Profile profile in profiles)
                     {
-                        Profile profile = profileItem.ToObject<Profile>();
+                        profile.PostInit();
+                        LoadedProfiles.Add(profile.ID, profile);
+                    }*/
+                    foreach (JToken profileData in profiles)
+                    {
+                        Profile profile = profileData.ToObject<Profile>();
                         profile.PostInit();
                         LoadedProfiles.Add(profile.ID, profile);
                     }
@@ -299,7 +332,7 @@ namespace BLPPCounter.Utils
                         Plugin.Log.Error($"The {HelpfulPaths.PROFILE_DATA} file has bad json data in it. Deleting it.");
                         File.Delete(HelpfulPaths.PROFILE_DATA);
                     }
-                    else Plugin.Log.Error(e);
+                    Plugin.Log.Error(e);
                 }
                 finally
                 {
@@ -315,13 +348,13 @@ namespace BLPPCounter.Utils
         /// <param name="leaderboard">The leaderboard to use.</param>
         /// <param name="userID">The user ID (Steam ID) to use.</param>
         /// <returns>The <see cref="Profile"/> either from the <see cref="LoadedProfiles"/> dictionary or newly made. This will never return null.</returns>
-        public static Profile GetProfile(Leaderboards leaderboard, string userID)
+        public static Profile GetProfile(Leaderboards leaderboard, string userID, APCategory accSaberType = APCategory.None)
         {
-            if (LoadedProfiles.TryGetValue(GetID(leaderboard, userID), out Profile profile))
+            if (LoadedProfiles.TryGetValue(GetID(leaderboard, userID, accSaberType), out Profile profile))
                 return profile;
             else
             {
-                profile = new Profile(leaderboard, userID);
+                profile = leaderboard == Leaderboards.Accsaber ? new Profile(leaderboard, userID, accSaberType) : new Profile(leaderboard, userID);
                 SaveProfile(profile);
                 return profile;
             }
@@ -332,16 +365,19 @@ namespace BLPPCounter.Utils
         /// <param name="leaderboard">The leaderboard to use.</param>
         /// <param name="userID">The user ID (Steam ID) to use.</param>
         /// <returns>Either the <see cref="Profile"/> from the dictionary or, if it is not found, null.</returns>
-        public static Profile TryGetProfile(Leaderboards leaderboard, string userID) => 
-            LoadedProfiles.ContainsKey(GetID(leaderboard, userID)) ? LoadedProfiles[GetID(leaderboard, userID)] : null;
+        public static Profile TryGetProfile(Leaderboards leaderboard, string userID, APCategory accSaberType = APCategory.None) => 
+            LoadedProfiles.ContainsKey(GetID(leaderboard, userID, accSaberType)) ? LoadedProfiles[GetID(leaderboard, userID, accSaberType)] : null;
         /// <summary>
-        /// Converts a given <paramref name="leaderboard"/> and <paramref name="userID"/> into an ID string used as the key in the <see cref="LoadedProfiles"/>
-        /// dictionary.
+        /// Converts a given <paramref name="leaderboard"/> and <paramref name="userID"/> into an ID string used as the key in the <see cref="LoadedProfiles"/> dictionary.
+        /// There may also be an <paramref name="accSaberType"/> given when the <paramref name="leaderboard"/> is <see cref="Leaderboards.Accsaber"/>.
         /// </summary>
         /// <param name="leaderboard">The leaderboard to use.</param>
         /// <param name="userID">The user ID (Steam ID) to use.</param>
-        /// <returns>A string containing the <paramref name="userID"/> and <paramref name="leaderboard"/> (leaderboard as an int).</returns>
-        public static string GetID(Leaderboards leaderboard, string userID) => userID + "_" + (int)leaderboard;
+        /// <param name="accSaberType">The type of accSaber plays to track.</param>
+        /// <returns>A string containing the <paramref name="userID"/> and <paramref name="leaderboard"/> (leaderboard as an int).
+        /// If <paramref name="accSaberType"/> is given, then there is also a third int representing the <paramref name="accSaberType"/>.</returns>
+        public static string GetID(Leaderboards leaderboard, string userID, APCategory accSaberType = APCategory.None) => 
+            $"{userID}_{(int)leaderboard}{(accSaberType != APCategory.None ? "_" + (int)accSaberType : "")}";
         /// <summary>
         /// Adds a given play to all leaderboards that the play is ranked on.
         /// </summary>
@@ -350,9 +386,11 @@ namespace BLPPCounter.Utils
         /// <param name="acc">The accuracy the player set for the score.</param>
         /// <param name="mapName">The name of the map the score was set on.</param>
         /// <param name="mapDiff">The difficulty of the map that the score was set on.</param>
+        /// <param name="mode">The mode of the play (BeatmapCharacteristic). Defaults to <see cref="DEFAULT_MODE"/> if none is given.</param>
         /// <returns>Whether or not the score was good enough to enter any leaderboard's <see cref="Scores"/> array.</returns>
-        public static async Task<bool> AddPlay(string userID, string hash, float acc, string mapName, BeatmapDifficulty mapDiff, string mode = "Standard")
+        public static async Task<bool> AddPlay(string userID, string hash, float acc, string mapName, BeatmapDifficulty mapDiff, string mode = "")
         {
+            if (mode.Length == 0) mode = DEFAULT_MODE;
             int currentNum = 1;
             Leaderboards current;
             (Leaderboards allowed, string mapKey) = await APIHandler.GetRankedLeaderboardsAndMapKey(hash, mapDiff, mode).ConfigureAwait(false);
@@ -370,10 +408,19 @@ namespace BLPPCounter.Utils
                     currentMode = TheCounter.SelectMode(mode, current);
                     Calculator calc = Calculator.GetCalc(current);
                     float[] ratings = calc.SelectRatings(TheCounter.GetDifficulty(await TheCounter.GetMap(hash, currentMode, current).ConfigureAwait(false), mapDiff, current, currentMode, mods, true));
-                    goodScore |= GetProfile(current, userID).AddPlay(calc.Inflate(calc.GetSummedPp(acc, ratings)), mapName, mapKey, mapDiff, mode);
+                    float pp = calc.Inflate(calc.GetSummedPp(acc, ratings));
+                    if (current != Leaderboards.Accsaber)
+                        goodScore |= GetProfile(current, userID).AddPlay(pp, mapName, mapKey, mapDiff, mode);
+                    else
+                    {
+                        (_, HttpContent data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(mapDiff)), SSAPI.Throttle);
+                        (_, data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, JToken.Parse(await data.ReadAsStringAsync())["id"].ToString()));
+                        APCategory accSaberCategory = (APCategory)Enum.Parse(typeof(APCategory), JToken.Parse(await data.ReadAsStringAsync())["categoryDisplayName"].ToString().Split(' ')[0]);
+                        goodScore |= GetProfile(current, userID, accSaberCategory).AddPlay(pp, mapName, mapKey, mapDiff, mode);
+                    }
                     /*try
                     {
-                        goodScore |= GetProfile(current, userID).AddPlay(calc.Inflate(calc.GetSummedPp(acc, ratings)), mapName, mapKey, mapDiff, mode);
+                        goodScore |= GetProfile(current, userID, accSaberType).AddPlay(calc.Inflate(calc.GetSummedPp(acc, ratings)), mapName, mapKey, mapDiff, mode);
                     }
                     catch (Exception e)
                     {

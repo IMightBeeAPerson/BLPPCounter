@@ -9,6 +9,7 @@ using BLPPCounter.Patches;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
+using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.List_Settings;
 using BLPPCounter.Utils.Misc_Classes;
 using BS_Utils.Utilities;
@@ -95,7 +96,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIParams] private BSMLParserParams Parser;
         private bool UsesMods => CurrentCalculator.UsesModifiers;
         private bool IsBL => CurrentLeaderboard == Leaderboards.Beatleader;
-        private bool ShowProfileTab => CurrentLeaderboard != Leaderboards.Accsaber;
+        private bool IsAP => CurrentLeaderboard == Leaderboards.Accsaber;
+        private bool ShowProfileTab => true;// CurrentLeaderboard != Leaderboards.Accsaber;
 
         [UIComponent(nameof(MainTabSelector))] internal TabSelector MainTabSelector;
 
@@ -173,6 +175,17 @@ namespace BLPPCounter.Settings.SettingHandlers
             get => PC.ProfileTestPP;
             set => PC.ProfileTestPP = value;
         }
+        [UIValue(nameof(APSetting))] private string APSetting
+        {
+            get => _APSetting.ToString();
+            set
+            {
+                _APSetting = (APCategory)Enum.Parse(typeof(APCategory), value);
+                Task.Run(() => UpdateProfile());
+            }
+        }
+        [UIValue(nameof(APCategorySettings))] private List<object> APCategorySettings = Enum.GetNames(typeof(APCategory)).Skip(1).Cast<object>().ToList();
+        private APCategory _APSetting = APCategory.All;
 
         [UIComponent(nameof(ProfileTab))] private Tab ProfileTab;
 
@@ -188,6 +201,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 
         [UIComponent(nameof(PlusOneText))] private TextMeshProUGUI PlusOneText;
         [UIComponent(nameof(ReloadDataButton))] private Button ReloadDataButton;
+        [UIComponent(nameof(AccSaberSetting))] private DropDownListSetting AccSaberSetting;
         [UIComponent(nameof(ProfilePPSlider))] private SliderSetting ProfilePPSlider;
         [UIComponent(nameof(WeightedText))] private TextMeshProUGUI WeightedText;
         [UIComponent(nameof(WeightedTextValue))] private TextMeshProUGUI WeightedTextValue;
@@ -440,7 +454,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 foreach (GameObject go in Parser.GetObjectsWithTag(s))
                     go.SetActive(false);
             CaptureTab.IsVisible = IsBL;
-            ProfileTab.IsVisible = CurrentLeaderboard != Leaderboards.Accsaber;
+            ProfileTab.IsVisible = ShowProfileTab;
             MapID.gameObject.SetActive(!ShowTrueID);
             TrueMapID.gameObject.SetActive(ShowTrueID);
         }
@@ -730,7 +744,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 );
         }
 #endif
-        private Task CompletedMap(float finalAcc, string hash, string mapName, BeatmapDifficulty diff, string mode = "Standard")
+        private Task CompletedMap(float finalAcc, string hash, string mapName, BeatmapDifficulty diff, string mode)
         {
             //finalAcc = 1.0f;
             Plugin.Log.Info("Map completion info: " + HelpfulMisc.Print(new object[5] { finalAcc, hash, mapName, diff, mode }));
@@ -749,15 +763,13 @@ namespace BLPPCounter.Settings.SettingHandlers
             TheCounter.LastMap = default;
             return outp ?? Task.CompletedTask;
         }
-        public string GetPPLabel() => CurrentLeaderboard == Leaderboards.Accsaber ? "ap" : "pp";
-        public Task UpdateTabDisplay(bool forceUpdate = false, bool runAsync = true) 
+        private void UpdateDisplayVisibility(bool waitForEndOfFrame = true)
         {
-            if (CurrentTab.Length == 0 || (!forceUpdate && TabMapInfo[CurrentTab] == CurrentMap)) return Task.CompletedTask;
-            IEnumerator WaitThenUpdate()
+            void Update()
             {
-                yield return new WaitForEndOfFrame();
-                if ((CaptureTab.IsVisible == IsBL) && (ProfileTab.IsVisible == ShowProfileTab)) 
-                    yield break;
+                AccSaberSetting.gameObject.SetActive(IsAP);
+                if ((CaptureTab.IsVisible == IsBL) && (ProfileTab.IsVisible == ShowProfileTab))
+                    return;
 #if NEW_VERSION
                 int currentTabNum = MainTabSelector.TextSegmentedControl.selectedCellNumber;
 #else
@@ -784,6 +796,23 @@ namespace BLPPCounter.Settings.SettingHandlers
 
                 MainTabSelector.ForceSelectAndNotify(keepPos ? currentTabNum : 0);
                 if (!keepPos) CurrentTab = TabMapInfo.Keys.First();
+            }
+            IEnumerator WaitThenUpdate()
+            {
+                yield return new WaitForEndOfFrame();
+                Update();
+            }
+            if (waitForEndOfFrame) CoroutineHost.Start(WaitThenUpdate());
+            else Update();
+        }
+        public string GetPPLabel() => IsAP ? "ap" : "pp";
+        public Task UpdateTabDisplay(bool forceUpdate = false, bool runAsync = true) 
+        {
+            if (CurrentTab.Length == 0 || (!forceUpdate && TabMapInfo[CurrentTab] == CurrentMap)) return Task.CompletedTask;
+            IEnumerator WaitThenUpdate()
+            {
+                yield return new WaitForEndOfFrame();
+                UpdateDisplayVisibility(false);
             }
             async Task Update()
             {
@@ -900,7 +929,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private void UpdateProfile()
         {
-            CurrentProfile = Profile.GetProfile(CurrentLeaderboard, Targeter.PlayerID);
+            CurrentProfile = IsAP ? Profile.GetProfile(CurrentLeaderboard, Targeter.PlayerID, _APSetting) : Profile.GetProfile(CurrentLeaderboard, Targeter.PlayerID);
             PlusOneText.SetText($"<color=#00FF00>{CurrentProfile.PlusOne}</color> {GetPPLabel()}");
             UpdateProfilePP();
         }

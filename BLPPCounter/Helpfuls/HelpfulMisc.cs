@@ -720,7 +720,7 @@ namespace BLPPCounter.Helpfuls
         {
             const int LongBits = 64;
 
-            if (arr == null || arr.Length == 0)
+            if (arr is null || arr.Length == 0)
                 return Array.Empty<ulong>();
 
             // Determine bits per enum
