@@ -811,7 +811,7 @@ namespace BLPPCounter.Helpfuls
 
             T[] result = new T[numEnums];
 
-            int bitPos = 0;    // Bit position inside the current ulong
+            int bitPos = 0;     // Bit position inside the current ulong
             int ulongIndex = 0; // Index of the current ulong in arr
 
             for (int i = 0; i < numEnums; i++)
@@ -846,7 +846,6 @@ namespace BLPPCounter.Helpfuls
 
                 result[i] = (T)Enum.ToObject(typeof(T), value);
             }
-
             return result;
         }
         public static T[] RemoveElement<T>(this T[] arr, int index)

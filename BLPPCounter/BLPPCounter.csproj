@@ -188,6 +188,7 @@
     <Compile Include="Helpfuls\HelpfulFormatter.cs" />
     <Compile Include="Patches\MenuLevelPatch.cs" />
     <Compile Include="Patches\MenuModifierPatch.cs" />
+    <Compile Include="Patches\SoloFlowPatch.cs" />
     <Compile Include="Patches\StupidGameplayPatch.cs" />
     <Compile Include="Patches\TabSelectionPatch.cs" />
     <Compile Include="Settings\Configs\MessageSettings.cs" />

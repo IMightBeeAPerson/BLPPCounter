@@ -199,6 +199,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(SessionTable))] private CustomCellListTableData SessionTable;
         [UIValue(nameof(SessionTable_Infos))] private List<object> SessionTable_Infos => CurrentProfile?.CurrentSession.Info ?? new List<object>(0);
 
+        [UIComponent(nameof(PlusOneLabel))] private TextMeshProUGUI PlusOneLabel;
         [UIComponent(nameof(PlusOneText))] private TextMeshProUGUI PlusOneText;
         [UIComponent(nameof(ReloadDataButton))] private Button ReloadDataButton;
         [UIComponent(nameof(AccSaberSetting))] private DropDownListSetting AccSaberSetting;
@@ -343,14 +344,14 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (profilePp[0] == '-') profilePp = "Unknown";
             ProfilePPTextValue.SetText("<color=purple>" + profilePp + "</color> " + GetPPLabel());
         }
-        /*[UIAction(nameof(DoTestThing))]
+        [UIAction(nameof(DoTestThing))]
         private void DoTestThing()
         {
             //CurrentProfile.AddPlay(ProfilePPSlider.Value);
             //UpdateProfilePP();
             //UpdateProfile();
-            CompletedMap(0.995f, Sldvc.beatmapLevel.levelID.Split('_')[2], Sldvc.beatmapLevel.songName, Sldvc.selectedDifficultyBeatmap.difficulty);
-        }*/
+            CompletedMap(0.995f, Sldvc.selectedDifficultyBeatmap);
+        }
         [UIAction(nameof(RefreshProfilePP))] private void RefreshProfilePP()
         {
             Task.Run(async () => await RefreshProfileScores().ConfigureAwait(false));
@@ -455,6 +456,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                     go.SetActive(false);
             CaptureTab.IsVisible = IsBL;
             ProfileTab.IsVisible = ShowProfileTab;
+            AccSaberSetting.gameObject.SetActive(IsAP);
             MapID.gameObject.SetActive(!ShowTrueID);
             TrueMapID.gameObject.SetActive(ShowTrueID);
         }
@@ -515,9 +517,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (Sldvc is null) return 0f;
 #if NEW_VERSION
             CurrentMap = Sldvc.beatmapKey; // 1.37.0 and above
+            if (CurrentMap == default) return 0f;
 #else
             CurrentMap = Sldvc.selectedDifficultyBeatmap; // 1.34.2 and below
+            if (CurrentMap is null) return 0f;
 #endif
+            
             CurrentDiff = (null, null);
             if (!Sldvc.beatmapLevel.levelID.Substring(0, 6).Equals("custom")) return 0.0f; //means the level selected is not custom
 #if NEW_VERSION
@@ -930,6 +935,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void UpdateProfile()
         {
             CurrentProfile = IsAP ? Profile.GetProfile(CurrentLeaderboard, Targeter.PlayerID, _APSetting) : Profile.GetProfile(CurrentLeaderboard, Targeter.PlayerID);
+            CurrentProfile.ReloadTableValues();
+            PlusOneLabel.SetText("+1 " + GetPPLabel());
             PlusOneText.SetText($"<color=#00FF00>{CurrentProfile.PlusOne}</color> {GetPPLabel()}");
             UpdateProfilePP();
         }
@@ -938,11 +945,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             //Plugin.Log.Info($"ActualMap: {Sldvc?.selectedDifficultyBeatmap.level.songName ?? "null"} || Currently Saved Map: {CurrentMap?.level.songName ?? "null"}");
             //Plugin.Log.Info("TabSelectionPatch: " + TabSelectionPatch.GetIfTabIsSelected(TabName));
+            if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || !TabSelectionPatch.IsOnModsTab) return;
 #if NEW_VERSION
-            if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && (Sldvc?.beatmapKey.Equals(CurrentMap) ?? false))) return; // 1.37.0 and above
+            if (!forceRefresh && (Sldvc?.beatmapKey.Equals(CurrentMap) ?? false)) return; // 1.37.0 and above
 
 #else
-            if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || (!forceRefresh && (Sldvc?.selectedDifficultyBeatmap?.Equals(CurrentMap) ?? false))) return; // 1.34.2 and below
+            if (!forceRefresh && (Sldvc?.selectedDifficultyBeatmap?.Equals(CurrentMap) ?? false)) return; // 1.34.2 and below
 
 #endif
             AsyncLock.Releaser? theLock = await RefreshLock.TryLockAsync().ConfigureAwait(false);

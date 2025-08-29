@@ -1,10 +1,12 @@
 ﻿using BLPPCounter.Settings.SettingHandlers;
+using BS_Utils.Utilities;
 using HarmonyLib;
 using HMUI;
 using JetBrains.Annotations;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine.SceneManagement;
 
 namespace BLPPCounter.Patches
 {
@@ -19,12 +21,19 @@ namespace BLPPCounter.Patches
         internal static Action UpdateLastSegmentControl;
         public static string LastSelectedModTab { get; private set; } = "";
         private static string LastLoadedTabSelector = "";
-        private static bool ModTabFound = false;
+        private static int ModTabHash = -1;
+        private static bool ModTabFound => ModTabHash != -1;
         public static bool AllTabsFound => TabNames.Count == 0;
+        public static bool IsOnModsTab;
         [UsedImplicitly]
         private static void Postfix(SegmentedControl __instance)
         {
-            if (LoadedObjects.Contains(__instance.GetHashCode())) return;
+            if (LoadedObjects.Contains(__instance.GetHashCode()))
+            {
+                if (__instance.GetHashCode() == ModTabHash)
+                    ModTabSelected.Invoke("");
+                return;
+            }
 #if NEW_VERSION
             if (!__instance.name.Equals("BSMLTabSelector") || PpInfoTabHandler.Instance.MainTabSelector.TextSegmentedControl.Equals(__instance))
 #else
@@ -42,19 +51,20 @@ namespace BLPPCounter.Patches
                 return;
             }
             LastLoadedTabSelector = tabSelectorCells;
-            if (!ModTabFound && __instance.cells.Count() == 2 && __instance.cells.Any(scc => scc is TextSegmentedControlCell tscc && tscc.text.Equals("Mods")))
+            if (__instance.cells.Count() == 2 && __instance.cells.Any(scc => scc is TextSegmentedControlCell tscc && tscc.text.Equals("Mods")))
             {
-                ModTabSelected += str =>
+                ModTabSelected = str =>
                 {
-                    if (str.Equals("Mods") && LastSelectedModTab.Length != 0 && TabGotSelected.ContainsKey(LastSelectedModTab)) 
+                    IsOnModsTab = str.Equals("Mods");
+                    if (IsOnModsTab && LastSelectedModTab.Length != 0 && TabGotSelected.ContainsKey(LastSelectedModTab)) 
                         TabGotSelected[LastSelectedModTab]?.Invoke();
                 };
                 __instance.didSelectCellEvent += (sc, index) =>
                 {
                     if (sc.cells[index] is TextSegmentedControlCell tscc) ModTabSelected?.Invoke(tscc.text);
                 };
-                LoadedObjects.Add(__instance.GetHashCode());
-                ModTabFound = true;
+                ModTabHash = __instance.GetHashCode();
+                LoadedObjects.Add(ModTabHash);
                 return;
             }
             //Plugin.Log.Info("Loaded, count = " + __instance.cells.Count() + ", names = [" + tabSelectorCells + "]");
@@ -81,6 +91,15 @@ namespace BLPPCounter.Patches
                 CellEvent(__instance, 0);
                 UpdateLastSegmentControl = () => CellEvent(__instance, 0); //this is stupid, but don't really feel like fixing it
             }
+        }
+        static TabSelectionPatch()
+        {
+            void UpdateMainTab()
+            {
+                ModTabSelected?.Invoke("");
+                Plugin.Log.Info("MainMenu Entered!");
+            }
+            SoloFlowPatch.EnteredMainMenu += UpdateMainTab;
         }
         public static void AddTabName(string name, Action TabSelected = null)
         {

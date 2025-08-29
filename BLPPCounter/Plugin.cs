@@ -87,6 +87,5 @@ namespace BLPPCounter
             Profile.SaveAllProfiles();
             Harmony.UnpatchSelf();
         }
-
     }
 }
