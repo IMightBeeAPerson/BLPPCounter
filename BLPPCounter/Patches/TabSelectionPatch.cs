@@ -94,12 +94,7 @@ namespace BLPPCounter.Patches
         }
         static TabSelectionPatch()
         {
-            void UpdateMainTab()
-            {
-                ModTabSelected?.Invoke("");
-                Plugin.Log.Info("MainMenu Entered!");
-            }
-            SoloFlowPatch.EnteredMainMenu += UpdateMainTab;
+            SoloFlowPatch.EnteredMainMenu += () => ModTabSelected?.Invoke("");
         }
         public static void AddTabName(string name, Action TabSelected = null)
         {

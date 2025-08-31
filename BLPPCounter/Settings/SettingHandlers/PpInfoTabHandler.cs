@@ -344,14 +344,14 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (profilePp[0] == '-') profilePp = "Unknown";
             ProfilePPTextValue.SetText("<color=purple>" + profilePp + "</color> " + GetPPLabel());
         }
-        [UIAction(nameof(DoTestThing))]
+        /*[UIAction(nameof(DoTestThing))]
         private void DoTestThing()
         {
             //CurrentProfile.AddPlay(ProfilePPSlider.Value);
             //UpdateProfilePP();
             //UpdateProfile();
             CompletedMap(0.995f, Sldvc.selectedDifficultyBeatmap);
-        }
+        }*/
         [UIAction(nameof(RefreshProfilePP))] private void RefreshProfilePP()
         {
             Task.Run(async () => await RefreshProfileScores().ConfigureAwait(false));
@@ -877,7 +877,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             if (!IsBL || CurrentDiff.Diffdata is null || !BLAPI.Instance.MapIsUsable(CurrentDiff.Diffdata)) return;
             ClanTarget.SetText(TargetHasScore ? GetTarget() : GetNoScoreTarget());
-            PPToCapture = ClanCounter.LoadNeededPp(BeatmapID, out _, out string owningClan)[0];
+            PPToCapture = ClanCounter.LoadNeededPp(BeatmapID, out _, out string owningClan)?.First() ?? -1f;
             OwningClan.SetText($"<color=red>{owningClan}</color> owns this map.");
             PPTarget.SetText($"<color=#0F0>{Math.Round(PPToCapture, PC.DecimalPrecision)}</color> " + GetPPLabel());
         }
@@ -962,7 +962,12 @@ namespace BLPPCounter.Settings.SettingHandlers
                     CurrentLeaderboard = PC.Leaderboard;
                     UpdateMods();
                     TargetPP = await UpdateTargetPP().ConfigureAwait(false);
-                    await UpdateTabDisplay(forceRefresh, false).ConfigureAwait(false);
+                    IEnumerator UpdateTab()
+                    {
+                        yield return new WaitForEndOfFrame();
+                        UpdateTabDisplay(forceRefresh, false).GetAwaiter().GetResult();
+                    }
+                    await UpdateTab().AsTask(CoroutineHost.Instance).ConfigureAwait(false);
                     await UpdatePlayTable().ConfigureAwait(false);
                 }
                 catch (Exception ex)

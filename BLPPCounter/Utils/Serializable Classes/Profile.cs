@@ -142,7 +142,7 @@ namespace BLPPCounter.Utils
             }
             WeightScores();
             if (PlusOne < 0)
-                PlusOne = Leaderboard == Leaderboards.Accsaber ? MyPlusOne() : CalculatePlusOne();
+                PlusOne = CalculatePlusOne();
         }
         private void PostInit()
         {
@@ -572,6 +572,7 @@ namespace BLPPCounter.Utils
         /// <returns>What raw pp score is needed to gain one profile pp.</returns>
         public float CalculatePlusOne()
         {
+            if (Leaderboard == Leaderboards.Accsaber) return MyPlusOne();
             int i = 0;
             float shiftWeight = 1.0f - GetWeight(2);
             float weightedSum = TotalPP;
@@ -636,7 +637,7 @@ namespace BLPPCounter.Utils
                 HelpfulMisc.SiftDown(ScoreIDs, index, mapKey);
                 HelpfulMisc.SiftDown(WeightedScores, index, GetWeight(index + 1) * rawPP, GetWeight(2));
             }
-            PlusOne = Leaderboard == Leaderboards.Accsaber ? MyPlusOne() : CalculatePlusOne();
+            PlusOne = CalculatePlusOne();
             if (index != dupeIndex)
                 ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
             if (Leaderboard == Leaderboards.Accsaber && AccSaberType != APCategory.All)
