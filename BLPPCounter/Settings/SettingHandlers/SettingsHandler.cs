@@ -302,9 +302,9 @@ namespace BLPPCounter.Settings.SettingHandlers
                     CustomTargetText.SetText("<color=\"green\">Success!</color>");
                     CustomTargetInput.Text = "";
 #if NEW_VERSION
-                    TargetList.Values = ToTarget; // 1.37.0 and above
+                    TargetList.Values = Targeter.CustomTargets; // 1.37.0 and above
 #else
-                    TargetList.values = ToTarget; // 1.34.2 and below
+                    TargetList.values = Targeter.CustomTargets; // 1.34.2 and below
 #endif
                     TargetList.UpdateChoices();
                 }
@@ -328,53 +328,18 @@ namespace BLPPCounter.Settings.SettingHandlers
             get => PC.Target;
             set {PC.Target = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(Target))); }
         }
-        [UIValue(nameof(ToTarget))]
-        public List<object> ToTarget => (Targeter.theTargets ?? new List<object>()).Prepend(Targeter.NO_TARGET).ToList();
+        [UIValue(nameof(ClanTargets))]
+        public List<object> ClanTargets => (Targeter.ClanTargets ?? new List<object>()).Prepend(Targeter.NO_TARGET).ToList();
+        [UIValue(nameof(FollowerTargets))]
+        public List<object> FollowerTargets => (Targeter.FollowerTargets ?? new List<object>()).Prepend(Targeter.NO_TARGET).ToList();
+        [UIValue(nameof(CustomTargets))]
+        public List<object> CustomTargets => (Targeter.CustomTargets ?? new List<object>()).Prepend(Targeter.NO_TARGET).ToList();
         [UIAction(nameof(ResetTarget))]
         public void ResetTarget()
         {
             TargetList.Value = "None";
             Target = "None";
         }
-        #endregion
-        #region Unused Code
-        /*[UIValue(nameof())]
-        public bool LocalReplay
-        {
-            get => PC.LocalReplay;
-            set {PC.LocalReplay = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof())); }
-        }
-        [UIValue(nameof())]
-        public List<object> PlNames => new List<object>(PlaylistLoader.Instance.Names);
-        [UIValue(nameof())]
-        public string ChosenPlaylist
-        {
-            get => PC.ChosenPlaylist;
-			set {PC.ChosenPlaylist = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof())); }
-        }
-        [UIAction(nameof(LoadPlaylist))]
-        public void LoadPlaylist() {
-            Plugin.Log.Info("Button works");
-            ClanCounter cc = new ClanCounter(null, 0f, 0f, 0f);
-            foreach (string s in PlaylistLoader.Instance.Playlists.Keys) Plugin.Log.Info(s);
-            Plugin.Log.Info(ChosenPlaylist);
-            MapSelection[] maps = PlaylistLoader.Instance.Playlists[ChosenPlaylist];
-            foreach (MapSelection map in maps)
-            {
-                float[] pp = null;
-                //Plugin.Log.Info("" + map + "\n" + map.Map);
-                int status;
-                try { status = (int)map.MapData.Item2["status"]; } catch { continue; }
-                if (status != 3) { Plugin.Log.Info($"Status: {status}"); continue; }
-                try { pp = cc.LoadNeededPp(map.MapData.Item1, out _); } catch (Exception e) { Plugin.Log.Info($"Error loading map {map.Map.Hash}: {e.Message}"); Plugin.Log.Debug(e); }
-                if (pp != null)
-                {
-                    ClanCounter.AddToCache(map, pp);
-                    Plugin.Log.Info($"map {map.Map.Hash} loaded!");
-                }
-            }
-            Plugin.Log.Info("Loading completed!");
-        }//*/
         #endregion
     }
 }

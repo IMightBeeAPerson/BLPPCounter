@@ -51,7 +51,7 @@ namespace BLPPCounter
 
         [OnEnable]
         public void OnEnable() {
-            Targeter.GenerateClanNames(); //async
+            Targeter.GenerateTargets(); //async
 #if NEW_VERSION
             BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing += AddMenuStuff; //async (kinda) || 1.37.0 and above
 #else

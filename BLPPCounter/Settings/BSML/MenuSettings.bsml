@@ -46,8 +46,14 @@
         <string-setting text='Custom Target' id='CustomTargetInput' value='CustomTarget' apply-on-change='true' hover-hint='Enter the user id or alias of a person'/>
         <text text='' align='Right' id='CustomTargetText'/>
         <checkbox-setting text='Show Target' apply-on-change='true' value='ShowEnemy' hover-hint='Show who you are targeting (if you have one selected)'/>
+        <button text='Target Menu' click-event='ShowTargetMenu' align='Center'/>
+        <modal show-event='ShowTargetMenu' click-off-closes='true' move-to-center='true'>
+          <vertical>
+            <button text='Reset Target' on-click='ResetTarget' hover-hint='Resets the target back to yourself'/>
+          </vertical>
+        </modal>
         <dropdown-list-setting text='Target' id='TargetList' apply-on-change='true' value='Target' options='ToTarget' hover-hint='A player to compare against while playing'/>
-        <button text='Reset Target' on-click='ResetTarget' hover-hint='Resets the target back to yourself'/>
+        
       </vertical>
     </vertical>
   </settings-container>
