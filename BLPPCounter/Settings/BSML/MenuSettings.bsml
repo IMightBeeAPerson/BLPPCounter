@@ -9,8 +9,6 @@
         <checkbox-setting text='PP if FC' apply-on-change='true' value='PPFC' hover-hint='Also show PP if you had gotten a FC'/>
         <checkbox-setting text='Split PP Values' apply-on-change='true' value='SplitVals' hover-hint='Split the PP values to have pass, acc, and tech PP'/>
         <checkbox-setting text='Show Messages' apply-on-change='true' value='ExtraInfo' hover-hint='Show extra information and messages under the counter'/>
-        <checkbox-setting text='Use Gradient' apply-on-change='true' value='UseGrad' hover-hint='Instead of solid green/red, use a gradient based off of the value'/>
-        <increment-setting text='Gradient Threshold' value='GradVal' integer-only='true' min='50' max='300' increment='10' apply-on-change='true'/>
         <checkbox-setting text='Update After Time' apply-on-change='true' value='UpdateAfterTime' hover-hint='Update every x amount of seconds instead of every time the block is hit'/>
         <increment-setting text='Update Amount' value='UpdateTime' integer-only='false' min='0.1' max='10' increment='0.1' apply-on-change='true'/>
         <list-setting id='CounterList' text='PP Types' apply-on-change='true' value='PPType' options='TypesOfPP' hover-hint='How the counter should count PP'/>
@@ -26,6 +24,14 @@
       <text text='Misc Settings' align='Center'/>
       <vertical spacing='1'>
         <button text='Clear Cache' on-click='ClearCache' hover-hint='Clears the map cache'/>
+        <checkbox-setting text='Use Gradient' apply-on-change='true' value='UseGrad' hover-hint='Instead of solid green/red, use a gradient based off of the value'/>
+        <color-setting text='Color Gradient Minimum' apply-on-change='true' value='ColorGradMin'/>
+        <color-setting text='Color Gradient Maximum' apply-on-change='true' value='ColorGradMax'/>
+        <color-setting text='Color Gradient At Zero' apply-on-change='true' value='ColorGradZero'/>
+        <slider-setting text='Min Darkness' value='ColorGradMinDark' integer-only='false' min='0' max='1' increment='0.01' apply-on-change='true' show-buttons='true'/>
+        <checkbox-setting text='Use Blending' apply-on-change='true' value='ColorGradBlending' hover-hint='Instead of abruptly changing between colors, blend them as you get closer to the player you are playing against'/>
+        <slider-setting text='Percent Flip' value='ColorGradFlipPercent' integer-only='false' min='0' max='1' increment='0.01' apply-on-change='true' show-buttons='true'/>
+        <slider-setting text='Maximum Difference' value='ColorGradMaxDiff' integer-only='true' min='0' max='1000' increment='1' apply-on-change='true' show-buttons='true'/>
       </vertical>
       <text text='Clan Counter Settings' align='Center'/>
       <vertical spacing='1'>

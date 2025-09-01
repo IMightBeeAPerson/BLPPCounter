@@ -16,7 +16,7 @@ namespace BLPPCounter.Helpfuls
         private static PluginConfig PC => PluginConfig.Instance;
 
         public static readonly int FORMAT_SPLIT = 100;
-        public static int GRAD_VARIANCE => PC.GradVal;
+        public static int GRAD_VARIANCE => PC.ColorGradMaxDiff;
         public static char ESCAPE_CHAR => PC.TokenSettings.EscapeCharacter;
         public static char RICH_SHORT => PC.TokenSettings.RichTextShorthand;
         public static char DELIMITER => PC.TokenSettings.Delimiter;
@@ -497,13 +497,16 @@ namespace BLPPCounter.Helpfuls
         }
         public static string NumberToGradient(float variance, float num)
         {
+            if (num == 0)
+                if (PC.ColorGradBlending)
+                    num = variance / 2f;
+                else return ConvertColorToMarkup(PC.ColorGradZero);
             bool neg = num < 0;
-            num = Mathf.Min(variance, Mathf.Abs(num));
-            if (num == 0) return "<color=#FFFF00>";
-            int toConvert = (int)Math.Abs(Math.Round((neg ? 1.0f - num / variance : num / variance) * 255.0f));
-            toConvert = Math.Max(toConvert, 128);
-            return neg ? $"<color=#{toConvert:X2}0000>" :
-                $"<color=#00{toConvert:X2}00>";
+            float toConvert = Math.Min(Math.Max(Math.Abs(neg && !PC.ColorGradBlending ? 1.0f - -num / variance : num / variance), PC.ColorGradMinDark) + PC.ColorGradFlipPercent, 1f);
+            if (PC.ColorGradBlending)
+                return ConvertColorToMarkup(Blend(PC.ColorGradMin, PC.ColorGradMax, neg ? toConvert : 1.0f - toConvert, neg ? 1.0f - toConvert : toConvert));
+            return neg ? ConvertColorToMarkup(Multiply(PC.ColorGradMin, toConvert)) :
+                ConvertColorToMarkup(Multiply(PC.ColorGradMax, toConvert));
         }
         public static string NumberToGradient(float num) => NumberToGradient(GRAD_VARIANCE, num);
         public static string GetWeightedRankColor(int rank)
@@ -551,8 +554,11 @@ namespace BLPPCounter.Helpfuls
         public static string ColorFormatToColor(string str)
         {
             string Converter(Match m) {
-                //string name = m.Groups.First(g => g.Success && !char.IsDigit(g.Name[0])).Name; // 1.37.0 and above
+#if NEW_VERSION
+                string name = m.Groups.First(g => g.Success && !char.IsDigit(g.Name[0])).Name; // 1.37.0 and above
+#else
                 string name = m.Groups.OfType<Group>().First(g => g.Success && !char.IsDigit(g.Name[0])).Name; //1.34.2 and below
+#endif
                 switch (name)
                 {
                     case "Special": return ColorSpecialChar(m.Value[0]);
