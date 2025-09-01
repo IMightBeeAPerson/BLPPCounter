@@ -282,7 +282,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         #endregion
         #region Target Settings
         [UIComponent(nameof(TargetList))]
-        private DropDownListSetting TargetList;
+        internal DropDownListSetting TargetList;
         [UIComponent(nameof(CustomTargetText))]
         private TextMeshProUGUI CustomTargetText;
         [UIComponent(nameof(CustomTargetInput))]

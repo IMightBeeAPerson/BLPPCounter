@@ -962,12 +962,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                     CurrentLeaderboard = PC.Leaderboard;
                     UpdateMods();
                     TargetPP = await UpdateTargetPP().ConfigureAwait(false);
-                    IEnumerator UpdateTab()
-                    {
-                        yield return new WaitForEndOfFrame();
-                        UpdateTabDisplay(forceRefresh, false).GetAwaiter().GetResult();
-                    }
-                    await UpdateTab().AsTask(CoroutineHost.Instance).ConfigureAwait(false);
+                    await UpdateTabDisplay(forceRefresh, false).ConfigureAwait(false);
                     await UpdatePlayTable().ConfigureAwait(false);
                 }
                 catch (Exception ex)

@@ -1,12 +1,14 @@
-﻿using Newtonsoft.Json.Linq;
-using BLPPCounter.Settings.Configs;
+﻿using BLPPCounter.Settings.Configs;
+using BLPPCounter.Settings.SettingHandlers;
+using BLPPCounter.Utils.API_Handlers;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System;
-using BLPPCounter.Utils.API_Handlers;
+using static UnityEngine.GraphicsBuffer;
 
 namespace BLPPCounter.Utils
 {
@@ -40,21 +42,46 @@ namespace BLPPCounter.Utils
             theTargets = new List<object>(clanStuffs.Count());
             nameToId = new Dictionary<string, string>();
             foreach (JToken person in clanStuffs) {
-                theTargets.Add(person["name"].ToString());
-                nameToId[person["name"].ToString()] = person["id"].ToString();
+                string playerName = person["name"].ToString();
+                if (nameToId.ContainsKey(playerName))
+                {
+                    playerName += " (2)";
+                    int c = 3;
+                    while (nameToId.ContainsKey(playerName))
+                        playerName = playerName.Substring(0, playerName.Length - 4) + $" ({c++})";
+                }
+                theTargets.Add(playerName);
+
+                nameToId[playerName] = person["id"].ToString();
             }
             var cts = pc.CustomTargets;
             List<object> otherTargets = new List<object>(cts.Count);
             foreach (CustomTarget ct in cts)
             {
-                otherTargets.Add(ct.Name);
-                nameToId.Add(ct.Name, $"{ct.ID}");
+                string playerName = ct.Name;
+                if (nameToId.ContainsKey(playerName))
+                {
+                    playerName += " (2)";
+                    int c = 3;
+                    while (nameToId.ContainsKey(playerName))
+                        playerName = playerName.Substring(0, playerName.Length - 4) + $" ({c++})";
+                }
+                otherTargets.Add(playerName);
+                nameToId.TryAdd(playerName, $"{ct.ID}");
             }
             theTargets = otherTargets.Union(theTargets).ToList();
+            SettingsHandler.Instance.TargetList.Values = SettingsHandler.Instance.ToTarget;
+            SettingsHandler.Instance.TargetList.UpdateChoices();
         }
         public static void AddTarget(string name, string id)
         {
-            if (nameToId.ContainsKey(name)) return;
+            if (nameToId.ContainsKey(name))
+            {
+                name += " (2)";
+                int c = 3;
+                while (nameToId.ContainsKey(name))
+                    name = name.Substring(0, name.Length - 4) + $" ({c++})";
+            }
             nameToId[name] = id;
             theTargets = theTargets.Prepend(name).ToList();
             //Plugin.Log.Info(string.Join(", ", theTargets));

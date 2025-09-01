@@ -910,6 +910,16 @@ namespace BLPPCounter.Helpfuls
         {
             if (results is null || transitionData is null)
                 return 0f;
+            if (results.invalidated || results.levelEndStateType != LevelCompletionResults.LevelEndStateType.Cleared)
+            {
+                Plugin.Log.Warn($"Level was invalidated or failed, not saving score.");
+                return 0f;
+            }
+            if (results.energy <= 0.0f)
+            {
+                Plugin.Log.Warn($"Level was failed with No Fail enabled, not saving score.");
+                return 0f;
+            }
 
             // Grab the selected difficulty beatmap
 #if !NEW_VERSION
@@ -924,17 +934,24 @@ namespace BLPPCounter.Helpfuls
 #else
             IBeatmapDataBasicInfo beatmapData = beatmap.GetBeatmapDataBasicInfoAsync().ConfigureAwait(false).GetAwaiter().GetResult();
 #endif
-            if (beatmapData is null)
-                return 0f;
 
             // Count only scorable notes (bombs/walls are excluded)
 #if NEW_VERSION
-            int totalNotes = beatmapData.notesCount;
+            int totalNotes = beatmapData?.notesCount ?? -1;
 #else
-            int totalNotes = beatmapData.cuttableNotesCount;
+            int totalNotes = beatmapData?.cuttableNotesCount ?? -1;
 #endif
             if (totalNotes <= 0)
-                return 0f;
+            {
+                Plugin.Log.Warn($"totalNotes is not set properly! (totalNotes = {totalNotes})");
+                totalNotes = results.goodCutsCount + results.badCutsCount + results.missedCount;
+                Plugin.Log.Warn($"Using backup! Setting the totalNotes to {totalNotes}.");
+                if (totalNotes <= 0)
+                {
+                    Plugin.Log.Warn("Still failed. Defaulting to zero accuracy.");
+                    return 0f;
+                }
+            }
 
             // Use unmodified score (before multipliers) for accuracy
             int rawScore = results.multipliedScore;

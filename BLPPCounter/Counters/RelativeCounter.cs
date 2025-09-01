@@ -26,7 +26,7 @@ namespace BLPPCounter.Counters
         public static string DisplayName => "Relative";
         public static Leaderboards ValidLeaderboards => Leaderboards.All;
         public static string DisplayHandler => DisplayName;
-        private static Func<bool, bool, int, float, string, string, float, string, string, float, float, string, string> displayFormatter;
+        private static Func<bool, bool, int, string, string, string, float, string, string, float, float, string, string> displayFormatter;
         public static Type[] FormatterTypes => displayFormatter.GetType().GetGenericArguments();
         private static Func<Func<Dictionary<char, object>, string>> displayIniter;
         private static PluginConfig PC => PluginConfig.Instance;
@@ -195,6 +195,7 @@ namespace BLPPCounter.Counters
         {
             try
             {
+                Plugin.Log.Info($"Data: {HelpfulMisc.Print(new object[] { Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), PC.Leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true })}");
                 JToken playerData = await APIHandler.GetSelectedAPI().GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), PC.Leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true).ConfigureAwait(false);
                 if (playerData is null)
                 {
@@ -449,12 +450,12 @@ namespace BLPPCounter.Counters
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
-                    text += displayFormatter.Invoke(displayFc, PC.ExtraInfo && i == 3, mistakes, accDiff, color(ppVals[i + displayNum]), ppVals[i + displayNum].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
+                    text += displayFormatter.Invoke(displayFc, PC.ExtraInfo && i == 3, mistakes, accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppVals[i + displayNum]), ppVals[i + displayNum].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
                         color(ppVals[i + displayNum * 3]), ppVals[i + displayNum * 3].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + displayNum * 2], replayAcc, TheCounter.CurrentLabels[i]) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayFormatter.Invoke(displayFc, PC.ExtraInfo, mistakes, accDiff, color(ppVals[displayNum * 2 - 1]), ppVals[displayNum * 2 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum - 1],
+                display.text = displayFormatter.Invoke(displayFc, PC.ExtraInfo, mistakes, accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppVals[displayNum * 2 - 1]), ppVals[displayNum * 2 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum - 1],
                     color(ppVals[displayNum * 4 - 1]), ppVals[displayNum * 4 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum * 3 - 1], replayAcc, TheCounter.CurrentLabels.Last()) + "\n";
         }
         public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent)
