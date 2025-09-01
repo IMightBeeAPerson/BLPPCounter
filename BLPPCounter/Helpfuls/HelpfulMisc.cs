@@ -923,7 +923,11 @@ namespace BLPPCounter.Helpfuls
         {
             if (results is null || transitionData is null)
                 return 0f;
+#if NEW_VERSION
             if (results.invalidated || results.levelEndStateType != LevelCompletionResults.LevelEndStateType.Cleared)
+#else
+            if (results.levelEndStateType != LevelCompletionResults.LevelEndStateType.Cleared)
+#endif
             {
                 Plugin.Log.Warn($"Level was invalidated or failed, not saving score.");
                 return 0f;

@@ -70,7 +70,11 @@ namespace BLPPCounter.Utils
                 nameToId.TryAdd(playerName, $"{ct.ID}");
             }
             theTargets = otherTargets.Union(theTargets).ToList();
+#if NEW_VERSION
             SettingsHandler.Instance.TargetList.Values = SettingsHandler.Instance.ToTarget;
+#else
+            SettingsHandler.Instance.TargetList.values = SettingsHandler.Instance.ToTarget;
+#endif
             SettingsHandler.Instance.TargetList.UpdateChoices();
         }
         public static void AddTarget(string name, string id)
