@@ -211,6 +211,7 @@
     <Compile Include="Utils\Enums\APCategory.cs" />
     <Compile Include="Utils\Enums\Leaderboards.cs" />
     <Compile Include="Utils\List Settings\SessionListInfo.cs" />
+    <Compile Include="Utils\List Settings\TargetInfo.cs" />
     <Compile Include="Utils\Misc Classes\AsyncLock.cs" />
     <Compile Include="Utils\Misc Classes\CoroutineHost.cs" />
     <Compile Include="Utils\Misc Classes\ExtraBypasses.cs" />

@@ -12,6 +12,12 @@ using TMPro;
 using BLPPCounter.Helpfuls;
 using System.Threading.Tasks;
 using UnityEngine;
+using BeatSaberMarkupLanguage.Components;
+using BLPPCounter.Utils.List_Settings;
+using System.Collections;
+using BLPPCounter.Utils.Misc_Classes;
+using UnityEngine.UI;
+using HMUI;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -317,12 +323,29 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region Target Settings
-        [UIComponent(nameof(TargetList))]
-        internal DropDownListSetting TargetList;
+        [UIValue(nameof(ShowEnemy))]
+        public bool ShowEnemy
+        {
+            get => PC.ShowEnemy;
+            set { PC.ShowEnemy = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ShowEnemy))); }
+        }
+
         [UIComponent(nameof(CustomTargetText))]
         private TextMeshProUGUI CustomTargetText;
         [UIComponent(nameof(CustomTargetInput))]
         private StringSetting CustomTargetInput;
+
+        [UIComponent(nameof(ClanTargetList))]
+        private CustomCellListTableData ClanTargetList;
+        [UIComponent(nameof(FollowerTargetList))]
+        private CustomCellListTableData FollowerTargetList;
+        [UIComponent(nameof(CustomTargetList))]
+        private CustomCellListTableData CustomTargetList;
+        [UIComponent(nameof(DisplayList))]
+        private CustomCellListTableData DisplayList;
+        [UIObject(nameof(TargetModal))]
+        private GameObject TargetModal;
+
         [UIValue(nameof(CustomTarget))]
         public string CustomTarget
         {
@@ -332,17 +355,12 @@ namespace BLPPCounter.Settings.SettingHandlers
                 PropertyChanged(this, new PropertyChangedEventArgs(nameof(CustomTarget)));
                 try
                 {
-                    var converted = Utils.CustomTarget.ConvertToId(value);
+                    CustomTarget converted = Utils.CustomTarget.ConvertToId(value);
                     PC.CustomTargets.Add(converted);
-                    Targeter.AddTarget(converted.Name, $"{converted.ID}");
+                    Targeter.AddTarget(converted.Name, converted.ID.ToString());
                     CustomTargetText.SetText("<color=\"green\">Success!</color>");
                     CustomTargetInput.Text = "";
-#if NEW_VERSION
-                    TargetList.Values = Targeter.CustomTargets; // 1.37.0 and above
-#else
-                    TargetList.values = Targeter.CustomTargets; // 1.34.2 and below
-#endif
-                    TargetList.UpdateChoices();
+                    UpdateTargetLists();
                 }
                 catch (ArgumentException e)
                 {
@@ -352,30 +370,77 @@ namespace BLPPCounter.Settings.SettingHandlers
                 
             }
         }
-        [UIValue(nameof(ShowEnemy))]
-        public bool ShowEnemy
-        {
-            get => PC.ShowEnemy;
-            set {PC.ShowEnemy = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ShowEnemy))); }
-        }
         [UIValue(nameof(Target))]
         public string Target
         {
             get => PC.Target;
             set {PC.Target = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(Target))); }
         }
-        [UIValue(nameof(ClanTargets))]
-        public List<object> ClanTargets => (Targeter.ClanTargets ?? new List<object>()).Prepend(Targeter.NO_TARGET).ToList();
-        [UIValue(nameof(FollowerTargets))]
-        public List<object> FollowerTargets => (Targeter.FollowerTargets ?? new List<object>()).Prepend(Targeter.NO_TARGET).ToList();
-        [UIValue(nameof(CustomTargets))]
-        public List<object> CustomTargets => (Targeter.CustomTargets ?? new List<object>()).Prepend(Targeter.NO_TARGET).ToList();
+        [UIValue(nameof(ClanTargetInfos))]
+        private List<object> ClanTargetInfos => GetTargetList(Targeter.ClanTargets);
+        [UIValue(nameof(FollowerTargetInfos))]
+        private List<object> FollowerTargetInfos => GetTargetList(Targeter.FollowerTargets);
+        [UIValue(nameof(CustomTargetInfos))]
+        private List<object> CustomTargetInfos => GetTargetList(Targeter.CustomTargets);
+        [UIValue(nameof(SelectedTargetInfo))]
+        private List<object> SelectedTargetInfo => SelectedTarget is null ? new List<object>(0) : new List<object>(1) { SelectedTarget };
+        private object SelectedTarget = null;
+        private SelectableCell LastCellSelected;
         [UIAction(nameof(ResetTarget))]
         public void ResetTarget()
         {
-            TargetList.Value = "None";
             Target = "None";
+            SelectedTarget = null;
+            UpdateSelectedTarget();
+        }
+        public void UpdateTargetLists()
+        {
+            ClanTargetList.Data = ClanTargetInfos;
+            FollowerTargetList.Data = FollowerTargetInfos;
+            CustomTargetList.Data = CustomTargetInfos;
+
+            ClanTargetList.TableView.ReloadData();
+            FollowerTargetList.TableView.ReloadData();
+            CustomTargetList.TableView.ReloadData();
+        }
+        private void UpdateSelectedTarget()
+        {
+            Target = (SelectedTarget as TargetInfo)?.DisplayName ?? Targeter.NO_TARGET;
+            DisplayList.Data = SelectedTargetInfo;
+            DisplayList.TableView.ReloadData();
+        }
+        private void UpdateSelectedTarget(SelectableCell setCell)
+        {
+            LastCellSelected?.SetSelected(false, SelectableCell.TransitionType.Instant, null, false);
+            LastCellSelected = setCell;
+            UpdateSelectedTarget();
+        }
+        private List<object> GetTargetList(IEnumerable<(string ID, int Rank)> ids)
+        {
+            List<object> outp = new List<object>(ids.Count());
+            foreach (var (id, rank) in ids)
+            {
+                if (!Targeter.IDtoNames.TryGetValue(id, out string name))
+                {
+                    Plugin.Log.Warn($"ID \"{id}\" not found to have a display name.");
+                    continue;
+                }
+                outp.Add(new TargetInfo(name, id, (Leaderboards.Beatleader, rank)));
+            }
+            return outp;
         }
         #endregion
+#pragma warning disable IDE0051
+        [UIAction("#post-parse")]
+        private void PostParse()
+        {
+            ClanTargetList.TableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = ClanTargetInfos[index]; UpdateSelectedTarget(view.GetCellAtIndex(index)); };
+            FollowerTargetList.TableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = FollowerTargetInfos[index]; UpdateSelectedTarget(view.GetCellAtIndex(index)); };
+            CustomTargetList.TableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = CustomTargetInfos[index]; UpdateSelectedTarget(view.GetCellAtIndex(index)); };
+
+            /*ClanTargetList.TableView.selectionType = TableViewSelectionType.DeselectableSingle;
+            FollowerTargetList.TableView.selectionType = TableViewSelectionType.DeselectableSingle;
+            CustomTargetList.TableView.selectionType = TableViewSelectionType.DeselectableSingle*/;
+        }
     }
 }

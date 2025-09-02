@@ -53,13 +53,64 @@
         <text text='' align='Right' id='CustomTargetText'/>
         <checkbox-setting text='Show Target' apply-on-change='true' value='ShowEnemy' hover-hint='Show who you are targeting (if you have one selected)'/>
         <button text='Target Menu' click-event='ShowTargetMenu' align='Center'/>
-        <modal show-event='ShowTargetMenu' click-off-closes='true' move-to-center='true'>
-          <vertical>
-            <button text='Reset Target' on-click='ResetTarget' hover-hint='Resets the target back to yourself'/>
+        <modal id='TargetModal' show-event='ShowTargetMenu' hide-event='HideTargetMenu' click-off-closes='true' move-to-center='true' size-delta='180 80'>
+          <vertical bg='round-rect-panel' bg-color='#CCC'>
+            <horizontal spacing='10' pref-width='180' horizontal-fit='PreferredSize' pad-right='10' pad-left='10'>
+              <vertical>
+                <text text='Clan Targets' align='Center'/>
+                <custom-list id='ClanTargetList' contents='ClanTargetInfos' show-scrollbar='true' cell-size='15' pref-width='50' pref-height='50' clickable-cells='true'>
+                  <vertical>
+                    <text text='~DisplayName' align='Left'/>
+                    <horizontal child-expand-width='true' spacing='5'>
+                      <text text='~ID' align='Left'/>
+                      <text text='~RankDisplay' align='Right'/>
+                    </horizontal>
+                  </vertical>
+                </custom-list>
+              </vertical>
+              <vertical>
+                <text text='Custom Targets' align='Center'/>
+                <custom-list id='CustomTargetList' contents='CustomTargetInfos' show-scrollbar='true' cell-size='15' pref-width='50' pref-height='50' clickable-cells='true'>
+                  <vertical>
+                    <text text='~DisplayName' align='Left'/>
+                    <horizontal child-expand-width='true' spacing='5'>
+                      <text text='~ID' align='Left'/>
+                      <text text='~RankDisplay' align='Right'/>
+                    </horizontal>
+                  </vertical>
+                </custom-list>
+              </vertical>
+              <vertical>
+                <text text='Followed Targets' align='Center'/>
+                <custom-list id='FollowerTargetList' contents='FollowerTargetInfos' show-scrollbar='true' cell-size='15' pref-width='50' pref-height='50' clickable-cells='true'>
+                  <vertical>
+                    <text text='~DisplayName' align='Left'/>
+                    <horizontal child-expand-width='true' spacing='5'>
+                      <text text='~ID' align='Left'/>
+                      <text text='~RankDisplay' align='Right'/>
+                    </horizontal>
+                  </vertical>
+                </custom-list>
+              </vertical>
+            </horizontal>
+            <horizontal spacing='5' child-expand-width='false' pad-left='55'>
+              <text text='Selected Target ' align='Left'/>
+              <custom-list id='DisplayList' contents='SelectedTargetInfo' show-scrollbar='false' cell-size='15' pref-width='50' pref-height='15' clickable-cells='false' align='Right'>
+                <vertical>
+                  <text text='~DisplayName' align='Left'/>
+                  <horizontal child-expand-width='true' spacing='5'>
+                    <text text='~ID' align='Left'/>
+                    <text text='~RankDisplay' align='Right'/>
+                  </horizontal>
+                </vertical>
+              </custom-list>
+            </horizontal>
+            <horizontal>
+              <button text='Reset Target' on-click='ResetTarget' hover-hint='Resets the target back to yourself' align='Left'/>
+              <button text='Exit' click-event='HideTargetMenu' align='Right'/>
+            </horizontal>
           </vertical>
         </modal>
-        <dropdown-list-setting text='Target' id='TargetList' apply-on-change='true' value='Target' options='ToTarget' hover-hint='A player to compare against while playing'/>
-        
       </vertical>
     </vertical>
   </settings-container>
