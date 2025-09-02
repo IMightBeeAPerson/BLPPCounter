@@ -234,7 +234,20 @@ namespace BLPPCounter.Helpfuls
             new UnityEngine.Color(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f);
         public static System.Drawing.Color ConvertColor(UnityEngine.Color color) =>
             System.Drawing.Color.FromArgb((int)Math.Round(color.a * 0xFF), (int)Math.Round(color.r * 0xFF), (int)Math.Round(color.g * 0xFF), (int)Math.Round(color.b * 0xFF));
-        public static BSMLParserParams AddToComponent(BSMLResourceViewController brvc, UnityEngine.GameObject container) =>
+        public static System.Drawing.Color Multiply(System.Drawing.Color a, float b) =>
+            System.Drawing.Color.FromArgb((int)Math.Round(a.A * b), (int)Math.Round(a.R * b), (int)Math.Round(a.G * b), (int)Math.Round(a.B * b));
+        public static System.Drawing.Color Blend(System.Drawing.Color a, System.Drawing.Color b, float aWeight = 0.5f, float bWeight = 0.5f)
+        {
+            aWeight *= 2f;
+            bWeight *= 2f;
+            float newA = a.A * aWeight + b.A * bWeight,
+                newR = a.R * aWeight + b.R * bWeight,
+                newG = a.G * aWeight + b.G * bWeight,
+                newB = a.B * aWeight + b.B * bWeight;
+            float maxMult = Math.Min(255f / Math.Max(Math.Max(newA, Math.Max(newR, Math.Max(newG, newB))), 0.1f), 1f);
+            return System.Drawing.Color.FromArgb((int)Math.Round(newA * maxMult), (int)Math.Round(newR * maxMult), (int)Math.Round(newG * maxMult), (int)Math.Round(newB * maxMult));
+        }
+        public static BSMLParserParams AddToComponent(BSMLResourceViewController brvc, GameObject container) =>
 #if NEW_VERSION
             BSMLParser.Instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc); // 1.37.0 and above
 #else
@@ -910,6 +923,20 @@ namespace BLPPCounter.Helpfuls
         {
             if (results is null || transitionData is null)
                 return 0f;
+#if NEW_VERSION
+            if (results.invalidated || results.levelEndStateType != LevelCompletionResults.LevelEndStateType.Cleared)
+#else
+            if (results.levelEndStateType != LevelCompletionResults.LevelEndStateType.Cleared)
+#endif
+            {
+                Plugin.Log.Warn($"Level was invalidated or failed, not saving score.");
+                return 0f;
+            }
+            if (results.energy <= 0.0f)
+            {
+                Plugin.Log.Warn($"Level was failed with No Fail enabled, not saving score.");
+                return 0f;
+            }
 
             // Grab the selected difficulty beatmap
 #if !NEW_VERSION
@@ -924,17 +951,24 @@ namespace BLPPCounter.Helpfuls
 #else
             IBeatmapDataBasicInfo beatmapData = beatmap.GetBeatmapDataBasicInfoAsync().ConfigureAwait(false).GetAwaiter().GetResult();
 #endif
-            if (beatmapData is null)
-                return 0f;
 
             // Count only scorable notes (bombs/walls are excluded)
 #if NEW_VERSION
-            int totalNotes = beatmapData.notesCount;
+            int totalNotes = beatmapData?.notesCount ?? -1;
 #else
-            int totalNotes = beatmapData.cuttableNotesCount;
+            int totalNotes = beatmapData?.cuttableNotesCount ?? -1;
 #endif
             if (totalNotes <= 0)
-                return 0f;
+            {
+                Plugin.Log.Warn($"totalNotes is not set properly! (totalNotes = {totalNotes})");
+                totalNotes = results.goodCutsCount + results.badCutsCount + results.missedCount;
+                Plugin.Log.Warn($"Using backup! Setting the totalNotes to {totalNotes}.");
+                if (totalNotes <= 0)
+                {
+                    Plugin.Log.Warn("Still failed. Defaulting to zero accuracy.");
+                    return 0f;
+                }
+            }
 
             // Use unmodified score (before multipliers) for accuracy
             int rawScore = results.multipliedScore;

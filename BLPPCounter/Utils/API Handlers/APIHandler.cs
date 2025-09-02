@@ -42,7 +42,7 @@ namespace BLPPCounter.Utils.API_Handlers
 
                     Plugin.Log.Debug("API Call: " + path);
 
-                    HttpResponseMessage response = await client.GetAsync(new Uri(path)).ConfigureAwait(false);
+                    HttpResponseMessage response = await client.GetAsync(new Uri(path.Replace(" ", "%20"))).ConfigureAwait(false);
                     int status = (int)response.StatusCode;
                     if (status >= 400 && status < 500)
                     {
@@ -129,7 +129,8 @@ namespace BLPPCounter.Utils.API_Handlers
                             (bool succeeded, HttpContent content) = await CallAPI_Static(apiPath, BSThrottler);
                             if (!succeeded) return;
 
-                            var hashData = JToken.Parse(await content.ReadAsStringAsync().ConfigureAwait(false)).Children().ToList();
+                            JToken rawHashData = JToken.Parse(await content.ReadAsStringAsync().ConfigureAwait(false));
+                            List<JToken> hashData = batch.Count > 1 ? rawHashData.Children().ToList() : new List<JToken>(1) { rawHashData };
                             var returnedHashes = new HashSet<string>();
 
                             for (int i = 0; i < hashData.Count; i++)

@@ -1,12 +1,14 @@
-﻿using Newtonsoft.Json.Linq;
-using BLPPCounter.Settings.Configs;
+﻿using BLPPCounter.Settings.Configs;
+using BLPPCounter.Settings.SettingHandlers;
+using BLPPCounter.Utils.API_Handlers;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System;
-using BLPPCounter.Utils.API_Handlers;
+using static UnityEngine.GraphicsBuffer;
 using BLPPCounter.Helpfuls;
 
 namespace BLPPCounter.Utils
@@ -43,8 +45,10 @@ namespace BLPPCounter.Utils
             ClanTargets = new List<object>(clanStuffs.Count());
             nameToId = new Dictionary<string, string>();
             foreach (JToken person in clanStuffs) {
-                ClanTargets.Add(person["name"].ToString());
-                nameToId[person["name"].ToString()] = person["id"].ToString();
+                string playerName = person["name"].ToString();
+                ResolveDupes(nameToId, ref playerName);
+                ClanTargets.Add(playerName);
+                nameToId[playerName] = person["id"].ToString();
             }
 
         FollowerTargets:
@@ -74,13 +78,28 @@ namespace BLPPCounter.Utils
             CustomTargets = new List<object>(cts.Count);
             foreach (CustomTarget ct in cts)
             {
-                CustomTargets.Add(ct.Name);
-                nameToId.Add(ct.Name, $"{ct.ID}");
+                string playerName = ct.Name;
+                ResolveDupes(nameToId, ref playerName);
+                CustomTargets.Add(playerName);
+                nameToId.TryAdd(playerName, $"{ct.ID}");
             }
+            theTargets = otherTargets.Union(theTargets).ToList();
+#if NEW_VERSION
+            SettingsHandler.Instance.TargetList.Values = SettingsHandler.Instance.ToTarget;
+#else
+            SettingsHandler.Instance.TargetList.values = SettingsHandler.Instance.ToTarget;
+#endif
+            SettingsHandler.Instance.TargetList.UpdateChoices();
         }
         public static void AddTarget(string name, string id)
         {
-            if (nameToId.ContainsKey(name)) return;
+            if (nameToId.ContainsKey(name))
+            {
+                name += " (2)";
+                int c = 3;
+                while (nameToId.ContainsKey(name))
+                    name = name.Substring(0, name.Length - 4) + $" ({c++})";
+            }
             nameToId[name] = id;
             CustomTargets = CustomTargets.Prepend(name).ToList();
             //Plugin.Log.Info(string.Join(", ", theTargets));
@@ -120,6 +139,17 @@ namespace BLPPCounter.Utils
                 Plugin.Log.Debug(e);
             }
             return null;
+        }
+        private static void ResolveDupes<T>(Dictionary<string, T> dict, ref string name) 
+        {
+            if (dict.ContainsKey(name))
+            {
+                name += " (2)";
+                int c = 3;
+                while (dict.ContainsKey(name))
+                    name = name.Substring(0, name.Length - 4 - (int)Math.Floor(Math.Log(c, 10))) + $" ({c++})";
+            }
+            return name;
         }
     }
 }

@@ -27,7 +27,6 @@ namespace BLPPCounter.Settings.Configs
         public virtual bool SplitPPVals { get; set; } = false;
         public virtual bool ExtraInfo { get; set; } = true;
         public virtual bool UseGrad { get; set; } = true;
-        public virtual int GradVal { get; set; } = 100;
         public virtual bool UpdateAfterTime { get; set; } = false;
         public virtual float UpdateTime { get; set; } = 0.5f;
         public virtual string PPType { get; set; } = "Normal";
@@ -40,6 +39,12 @@ namespace BLPPCounter.Settings.Configs
         public virtual Leaderboards DefaultLeaderboard { get; set; } = Leaderboards.Scoresaber;
         public virtual bool UseUnranked { get; set; } = true;
         public virtual bool LeaderInLabel { get; set; } = true;
+        #endregion
+        #region Misc Settings
+        public virtual float ColorGradMinDark { get; set; } = 0.5f;
+        public virtual bool ColorGradBlending { get; set; } = true;
+        public virtual float ColorGradFlipPercent { get; set; } = 0.1f;
+        public virtual int ColorGradMaxDiff { get; set; } = 100;
         #endregion
         #region Clan Counter Settings
         public virtual bool ShowClanMessage { get; set; } = true;
@@ -76,6 +81,12 @@ namespace BLPPCounter.Settings.Configs
         public virtual bool AutoUpdateRefs { get; set; } = true;
 
         #region Colors
+        #region In-Game Colors
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color ColorGradMin { get; set; } = Color.FromArgb(255, 0, 0);
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color ColorGradMax { get; set; } = Color.FromArgb(0, 255, 0);
+        [UseConverter(typeof(SystemColorConverter))] public virtual Color ColorGradZero { get; set; } = Color.FromArgb(255, 255, 0);
+        #endregion
+        #region Alias Colors
         [UseConverter(typeof(SystemColorConverter))] public virtual Color EscapeCharacterColor { get; set; } = Color.FromArgb(235, 33, 235); //#eb21eb
         [UseConverter(typeof(SystemColorConverter))] public virtual Color SpecialCharacterColor { get; set; } = Color.Goldenrod;
         [UseConverter(typeof(SystemColorConverter))] public virtual Color AliasColor { get; set; } = Color.FromArgb(187, 242, 46); //#bbf22e
@@ -90,9 +101,10 @@ namespace BLPPCounter.Settings.Configs
         [UseConverter(typeof(SystemColorConverter))] public virtual Color ShorthandColor { get; set; } = Color.DarkMagenta;
         [UseConverter(typeof(SystemColorConverter))] public virtual Color HighlightColor { get; set; } = Color.FromArgb(119, 255, 255, 0); //#77ffff00
         [UseConverter(typeof(SystemColorConverter))] public virtual Color SecondHighlightColor { get; set; } = Color.FromArgb(119, 18, 252, 255); //#7712fcff
+        #endregion
         [Ignore] private readonly Dictionary<string, PropertyInfo> Colors = new Dictionary<string, PropertyInfo>(
             typeof(PluginConfig).GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .Where(p => p.PropertyType.Equals(typeof(Color)))
+                .Where(p => p.PropertyType.Equals(typeof(Color)) && p.Name.EndsWith("Color"))
                 .Select(p => new KeyValuePair<string, PropertyInfo>(p.Name.Substring(0, p.Name.Length - 5), p)));
         public Color GetColorFromName(string name) => (Color)Colors[name].GetValue(this);
         [Ignore] public IEnumerable<PropertyInfo> ColorInfos => Colors.Values;

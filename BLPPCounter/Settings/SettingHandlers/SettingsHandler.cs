@@ -11,6 +11,7 @@ using System.Linq;
 using TMPro;
 using BLPPCounter.Helpfuls;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -107,18 +108,6 @@ namespace BLPPCounter.Settings.SettingHandlers
             get => PC.ExtraInfo;
             set { PC.ExtraInfo = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ExtraInfo))); }
         }
-        [UIValue(nameof(UseGrad))]
-        public bool UseGrad
-        {
-            get => PC.UseGrad;
-            set {PC.UseGrad = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseGrad))); }
-        }
-        [UIValue(nameof(GradVal))]
-        public int GradVal
-        {
-            get => PC.GradVal;
-            set { PC.GradVal = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(GradVal))); }
-        }
         [UIComponent(nameof(CounterList))]
         private ListSetting CounterList;
         [UIValue(nameof(TypesOfPP))]
@@ -204,6 +193,53 @@ namespace BLPPCounter.Settings.SettingHandlers
         #region Misc Settings
         [UIAction(nameof(ClearCache))]
         public void ClearCache() { ClanCounter.ClearCache(); TheCounter.ClearCounter(); }
+        [UIValue(nameof(UseGrad))]
+        public bool UseGrad
+        {
+            get => PC.UseGrad;
+            set { PC.UseGrad = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseGrad))); }
+        }
+        [UIValue(nameof(ColorGradMin))] private Color ColorGradMin
+        {
+            get => HelpfulMisc.ConvertColor(PC.ColorGradMin);
+            set { PC.ColorGradMin = HelpfulMisc.ConvertColor(value); PropertyChanged(this, new PropertyChangedEventArgs(nameof(ColorGradMin))); }
+        }
+        [UIValue(nameof(ColorGradMax))]
+        private Color ColorGradMax
+        {
+            get => HelpfulMisc.ConvertColor(PC.ColorGradMax);
+            set { PC.ColorGradMax = HelpfulMisc.ConvertColor(value); PropertyChanged(this, new PropertyChangedEventArgs(nameof(ColorGradMax))); }
+        }
+        [UIValue(nameof(ColorGradZero))]
+        private Color ColorGradZero
+        {
+            get => HelpfulMisc.ConvertColor(PC.ColorGradZero);
+            set { PC.ColorGradZero = HelpfulMisc.ConvertColor(value); PropertyChanged(this, new PropertyChangedEventArgs(nameof(ColorGradZero))); }
+        }
+        [UIValue(nameof(ColorGradMinDark))]
+        private float ColorGradMinDark
+        {
+            get => PC.ColorGradMinDark;
+            set { PC.ColorGradMinDark = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ColorGradMinDark))); }
+        }
+        [UIValue(nameof(ColorGradBlending))]
+        private bool ColorGradBlending
+        {
+            get => PC.ColorGradBlending;
+            set { PC.ColorGradBlending = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ColorGradBlending))); }
+        }
+        [UIValue(nameof(ColorGradFlipPercent))]
+        private float ColorGradFlipPercent
+        {
+            get => PC.ColorGradFlipPercent;
+            set { PC.ColorGradFlipPercent = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ColorGradFlipPercent))); }
+        }
+        [UIValue(nameof(ColorGradMaxDiff))]
+        private int ColorGradMaxDiff
+        {
+            get => PC.ColorGradMaxDiff;
+            set { PC.ColorGradMaxDiff = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ColorGradMaxDiff))); }
+        }
         #endregion
         #region Clan Counter Settings
         [UIValue(nameof(ShowClanMessage))]
@@ -282,7 +318,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         #endregion
         #region Target Settings
         [UIComponent(nameof(TargetList))]
-        private DropDownListSetting TargetList;
+        internal DropDownListSetting TargetList;
         [UIComponent(nameof(CustomTargetText))]
         private TextMeshProUGUI CustomTargetText;
         [UIComponent(nameof(CustomTargetInput))]
