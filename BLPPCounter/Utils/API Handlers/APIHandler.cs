@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using BLPPCounter.Utils.Misc_Classes;
 using BLPPCounter.Utils.Enums;
 using ModestTree;
+using System.Xml.Schema;
 
 namespace BLPPCounter.Utils.API_Handlers
 {
@@ -205,6 +206,48 @@ namespace BLPPCounter.Utils.API_Handlers
             if (!data.Success) return null;
             return await data.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
         }
+        public static async Task<IEnumerable<T>> CalledPagedAPI<T>
+           (string userId, int totalCount, string path, Throttler throttler, Func<string, Task<T>> tokenParser,
+           bool zeroIndexedPages = false, int maxCountPerPage = 100, int maxConcurrency = 5)
+        {
+            int totalPages = (int)Math.Ceiling(totalCount / (double)maxCountPerPage);
+            if (zeroIndexedPages) totalPages--;
+            SemaphoreSlim semaphore = new SemaphoreSlim(maxConcurrency);
+            List<Task<(int PageIndex, T Results)>> pageTasks = new List<Task<(int PageIndex, T Results)>>(totalPages);
+            bool usesPages = path.Contains("{1}");
+
+            for (int pageNum = zeroIndexedPages ? 0 : 1; pageNum <= totalPages; pageNum++)
+            {
+                if (!usesPages) pageNum = totalPages;
+                int localPageNum = pageNum; //For async issues.
+                int startIndex = (localPageNum - (zeroIndexedPages ? 0 : 1)) * maxCountPerPage;
+                int pageCount = Math.Min(maxCountPerPage, totalCount - startIndex);
+
+                pageTasks.Add(Task.Run(async () =>
+                {
+                    await semaphore.WaitAsync();
+                    try
+                    {
+                        string apiPath = usesPages ? string.Format(path, userId, localPageNum, pageCount) : string.Format(path, userId);
+                        var (Success, Content) = await CallAPI_Static(apiPath, throttler: throttler);
+                        if (!Success) return (localPageNum, default);
+
+                        string dataTokensStr = await Content.ReadAsStringAsync().ConfigureAwait(false);
+                        if (dataTokensStr is null)
+                            return (localPageNum, default);
+                        T outp = await tokenParser.Invoke(dataTokensStr);
+
+                        return (localPageNum, outp);
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                }));
+            }
+
+            return (await Task.WhenAll(pageTasks).ConfigureAwait(false)).OrderBy(r => r.PageIndex).Select(r => r.Results);
+        }
         public abstract float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1);
         public abstract bool MapIsUsable(JToken diffData);
         public abstract bool AreRatingsNull(JToken diffData);
@@ -224,70 +267,36 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract Task<Play[]> GetScores(string userId, int count);
         protected async Task<Play[]> GetScores(
         string userId, int count, string apiPathFormat, string scoreArrayPath, bool isZeroIndexed,
-        Func<JToken, Play> tokenSelector, Throttler throttler = null,
+        Func<JToken, Play> tokenSelector, Throttler throttler,
         Func<Play, string, (Play Data, string ExtraOutp)> replaceSelector = null,
         params string[] jsonPath)
         {
-            const int MaxCountToPage = 100, maxConcurrency = 5;
-            int totalPages = (int)Math.Ceiling(count / (double)MaxCountToPage);
-            if (isZeroIndexed) totalPages--;
-            var semaphore = new SemaphoreSlim(maxConcurrency);
-            var pageTasks = new List<Task<(int PageIndex, Play[])>>();
-            bool usesPages = apiPathFormat.Contains("{1}");
-
-            for (int pageNum = isZeroIndexed ? 0 : 1; pageNum <= totalPages; pageNum++)
+            async Task<Play[]> DoStuff(string tokenData)
             {
-                if (!usesPages) pageNum = totalPages;
-                int localPageNum = pageNum; //For async issues.
-                int startIndex = (localPageNum - (isZeroIndexed ? 0 : 1)) * MaxCountToPage;
-                int pageCount = Math.Min(MaxCountToPage, count - startIndex);
+                if (tokenData is null)
+                    return null;
+                IEnumerable<JToken> dataTokens = (scoreArrayPath is null ? JToken.Parse(tokenData) : JToken.Parse(tokenData)[scoreArrayPath])?.Children();
+                if (dataTokens == null || dataTokens.IsEmpty())
+                    return null;
+                if (!apiPathFormat.Contains("{1}") && dataTokens.Count() > count)
+                    dataTokens = dataTokens.Take(count);
 
-                pageTasks.Add(Task.Run(async () =>
+                Play[] current = dataTokens.Select(tokenSelector).ToArray();
+
+                if (!(replaceSelector is null))
                 {
-                    await semaphore.WaitAsync();
-                    try
-                    {
-                        string apiPath = usesPages ? string.Format(apiPathFormat, userId, localPageNum, pageCount) : string.Format(apiPathFormat, userId);
-                        var response = await CallAPI_Static(apiPath, throttler: throttler);
-                        if (!response.Success) return (localPageNum, Array.Empty<Play>());
+                    string[] mapHashes = current.Select(data => replaceSelector.Invoke(data, "").ExtraOutp).ToArray();
+                    string[] names = await GetBSData(mapHashes, path: jsonPath);
 
-                        string dataTokensStr = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                        if (dataTokensStr is null)
-                            return (localPageNum, Array.Empty<Play>());
-                        IEnumerable<JToken> dataTokens = (scoreArrayPath is null ? JToken.Parse(dataTokensStr) : JToken.Parse(dataTokensStr)[scoreArrayPath])?.Children();
-                        if (dataTokens == null || dataTokens.IsEmpty())
-                            return (localPageNum, Array.Empty<Play>());
-                        if (!usesPages && dataTokens.Count() > count)
-                            dataTokens = dataTokens.Take(count);
+                    for (int i = 0; i < current.Length; i++)
+                        current[i] = replaceSelector.Invoke(current[i], names[i]).Data;
+                }
 
-                        Play[] current = dataTokens.Select(tokenSelector).ToArray();
-
-                        if (!(replaceSelector is null))
-                        {
-                            string[] mapHashes = current.Select(data => replaceSelector.Invoke(data, "").ExtraOutp).ToArray();
-                            string[] names = await GetBSData(mapHashes, path: jsonPath);
-
-                            for (int i = 0; i < current.Length; i++)
-                                current[i] = replaceSelector.Invoke(current[i], names[i]).Data;
-                        }
-
-                        return (localPageNum, current);
-                    }
-                    finally
-                    {
-                        semaphore.Release();
-                    }
-                }));
+                return current;
             }
-
-            var results = await Task.WhenAll(pageTasks).ConfigureAwait(false);
-
-            Play[] orderedResults = results
-                .OrderBy(r => r.PageIndex)
-                .SelectMany(r => r.Item2)
+            return (await CalledPagedAPI(userId, count, apiPathFormat, throttler, DoStuff, isZeroIndexed))
+                .Aggregate(new List<Play>() as IEnumerable<Play>, (total, current) => total.Union(current))
                 .ToArray();
-
-            return orderedResults;
         }
 
         public abstract Task<float> GetProfilePP(string userId);

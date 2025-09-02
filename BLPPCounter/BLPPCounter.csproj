@@ -25,7 +25,7 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;NEW_VERSION</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <Optimize>true</Optimize>
@@ -256,7 +256,7 @@
     <EmbeddedResource Include="Settings\BSML\MenuComponents\ColorSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\MenuComponents\AliasSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\PpInfo.bsml" />
-    <EmbeddedResource Include="Settings\BSML\Test.bsml" />
+    <EmbeddedResource Include="Settings\BSML\VariableSettingsContainer.bsml" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BeatSaberModdingTools.Tasks">

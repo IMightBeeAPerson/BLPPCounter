@@ -70,10 +70,6 @@ namespace BLPPCounter.Settings.Configs
         [UseConverter(typeof(ListConverter<CustomTarget>))]
         public virtual List<CustomTarget> CustomTargets { get; set; } = new List<CustomTarget>();
         #endregion
-        #region Unused Code
-        //public virtual bool LocalReplay { get; set; } = false;
-        //public virtual string ChosenPlaylist { get; set; } = "";
-        #endregion
         #region Menu Settings
         #region Simple Settings
         public virtual bool SimpleUI { get; set; } = true;
