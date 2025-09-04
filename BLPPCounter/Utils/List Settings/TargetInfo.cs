@@ -1,4 +1,5 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
+using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using System;
 using System.Collections.Generic;
@@ -10,12 +11,12 @@ namespace BLPPCounter.Utils.List_Settings
 {
     internal class TargetInfo
     {
-        [UIValue(nameof(DisplayName))] public string DisplayName => _displayName;
+        [UIValue(nameof(DisplayName))] public string DisplayName => _displayName.ClampString(25);
         private string _displayName;
         [UIValue(nameof(ID))] public string ID => $"<color=#999>ID</color> <color=#777>{_id}</color>";
         private readonly string _id;
         private readonly Dictionary<Leaderboards, int> Ranks;
-        [UIValue(nameof(RankDisplay))] private string RankDisplay => $"#<color=orange>{Rank}";
+        [UIValue(nameof(RankDisplay))] private string RankDisplay => $"#<color=orange>{(Rank > 0 ? Rank.ToString() : "?")}";
         //public int Rank => Ranks.ContainsKey(PluginConfig.Instance.Leaderboard) ? Ranks[PluginConfig.Instance.Leaderboard] : -1;
         public int Rank => Ranks.ContainsKey(Leaderboards.Beatleader) ? Ranks[Leaderboards.Beatleader] : -1;
 

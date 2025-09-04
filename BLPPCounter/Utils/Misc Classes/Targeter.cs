@@ -18,7 +18,8 @@ namespace BLPPCounter.Utils
         public static readonly string NO_TARGET = "None";
         private static PluginConfig PC => PluginConfig.Instance;
         //These store the ids, not the names.
-        private static List<(string ID, int Rank)> _clanTargets, _followerTargets, _customTargets;
+        private static List<(string ID, int Rank)> _clanTargets = null, _followerTargets = null, _customTargets = null;
+        internal static readonly HashSet<long> UsedIDs = new HashSet<long>();
         public static IReadOnlyList<(string ID, int Rank)> ClanTargets => _clanTargets;
         public static IReadOnlyList<(string ID, int Rank)> FollowerTargets => _followerTargets;
         public static IReadOnlyList<(string ID, int Rank)> CustomTargets => _customTargets;
@@ -32,6 +33,7 @@ namespace BLPPCounter.Utils
         {
             string clanInfo = "";
             PlayerID = (await BS_Utils.Gameplay.GetUserInfo.GetUserAsync()).platformUserId;
+            bool showWarnings = PluginConfig.Instance.TargeterStartupWarnings;
 
             try
             {
@@ -49,10 +51,17 @@ namespace BLPPCounter.Utils
             _clanTargets = new List<(string ID, int Rank)>(clanStuffs.Count());
             IDtoNames = new Dictionary<string, string>();
             foreach (JToken person in clanStuffs) {
+                long id = (long)person["id"];
+                if (UsedIDs.Contains(id))
+                {
+                    if (showWarnings) Plugin.Log.Warn($"There is a duplicate id \"{id}\" inside of your home clan.");
+                    continue;
+                }
+                UsedIDs.Add(id);
                 string playerName = person["name"].ToString();
                 //ResolveDupes(IDtoNames, ref playerName);
-                _clanTargets.Add((person["id"].ToString(), (int)person["rank"]));
-                IDtoNames.Add(person["id"].ToString(), playerName);
+                _clanTargets.Add((id.ToString(), (int)person["rank"]));
+                IDtoNames.Add(id.ToString(), playerName);
             }
 
         _followerTargets:
@@ -73,6 +82,13 @@ namespace BLPPCounter.Utils
             _followerTargets = new List<(string ID, int Rank)>(data.Count());
             foreach (var (ID, Name) in data)
             {
+                long id = long.Parse(ID);
+                if (UsedIDs.Contains(id))
+                {
+                    if (showWarnings) Plugin.Log.Warn($"There is a duplicate id \"{id}\" inside your follower list.");
+                    continue;
+                }
+                UsedIDs.Add(id);
                 if (IDtoNames.TryAdd(ID, Name))
                     _followerTargets.Add((ID, -1));
             }
@@ -80,22 +96,52 @@ namespace BLPPCounter.Utils
         _customTargets:
             List<CustomTarget> cts = PC.CustomTargets;
             _customTargets = new List<(string ID, int Rank)>(cts.Count);
-            foreach (CustomTarget ct in cts)
+            List<(int RepIndex, CustomTarget NewCustomTarget)> toReplace = new List<(int RepIndex, CustomTarget NewCustomTarget)>();
+            List<int> toRemove = new List<int>();
+            for (int i = 0; i < cts.Count; i++)
             {
+                CustomTarget ct = cts[i];
                 string playerName = ct.Name;
-                //ResolveDupes(IDtoNames, ref playerName);
+                if (UsedIDs.Contains(ct.ID))
+                {
+                    if (showWarnings) Plugin.Log.Warn($"There is a duplicate id \"{ct.ID}\" inside your custom targets list.");
+                    toRemove.Add(i);
+                    continue;
+                }
+                UsedIDs.Add(ct.ID);
                 if (IDtoNames.TryAdd(ct.ID.ToString(), playerName))
-                    _customTargets.Add((ct.ID.ToString(), -1));
+                {
+                    if (ct.Rank > 0 || ct.Rank == -2)
+                        _customTargets.Add((ct.ID.ToString(), ct.Rank));
+                    else
+                    {
+                        (bool success, HttpContent content) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.BLAPI_USERID, ct.ID), BLAPI.Throttle);
+                        if (success)
+                        {
+                            JToken profileData = JToken.Parse(await content.ReadAsStringAsync().ConfigureAwait(false));
+                            ct = new CustomTarget(ct.Name, ct.ID, (int)profileData["rank"]);
+                            _customTargets.Add((ct.ID.ToString(), ct.Rank));
+                            toReplace.Add((i, ct));
+                        }
+                        else _customTargets.Add((ct.ID.ToString(), -2));
+                    }
+                }
             }
-            Plugin.Log.Info("Targets loaded!");
+            _customTargets.Sort((a, b) => a.Rank.CompareTo(b.Rank));
+            foreach (var (RepIndex, NewCustomTarget) in toReplace)
+                PC.CustomTargets[RepIndex] = NewCustomTarget;
+            for (int i = toRemove.Count - 1; i >= 0; i--)
+                PC.CustomTargets.RemoveRange(toRemove[i], 1);
+            PC.CustomTargets.Sort((a, b) => a.Rank.CompareTo(b.Rank));
         }
-        public static void AddTarget(string name, string id, int rank = -1)
+        public static void AddTarget(string name, string id, int rank)
         {
             //ResolveDupes(IDtoNames, ref name);
             IDtoNames[id] = name;
-            _customTargets.Insert(0, (name, rank));
+            _customTargets.AddSorted((id, rank), (first, second) => first.Item2.CompareTo(second.Item2));
             //Plugin.Log.Info(string.Join(", ", theTargets));
         }
+        public static void AddTarget(CustomTarget target) => AddTarget(target.Name, target.ID.ToString(), target.Rank);
         public static async Task<string> RequestClan(string playerID)
         {
             try
@@ -122,11 +168,7 @@ namespace BLPPCounter.Utils
             {
                 async Task<IEnumerable<(string ID, string Name)>> PageHandler(string token) => await Task.Run(() => 
                 JToken.Parse(token).Children().Select(t => (t["id"].ToString(), t["name"].ToString())));
-                var pagedData = await APIHandler.CalledPagedAPI(playerID, 100, HelpfulPaths.BLAPI_FOLLOWERS, BLAPI.Throttle, PageHandler);
-                IEnumerable<(string ID, string Name)> outp = new List<(string, string)>();
-                foreach (var p in pagedData)
-                    outp = outp.Union(p);
-                return outp;
+                return await APIHandler.CalledPagedAPIFlat(100, (page, count) => string.Format(HelpfulPaths.BLAPI_FOLLOWERS, playerID, page, count), BLAPI.Throttle, PageHandler);
                 //await BS_Utils.Gameplay.GetUserInfo.GetPlatformUserModel().GetUserFriendsUserIds(false).ConfigureAwait(false);
             }
             catch (HttpRequestException e)

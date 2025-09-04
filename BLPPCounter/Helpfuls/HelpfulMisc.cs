@@ -723,6 +723,42 @@ namespace BLPPCounter.Helpfuls
             return low; // first index where value <= arr[i], or arr.Length if value is smallest
         }
         /// <summary>
+        /// Standard binary serach, but assumes <paramref name="arr"/> is sorted from greatest to least instead of least to greatest.
+        /// The same thing as passing a least to greatest array into <seealso cref="Array.BinarySearch(Array, object)"/>.
+        /// </summary>
+        /// <param name="arr">The array to preform the search on.</param>
+        /// <param name="value">The value to search for.</param>
+        /// <param name="comparer">The comparer used to compare 2 items.</param>
+        /// <returns>Either the index of <paramref name="value"/> will be returned, or the index of the highest value without going over.
+        /// It will return the arr length if the given value is less than all of the other values.</returns>
+        public static int ReverseBinarySearch<T>(T[] arr, T value, IComparer<T> comparer)
+        {
+            int low = 0;
+            int high = arr.Length - 1;
+
+            while (low <= high)
+            {
+                int mid = (low + high) / 2;
+                int cmp = comparer.Compare(arr[mid], value);
+
+                if (cmp == 0)
+                    return mid;
+
+                if (cmp > 0)
+                {
+                    // mid value > value, move right (since descending)
+                    low = mid + 1;
+                }
+                else
+                {
+                    // mid value < value, move left
+                    high = mid - 1;
+                }
+            }
+
+            return low; // first index where value <= arr[i], or arr.Length if value is smallest
+        }
+        /// <summary>
         /// Compresses <see cref="Enum"/>s into a series of numbers.
         /// </summary>
         /// <typeparam name="T">The type of an <see cref="Enum"/>.</typeparam>
@@ -994,6 +1030,20 @@ namespace BLPPCounter.Helpfuls
             int hours = (int)Math.Round(time.TotalHours);
             return $"{hours} hour{(hours == 1 ? "" : "s")} ago";
         }
+        public static void AddSorted<T>(this List<T> list, T toAdd, bool greatestFirst = false) where T : IComparable<T>
+        {
+            int index = greatestFirst ? ReverseBinarySearch(list.ToArray(), toAdd) : Array.BinarySearch(list.ToArray(), toAdd);
+            if (index < 0) index = -index - 1;
+            list.Insert(index, toAdd);
+        }
+        public static void AddSorted<T>(this List<T> list, T toAdd, IComparer<T> comparer, bool greatestFirst = false)
+        {
+            int index = greatestFirst ? ReverseBinarySearch(list.ToArray(), toAdd, comparer) : Array.BinarySearch(list.ToArray(), toAdd, comparer);
+            if (index < 0) index = -index - 1;
+            list.Insert(index, toAdd);
+        }
+        public static void AddSorted<T>(this List<T> list, T toAdd, Comparison<T> comparer, bool greatestFirst = false) =>
+            AddSorted(list, toAdd, Comparer<T>.Create(comparer), greatestFirst);
 
             /*float[] ConvertArr(double[] arr)
             {

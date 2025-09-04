@@ -1,23 +1,24 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
+using BeatSaberMarkupLanguage.Components;
 using BeatSaberMarkupLanguage.Components.Settings;
-using CountersPlus.ConfigModels;
 using BLPPCounter.Counters;
-using BLPPCounter.Utils;
+using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
+using BLPPCounter.Utils;
+using BLPPCounter.Utils.List_Settings;
+using BLPPCounter.Utils.Misc_Classes;
+using CountersPlus.ConfigModels;
+using HMUI;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using TMPro;
-using BLPPCounter.Helpfuls;
 using System.Threading.Tasks;
+using TMPro;
 using UnityEngine;
-using BeatSaberMarkupLanguage.Components;
-using BLPPCounter.Utils.List_Settings;
-using System.Collections;
-using BLPPCounter.Utils.Misc_Classes;
 using UnityEngine.UI;
-using HMUI;
+using Zenject;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -323,6 +324,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region Target Settings
+        [UIValue(nameof(TargeterStartupWarnings))]
+        public bool TargeterStartupWarnings
+        {
+            get => PC.TargeterStartupWarnings;
+            set { PC.TargeterStartupWarnings = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(TargeterStartupWarnings))); }
+        }
         [UIValue(nameof(ShowEnemy))]
         public bool ShowEnemy
         {
@@ -334,6 +341,10 @@ namespace BLPPCounter.Settings.SettingHandlers
         private TextMeshProUGUI CustomTargetText;
         [UIComponent(nameof(CustomTargetInput))]
         private StringSetting CustomTargetInput;
+        [UIComponent(nameof(CustomRankText))]
+        private TextMeshProUGUI CustomRankText;
+        [UIComponent(nameof(CustomRankInput))]
+        private StringSetting CustomRankInput;
 
         [UIComponent(nameof(ClanTargetList))]
         private CustomCellListTableData ClanTargetList;
@@ -343,8 +354,11 @@ namespace BLPPCounter.Settings.SettingHandlers
         private CustomCellListTableData CustomTargetList;
         [UIComponent(nameof(DisplayList))]
         private CustomCellListTableData DisplayList;
+#if !NEW_VERSION
         [UIObject(nameof(TargetModal))]
         private GameObject TargetModal;
+#endif
+        private AsyncLock CustomInputLock = new AsyncLock();
 
         [UIValue(nameof(CustomTarget))]
         public string CustomTarget
@@ -353,22 +367,82 @@ namespace BLPPCounter.Settings.SettingHandlers
             set
             {
                 PropertyChanged(this, new PropertyChangedEventArgs(nameof(CustomTarget)));
-                try
+                Task.Run(async () =>
                 {
-                    CustomTarget converted = Utils.CustomTarget.ConvertToId(value);
-                    PC.CustomTargets.Add(converted);
-                    Targeter.AddTarget(converted.Name, converted.ID.ToString());
-                    CustomTargetText.SetText("<color=\"green\">Success!</color>");
-                    CustomTargetInput.Text = "";
-                    UpdateTargetLists();
-                }
-                catch (ArgumentException e)
-                {
-                    Plugin.Log.Warn(e.Message);
-                    CustomTargetText.SetText("<color=\"red\">Failure, id or alias not found.</color>");
-                }
-                
+                    AsyncLock.Releaser? theLock = await CustomInputLock.TryLockAsync().ConfigureAwait(false);
+                    if (theLock is null) return;
+                    using (theLock.Value)
+                    {
+                        CustomTargetText.SetText("<color=\"yellow\">Loading...</color>");
+                        try
+                        {
+                            CustomTarget converted = await Utils.CustomTarget.ConvertToId(value);
+                            if (Targeter.UsedIDs.Contains(converted.ID))
+                                throw new ArgumentException("this ID is already in use.");
+                            PC.CustomTargets.AddSorted(converted);
+                            Targeter.AddTarget(converted);
+                            CustomTargetText.SetText("<color=\"green\">Success!</color>");
+                            CustomTargetInput.Text = "";
+                            IEnumerator WaitThenUpdate()
+                            {
+                                yield return new WaitForEndOfFrame();
+                                UpdateTargetLists();
+                            }
+                            await WaitThenUpdate().AsTask(CoroutineHost.Instance);
+                        }
+                        catch (ArgumentException e)
+                        {
+                            Plugin.Log.Warn(e.Message);
+                            CustomTargetText.SetText($"<color=\"red\">Failure, {e.Message}</color>");
+                        }
+                    }
+                });
             }
+        }
+        [UIValue(nameof(CustomRank))]
+        public string CustomRank
+        {
+            get => "";
+            set
+            {
+                PropertyChanged(this, new PropertyChangedEventArgs(nameof(CustomRank)));
+                Task.Run(async () =>
+                {
+                    AsyncLock.Releaser? theLock = await CustomInputLock.TryLockAsync().ConfigureAwait(false);
+                    if (theLock is null) return;
+                    using (theLock.Value)
+                    {
+                        CustomRankText.SetText("<color=\"yellow\">Loading...</color>");
+                        try
+                        {
+                            CustomTarget converted = await Utils.CustomTarget.ConvertFromRank(value);
+                            if (Targeter.UsedIDs.Contains(converted.ID))
+                                throw new ArgumentException("this ID is already in use.");
+                            PC.CustomTargets.AddSorted(converted);
+                            Targeter.AddTarget(converted);
+                            CustomRankText.SetText("<color=\"green\">Success!</color>");
+                            CustomRankInput.Text = "";
+                            IEnumerator WaitThenUpdate()
+                            {
+                                yield return new WaitForEndOfFrame();
+                                UpdateTargetLists();
+                            }
+                            await WaitThenUpdate().AsTask(CoroutineHost.Instance);
+                        }
+                        catch (ArgumentException e)
+                        {
+                            Plugin.Log.Warn(e.Message);
+                            CustomRankText.SetText($"<color=\"red\">Failure, {e.Message}</color>");
+                        }
+                    }
+                });
+            }
+        }
+        [UIValue(nameof(UseSSRank))]
+        private bool UseSSRank
+        {
+            get => PC.UseSSRank;
+            set { PC.UseSSRank = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseSSRank))); }
         }
         [UIValue(nameof(Target))]
         public string Target
@@ -386,6 +460,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private List<object> SelectedTargetInfo => SelectedTarget is null ? new List<object>(0) : new List<object>(1) { SelectedTarget };
         private object SelectedTarget = null;
         private SelectableCell LastCellSelected;
+        private bool TargetMenuHasBeenOpened = false, TargetMenuOpen = false;
         [UIAction(nameof(ResetTarget))]
         public void ResetTarget()
         {
@@ -393,8 +468,32 @@ namespace BLPPCounter.Settings.SettingHandlers
             SelectedTarget = null;
             UpdateSelectedTarget();
         }
+#pragma warning disable IDE0051
+        [UIAction("#ShowTargetMenu")]
+        private void ShowTargetMenu()
+        {
+            TargetMenuOpen = true;
+            if (!TargetMenuHasBeenOpened)
+            {
+                TargetMenuHasBeenOpened = true;
+                IEnumerator WaitThenUpdate()
+                {
+                    yield return new WaitForEndOfFrame();
+                    UpdateTargetLists();
+                }
+                CoroutineHost.Start(WaitThenUpdate());
+            }
+        }
+        [UIAction("#HideTargetMenu")]
+        private void HideTargetMenu()
+        {
+            TargetMenuOpen = false;
+        }
+#pragma warning restore IDE0051
         public void UpdateTargetLists()
         {
+            if (!TargetMenuHasBeenOpened) return;
+#if NEW_VERSION
             ClanTargetList.Data = ClanTargetInfos;
             FollowerTargetList.Data = FollowerTargetInfos;
             CustomTargetList.Data = CustomTargetInfos;
@@ -402,12 +501,27 @@ namespace BLPPCounter.Settings.SettingHandlers
             ClanTargetList.TableView.ReloadData();
             FollowerTargetList.TableView.ReloadData();
             CustomTargetList.TableView.ReloadData();
+#else
+            ClanTargetList.data = ClanTargetInfos;
+            FollowerTargetList.data = FollowerTargetInfos;
+            CustomTargetList.data = CustomTargetInfos;
+
+            ClanTargetList.tableView.ReloadData();
+            FollowerTargetList.tableView.ReloadData();
+            CustomTargetList.tableView.ReloadData();
+#endif
         }
         private void UpdateSelectedTarget()
         {
             Target = (SelectedTarget as TargetInfo)?.DisplayName ?? Targeter.NO_TARGET;
+            if (!TargetMenuHasBeenOpened) return;
+#if NEW_VERSION
             DisplayList.Data = SelectedTargetInfo;
             DisplayList.TableView.ReloadData();
+#else
+            DisplayList.data = SelectedTargetInfo;
+            DisplayList.tableView.ReloadData();
+#endif
         }
         private void UpdateSelectedTarget(SelectableCell setCell)
         {
@@ -417,6 +531,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private List<object> GetTargetList(IEnumerable<(string ID, int Rank)> ids)
         {
+            if (ids is null) return new List<object>(0);
             List<object> outp = new List<object>(ids.Count());
             foreach (var (id, rank) in ids)
             {
@@ -429,18 +544,26 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
             return outp;
         }
-        #endregion
+#endregion
 #pragma warning disable IDE0051
         [UIAction("#post-parse")]
         private void PostParse()
         {
+#if NEW_VERSION
             ClanTargetList.TableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = ClanTargetInfos[index]; UpdateSelectedTarget(view.GetCellAtIndex(index)); };
             FollowerTargetList.TableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = FollowerTargetInfos[index]; UpdateSelectedTarget(view.GetCellAtIndex(index)); };
             CustomTargetList.TableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = CustomTargetInfos[index]; UpdateSelectedTarget(view.GetCellAtIndex(index)); };
-
-            /*ClanTargetList.TableView.selectionType = TableViewSelectionType.DeselectableSingle;
-            FollowerTargetList.TableView.selectionType = TableViewSelectionType.DeselectableSingle;
-            CustomTargetList.TableView.selectionType = TableViewSelectionType.DeselectableSingle*/;
+#else
+            IEnumerator WaitThenUpdate()
+            {
+                yield return new WaitForEndOfFrame();
+                (TargetModal.transform as RectTransform).sizeDelta = new Vector2(200, 100);
+            }
+            CoroutineHost.Start(WaitThenUpdate());
+            ClanTargetList.tableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = ClanTargetInfos[index]; UpdateSelectedTarget(ClanTargetList.CellForIdx(view, index)); };
+            FollowerTargetList.tableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = FollowerTargetInfos[index]; UpdateSelectedTarget(FollowerTargetList.CellForIdx(view, index)); };
+            CustomTargetList.tableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = CustomTargetInfos[index]; UpdateSelectedTarget(CustomTargetList.CellForIdx(view, index)); };
+#endif
         }
     }
 }

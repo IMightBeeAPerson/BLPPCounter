@@ -24,7 +24,7 @@ namespace BLPPCounter.Utils.API_Handlers
         {
             Timeout = ClientTimeout
         };
-        private static Throttler BSThrottler = new Throttler(50, 10);
+        private static readonly Throttler BSThrottler = new Throttler(50, 10);
 
         public static bool UsingDefault = false;
 
@@ -206,19 +206,17 @@ namespace BLPPCounter.Utils.API_Handlers
             if (!data.Success) return null;
             return await data.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
         }
-        public static async Task<IEnumerable<T>> CalledPagedAPI<T>
-           (string userId, int totalCount, string path, Throttler throttler, Func<string, Task<T>> tokenParser,
+        public static async Task<IOrderedEnumerable<(int PageIndex, T Results)>> CalledPagedAPI_Internal<T>
+           (int totalCount, Func<int, int, string> pathParser, Throttler throttler, Func<string, Task<T>> tokenParser,
            bool zeroIndexedPages = false, int maxCountPerPage = 100, int maxConcurrency = 5)
         {
             int totalPages = (int)Math.Ceiling(totalCount / (double)maxCountPerPage);
             if (zeroIndexedPages) totalPages--;
             SemaphoreSlim semaphore = new SemaphoreSlim(maxConcurrency);
             List<Task<(int PageIndex, T Results)>> pageTasks = new List<Task<(int PageIndex, T Results)>>(totalPages);
-            bool usesPages = path.Contains("{1}");
 
             for (int pageNum = zeroIndexedPages ? 0 : 1; pageNum <= totalPages; pageNum++)
             {
-                if (!usesPages) pageNum = totalPages;
                 int localPageNum = pageNum; //For async issues.
                 int startIndex = (localPageNum - (zeroIndexedPages ? 0 : 1)) * maxCountPerPage;
                 int pageCount = Math.Min(maxCountPerPage, totalCount - startIndex);
@@ -228,7 +226,7 @@ namespace BLPPCounter.Utils.API_Handlers
                     await semaphore.WaitAsync();
                     try
                     {
-                        string apiPath = usesPages ? string.Format(path, userId, localPageNum, pageCount) : string.Format(path, userId);
+                        string apiPath = pathParser.Invoke(localPageNum, pageCount);
                         var (Success, Content) = await CallAPI_Static(apiPath, throttler: throttler);
                         if (!Success) return (localPageNum, default);
 
@@ -246,8 +244,17 @@ namespace BLPPCounter.Utils.API_Handlers
                 }));
             }
 
-            return (await Task.WhenAll(pageTasks).ConfigureAwait(false)).OrderBy(r => r.PageIndex).Select(r => r.Results);
+            return (await Task.WhenAll(pageTasks).ConfigureAwait(false)).OrderBy(r => r.PageIndex);
         }
+        public static async Task<IEnumerable<T>> CalledPagedAPI<T>
+           (int totalCount, Func<int, int, string> pathParser, Throttler throttler, Func<string, Task<T>> tokenParser,
+           bool zeroIndexedPages = false, int maxCountPerPage = 100, int maxConcurrency = 5) =>
+            (await CalledPagedAPI_Internal(totalCount, pathParser, throttler, tokenParser, zeroIndexedPages, maxCountPerPage, maxConcurrency)).Select(r => r.Results);
+        public static async Task<IEnumerable<T>> CalledPagedAPIFlat<T>
+           (int totalCount, Func<int, int, string> pathParser, Throttler throttler, Func<string, Task<IEnumerable<T>>> tokenParser,
+           bool zeroIndexedPages = false, int maxCountPerPage = 100, int maxConcurrency = 5) =>
+            (await CalledPagedAPI_Internal(totalCount, pathParser, throttler, tokenParser, zeroIndexedPages, maxCountPerPage, maxConcurrency)).SelectMany(r => r.Results);
+
         public abstract float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1);
         public abstract bool MapIsUsable(JToken diffData);
         public abstract bool AreRatingsNull(JToken diffData);
@@ -271,14 +278,15 @@ namespace BLPPCounter.Utils.API_Handlers
         Func<Play, string, (Play Data, string ExtraOutp)> replaceSelector = null,
         params string[] jsonPath)
         {
-            async Task<Play[]> DoStuff(string tokenData)
+            bool usesPages = apiPathFormat.Contains("{1}");
+            async Task<IEnumerable<Play>> DoStuff(string tokenData)
             {
                 if (tokenData is null)
                     return null;
                 IEnumerable<JToken> dataTokens = (scoreArrayPath is null ? JToken.Parse(tokenData) : JToken.Parse(tokenData)[scoreArrayPath])?.Children();
                 if (dataTokens == null || dataTokens.IsEmpty())
                     return null;
-                if (!apiPathFormat.Contains("{1}") && dataTokens.Count() > count)
+                if (!usesPages && dataTokens.Count() > count)
                     dataTokens = dataTokens.Take(count);
 
                 Play[] current = dataTokens.Select(tokenSelector).ToArray();
@@ -294,9 +302,8 @@ namespace BLPPCounter.Utils.API_Handlers
 
                 return current;
             }
-            return (await CalledPagedAPI(userId, count, apiPathFormat, throttler, DoStuff, isZeroIndexed))
-                .Aggregate(new List<Play>() as IEnumerable<Play>, (total, current) => total.Union(current))
-                .ToArray();
+            return (usesPages ? await CalledPagedAPIFlat(count, (page, currentCount) => string.Format(apiPathFormat, userId, page, currentCount), throttler, DoStuff, isZeroIndexed) :
+                await CalledPagedAPIFlat(count, (page, currentCount) => string.Format(apiPathFormat, userId), throttler, DoStuff, isZeroIndexed, count)).ToArray();
         }
 
         public abstract Task<float> GetProfilePP(string userId);

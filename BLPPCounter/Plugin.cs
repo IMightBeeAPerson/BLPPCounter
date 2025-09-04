@@ -14,6 +14,9 @@ using BeatSaberMarkupLanguage.Settings; // Used in 1.37.0 and above
 using BLPPCounter.Settings.SettingHandlers.MenuViews;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Collections;
+using UnityEngine;
+using BLPPCounter.Utils.Misc_Classes;
 
 namespace BLPPCounter
 {
@@ -41,7 +44,6 @@ namespace BLPPCounter
         //\[ERROR @ (?:\d{2}:?){3} \| BL PP Counter\] [^ ]+Exception:
         private async void AddMenuStuff()
         {
-            await TargeterTask;
             TabSelectionPatch.ClearData();
 #if NEW_VERSION
             BSMLSettings.Instance.AddSettingsMenu("BL PP Counter", HelpfulPaths.SETTINGS_BSML, MenuSettingsHandler.Instance);
@@ -51,6 +53,13 @@ namespace BLPPCounter
             GameplaySetup.instance.AddTab("PP Calculator", HelpfulPaths.PP_CALC_BSML, PpInfoTabHandler.Instance); // 1.34.2 and below */
 #endif
             SimpleSettingsHandler.Instance.ChangeMenuTab(false);
+            await TargeterTask.ConfigureAwait(false);
+            IEnumerator WaitThenUpdate()
+            {
+                yield return new WaitForEndOfFrame();
+                SettingsHandler.Instance.UpdateTargetLists();
+            }
+            CoroutineHost.Start(WaitThenUpdate());
         }
 
         [OnEnable]

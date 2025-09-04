@@ -201,6 +201,8 @@ namespace BLPPCounter.Settings.SettingHandlers
 
         [UIComponent(nameof(PlusOneLabel))] private TextMeshProUGUI PlusOneLabel;
         [UIComponent(nameof(PlusOneText))] private TextMeshProUGUI PlusOneText;
+        [UIComponent(nameof(LevelText))] private TextMeshProUGUI LevelText;
+        [UIComponent(nameof(ExperienceText))] private TextMeshProUGUI ExperienceText;
         [UIComponent(nameof(ReloadDataButton))] private Button ReloadDataButton;
         [UIComponent(nameof(AccSaberSetting))] private DropDownListSetting AccSaberSetting;
         [UIComponent(nameof(ProfilePPSlider))] private SliderSetting ProfilePPSlider;
@@ -937,7 +939,9 @@ namespace BLPPCounter.Settings.SettingHandlers
             CurrentProfile = IsAP ? Profile.GetProfile(CurrentLeaderboard, Targeter.PlayerID, _APSetting) : Profile.GetProfile(CurrentLeaderboard, Targeter.PlayerID);
             CurrentProfile.ReloadTableValues();
             PlusOneLabel.SetText("+1 " + GetPPLabel());
-            PlusOneText.SetText($"<color=#00FF00>{CurrentProfile.PlusOne}</color> {GetPPLabel()}");
+            PlusOneText.SetText($"<color=#0F0>{CurrentProfile.PlusOne}</color> {GetPPLabel()}");
+            LevelText.SetText($"Level: <color=#0F0>{CurrentProfile.Level}</color>");
+            ExperienceText.SetText($"Experience: <color=#0F0>{CurrentProfile.Experience}</color>");
             UpdateProfilePP();
         }
         public Task Refresh(bool forceRefresh = false) => DoRefresh(forceRefresh);

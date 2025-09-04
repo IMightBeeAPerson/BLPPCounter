@@ -63,7 +63,9 @@ namespace BLPPCounter.Settings.Configs
         public virtual int MaxRank { get; set; } = 0;
         #endregion
         #region Target Settings
+        public virtual bool TargeterStartupWarnings { get; set; } = false;
         public virtual bool ShowEnemy { get; set; } = true;
+        public virtual bool UseSSRank { get; set; } = false;
         public virtual string Target { get; set; } = Targeter.NO_TARGET;
 
         //The below list is not in order so that in the config file there is nothing below this that gets obstructed.

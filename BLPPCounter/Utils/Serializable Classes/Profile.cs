@@ -64,6 +64,8 @@ namespace BLPPCounter.Utils
         [JsonProperty(nameof(UnusualModes), Required = Required.DisallowNull)] private List<(int Index, string Mode)> UnusualModes; //Defaults to "Standard" if not in this list.
         [JsonProperty(nameof(TotalPP), Required = Required.DisallowNull)] private float TotalPP = -1.0f;
         [JsonProperty(nameof(UserID), Required = Required.DisallowNull)] private readonly string UserID;
+        [JsonProperty(nameof(Level), Required = Required.DisallowNull)] public int Level;
+        [JsonProperty(nameof(Experience), Required = Required.DisallowNull)] public int Experience;
         [JsonProperty(nameof(PlusOne), Required = Required.DisallowNull)] public float PlusOne { get; private set; } = -1.0f;
 
         [JsonIgnore] public Table PlayTable { get; private set; }
@@ -97,6 +99,7 @@ namespace BLPPCounter.Utils
             if (TotalPP < 0)
             {
                 APIHandler api = APIHandler.GetAPI(Leaderboard);
+                ReloadLevels();
                 bool usingAP = Leaderboard == Leaderboards.Accsaber && AccSaberType != APCategory.All;
                 Play[] scoreData = (usingAP ?
                     (api as APAPI).GetScores(UserID, GetPlusOneCount(), AccSaberType) : api.GetScores(UserID, GetPlusOneCount()))?
@@ -196,6 +199,17 @@ namespace BLPPCounter.Utils
 
         #endregion
         #region Reload Functions
+        public void ReloadLevels()
+        {
+            string playerDataStr = APIHandler.CallAPI_Static($"{HelpfulPaths.BLAPI}player/{Targeter.PlayerID}", BLAPI.Throttle).GetAwaiter().GetResult().Content
+                    .ReadAsStringAsync().GetAwaiter().GetResult();
+            if (playerDataStr != null && playerDataStr.Length > 0)
+            {
+                JToken playerData = JToken.Parse(playerDataStr);
+                Level = (int)playerData["level"];
+                Experience = (int)playerData["experience"];
+            }
+        }
         public void ReloadScores()
         {
             TotalPP = -1;
@@ -377,6 +391,7 @@ namespace BLPPCounter.Utils
             int currentNum = 1;
             Leaderboards current;
             (Leaderboards allowed, string mapKey) = await APIHandler.GetRankedLeaderboardsAndMapKey(hash, mapDiff, mode).ConfigureAwait(false);
+            GetProfile(Leaderboards.Beatleader, userID).ReloadLevels();
             if (allowed == Leaderboards.None) return false;
             int leaderCount = (int)Math.Log((int)Leaderboards.All + 1, 2);
             string currentMode;
