@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using System.Collections;
 using UnityEngine;
 using BLPPCounter.Utils.Misc_Classes;
+using System.IO;
 
 namespace BLPPCounter
 {
@@ -25,7 +26,6 @@ namespace BLPPCounter
     {
         internal static Plugin Instance { get; private set; }
         internal static IPALogger Log { get; private set; }
-        internal static bool BLInstalled => true;
         internal static Harmony Harmony { get; private set; }
         internal static string Name => "PPCounter";
         private Task TargeterTask;

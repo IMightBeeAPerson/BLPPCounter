@@ -29,15 +29,18 @@ namespace BLPPCounter.Utils
         public static async Task<CustomTarget> ConvertToId(string str)
         {
             if (long.TryParse(str, out long id))
-            {
-                (bool succeeded, HttpContent data) = await APIHandler.CallAPI_Static($"{HelpfulPaths.BLAPI}player/{id}", BLAPI.Throttle).ConfigureAwait(false);
-                if (!succeeded) throw new ArgumentException("The ID provided does not exist.");
-                JObject playerData = JObject.Parse(await data.ReadAsStringAsync().ConfigureAwait(false));
-                if (!int.TryParse(playerData["rank"].ToString(), out int rank))
-                    throw new ArgumentException($"Rank in api is incorrect, \"{playerData["rank"]}\" is not a number.");
-                return new CustomTarget(playerData["name"].ToString(), id, rank);
-            }
-            return await ConvertToIdAlias(str);
+                return await ConvertToId(id);
+            return await ConvertToIdAlias(str.ToString());
+        }
+        public static async Task<CustomTarget> ConvertToId(long id)
+        {
+            
+            (bool succeeded, HttpContent data) = await APIHandler.CallAPI_Static($"{HelpfulPaths.BLAPI}player/{id}", BLAPI.Throttle).ConfigureAwait(false);
+            if (!succeeded) throw new ArgumentException("The ID provided does not exist.");
+            JObject playerData = JObject.Parse(await data.ReadAsStringAsync().ConfigureAwait(false));
+            if (!int.TryParse(playerData["rank"].ToString(), out int rank))
+                throw new ArgumentException($"Rank in api is incorrect, \"{playerData["rank"]}\" is not a number.");
+            return new CustomTarget(playerData["name"].ToString(), id, rank);
         }
         private static async Task<CustomTarget> ConvertToIdAlias(string str)
         {

@@ -38,6 +38,7 @@ namespace BLPPCounter.Helpfuls
         public static readonly string BLAPI_HASH = "https://api.beatleader.com/leaderboards/hash/{0}"; //hash
         public static readonly string BLAPI_USERID = "https://api.beatleader.com/player/{0}"; //user_id
         public static readonly string BLAPI_CLAN = "https://api.beatleader.com/leaderboard/clanRankings/{0}"; //clan_id
+        public static readonly string BLAPI_CLAN_PLAYERS = "https://api.beatleader.com/clan/{0}?count={1}"; //clan_name (the 4 letter one), count
         public static readonly string BLAPI_SCORE = "https://api.beatleader.com/score/general/{0}/{1}/{2}/{3}"; //user_id, hash, diff, mode || Ex: https://api.beatleader.com/score/general/76561198306905129/a3292aa17b782ee2a229800186324947a4ec9fee/Expert/Standard
         public static readonly string BLAPI_PLAYERSCORES = "https://api.beatleader.com/player/{0}/scores/compact?sortBy=pp&page={1}&count={2}&scoreStatus=0&leaderboardContext=general"; //user_id, page, count
         public static readonly string BLAPI_FOLLOWERS = "https://api.beatleader.com/player/{0}/followers?page={1}&count={2}&type=following"; //user_id, page, count

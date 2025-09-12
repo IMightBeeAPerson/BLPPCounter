@@ -66,6 +66,9 @@ namespace BLPPCounter.Settings.SettingHandlers
                         for (int i = 0; i < PC.DecimalPrecision; i++) hold += "#";
                         HelpfulFormatter.NUMBER_TOSTRING_FORMAT = PC.DecimalPrecision > 0 ? PC.FormatSettings.NumberFormat.Replace("#", "#." + hold) : PC.FormatSettings.NumberFormat;
                         break;
+                    case nameof(Target):
+                        PpInfoTabHandler.Instance.ResetTabs();
+                        break;
 
                 }
             };
@@ -448,7 +451,11 @@ namespace BLPPCounter.Settings.SettingHandlers
         public string Target
         {
             get => PC.Target;
-            set {PC.Target = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(Target))); }
+            set 
+            {
+                PC.Target = value;
+                PropertyChanged(this, new PropertyChangedEventArgs(nameof(Target)));
+            }
         }
         [UIValue(nameof(ClanTargetInfos))]
         private List<object> ClanTargetInfos => GetTargetList(Targeter.ClanTargets);
@@ -464,7 +471,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction(nameof(ResetTarget))]
         public void ResetTarget()
         {
-            Target = "None";
+            Target = Targeter.NO_TARGET;
+            PC.TargetID = -1;
             SelectedTarget = null;
             UpdateSelectedTarget();
         }
@@ -497,23 +505,33 @@ namespace BLPPCounter.Settings.SettingHandlers
             ClanTargetList.Data = ClanTargetInfos;
             FollowerTargetList.Data = FollowerTargetInfos;
             CustomTargetList.Data = CustomTargetInfos;
+            DisplayList.Data = SelectedTargetInfo;
 
             ClanTargetList.TableView.ReloadData();
             FollowerTargetList.TableView.ReloadData();
             CustomTargetList.TableView.ReloadData();
+            DisplayList.TableView.ReloadData();
 #else
             ClanTargetList.data = ClanTargetInfos;
             FollowerTargetList.data = FollowerTargetInfos;
             CustomTargetList.data = CustomTargetInfos;
+            DisplayList.data = SelectedTargetInfo;
 
             ClanTargetList.tableView.ReloadData();
             FollowerTargetList.tableView.ReloadData();
             CustomTargetList.tableView.ReloadData();
+            DisplayList.tableView.ReloadData();
 #endif
         }
         private void UpdateSelectedTarget()
         {
-            Target = (SelectedTarget as TargetInfo)?.DisplayName ?? Targeter.NO_TARGET;
+            if (SelectedTarget is TargetInfo ti && !(ti is null))
+                ti.SetAsTarget();
+            else
+            {
+                Target = Targeter.NO_TARGET;
+                PC.TargetID = -1;
+            }
             if (!TargetMenuHasBeenOpened) return;
 #if NEW_VERSION
             DisplayList.Data = SelectedTargetInfo;
@@ -557,13 +575,28 @@ namespace BLPPCounter.Settings.SettingHandlers
             IEnumerator WaitThenUpdate()
             {
                 yield return new WaitForEndOfFrame();
-                (TargetModal.transform as RectTransform).sizeDelta = new Vector2(200, 100);
+                (TargetModal.transform as RectTransform).sizeDelta = new Vector2(200, 80);
             }
             CoroutineHost.Start(WaitThenUpdate());
             ClanTargetList.tableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = ClanTargetInfos[index]; UpdateSelectedTarget(ClanTargetList.CellForIdx(view, index)); };
             FollowerTargetList.tableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = FollowerTargetInfos[index]; UpdateSelectedTarget(FollowerTargetList.CellForIdx(view, index)); };
             CustomTargetList.tableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = CustomTargetInfos[index]; UpdateSelectedTarget(CustomTargetList.CellForIdx(view, index)); };
 #endif
+        }
+        internal void SetSelectedTargetFirst()
+        {
+            if (PC.TargetID > -1)
+            {
+                //This will be slow, but it only runs once so who cares.
+                foreach (object cell in CustomTargetInfos.Union(FollowerTargetInfos).Union(ClanTargetInfos))
+                    if (cell is TargetInfo ti && long.Parse(ti.RealID) == PC.TargetID)
+                    {
+                        SelectedTarget = cell;
+                        break;
+                    }
+                if (TargetMenuHasBeenOpened)
+                    UpdateSelectedTarget();
+            }
         }
     }
 }

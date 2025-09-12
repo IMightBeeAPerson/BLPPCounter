@@ -404,6 +404,14 @@ namespace BLPPCounter
             NoteData.ScoringType st = scoringElement.noteData.scoringType;
             if (st == NoteData.ScoringType.Ignore) goto Finish; //if scoring type is Ignore, skip this function
             notes++;
+            if (notes == 1 && theCounter is null)
+            {
+                Plugin.Log.Error("The counter is null into gameplay! This is bad, completely disabling for the map.");
+                enabled = false;
+                display.text = "";
+                ChangeNotifiers(false);
+                return;
+            }
             if (st != NoteData.ScoringType.NoScore) comboNotes++;
             maxHitscore += notes < 14 ? scoringElement.maxPossibleCutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0) : scoringElement.maxPossibleCutScore;
             if (scoringElement.cutScore > 0)
@@ -638,7 +646,7 @@ namespace BLPPCounter
         #region Init
         private bool InitCounter()
         {
-            var outpCounter = InitCounter(pc.PPType, display);
+            IMyCounters outpCounter = InitCounter(pc.PPType, display);
             if (outpCounter == null) return false;
             theCounter = outpCounter;
             return true;
@@ -655,17 +663,17 @@ namespace BLPPCounter
         }
         private bool APIAvoidanceMode()
         {
-            Plugin.Log.Debug("API Avoidance mode is functioning (probably)!");
+            Plugin.Log.Debug("API Avoidance mode is active.");
 #if NEW_VERSION
             MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmapDiff.difficulty, mode, starRating, accRating, passRating, techRating); // 1.37.0 and above
 #else
             MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmap.difficulty, mode, starRating, accRating, passRating, techRating); // 1.34.2 and below
 #endif
             if (!thisMap.IsUsable) return false;
-            Plugin.Log.Debug($"Last Map\n-------------------\n{LastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
+            //Plugin.Log.Debug($"Last Map\n-------------------\n{LastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
             bool ratingDiff, diffDiff;
             (ratingDiff, diffDiff) = thisMap.GetDifference(LastMap);
-            Plugin.Log.Debug($"DID CHANGE || Rating: {ratingDiff}, Difficulty: {diffDiff}");
+            //Plugin.Log.Debug($"DID CHANGE || Rating: {ratingDiff}, Difficulty: {diffDiff}");
             if (diffDiff) theCounter.ReinitCounter(display, thisMap);
             else if (ratingDiff) theCounter.ReinitCounter(display, passRating, accRating, techRating, starRating);
             else theCounter.ReinitCounter(display);

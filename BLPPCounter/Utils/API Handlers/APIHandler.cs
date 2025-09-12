@@ -42,7 +42,7 @@ namespace BLPPCounter.Utils.API_Handlers
 
                     Plugin.Log.Debug("API Call: " + path);
 
-                    HttpResponseMessage response = await client.GetAsync(new Uri(path.Replace(" ", "%20"))).ConfigureAwait(false);
+                    HttpResponseMessage response = await client.GetAsync(new Uri(path)).ConfigureAwait(false); //Seems this isn't needed, but gonna leave it here: .Replace(" ", "%20")
                     int status = (int)response.StatusCode;
                     if (status >= 400 && status < 500)
                     {
@@ -66,7 +66,7 @@ namespace BLPPCounter.Utils.API_Handlers
                     {
                         // Exponential backoff delay
                         int delay = initialRetryDelayMs * (int)Math.Pow(2, attempt - 1);
-                        Plugin.Log.Info($"Retrying in {delay} ms...");
+                        if (!quiet) Plugin.Log.Info($"Retrying in {delay} ms...");
                         await Task.Delay(delay).ConfigureAwait(false);
                     }
                     else

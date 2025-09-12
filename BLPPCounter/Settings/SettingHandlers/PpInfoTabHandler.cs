@@ -754,7 +754,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private Task CompletedMap(float finalAcc, string hash, string mapName, BeatmapDifficulty diff, string mode)
         {
             //finalAcc = 1.0f;
-            Plugin.Log.Info("Map completion info: " + HelpfulMisc.Print(new object[5] { finalAcc, hash, mapName, diff, mode }));
+            Plugin.Log.Debug("Map completion info: " + HelpfulMisc.Print(new object[5] { finalAcc, hash, mapName, diff, mode }));
             if (float.IsNaN(finalAcc)) 
             {
                 TheCounter.LastMap = default;
@@ -995,7 +995,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         public void ResetTabs()
         {
-            string[] tabNames = TabMapInfo.Keys.ToArray();//.Clone();
+            string[] tabNames = TabMapInfo.Keys.ToArray();
             foreach (string s in tabNames)
                 TabMapInfo[s] = default;
             PPTableTable?.ClearTable();

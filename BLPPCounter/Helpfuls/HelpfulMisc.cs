@@ -1008,7 +1008,7 @@ namespace BLPPCounter.Helpfuls
 
             // Use unmodified score (before multipliers) for accuracy
             int rawScore = results.multipliedScore;
-            Plugin.Log.Info($"multipliedScore: {results.multipliedScore} || modifiedScore: {results.modifiedScore}");
+            //Plugin.Log.Info($"multipliedScore: {results.multipliedScore} || modifiedScore: {results.modifiedScore}");
 
             // Max possible score for this beatmap
             int maxScore = HelpfulMath.MaxScoreForNotes(totalNotes);

@@ -57,9 +57,9 @@
         <checkbox-setting text='Use Scoresaber Rank' apply-on-change='true' value='UseSSRank' hover-hint='For the above custom rank input, use Scoresaber rank instead of Beatleader rank'/>
         <checkbox-setting text='Show Target' apply-on-change='true' value='ShowEnemy' hover-hint='Show who you are targeting (if you have one selected)'/>
         <button text='Target Menu' click-event='ShowTargetMenu' align='Center'/>
-        <modal id='TargetModal' show-event='ShowTargetMenu' hide-event='HideTargetMenu' click-off-closes='true' move-to-center='true' size-delta='200 100'>
+        <modal id='TargetModal' show-event='ShowTargetMenu' hide-event='HideTargetMenu' click-off-closes='true' move-to-center='false' size-delta='200 80' anchor-pos-x='-30'>
           <vertical bg='round-rect-panel' bg-color='#CCC' pref-width='200' horizontal-fit='PreferredSize'>
-            <horizontal spacing='10' pref-width='200' horizontal-fit='PreferredSize' pad-right='10' pad-left='10'>
+            <horizontal spacing='10' pref-width='200' horizontal-fit='PreferredSize' pad-right='15' pad-left='10'>
               <vertical>
                 <text text='Clan Targets' align='Center'/>
                 <custom-list id='ClanTargetList' contents='ClanTargetInfos' show-scrollbar='true' cell-size='15' pref-width='50' pref-height='50' clickable-cells='true'>
