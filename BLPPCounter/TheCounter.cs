@@ -175,7 +175,7 @@ namespace BLPPCounter
             {
                 ('c', ValueListInfo.ValueType.Color)
             });
-        private static TimeLooper TimeLooper = new TimeLooper();
+        private static readonly TimeLooper TimeLooper = new TimeLooper();
         private static string lastTarget = Targeter.NO_TARGET;
         #endregion
         #region Variables
@@ -303,15 +303,11 @@ namespace BLPPCounter
             display = CanvasUtility.CreateTextFromSettings(Settings);
             display.fontSize = (float)pc.FontSize;
             display.text = "Loading...";
-            Task.Run(async () =>
-            {
-                loading = true;
-                await AsyncCounterInit();
-                loading = false;
-            });
+            Task.Run(async () => await AsyncCounterInit());
         }
         private async Task AsyncCounterInit() 
         {
+            loading = true;
             if (!dataLoaded)
             {
                 Data = new Dictionary<string, Map>();
@@ -337,7 +333,7 @@ namespace BLPPCounter
                     if (theCounter is null || SettingChanged || counterChange || LastMap.Equals(default) || !hash.Equals(LastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
                     {
                         SettingChanged = false;
-                        Map m = await GetMap(hash, mode, Leaderboard).ConfigureAwait(false);
+                        Map m = await GetMap(hash, mode, Leaderboard);
 #if NEW_VERSION
                         MapSelection ms = new MapSelection(m, beatmapDiff.difficulty, mode, starRating, accRating, passRating, techRating); // 1.34.2 and below
 #else
@@ -365,7 +361,7 @@ namespace BLPPCounter
                     if (pc.UpdateAfterTime) SetTimeLooper();
                     SetLabels();
                     if (notes < 1) theCounter.UpdateCounter(1, 0, 0, 1);
-                    return;
+                    goto End;
                 } else
                     Plugin.Log.Warn("Maps failed to load, most likely unranked.");
             } catch (Exception e)
@@ -385,7 +381,7 @@ namespace BLPPCounter
             {
                 usingDefaultLeaderboard = true;
                 usingDefaultLeaderboard = DisplayNames.Contains(pc.PPType);
-                if (!usingDefaultLeaderboard) return;
+                if (!usingDefaultLeaderboard) goto End;
                 await AsyncCounterInit();
             } else
             {
@@ -393,12 +389,14 @@ namespace BLPPCounter
                 display.text = "";
                 if (hasNotifiers) ChangeNotifiers(false);
             }
+            End:
+            loading = false;
         }
 #endregion
         #region Event Calls
         private void OnNoteScored(ScoringElement scoringElement)
         {
-            if (scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb)
+            if (scoringElement is null || scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb)
                 return;
             bool enteredLock = !loading && pc.UpdateAfterTime && Monitor.TryEnter(TimeLooper.Locker); //This is to make sure timeLooper is paused, not to pause this thread.
             NoteData.ScoringType st = scoringElement.noteData.scoringType;
@@ -415,6 +413,14 @@ namespace BLPPCounter
             else OnMiss();
             Finish:
             if (loading) return;
+            if (theCounter is null)
+            {
+                Plugin.Log.Error("The counter is null into gameplay! This is bad, completely disabling for the map.");
+                enabled = false;
+                display.text = "";
+                ChangeNotifiers(false);
+                return;
+            }
             theCounter.SoftUpdate((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
             if (enteredLock) Monitor.Exit(TimeLooper.Locker);
             if (!pc.UpdateAfterTime) theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
@@ -638,14 +644,18 @@ namespace BLPPCounter
         #region Init
         private bool InitCounter()
         {
-            var outpCounter = InitCounter(pc.PPType, display);
+            IMyCounters outpCounter = InitCounter(pc.PPType, display);
             if (outpCounter == null) return false;
             theCounter = outpCounter;
             return true;
         }
         public static IMyCounters InitCounter(string name, TMP_Text display)
         {
-            if (!DisplayNameToCounter.TryGetValue(name, out string displayName)) return null;
+            if (!DisplayNameToCounter.TryGetValue(name, out string displayName))
+            {
+                Plugin.Log.Error($"Oh No! Name '{name}' was not a valid displayName!\nValid display names: {HelpfulMisc.Print(DisplayNameToCounter.Keys)}");
+                return null;
+            }
             Type counterType = ValidCounters.FirstOrDefault(a => a.FullName.Equals(displayName));
             if (counterType == default) 
                 throw new ArgumentException($"Name '{displayName}' is not a counter! Valid counter names are:\n{string.Join("\n", ValidCounters as IEnumerable<Type>)}");
@@ -655,17 +665,17 @@ namespace BLPPCounter
         }
         private bool APIAvoidanceMode()
         {
-            Plugin.Log.Debug("API Avoidance mode is functioning (probably)!");
+            Plugin.Log.Debug("API Avoidance mode is active.");
 #if NEW_VERSION
             MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmapDiff.difficulty, mode, starRating, accRating, passRating, techRating); // 1.37.0 and above
 #else
             MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmap.difficulty, mode, starRating, accRating, passRating, techRating); // 1.34.2 and below
 #endif
             if (!thisMap.IsUsable) return false;
-            Plugin.Log.Debug($"Last Map\n-------------------\n{LastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
+            //Plugin.Log.Debug($"Last Map\n-------------------\n{LastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
             bool ratingDiff, diffDiff;
             (ratingDiff, diffDiff) = thisMap.GetDifference(LastMap);
-            Plugin.Log.Debug($"DID CHANGE || Rating: {ratingDiff}, Difficulty: {diffDiff}");
+            //Plugin.Log.Debug($"DID CHANGE || Rating: {ratingDiff}, Difficulty: {diffDiff}");
             if (diffDiff) theCounter.ReinitCounter(display, thisMap);
             else if (ratingDiff) theCounter.ReinitCounter(display, passRating, accRating, techRating, starRating);
             else theCounter.ReinitCounter(display);

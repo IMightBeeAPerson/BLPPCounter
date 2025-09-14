@@ -108,7 +108,7 @@
   </tab>
 
   <tab id='ProfileTab' tags='tabs' tab-name='Profile'>
-    <vertical spacing='1' vertical-fit='PreferredSize' pref-height='50' anchor-pos-y='-3' horizontal-fit='PreferredSize' pref-width='80' child-expand-height='false'>
+    <vertical spacing='1' vertical-fit='PreferredSize' pref-height='50' anchor-pos-y='-4' horizontal-fit='PreferredSize' pref-width='80' child-expand-height='false'>
       <horizontal>
         <text id='PlusOneLabel' text='+1 pp' align='Left'/>
         <text id='PlusOneText' text='-1 pp' align='Right'/>
@@ -154,6 +154,8 @@
           <vertical spacing='0' align='Right' pref-width='30' pref-height='30'>
             <text id='SessionWindow_PlaysSet' text='Plays Set: ' align='Center'/>
             <text id='SessionWindow_PpGained' text='Profile PP Gained: ' align='Center'/>
+            <text id='LevelText' text='Level:' align='Center'/>
+            <text id='ExperienceText' text='Experience:' align='Center'/>
           </vertical>
         </horizontal>
       </modal>

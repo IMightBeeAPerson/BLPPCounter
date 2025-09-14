@@ -25,7 +25,7 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;NEW_VERSION</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <Optimize>true</Optimize>
@@ -211,6 +211,7 @@
     <Compile Include="Utils\Enums\APCategory.cs" />
     <Compile Include="Utils\Enums\Leaderboards.cs" />
     <Compile Include="Utils\List Settings\SessionListInfo.cs" />
+    <Compile Include="Utils\List Settings\TargetInfo.cs" />
     <Compile Include="Utils\Misc Classes\AsyncLock.cs" />
     <Compile Include="Utils\Misc Classes\CoroutineHost.cs" />
     <Compile Include="Utils\Misc Classes\ExtraBypasses.cs" />
@@ -256,7 +257,7 @@
     <EmbeddedResource Include="Settings\BSML\MenuComponents\ColorSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\MenuComponents\AliasSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\PpInfo.bsml" />
-    <EmbeddedResource Include="Settings\BSML\Test.bsml" />
+    <EmbeddedResource Include="Settings\BSML\VariableSettingsContainer.bsml" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BeatSaberModdingTools.Tasks">

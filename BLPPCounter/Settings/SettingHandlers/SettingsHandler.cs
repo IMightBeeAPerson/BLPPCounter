@@ -1,17 +1,24 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
+using BeatSaberMarkupLanguage.Components;
 using BeatSaberMarkupLanguage.Components.Settings;
-using CountersPlus.ConfigModels;
 using BLPPCounter.Counters;
-using BLPPCounter.Utils;
+using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
+using BLPPCounter.Utils;
+using BLPPCounter.Utils.List_Settings;
+using BLPPCounter.Utils.Misc_Classes;
+using CountersPlus.ConfigModels;
+using HMUI;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using TMPro;
-using BLPPCounter.Helpfuls;
 using System.Threading.Tasks;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
+using Zenject;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -58,6 +65,9 @@ namespace BLPPCounter.Settings.SettingHandlers
                         string hold = "";
                         for (int i = 0; i < PC.DecimalPrecision; i++) hold += "#";
                         HelpfulFormatter.NUMBER_TOSTRING_FORMAT = PC.DecimalPrecision > 0 ? PC.FormatSettings.NumberFormat.Replace("#", "#." + hold) : PC.FormatSettings.NumberFormat;
+                        break;
+                    case nameof(Target):
+                        PpInfoTabHandler.Instance.ResetTabs();
                         break;
 
                 }
@@ -317,12 +327,42 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region Target Settings
-        [UIComponent(nameof(TargetList))]
-        internal DropDownListSetting TargetList;
+        [UIValue(nameof(TargeterStartupWarnings))]
+        public bool TargeterStartupWarnings
+        {
+            get => PC.TargeterStartupWarnings;
+            set { PC.TargeterStartupWarnings = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(TargeterStartupWarnings))); }
+        }
+        [UIValue(nameof(ShowEnemy))]
+        public bool ShowEnemy
+        {
+            get => PC.ShowEnemy;
+            set { PC.ShowEnemy = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ShowEnemy))); }
+        }
+
         [UIComponent(nameof(CustomTargetText))]
         private TextMeshProUGUI CustomTargetText;
         [UIComponent(nameof(CustomTargetInput))]
         private StringSetting CustomTargetInput;
+        [UIComponent(nameof(CustomRankText))]
+        private TextMeshProUGUI CustomRankText;
+        [UIComponent(nameof(CustomRankInput))]
+        private StringSetting CustomRankInput;
+
+        [UIComponent(nameof(ClanTargetList))]
+        private CustomCellListTableData ClanTargetList;
+        [UIComponent(nameof(FollowerTargetList))]
+        private CustomCellListTableData FollowerTargetList;
+        [UIComponent(nameof(CustomTargetList))]
+        private CustomCellListTableData CustomTargetList;
+        [UIComponent(nameof(DisplayList))]
+        private CustomCellListTableData DisplayList;
+#if !NEW_VERSION
+        [UIObject(nameof(TargetModal))]
+        private GameObject TargetModal;
+#endif
+        private AsyncLock CustomInputLock = new AsyncLock();
+
         [UIValue(nameof(CustomTarget))]
         public string CustomTarget
         {
@@ -330,87 +370,233 @@ namespace BLPPCounter.Settings.SettingHandlers
             set
             {
                 PropertyChanged(this, new PropertyChangedEventArgs(nameof(CustomTarget)));
-                try
+                Task.Run(async () =>
                 {
-                    var converted = Utils.CustomTarget.ConvertToId(value);
-                    PC.CustomTargets.Add(converted);
-                    Targeter.AddTarget(converted.Name, $"{converted.ID}");
-                    CustomTargetText.SetText("<color=\"green\">Success!</color>");
-                    CustomTargetInput.Text = "";
-#if NEW_VERSION
-                    TargetList.Values = ToTarget; // 1.37.0 and above
-#else
-                    TargetList.values = ToTarget; // 1.34.2 and below
-#endif
-                    TargetList.UpdateChoices();
-                }
-                catch (ArgumentException e)
-                {
-                    Plugin.Log.Warn(e.Message);
-                    CustomTargetText.SetText("<color=\"red\">Failure, id or alias not found.</color>");
-                }
-                
+                    AsyncLock.Releaser? theLock = await CustomInputLock.TryLockAsync().ConfigureAwait(false);
+                    if (theLock is null) return;
+                    using (theLock.Value)
+                    {
+                        CustomTargetText.SetText("<color=\"yellow\">Loading...</color>");
+                        try
+                        {
+                            CustomTarget converted = await Utils.CustomTarget.ConvertToId(value);
+                            if (Targeter.UsedIDs.Contains(converted.ID))
+                                throw new ArgumentException("this ID is already in use.");
+                            PC.CustomTargets.AddSorted(converted);
+                            Targeter.AddTarget(converted);
+                            CustomTargetText.SetText("<color=\"green\">Success!</color>");
+                            CustomTargetInput.Text = "";
+                            IEnumerator WaitThenUpdate()
+                            {
+                                yield return new WaitForEndOfFrame();
+                                UpdateTargetLists();
+                            }
+                            await WaitThenUpdate().AsTask(CoroutineHost.Instance);
+                        }
+                        catch (ArgumentException e)
+                        {
+                            Plugin.Log.Warn(e.Message);
+                            CustomTargetText.SetText($"<color=\"red\">Failure, {e.Message}</color>");
+                        }
+                    }
+                });
             }
         }
-        [UIValue(nameof(ShowEnemy))]
-        public bool ShowEnemy
+        [UIValue(nameof(CustomRank))]
+        public string CustomRank
         {
-            get => PC.ShowEnemy;
-            set {PC.ShowEnemy = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ShowEnemy))); }
+            get => "";
+            set
+            {
+                PropertyChanged(this, new PropertyChangedEventArgs(nameof(CustomRank)));
+                Task.Run(async () =>
+                {
+                    AsyncLock.Releaser? theLock = await CustomInputLock.TryLockAsync().ConfigureAwait(false);
+                    if (theLock is null) return;
+                    using (theLock.Value)
+                    {
+                        CustomRankText.SetText("<color=\"yellow\">Loading...</color>");
+                        try
+                        {
+                            CustomTarget converted = await Utils.CustomTarget.ConvertFromRank(value);
+                            if (Targeter.UsedIDs.Contains(converted.ID))
+                                throw new ArgumentException("this ID is already in use.");
+                            PC.CustomTargets.AddSorted(converted);
+                            Targeter.AddTarget(converted);
+                            CustomRankText.SetText("<color=\"green\">Success!</color>");
+                            CustomRankInput.Text = "";
+                            IEnumerator WaitThenUpdate()
+                            {
+                                yield return new WaitForEndOfFrame();
+                                UpdateTargetLists();
+                            }
+                            await WaitThenUpdate().AsTask(CoroutineHost.Instance);
+                        }
+                        catch (ArgumentException e)
+                        {
+                            Plugin.Log.Warn(e.Message);
+                            CustomRankText.SetText($"<color=\"red\">Failure, {e.Message}</color>");
+                        }
+                    }
+                });
+            }
+        }
+        [UIValue(nameof(UseSSRank))]
+        private bool UseSSRank
+        {
+            get => PC.UseSSRank;
+            set { PC.UseSSRank = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseSSRank))); }
         }
         [UIValue(nameof(Target))]
         public string Target
         {
             get => PC.Target;
-            set {PC.Target = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(Target))); }
+            set 
+            {
+                PC.Target = value;
+                PropertyChanged(this, new PropertyChangedEventArgs(nameof(Target)));
+            }
         }
-        [UIValue(nameof(ToTarget))]
-        public List<object> ToTarget => (Targeter.theTargets ?? new List<object>()).Prepend(Targeter.NO_TARGET).ToList();
+        [UIValue(nameof(ClanTargetInfos))]
+        private List<object> ClanTargetInfos => GetTargetList(Targeter.ClanTargets);
+        [UIValue(nameof(FollowerTargetInfos))]
+        private List<object> FollowerTargetInfos => GetTargetList(Targeter.FollowerTargets);
+        [UIValue(nameof(CustomTargetInfos))]
+        private List<object> CustomTargetInfos => GetTargetList(Targeter.CustomTargets);
+        [UIValue(nameof(SelectedTargetInfo))]
+        private List<object> SelectedTargetInfo => SelectedTarget is null ? new List<object>(0) : new List<object>(1) { SelectedTarget };
+        private object SelectedTarget = null;
+        private SelectableCell LastCellSelected;
+        private bool TargetMenuHasBeenOpened = false, TargetMenuOpen = false;
         [UIAction(nameof(ResetTarget))]
         public void ResetTarget()
         {
-            TargetList.Value = "None";
-            Target = "None";
+            Target = Targeter.NO_TARGET;
+            PC.TargetID = -1;
+            SelectedTarget = null;
+            UpdateSelectedTarget();
         }
-        #endregion
-        #region Unused Code
-        /*[UIValue(nameof())]
-        public bool LocalReplay
+#pragma warning disable IDE0051
+        [UIAction("#ShowTargetMenu")]
+        private void ShowTargetMenu()
         {
-            get => PC.LocalReplay;
-            set {PC.LocalReplay = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof())); }
-        }
-        [UIValue(nameof())]
-        public List<object> PlNames => new List<object>(PlaylistLoader.Instance.Names);
-        [UIValue(nameof())]
-        public string ChosenPlaylist
-        {
-            get => PC.ChosenPlaylist;
-			set {PC.ChosenPlaylist = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof())); }
-        }
-        [UIAction(nameof(LoadPlaylist))]
-        public void LoadPlaylist() {
-            Plugin.Log.Info("Button works");
-            ClanCounter cc = new ClanCounter(null, 0f, 0f, 0f);
-            foreach (string s in PlaylistLoader.Instance.Playlists.Keys) Plugin.Log.Info(s);
-            Plugin.Log.Info(ChosenPlaylist);
-            MapSelection[] maps = PlaylistLoader.Instance.Playlists[ChosenPlaylist];
-            foreach (MapSelection map in maps)
+            TargetMenuOpen = true;
+            if (!TargetMenuHasBeenOpened)
             {
-                float[] pp = null;
-                //Plugin.Log.Info("" + map + "\n" + map.Map);
-                int status;
-                try { status = (int)map.MapData.Item2["status"]; } catch { continue; }
-                if (status != 3) { Plugin.Log.Info($"Status: {status}"); continue; }
-                try { pp = cc.LoadNeededPp(map.MapData.Item1, out _); } catch (Exception e) { Plugin.Log.Info($"Error loading map {map.Map.Hash}: {e.Message}"); Plugin.Log.Debug(e); }
-                if (pp != null)
+                TargetMenuHasBeenOpened = true;
+                IEnumerator WaitThenUpdate()
                 {
-                    ClanCounter.AddToCache(map, pp);
-                    Plugin.Log.Info($"map {map.Map.Hash} loaded!");
+                    yield return new WaitForEndOfFrame();
+                    UpdateTargetLists();
                 }
+                CoroutineHost.Start(WaitThenUpdate());
             }
-            Plugin.Log.Info("Loading completed!");
-        }//*/
-        #endregion
+        }
+        [UIAction("#HideTargetMenu")]
+        private void HideTargetMenu()
+        {
+            TargetMenuOpen = false;
+        }
+#pragma warning restore IDE0051
+        public void UpdateTargetLists()
+        {
+            if (!TargetMenuHasBeenOpened) return;
+#if NEW_VERSION
+            ClanTargetList.Data = ClanTargetInfos;
+            FollowerTargetList.Data = FollowerTargetInfos;
+            CustomTargetList.Data = CustomTargetInfos;
+            DisplayList.Data = SelectedTargetInfo;
+
+            ClanTargetList.TableView.ReloadData();
+            FollowerTargetList.TableView.ReloadData();
+            CustomTargetList.TableView.ReloadData();
+            DisplayList.TableView.ReloadData();
+#else
+            ClanTargetList.data = ClanTargetInfos;
+            FollowerTargetList.data = FollowerTargetInfos;
+            CustomTargetList.data = CustomTargetInfos;
+            DisplayList.data = SelectedTargetInfo;
+
+            ClanTargetList.tableView.ReloadData();
+            FollowerTargetList.tableView.ReloadData();
+            CustomTargetList.tableView.ReloadData();
+            DisplayList.tableView.ReloadData();
+#endif
+        }
+        private void UpdateSelectedTarget()
+        {
+            if (SelectedTarget is TargetInfo ti && !(ti is null))
+                ti.SetAsTarget();
+            else
+            {
+                Target = Targeter.NO_TARGET;
+                PC.TargetID = -1;
+            }
+            if (!TargetMenuHasBeenOpened) return;
+#if NEW_VERSION
+            DisplayList.Data = SelectedTargetInfo;
+            DisplayList.TableView.ReloadData();
+#else
+            DisplayList.data = SelectedTargetInfo;
+            DisplayList.tableView.ReloadData();
+#endif
+        }
+        private void UpdateSelectedTarget(SelectableCell setCell)
+        {
+            LastCellSelected?.SetSelected(false, SelectableCell.TransitionType.Instant, null, false);
+            LastCellSelected = setCell;
+            UpdateSelectedTarget();
+        }
+        private List<object> GetTargetList(IEnumerable<(string ID, int Rank)> ids)
+        {
+            if (ids is null) return new List<object>(0);
+            List<object> outp = new List<object>(ids.Count());
+            foreach (var (id, rank) in ids)
+            {
+                if (!Targeter.IDtoNames.TryGetValue(id, out string name))
+                {
+                    Plugin.Log.Warn($"ID \"{id}\" not found to have a display name.");
+                    continue;
+                }
+                outp.Add(new TargetInfo(name, id, (Leaderboards.Beatleader, rank)));
+            }
+            return outp;
+        }
+#endregion
+#pragma warning disable IDE0051
+        [UIAction("#post-parse")]
+        private void PostParse()
+        {
+#if NEW_VERSION
+            ClanTargetList.TableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = ClanTargetInfos[index]; UpdateSelectedTarget(view.GetCellAtIndex(index)); };
+            FollowerTargetList.TableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = FollowerTargetInfos[index]; UpdateSelectedTarget(view.GetCellAtIndex(index)); };
+            CustomTargetList.TableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = CustomTargetInfos[index]; UpdateSelectedTarget(view.GetCellAtIndex(index)); };
+#else
+            IEnumerator WaitThenUpdate()
+            {
+                yield return new WaitForEndOfFrame();
+                (TargetModal.transform as RectTransform).sizeDelta = new Vector2(200, 80);
+            }
+            CoroutineHost.Start(WaitThenUpdate());
+            ClanTargetList.tableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = ClanTargetInfos[index]; UpdateSelectedTarget(ClanTargetList.CellForIdx(view, index)); };
+            FollowerTargetList.tableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = FollowerTargetInfos[index]; UpdateSelectedTarget(FollowerTargetList.CellForIdx(view, index)); };
+            CustomTargetList.tableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = CustomTargetInfos[index]; UpdateSelectedTarget(CustomTargetList.CellForIdx(view, index)); };
+#endif
+        }
+        internal void SetSelectedTargetFirst()
+        {
+            if (PC.TargetID > -1)
+            {
+                //This will be slow, but it only runs once so who cares.
+                foreach (object cell in CustomTargetInfos.Union(FollowerTargetInfos).Union(ClanTargetInfos))
+                    if (cell is TargetInfo ti && long.Parse(ti.RealID) == PC.TargetID)
+                    {
+                        SelectedTarget = cell;
+                        break;
+                    }
+                if (TargetMenuHasBeenOpened)
+                    UpdateSelectedTarget();
+            }
+        }
     }
 }

@@ -244,7 +244,7 @@ namespace BLPPCounter.Counters
         public void ReinitCounter(TMP_Text display)
         {
             this.display = display;
-            if (failed) backup.ReinitCounter(display);
+            if (failed) backup?.ReinitCounter(display);
             else ResetVars();
         }
         public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating, float starRating)
@@ -260,7 +260,7 @@ namespace BLPPCounter.Counters
             displayNum = calc.DisplayRatingCount;
             leaderboard = Calculator.UsingDefault ? PC.DefaultLeaderboard : PC.Leaderboard;
             ppVals = new float[displayNum * 4]; //16 for bl (displayRatingCount bc gotta store total pp as well)
-            if (failed) backup.ReinitCounter(display, passRating, accRating, techRating, starRating);
+            if (failed) backup?.ReinitCounter(display, passRating, accRating, techRating, starRating);
             else ResetVars();
         }
         public void ReinitCounter(TMP_Text display, MapSelection map)
@@ -416,7 +416,7 @@ namespace BLPPCounter.Counters
         {
             if (failed)
             {
-                backup.UpdateCounter(acc, notes, mistakes, fcPercent);
+                backup?.UpdateCounter(acc, notes, mistakes, fcPercent);
                 return;
             }
             if (loadingReplay || !caughtUp) return;

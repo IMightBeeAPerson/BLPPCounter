@@ -29,7 +29,7 @@ namespace BLPPCounter.Helpfuls
         #region Resource Paths
         public static readonly string COUNTER_BSML = HOST_NAME + ".Settings.BSML.Settings.bsml";
         public static readonly string MENU_BSML = HOST_NAME + ".Settings.BSML.MenuSettings.bsml";
-        public static readonly string SIMPLE_MENU_BSML = HOST_NAME + ".Settings.BSML.Test.bsml";
+        public static readonly string SIMPLE_MENU_BSML = HOST_NAME + ".Settings.BSML.VariableSettingsContainer.bsml";
         public static readonly string SETTINGS_BSML = HOST_NAME + ".Settings.BSML.MainMenuSettings.bsml";
         public static readonly string PP_CALC_BSML = HOST_NAME + ".Settings.BSML.PpInfo.bsml";
         #endregion
@@ -38,8 +38,11 @@ namespace BLPPCounter.Helpfuls
         public static readonly string BLAPI_HASH = "https://api.beatleader.com/leaderboards/hash/{0}"; //hash
         public static readonly string BLAPI_USERID = "https://api.beatleader.com/player/{0}"; //user_id
         public static readonly string BLAPI_CLAN = "https://api.beatleader.com/leaderboard/clanRankings/{0}"; //clan_id
+        public static readonly string BLAPI_CLAN_PLAYERS = "https://api.beatleader.com/clan/{0}?count={1}"; //clan_name (the 4 letter one), count
         public static readonly string BLAPI_SCORE = "https://api.beatleader.com/score/general/{0}/{1}/{2}/{3}"; //user_id, hash, diff, mode || Ex: https://api.beatleader.com/score/general/76561198306905129/a3292aa17b782ee2a229800186324947a4ec9fee/Expert/Standard
         public static readonly string BLAPI_PLAYERSCORES = "https://api.beatleader.com/player/{0}/scores/compact?sortBy=pp&page={1}&count={2}&scoreStatus=0&leaderboardContext=general"; //user_id, page, count
+        public static readonly string BLAPI_FOLLOWERS = "https://api.beatleader.com/player/{0}/followers?page={1}&count={2}&type=following"; //user_id, page, count
+        public static readonly string BLAPI_PLAYER_FILTER = "https://api.beatleader.com/players?page={0}&count={1}&leaderboardContext=general"; //page, count
 
         public static readonly string SSAPI = "https://scoresaber.com/api/";
         //UNRANKED: https://scoresaber.com/api/leaderboard/by-hash/bdacecbf446f0f066f4189c7fe1a81c6d3664b90/info?difficulty=5
@@ -50,6 +53,7 @@ namespace BLPPCounter.Helpfuls
         public static readonly string SSAPI_DIFFS = "https://scoresaber.com/api/leaderboard/get-difficulties/{0}"; //hash
         public static readonly string SSAPI_LEADERBOARDID = "https://scoresaber.com/api/leaderboard/by-id/{0}/{1}"; //leaderboard_id, either "info" or "scores"
         public static readonly string SSAPI_PLAYERSCORES = "https://scoresaber.com/api/player/{0}/scores?limit={2}&sort=top&page={1}"; //user_id, page, count
+        public static readonly string SSAPI_PLAYER_FILTER = "https://scoresaber.com/api/players?page={0}"; //page (count is always 50, sorted by rank)
 
         //No documentation here, doc at https://github.com/accsaber/accsaber-plugin/blob/main/EndpointResearch/ENDPOINTS.md
         //Or find it yourself here: https://github.com/accsaber/accsaber-backend/blob/main/accsaber-api/src/main/kotlin/de/ixsen/accsaber/api/controllers/PlayerController.kt

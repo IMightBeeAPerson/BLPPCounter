@@ -11,7 +11,13 @@ using HarmonyLib;
 using BLPPCounter.Patches;
 using BS_Utils.Utilities;
 using BeatSaberMarkupLanguage.Settings; // Used in 1.37.0 and above
-using BLPPCounter.Settings.SettingHandlers.MenuViews; 
+using BLPPCounter.Settings.SettingHandlers.MenuViews;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Collections;
+using UnityEngine;
+using BLPPCounter.Utils.Misc_Classes;
+using System.IO;
 
 namespace BLPPCounter
 {
@@ -20,9 +26,9 @@ namespace BLPPCounter
     {
         internal static Plugin Instance { get; private set; }
         internal static IPALogger Log { get; private set; }
-        internal static bool BLInstalled => true;
         internal static Harmony Harmony { get; private set; }
         internal static string Name => "PPCounter";
+        private Task TargeterTask;
         [Init]
         /// <summary>
         /// Called when the plugin is first loaded by IPA (either when the game starts or when the plugin is enabled if it starts disabled).
@@ -36,7 +42,7 @@ namespace BLPPCounter
             Log = logger;
         }// '<' = &#60; '>' = &#62;
         //\[ERROR @ (?:\d{2}:?){3} \| BL PP Counter\] [^ ]+Exception:
-        private void AddMenuStuff()
+        private async void AddMenuStuff()
         {
             TabSelectionPatch.ClearData();
 #if NEW_VERSION
@@ -47,11 +53,18 @@ namespace BLPPCounter
             GameplaySetup.instance.AddTab("PP Calculator", HelpfulPaths.PP_CALC_BSML, PpInfoTabHandler.Instance); // 1.34.2 and below */
 #endif
             SimpleSettingsHandler.Instance.ChangeMenuTab(false);
+            await TargeterTask.ConfigureAwait(false);
+            IEnumerator WaitThenUpdate()
+            {
+                yield return new WaitForEndOfFrame();
+                SettingsHandler.Instance.UpdateTargetLists();
+            }
+            CoroutineHost.Start(WaitThenUpdate());
         }
 
         [OnEnable]
         public void OnEnable() {
-            Targeter.GenerateClanNames(); //async
+            TargeterTask = Targeter.GenerateTargets(); //async
 #if NEW_VERSION
             BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing += AddMenuStuff; //async (kinda) || 1.37.0 and above
 #else
