@@ -106,7 +106,7 @@ namespace BLPPCounter.Counters
                 ((char)2, "Is bottom of text")
             }
             );
-        private static Task SetupTask;
+        private static Task SetupTask = Task.CompletedTask;
 
         #endregion
         #region Variables
