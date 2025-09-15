@@ -11,6 +11,7 @@ using System.Drawing;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.Remoting.Metadata.W3cXsd2001;
+using System.Threading;
 using System.Threading.Tasks;
 using static AlphabetScrollInfo;
 using static GameplayModifiers;
@@ -133,10 +134,11 @@ namespace BLPPCounter.Utils.API_Handlers
         {
             return (float)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.BLAPI_USERID, userId)).ConfigureAwait(false))?["pp"];
         }
-        internal override async Task AddMap(Dictionary<string, Map> Data, string hash)
+        internal override async Task AddMap(Dictionary<string, Map> Data, string hash, CancellationToken ct = default)
         {
             try
             {
+                if (ct.IsCancellationRequested) return;
                 JToken dataToken = JObject.Parse(await CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash)).ConfigureAwait(false));
                 JEnumerable<JToken> mapTokens = dataToken["song"]["difficulties"].Children();
                 string songId = (string)dataToken["song"]["id"];

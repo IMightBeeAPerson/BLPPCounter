@@ -177,10 +177,13 @@ namespace BLPPCounter
             });
         private static readonly TimeLooper TimeLooper = new TimeLooper();
         private static string lastTarget = Targeter.NO_TARGET;
+        private static Task InitTask = Task.CompletedTask;
+        private static CancellationTokenSource InitTaskCanceller;
+        private static CancellationToken InitTaskCancelToken;
         #endregion
         #region Variables
         private TMP_Text display;
-        private bool enabled, loading, hasNotifiers;
+        private bool enabled, hasNotifiers;
         private float passRating, accRating, techRating, starRating;
         private int notes, comboNotes, mistakes;
         private int fcTotalHitscore, fcMaxHitscore;
@@ -286,16 +289,27 @@ namespace BLPPCounter
             PercentNeededFormatter = null;
         }
         public override void CounterDestroy() {
-            //Plugin.Log.Info($"hash: {hash} || songName: {songName}");
-            usingDefaultLeaderboard = false;
-            if (hasNotifiers) 
-                ChangeNotifiers(false);
             if (enabled)
                 TimeLooper.End();
+            if (hasNotifiers) 
+                ChangeNotifiers(false);
+            if (!InitTask.IsCompleted)
+            {
+                Plugin.Log.Warn("Player exited map faster than the init task could complete. Cancelling.");
+                InitTaskCanceller.Cancel();
+                try
+                {
+                    InitTask.GetAwaiter().GetResult();
+                } catch (Exception e)
+                {
+                    Plugin.Log.Warn($"Error waiting for InitTask\n{e}");
+                }
+            }
+            InitTaskCanceller.Dispose();
         }
         public override void CounterInit()
         {
-            enabled = hasNotifiers = false;
+            enabled = hasNotifiers = usingDefaultLeaderboard = false;
             if (fullDisable) return;
             notes = fcMaxHitscore = comboNotes = fcTotalHitscore = mistakes = 0;
             totalHitscore = maxHitscore = 0.0;
@@ -303,11 +317,12 @@ namespace BLPPCounter
             display = CanvasUtility.CreateTextFromSettings(Settings);
             display.fontSize = (float)pc.FontSize;
             display.text = "Loading...";
-            Task.Run(async () => await AsyncCounterInit());
+            InitTaskCanceller = new CancellationTokenSource();
+            InitTaskCancelToken = InitTaskCanceller.Token;
+            InitTask = Task.Run(async () => await AsyncCounterInit(InitTaskCancelToken), InitTaskCancelToken);
         }
-        private async Task AsyncCounterInit() 
+        private async Task AsyncCounterInit(CancellationToken ct) 
         {
-            loading = true;
             if (!dataLoaded)
             {
                 Data = new Dictionary<string, Map>();
@@ -315,8 +330,10 @@ namespace BLPPCounter
             }
             try
             {
-                if (!dataLoaded) RequestHashData();
-                enabled = SetupMapData();
+                if (!dataLoaded) await APIHandler.GetAPI(usingDefaultLeaderboard).AddMap(Data, hash, ct);
+                enabled = SetupMapData(ct);
+                if (ct.IsCancellationRequested)
+                    return;
                 if (enabled)
                 {
 #if NEW_VERSION
@@ -324,7 +341,7 @@ namespace BLPPCounter
 #else
                     hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
 #endif
-                    bool counterChange = theCounter != null && !theCounter.Name.Equals(pc.PPType);
+                    bool counterChange = theCounter?.Name.Equals(pc.PPType) ?? false;
                     if (counterChange)
                         if ((GetPropertyFromTypes("DisplayHandler", theCounter.GetType()).Values.First() as string).Equals(DisplayName))
                             //Need to recall this one so that it implements the current counter's wants properly
@@ -333,7 +350,9 @@ namespace BLPPCounter
                     if (theCounter is null || SettingChanged || counterChange || LastMap.Equals(default) || !hash.Equals(LastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
                     {
                         SettingChanged = false;
-                        Map m = await GetMap(hash, mode, Leaderboard);
+                        Map m = await GetMap(hash, mode, Leaderboard, ct);
+                        if (ct.IsCancellationRequested)
+                            return;
 #if NEW_VERSION
                         MapSelection ms = new MapSelection(m, beatmapDiff.difficulty, mode, starRating, accRating, passRating, techRating); // 1.34.2 and below
 #else
@@ -361,7 +380,7 @@ namespace BLPPCounter
                     if (pc.UpdateAfterTime) SetTimeLooper();
                     SetLabels();
                     if (notes < 1) theCounter.UpdateCounter(1, 0, 0, 1);
-                    goto End;
+                    return;
                 } else
                     Plugin.Log.Warn("Maps failed to load, most likely unranked.");
             } catch (Exception e)
@@ -381,16 +400,14 @@ namespace BLPPCounter
             {
                 usingDefaultLeaderboard = true;
                 usingDefaultLeaderboard = DisplayNames.Contains(pc.PPType);
-                if (!usingDefaultLeaderboard) goto End;
-                await AsyncCounterInit();
+                if (!usingDefaultLeaderboard || ct.IsCancellationRequested) return;
+                await AsyncCounterInit(ct);
             } else
             {
                 enabled = false;
                 display.text = "";
                 if (hasNotifiers) ChangeNotifiers(false);
             }
-            End:
-            loading = false;
         }
 #endregion
         #region Event Calls
@@ -398,7 +415,7 @@ namespace BLPPCounter
         {
             if (scoringElement is null || scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb)
                 return;
-            bool enteredLock = !loading && pc.UpdateAfterTime && Monitor.TryEnter(TimeLooper.Locker); //This is to make sure timeLooper is paused, not to pause this thread.
+            bool enteredLock = InitTask.IsCompleted && pc.UpdateAfterTime && Monitor.TryEnter(TimeLooper.Locker); //This is to make sure timeLooper is paused, not to pause this thread.
             NoteData.ScoringType st = scoringElement.noteData.scoringType;
             if (st == NoteData.ScoringType.Ignore) goto Finish; //if scoring type is Ignore, skip this function
             notes++;
@@ -412,7 +429,7 @@ namespace BLPPCounter
             }
             else OnMiss();
             Finish:
-            if (loading) return;
+            if (!InitTask.IsCompleted) return;
             if (theCounter is null)
             {
                 Plugin.Log.Error("The counter is null into gameplay! This is bad, completely disabling for the map.");
@@ -455,9 +472,6 @@ namespace BLPPCounter
             });
         }
         #endregion
-        #region API Calls
-        private void RequestHashData() => APIHandler.GetAPI(usingDefaultLeaderboard).AddMap(Data, hash);
-        #endregion
         #region Helper Methods
         private void ChangeNotifiers(bool a)
         {
@@ -481,13 +495,13 @@ namespace BLPPCounter
             Data = new Dictionary<string, Map>();
             InitData();
         }
-        public static async Task<Map> GetMap(string hash, string mode, Leaderboards leaderboard)
+        public static async Task<Map> GetMap(string hash, string mode, Leaderboards leaderboard, CancellationToken ct = default)
         {
             if (!dataLoaded) ForceLoadMaps();
             if ((!Data.TryGetValue(hash, out Map m) || !m.GetModes().Contains(mode)))
             {
                 Plugin.Log.Warn("Map not in cache, attempting API call to get map data...");
-                await APIHandler.GetAPI(leaderboard).AddMap(Data, hash).ConfigureAwait(false);
+                await APIHandler.GetAPI(leaderboard).AddMap(Data, hash, ct);
                 m = Data[hash];
             }
             return m;
@@ -761,7 +775,7 @@ namespace BLPPCounter
             using (FileStream fs = File.OpenWrite(filePath))
                 fs.Write(data, 0, data.Length); //For some reason Stream.Write isn't implemented
         }
-        private bool SetupMapData()
+        private bool SetupMapData(CancellationToken ct)
         {
             JToken data;
             string songId;
@@ -774,7 +788,7 @@ namespace BLPPCounter
 #endif
             try
             {
-                Map theMap = GetMap(hash, mode, Leaderboard).Result;
+                Map theMap = GetMap(hash, mode, Leaderboard, ct).GetAwaiter().GetResult();
                 if (theMap is null)
                 {
                     Plugin.Log.Warn("The map is still not in the loaded cache.");
