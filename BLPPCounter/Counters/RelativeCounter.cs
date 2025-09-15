@@ -106,6 +106,7 @@ namespace BLPPCounter.Counters
                 ((char)2, "Is bottom of text")
             }
             );
+        private static Task SetupTask;
 
         #endregion
         #region Variables
@@ -123,7 +124,7 @@ namespace BLPPCounter.Counters
         private Calculator calc;
         private Leaderboards leaderboard;
         private float[] selectedRatings, ppVals;
-        private bool loadingReplay, caughtUp;
+        private bool caughtUp;
         private int catchUpNotes, displayNum;
         #endregion
         #region Init
@@ -179,13 +180,12 @@ namespace BLPPCounter.Counters
         #region Overrides
         public void SetupData(MapSelection map)
         {
-            loadingReplay = caughtUp = false;
+            caughtUp = false;
             catchUpNotes = 0;
-            Task t = Task.Run(async () =>
+            Task.Run(async () =>
             {
-                loadingReplay = true;
-                await SetupDataAsync(map).ConfigureAwait(false);
-                loadingReplay = false;
+                SetupTask = SetupDataAsync(map);
+                await SetupTask;
                 CatchupBest();
                 if (catchUpNotes == 0)
                     UpdateCounter(1, 0, 0, 1);
@@ -419,7 +419,7 @@ namespace BLPPCounter.Counters
                 backup?.UpdateCounter(acc, notes, mistakes, fcPercent);
                 return;
             }
-            if (loadingReplay || !caughtUp) return;
+            if (!SetupTask.IsCompleted || !caughtUp) return;
             bool displayFc = PC.PPFC && mistakes > 0, showLbl = PC.ShowLbl;
             
             float[] temp = calc.GetPpWithSummedPp(acc, selectedRatings);
@@ -460,7 +460,7 @@ namespace BLPPCounter.Counters
         }
         public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent)
         {
-            if (loadingReplay || !caughtUp)
+            if (!SetupTask.IsCompleted || !caughtUp)
             {
                 catchUpNotes = notes;
                 if (!caughtUp) //This check is done twice because we are dealing with multi thread communication.

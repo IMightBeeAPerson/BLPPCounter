@@ -659,7 +659,7 @@ namespace BLPPCounter
         private bool InitCounter()
         {
             IMyCounters outpCounter = InitCounter(pc.PPType, display);
-            if (outpCounter == null) return false;
+            if (outpCounter is null) return false;
             theCounter = outpCounter;
             return true;
         }
@@ -670,8 +670,7 @@ namespace BLPPCounter
                 Plugin.Log.Error($"Oh No! Name '{name}' was not a valid displayName!\nValid display names: {HelpfulMisc.Print(DisplayNameToCounter.Keys)}");
                 return null;
             }
-            Type counterType = ValidCounters.FirstOrDefault(a => a.FullName.Equals(displayName));
-            if (counterType == default) 
+            Type counterType = ValidCounters.FirstOrDefault(a => a.FullName.Equals(displayName)) ?? 
                 throw new ArgumentException($"Name '{displayName}' is not a counter! Valid counter names are:\n{string.Join("\n", ValidCounters as IEnumerable<Type>)}");
             IMyCounters outp = (IMyCounters)Activator.CreateInstance(counterType, display, LastMap);
             outp.UpdateFormat();
@@ -768,10 +767,9 @@ namespace BLPPCounter
             Plugin.Log.Debug("Taoh data not up to date! Loading...");
             string filePath = HelpfulPaths.TAOHABLE_DATA;
             byte[] data = null;
-            (bool succeeded, HttpContent content) = APIHandler.CallAPI_Static(HelpfulPaths.TAOHABLE_API).Result;
+            (bool succeeded, HttpContent content) = APIHandler.CallAPI_Static(HelpfulPaths.TAOHABLE_API).GetAwaiter().GetResult();
             if (succeeded)
-                data = content.ReadAsByteArrayAsync().Result;
-            if (File.Exists(filePath)) File.Delete(filePath); 
+                data = content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
             using (FileStream fs = File.OpenWrite(filePath))
                 fs.Write(data, 0, data.Length); //For some reason Stream.Write isn't implemented
         }
