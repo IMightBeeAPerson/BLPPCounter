@@ -957,7 +957,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (!forceRefresh && (Sldvc?.selectedDifficultyBeatmap?.Equals(CurrentMap) ?? false)) return; // 1.34.2 and below
 
 #endif
-            AsyncLock.Releaser? theLock = await RefreshLock.TryLockAsync().ConfigureAwait(false);
+            AsyncLock.Releaser? theLock = await RefreshLock.TryLockAsync();
             if (theLock is null) return;
             using (theLock.Value)
             {
@@ -965,9 +965,9 @@ namespace BLPPCounter.Settings.SettingHandlers
                 {
                     CurrentLeaderboard = PC.Leaderboard;
                     UpdateMods();
-                    TargetPP = await UpdateTargetPP().ConfigureAwait(false);
-                    await UpdateTabDisplay(forceRefresh, false).ConfigureAwait(false);
-                    await UpdatePlayTable().ConfigureAwait(false);
+                    TargetPP = await UpdateTargetPP();
+                    await UpdateTabDisplay(forceRefresh, false);
+                    await UpdatePlayTable();
                 }
                 catch (Exception ex)
                 {

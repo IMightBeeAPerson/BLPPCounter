@@ -68,6 +68,7 @@ namespace BLPPCounter.Settings.Configs
         public virtual bool UseSSRank { get; set; } = false;
         public virtual string Target { get; set; } = Targeter.NO_TARGET;
         public virtual long TargetID { get; set; } = -1;
+        public virtual bool AutoSelectAddedTarget { get; set; } = true;
 
         //The below list is not in order so that in the config file there is nothing below this that gets obstructed.
         [UseConverter(typeof(ListConverter<CustomTarget>))]

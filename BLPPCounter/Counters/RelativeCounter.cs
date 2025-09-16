@@ -150,7 +150,7 @@ namespace BLPPCounter.Counters
         {
             if (data is null)
             {
-                data = BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true).Result;
+                data = BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true).GetAwaiter().GetResult();
                 if (data is null)
                 {
                     useReplay = false;

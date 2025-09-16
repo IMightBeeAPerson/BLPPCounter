@@ -61,7 +61,7 @@
           <vertical bg='round-rect-panel' bg-color='#CCC' pref-width='200' horizontal-fit='PreferredSize'>
             <horizontal spacing='10' pref-width='200' horizontal-fit='PreferredSize' pad-right='15' pad-left='10'>
               <vertical>
-                <text text='Clan Targets' align='Center'/>
+                <text text='Clan' align='Center'/>
                 <custom-list id='ClanTargetList' contents='ClanTargetInfos' show-scrollbar='true' cell-size='15' pref-width='50' pref-height='50' clickable-cells='true'>
                   <vertical child-control-width='true' pref-width='50' horizontal-fit='PreferredSize'>
                     <text text='~DisplayName' align='Left'/>
@@ -73,7 +73,7 @@
                 </custom-list>
               </vertical>
               <vertical>
-                <text text='Custom Targets' align='Center'/>
+                <text text='Custom' align='Center'/>
                 <custom-list id='CustomTargetList' contents='CustomTargetInfos' show-scrollbar='true' cell-size='15' pref-width='50' pref-height='50' clickable-cells='true'>
                   <vertical child-control-width='true' pref-width='50' horizontal-fit='PreferredSize'>
                     <text text='~DisplayName' align='Left'/>
@@ -85,7 +85,7 @@
                 </custom-list>
               </vertical>
               <vertical>
-                <text text='Followed Targets' align='Center'/>
+                <text text='Followed &amp; Friends' align='Center'/>
                 <custom-list id='FollowerTargetList' contents='FollowerTargetInfos' show-scrollbar='true' cell-size='15' pref-width='50' pref-height='50' clickable-cells='true'>
                   <vertical child-control-width='true' pref-width='50' horizontal-fit='PreferredSize'>
                     <text text='~DisplayName' align='Left'/>
@@ -111,10 +111,13 @@
             </horizontal>
             <horizontal>
               <button text='Reset Target' on-click='ResetTarget' hover-hint='Resets the target back to yourself' align='Left'/>
+              <button id='ReloadCustomRanksButton' face-color='#F00' text='Reload Custom' on-click='ReloadCustomRanks' hover-hint='Reloads the custom player list ranks (this is slow)' align='Center'/>
+              <button id='ReloadFollowersButton' face-color='#F00' text='Reload Followers' on-click='ReloadFollowers' hover-hint='Reloads the follower list ranks (this is slow)' align='Center'/>
               <button text='Exit' click-event='HideTargetMenu' align='Right'/>
             </horizontal>
           </vertical>
         </modal>
+        <checkbox-setting text='Auto Select Added' apply-on-change='true' value='AutoSelectAddedTarget' hover-hint='Whether or not when adding a rank or id, auto select them as the target'/>
       </vertical>
     </vertical>
   </settings-container>
