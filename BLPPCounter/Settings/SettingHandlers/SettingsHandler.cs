@@ -301,16 +301,17 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             get
             {
-                if (!RelativeDefaultList.Contains(PC.RelativeDefault)) if (RelativeDefaultList.Count > 0)
-                        PC.RelativeDefault = (string)RelativeDefaultList[0];
-                    else PC.RelativeDefault = Targeter.NO_TARGET; return PC.RelativeDefault;
+                if (RelativeDefaultList.Count > 0 && !RelativeDefaultList.Contains(PC.RelativeDefault))
+                    PC.RelativeDefault = (string)RelativeDefaultList[0];
+                else PC.RelativeDefault = Targeter.NO_TARGET;
+                return PC.RelativeDefault;
             }
             set { PC.RelativeDefault = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(RelativeDefault))); }
         }
         [UIComponent(nameof(DefaultCounterList))]
         private ListSetting DefaultCounterList;
         [UIValue(nameof(RelativeDefaultList))]
-        public List<object> RelativeDefaultList => TypesOfPP.Where(a => a is string b && !RelativeCounter.DisplayName.Equals(b)).ToList();
+        public List<object> RelativeDefaultList => TypesOfPP.Where(a => a is string b && !RelativeCounter.DisplayName.Equals(b)).Prepend(Targeter.NO_TARGET).ToList();
         #endregion
         #region Rank Counter Settings
         [UIValue(nameof(MinRank))]

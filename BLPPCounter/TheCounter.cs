@@ -180,6 +180,7 @@ namespace BLPPCounter
         private static Task InitTask = Task.CompletedTask;
         private static CancellationTokenSource InitTaskCanceller;
         private static CancellationToken InitTaskCancelToken;
+        private static Action ForceOff;
         #endregion
         #region Variables
         private TMP_Text display;
@@ -310,6 +311,7 @@ namespace BLPPCounter
         public override void CounterInit()
         {
             enabled = hasNotifiers = usingDefaultLeaderboard = false;
+            ForceOff = () => ForceTurnOff();
             if (fullDisable) return;
             notes = fcMaxHitscore = comboNotes = fcTotalHitscore = mistakes = 0;
             totalHitscore = maxHitscore = 0.0;
@@ -389,25 +391,18 @@ namespace BLPPCounter
                 if (e is KeyNotFoundException) Plugin.Log.Error($"Data dictionary length: {Data.Count}");
                 Plugin.Log.Debug(e);
                 if (usingDefaultLeaderboard)
-                {
-                    enabled = false;
-                    display.text = "";
-                    if (hasNotifiers) ChangeNotifiers(false);
-                }
+                    ForceTurnOff();
             }
-            Failed:
+        Failed:
             if (!usingDefaultLeaderboard)
             {
                 usingDefaultLeaderboard = true;
                 usingDefaultLeaderboard = DisplayNames.Contains(pc.PPType);
                 if (!usingDefaultLeaderboard || ct.IsCancellationRequested) return;
                 await AsyncCounterInit(ct);
-            } else
-            {
-                enabled = false;
-                display.text = "";
-                if (hasNotifiers) ChangeNotifiers(false);
             }
+            else
+                ForceTurnOff();
         }
 #endregion
         #region Event Calls
@@ -433,9 +428,7 @@ namespace BLPPCounter
             if (theCounter is null)
             {
                 Plugin.Log.Error("The counter is null into gameplay! This is bad, completely disabling for the map.");
-                enabled = false;
-                display.text = "";
-                ChangeNotifiers(false);
+                ForceTurnOff();
                 return;
             }
             theCounter.SoftUpdate((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
@@ -488,6 +481,13 @@ namespace BLPPCounter
             }
             hasNotifiers = a;
         }
+        internal void ForceTurnOff()
+        {
+            enabled = false;
+            display.text = "";
+            if (hasNotifiers) ChangeNotifiers(false);
+        }
+        internal static void CancelCounter() => ForceOff.Invoke();
         public static void ClearCounter() => LastMap = default;
         public static void ForceLoadMaps()
         {
@@ -498,11 +498,12 @@ namespace BLPPCounter
         public static async Task<Map> GetMap(string hash, string mode, Leaderboards leaderboard, CancellationToken ct = default)
         {
             if (!dataLoaded) ForceLoadMaps();
-            if ((!Data.TryGetValue(hash, out Map m) || !m.GetModes().Contains(mode)))
+            if (!Data.TryGetValue(hash, out Map m) || !m.GetModes().Contains(mode))
             {
                 Plugin.Log.Warn("Map not in cache, attempting API call to get map data...");
                 await APIHandler.GetAPI(leaderboard).AddMap(Data, hash, ct);
-                m = Data[hash];
+                if (!Data.TryGetValue(hash, out m))
+                    return null;
             }
             return m;
         }

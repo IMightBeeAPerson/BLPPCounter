@@ -238,13 +238,23 @@ namespace BLPPCounter.Counters
             Failed:
             Plugin.Log.Warn($"Defaulting to {PC.RelativeDefault.ToLower()} counter.");
             failed = true;
-            backup = TheCounter.InitCounter(PC.RelativeDefault, display);
-            if (catchUpNotes < 1) backup.UpdateCounter(1, 0, 0, 1);
+            if (!PC.RelativeDefault.Equals(Targeter.NO_TARGET))
+            {
+                backup = TheCounter.InitCounter(PC.RelativeDefault, display);
+                if (catchUpNotes < 1) backup.UpdateCounter(1, 0, 0, 1);
+            }
+            else
+                TheCounter.CancelCounter();
         }
         public void ReinitCounter(TMP_Text display)
         {
             this.display = display;
-            if (failed) backup?.ReinitCounter(display);
+            if (failed)
+            {
+                if (backup is null)
+                    TheCounter.CancelCounter();
+                else backup.ReinitCounter(display, passRating, accRating, techRating, starRating);
+            }
             else ResetVars();
         }
         public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating, float starRating)
@@ -260,7 +270,12 @@ namespace BLPPCounter.Counters
             displayNum = calc.DisplayRatingCount;
             leaderboard = Calculator.UsingDefault ? PC.DefaultLeaderboard : PC.Leaderboard;
             ppVals = new float[displayNum * 4]; //16 for bl (displayRatingCount bc gotta store total pp as well)
-            if (failed) backup?.ReinitCounter(display, passRating, accRating, techRating, starRating);
+            if (failed)
+            {
+                if (backup is null)
+                    TheCounter.CancelCounter();
+                else backup.ReinitCounter(display, passRating, accRating, techRating, starRating);
+            }
             else ResetVars();
         }
         public void ReinitCounter(TMP_Text display, MapSelection map)

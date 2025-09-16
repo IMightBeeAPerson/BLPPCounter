@@ -139,7 +139,9 @@ namespace BLPPCounter.Utils.API_Handlers
             try
             {
                 if (ct.IsCancellationRequested) return;
-                JToken dataToken = JObject.Parse(await CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash)).ConfigureAwait(false));
+                string dataStr = await CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash)).ConfigureAwait(false);
+                if (dataStr is null || dataStr.Length == 0) return;
+                JToken dataToken = JObject.Parse(dataStr);
                 JEnumerable<JToken> mapTokens = dataToken["song"]["difficulties"].Children();
                 string songId = (string)dataToken["song"]["id"];
                 foreach (JToken mapToken in mapTokens)
