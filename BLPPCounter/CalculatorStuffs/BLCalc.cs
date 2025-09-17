@@ -1,11 +1,12 @@
 ﻿using BLPPCounter.Helpfuls;
-using static GameplayModifiers;
+using BLPPCounter.Utils.API_Handlers;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using BLPPCounter.Utils.API_Handlers;
+using static GameplayModifiers;
+using static NoteData;
 
 namespace BLPPCounter.CalculatorStuffs
 {
@@ -109,130 +110,97 @@ namespace BLPPCounter.CalculatorStuffs
             }
             return x;
         }//Yes this is chatGPT code, modified to work properly with my code.
-        /*public (float Pass, float Acc, float Tech) GetPp(float accuracy, float accRating, float passRating, float techRating)
-        {
-            float passPP = GetPassPp(passRating);
-            if (float.IsNaN(accuracy)) accuracy = 0;
-            else accuracy = Mathf.Max(0, Mathf.Min(1,accuracy));
-            if (float.IsInfinity(passPP) || float.IsNaN(passPP) || passPP < 0) passPP = 0;
-            //float accPP = context == LeaderboardContexts.Golf ? accuracy * accRating * 42f : Curve2(accuracy) * accRating * 34f;
-            return (passPP, GetAccPp(accuracy, accRating), GetTechPp(accuracy, techRating));
-        }
-        public (float Pass, float Acc, float Tech) GetPp(float accuracy, float accRating, float passRating, float techRating, int precision)
-        {
-            var (Pass, Acc, Tech) = GetPp(accuracy, accRating, passRating, techRating);
-            return ((float)Math.Round(Pass, precision), (float)Math.Round(Acc, precision), (float)Math.Round(Tech, precision));
-        }
-        public (float Pass, float Acc, float Tech, float Total) GetSummedPp(float accuracy, float accRating, float passRating, float techRating)
-        {
-            var (Pass, Acc, Tech) = GetPp(accuracy, accRating, passRating, techRating);
-            return (Pass, Acc, Tech, Inflate(Pass + Acc + Tech));
-        }
-        public (float Pass, float Acc, float Tech, float Total) GetSummedPp(float accuracy, float accRating, float passRating, float techRating, int precision)
-        {
-            var (Pass, Acc, Tech) = GetPp(accuracy, accRating, passRating, techRating, precision);
-            return (Pass, Acc, Tech, (float)Math.Round(Inflate(Pass + Acc + Tech), precision));
-        }
-        public float GetPpSum(float accuracy, float accRating, float passRating, float techRating)
-        {
-            float a, b, c;
-            (a,b,c) = GetPp(accuracy, accRating, passRating, techRating);
-            return a + b + c;
-        }
-        public float GetPartPpSum(float accuracy, float accRating = -1, float passRating = -1, float techRating = -1)
-        {
-            float sum = 0;
-            if (accRating > -1) sum += GetAccPp(accuracy, accRating);
-            if (passRating > -1) sum += GetPassPp(passRating);
-            if (techRating > -1) sum += GetTechPp(accuracy, techRating);
-            return sum;
-        }
-        public float GetPpSum(float accuracy, MapSelection map) => GetPpSum(accuracy, map.AccRating, map.PassRating, map.TechRating);
-
-        public float GetAcc(float accRating, float passRating, float techRating, float inflatedPp, int precision = -1) =>
-            GetAccDeflated(accRating, passRating, techRating, Deflate(inflatedPp), precision);
-
-        public float GetAcc((float acc, float pass, float tech) ratings, float inflatedPp, int precision = -1) =>
-            GetAccDeflated(ratings.acc, ratings.pass, ratings.tech, Deflate(inflatedPp), precision);
-
-        public float GetAcc(float inflatedPp, JToken diffData, GameplayModifiers.SongSpeed speed, float modMult = 1.0f, int precision = -1) =>
-            GetAccDeflated(Deflate(inflatedPp), diffData, speed, modMult, precision);
-
-        public float GetAccDeflated(float accRating, float passRating, float techRating, float deflatedPp, int precision = -1)
-        {
-            if (deflatedPp > GetPpSum(1.0f, accRating, passRating, techRating)) return precision >= 0 ? 100.0f : 1.0f;
-            deflatedPp -= GetPassPp(passRating);
-            if (deflatedPp <= 0.0f) return 0.0f;
-            float outp = CalculateX(deflatedPp, techRating, accRating);
-            return precision >= 0 ? (float)Math.Round(outp * 100.0f, precision) : outp;
-        }
-        public float GetAccDeflated((float acc, float pass, float tech) ratings, float deflatedPp, int precision = -1) =>
-            GetAccDeflated(ratings.acc, ratings.pass, ratings.tech, deflatedPp, precision);
-        public float GetAccDeflated(float deflatedPp, JToken diffData, GameplayModifiers.SongSpeed speed, float modMult = 1.0f, int precision = -1)
-        {
-            float outp = GetAccDeflated(HelpfulMisc.GetRatings(diffData, speed, modMult), deflatedPp);
-            return precision >= 0 ? (float)Math.Round(outp * 100.0f, precision) : outp;
-        }
-        public float Inflate(float peepee)
-        {
-            return 650f * (float)Math.Pow(peepee, 1.3f) / (float)Math.Pow(650f, 1.3f);
-        }
-        public float Deflate(float pp)
-        {
-            return (float)Math.Pow(pp * (float)Math.Pow(650f, 1.3f) / 650f, 1.0f / 1.3f);
-        }
-        
-        public float Curve2(float acc) => GetCurve(acc, pointList2);
-        
-        public float InvertCurve2(double curve2Output) => GetInvertCurve(curve2Output, pointList2);
-        public float GetCurveDerivative(double acc)
-        {
-            int i = 1;
-            while (i < pointList2.Count && pointList2[i].Item1 > acc) i++;
-            return (float)((pointList2[i].Item2 - pointList2[i - 1].Item2) / (pointList2[i].Item1 - pointList2[i - 1].Item1));
-        }*/
         #endregion
         #region Replay Math
-        private const float MinBeforeCutScore = 0.0f;
-        private const float MinAfterCutScore = 0.0f;
-        private const float MaxBeforeCutScore = 70.0f;
-        private const float MaxAfterCutScore = 30.0f;
-        private const float MaxCenterDistanceCutScore = 15.0f;
-        public int RoundToInt(float f) { return (int)Math.Round(f); }
-        public int GetCutDistanceScore(float cutDistanceToCenter)
+        internal static (int Before, int After, int Acc) CutScoresForNote(BeatLeader.Models.Replay.NoteEvent note) =>
+            CutScoresForNote(note.noteCutInfo, GetScoringType(note.noteID));
+        internal static (int Before, int After, int Acc) CutScoresForNote(BeatLeader.Models.Replay.NoteCutInfo cut, ScoringType scoringType)
         {
-            return RoundToInt(MaxCenterDistanceCutScore * (1f - Clamp01(cutDistanceToCenter / 0.3f)));
-        }
+            float beforeCutRawScore = -1, afterCutRawScore = -1, cutDistanceRawScore;
+            switch (scoringType)
+            {
+#if NEW_VERSION
+                case ScoringType.ArcHead:
+#else
+                case ScoringType.SliderHead:
+#endif
+                    afterCutRawScore = 30;
+                    break;
+#if NEW_VERSION
+                case ScoringType.ArcTail:
+#else
+                case ScoringType.SliderTail:
+#endif
+                    beforeCutRawScore = 70;
+                    break;
+#if NEW_VERSION
+                case ScoringType.ArcHeadArcTail:
+                    afterCutRawScore = 30;
+                    beforeCutRawScore = 70;
+                    break;
+                case ScoringType.ChainHead:
+#else
+                case ScoringType.BurstSliderHead:
+#endif
+                    afterCutRawScore = 0;
+                    break;
+#if NEW_VERSION
+                case ScoringType.ChainHeadArcTail:
+                    afterCutRawScore = 0;
+                    beforeCutRawScore = 70;
+                    break;
+                case ScoringType.ChainLink:
+                case ScoringType.ChainLinkArcHead:
+#else
+                case ScoringType.BurstSliderElement:
+#endif
+                    return (0, 0, 20);
+            }
+            if (beforeCutRawScore < 0) beforeCutRawScore = Mathf.Clamp(Mathf.Round(70 * cut.beforeCutRating), 0, 70);
+            if (afterCutRawScore < 0) afterCutRawScore = Mathf.Clamp(Mathf.Round(30 * cut.afterCutRating), 0, 30);
+           cutDistanceRawScore = Mathf.Round(15 * (1 - Mathf.Clamp01(cut.cutDistanceToCenter / 0.3f)));
 
-        public int GetBeforeCutScore(float beforeCutRating)
-        {
-            var rating = Clamp01(beforeCutRating);
-            return RoundToInt(LerpUnclamped(MinBeforeCutScore, MaxBeforeCutScore, rating));
+            return ((int)beforeCutRawScore, (int)afterCutRawScore, (int)cutDistanceRawScore);
         }
-
-        public int GetAfterCutScore(float afterCutRating)
+        internal static int GetMaxCutScore(BeatLeader.Models.Replay.NoteEvent note) =>
+            GetMaxCutScore(GetScoringType(note.noteID));
+        internal static int GetMaxCutScore(ScoringType scoringType)
         {
-            var rating = Clamp01(afterCutRating);
-            return RoundToInt(LerpUnclamped(MinAfterCutScore, MaxAfterCutScore, rating));
+            switch (scoringType)
+            {
+#if NEW_VERSION
+                case ScoringType.ChainHead:
+                case ScoringType.ChainHeadArcTail:
+#else
+                case ScoringType.BurstSliderHead:
+#endif
+                    return 85;
+#if NEW_VERSION
+                case ScoringType.ChainLink:
+                case ScoringType.ChainLinkArcHead:
+#else
+                case ScoringType.BurstSliderElement:
+#endif
+                    return 20;
+                default:
+                    return 115;
+            }
         }
-        public int GetCutScore(BeatLeader.Models.Replay.NoteCutInfo info)
+        internal static int GetCutScore(BeatLeader.Models.Replay.NoteEvent note) =>
+            GetCutScore(note.noteCutInfo, GetScoringType(note.noteID));
+        internal static int GetCutScore(BeatLeader.Models.Replay.NoteCutInfo cut, ScoringType scoringType)
         {
-            return GetBeforeCutScore(info.beforeCutRating) + GetCutDistanceScore(info.cutDistanceToCenter) + GetAfterCutScore(info.afterCutRating);
+            var (Before, After, Acc) = CutScoresForNote(cut, scoringType);
+            return Before + After + Acc; 
         }
-        public float Clamp01(float value)
+        //Link: https://github.com/BeatLeader/beatleader-mod/blob/master/Source/7_Utils/ReplayStatisticUtils.cs#L15
+        internal static ScoringType GetScoringType(int noteId)
         {
-            if (value < 0F)
-                return 0F;
-            else if (value > 1F)
-                return 1F;
-            else
-                return value;
+            if (noteId < 100_000)
+                return (ScoringType)(noteId / 10_000 - 2);
+            return (ScoringType)(noteId / 10_000_000 - 2);
         }
-        public float LerpUnclamped(float a, float b, float t)
-        {
-            return a + (b - a) * t;
-        }
-        #endregion
+#endregion
         #region Clan Math
         private float TotalPP(float coefficient, float[] ppVals, int startIndex)
         {

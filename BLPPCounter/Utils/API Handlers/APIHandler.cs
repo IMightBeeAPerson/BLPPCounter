@@ -307,7 +307,7 @@ namespace BLPPCounter.Utils.API_Handlers
         }
 
         public abstract Task<float> GetProfilePP(string userId);
-        internal abstract Task AddMap(Dictionary<string, Map> Data, string hash);
+        internal abstract Task AddMap(Dictionary<string, Map> Data, string hash, CancellationToken ct = default);
         public static APIHandler GetAPI(bool useDefault = false) => GetAPI(!useDefault ? PluginConfig.Instance.Leaderboard : PluginConfig.Instance.DefaultLeaderboard);
         public static APIHandler GetSelectedAPI() => GetAPI(UsingDefault);
         public static APIHandler GetAPI(Leaderboards leaderboard)

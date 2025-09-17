@@ -106,6 +106,7 @@ namespace BLPPCounter.Counters
                 ((char)2, "Is bottom of text")
             }
             );
+        private static Task SetupTask = Task.CompletedTask;
 
         #endregion
         #region Variables
@@ -114,16 +115,18 @@ namespace BLPPCounter.Counters
 
         private TMP_Text display;
         private float accRating, passRating, techRating, starRating, accToBeat;
-        private float[] best; //pass, acc, tech, total, replay pass rating, replay acc rating, replay tech rating, current score, current combo
+        ///<summary>pass, acc, tech, total, replay pass rating, replay acc rating, replay tech rating, current score, current combo, max score</summary>
+        private float[] best;
         private Replay bestReplay;
         private BeatLeader.Models.Replay.NoteEvent[] noteArray;
+        private Queue<BeatLeader.Models.Replay.WallEvent> wallArray;
         private int precision, bombs;
         private IMyCounters backup;
         private bool failed, useReplay;
         private Calculator calc;
         private Leaderboards leaderboard;
         private float[] selectedRatings, ppVals;
-        private bool loadingReplay, caughtUp;
+        private bool caughtUp;
         private int catchUpNotes, displayNum;
         #endregion
         #region Init
@@ -149,7 +152,7 @@ namespace BLPPCounter.Counters
         {
             if (data is null)
             {
-                data = BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true).Result;
+                data = BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true).GetAwaiter().GetResult();
                 if (data is null)
                 {
                     useReplay = false;
@@ -160,6 +163,7 @@ namespace BLPPCounter.Counters
             byte[] replayData = BLAPI.Instance.CallAPI_Bytes(replay, true).Result ?? throw new Exception("The replay link from the API is bad! (replay link failed to return data)");
             ReplayDecoder.TryDecodeReplay(replayData, out bestReplay);
             noteArray = bestReplay.notes.ToArray();
+            wallArray = new Queue<BeatLeader.Models.Replay.WallEvent>(bestReplay.walls);
             ReplayMods = bestReplay.info.modifiers.ToLower();
             if (leaderboard == Leaderboards.Beatleader)
             {
@@ -179,16 +183,15 @@ namespace BLPPCounter.Counters
         #region Overrides
         public void SetupData(MapSelection map)
         {
-            loadingReplay = caughtUp = false;
+            caughtUp = false;
             catchUpNotes = 0;
-            Task t = Task.Run(async () =>
+            Task.Run(async () =>
             {
-                loadingReplay = true;
-                await SetupDataAsync(map).ConfigureAwait(false);
-                loadingReplay = false;
+                SetupTask = SetupDataAsync(map);
+                await SetupTask;
                 CatchupBest();
                 if (catchUpNotes == 0)
-                    UpdateCounter(1, 0, 0, 1);
+                    UpdateCounter(1, 0, 0, 1, null);
             });
         }
         private async Task SetupDataAsync(MapSelection map)
@@ -202,7 +205,7 @@ namespace BLPPCounter.Counters
                     Plugin.Log.Warn("Relative counter cannot be loaded due to the player never having played this map before! (API didn't return the corrent status)");
                     goto Failed;
                 }
-                best = new float[9];
+                best = new float[10];
                 //Only BL has useable replays, so only send data if this is a BL replay.
                 if (PC.UseReplay) SetupReplayData(map, leaderboard == Leaderboards.Beatleader ? playerData : null);
                 if ((float)playerData["pp"] is float thePP && thePP > 0)
@@ -238,13 +241,23 @@ namespace BLPPCounter.Counters
             Failed:
             Plugin.Log.Warn($"Defaulting to {PC.RelativeDefault.ToLower()} counter.");
             failed = true;
-            backup = TheCounter.InitCounter(PC.RelativeDefault, display);
-            if (catchUpNotes < 1) backup.UpdateCounter(1, 0, 0, 1);
+            if (!PC.RelativeDefault.Equals(Targeter.NO_TARGET))
+            {
+                backup = TheCounter.InitCounter(PC.RelativeDefault, display);
+                if (catchUpNotes < 1) backup.UpdateCounter(1, 0, 0, 1, null);
+            }
+            else
+                TheCounter.CancelCounter();
         }
         public void ReinitCounter(TMP_Text display)
         {
             this.display = display;
-            if (failed) backup?.ReinitCounter(display);
+            if (failed)
+            {
+                if (backup is null)
+                    TheCounter.CancelCounter();
+                else backup.ReinitCounter(display, passRating, accRating, techRating, starRating);
+            }
             else ResetVars();
         }
         public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating, float starRating)
@@ -260,7 +273,12 @@ namespace BLPPCounter.Counters
             displayNum = calc.DisplayRatingCount;
             leaderboard = Calculator.UsingDefault ? PC.DefaultLeaderboard : PC.Leaderboard;
             ppVals = new float[displayNum * 4]; //16 for bl (displayRatingCount bc gotta store total pp as well)
-            if (failed) backup?.ReinitCounter(display, passRating, accRating, techRating, starRating);
+            if (failed)
+            {
+                if (backup is null)
+                    TheCounter.CancelCounter();
+                else backup.ReinitCounter(display, passRating, accRating, techRating, starRating);
+            }
             else ResetVars();
         }
         public void ReinitCounter(TMP_Text display, MapSelection map)
@@ -353,14 +371,15 @@ namespace BLPPCounter.Counters
             for (; notes <= catchUpNotes; notes++)
             {
                 note = noteArray[notes + bombs - 1];
+                best[9] += notes < 14 ? BLCalc.GetMaxCutScore(note) * (HelpfulMath.MultiplierForNote(notes) / 8.0f) : BLCalc.GetMaxCutScore(note);
                 if (note.eventType == NoteEventType.good)
                 {
                     best[8]++;
-                    best[7] += BLCalc.Instance.GetCutScore(note.noteCutInfo) * HelpfulMath.MultiplierForNote((int)Math.Round(best[8]));
-                }
+                    best[7] += BLCalc.GetCutScore(note) * (HelpfulMath.MultiplierForNote((int)best[8]) / 8.0f);
+        }
                 else
                 {
-                    best[8] = HelpfulMath.DecreaseMultiplier((int)Math.Round(best[8]));
+                    best[8] = HelpfulMath.DecreaseMultiplier((int)best[8]);
                     if (note.eventType == NoteEventType.bomb)
                     {
                         bombs++;
@@ -369,7 +388,7 @@ namespace BLPPCounter.Counters
                     }
                 }
             }
-            temp = calc.GetPpWithSummedPp(best[7] / HelpfulMath.MaxScoreForNotes(notes), best[4], best[5], best[6]);
+            temp = calc.GetPpWithSummedPp(best[7] / best[9], best[4], best[5], best[6]);
             for (int i = 0; i < temp.Length; i++)
                 best[i] = temp[i];
             if (catchUpNotes > notes)
@@ -379,7 +398,7 @@ namespace BLPPCounter.Counters
             }
             caughtUp = true;
         }
-        private void UpdateBest(int notes)
+        private void UpdateBest(int notes, NoteData noteData)
         {
             float[] temp;
             if (!useReplay)
@@ -394,32 +413,40 @@ namespace BLPPCounter.Counters
             } //Past here will be treating it as if the leaderboard selected is beatleader, as that is the source of the replay.
             if (notes < 1) return;
             BeatLeader.Models.Replay.NoteEvent note = noteArray[notes + bombs - 1];
+            while (wallArray.Count() > 0 && wallArray.Peek().spawnTime < note.spawnTime)
+            {
+                if (wallArray.Dequeue().energy < 1.0f)
+                    best[8] = HelpfulMath.DecreaseMultiplier((int)best[8]);
+            }
+            NoteData.ScoringType scoringType = TheCounter.HandleWeirdNoteBehaviour(noteData);
+            best[9] += notes < 14 ? ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0f) : ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore;
             if (note.eventType == NoteEventType.good)
             {
                 best[8]++;
-                best[7] += BLCalc.Instance.GetCutScore(note.noteCutInfo) * HelpfulMath.MultiplierForNote((int)Math.Round(best[8]));
+                best[7] += BLCalc.GetCutScore(note.noteCutInfo, scoringType) * (HelpfulMath.MultiplierForNote((int)best[8]) / 8.0f);
             }
             else
             {
-                best[8] = HelpfulMath.DecreaseMultiplier((int)Math.Round(best[8]));
+                best[8] = HelpfulMath.DecreaseMultiplier((int)best[8]);
                 if (note.eventType == NoteEventType.bomb)
                 {
                     bombs++;
-                    UpdateBest(notes);
+                    UpdateBest(notes, noteData);
                 }
             }
-            temp = calc.GetPpWithSummedPp(best[7] / HelpfulMath.MaxScoreForNotes(notes), best[4], best[5], best[6]);
+            //Plugin.Log.Info($"Note #{notes} ({scoringType}): {BLCalc.GetCutScore(note.noteCutInfo, scoringType)} / {ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore}");
+            temp = calc.GetPpWithSummedPp(best[7] / best[9], best[4], best[5], best[6]);
             for (int i = 0; i < temp.Length; i++)
                 best[i] = temp[i];
         }
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
             if (failed)
             {
-                backup?.UpdateCounter(acc, notes, mistakes, fcPercent);
+                backup?.UpdateCounter(acc, notes, mistakes, fcPercent, currentNote);
                 return;
             }
-            if (loadingReplay || !caughtUp) return;
+            if (!SetupTask.IsCompleted || !caughtUp) return;
             bool displayFc = PC.PPFC && mistakes > 0, showLbl = PC.ShowLbl;
             
             float[] temp = calc.GetPpWithSummedPp(acc, selectedRatings);
@@ -441,10 +468,10 @@ namespace BLPPCounter.Counters
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
             string target = PC.ShowEnemy ? PC.Target : Targeter.NO_TARGET;
             string color(float num) => PC.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
-            float accDiff = (float)Math.Round((acc - (useReplay ? best[7] / HelpfulMath.MaxScoreForNotes(notes) : 0)) * 100.0f, PC.DecimalPrecision);
+            float accDiff = (float)Math.Round((acc - (useReplay ? best[7] / best[9] : 0)) * 100.0f, PC.DecimalPrecision);
             if (float.IsNaN(accDiff)) accDiff = 0f;
             else if (!useReplay) accDiff -= accToBeat;
-            float replayAcc = PC.DynamicAcc && useReplay ? (float)Math.Round(best[7] / HelpfulMath.MaxScoreForNotes(notes) * 100.0f, PC.DecimalPrecision) : accToBeat;
+            float replayAcc = PC.DynamicAcc && useReplay ? (float)Math.Round(best[7] / best[9] * 100.0f, PC.DecimalPrecision) : accToBeat;
             if (float.IsNaN(replayAcc)) replayAcc = 0f;
             if (PC.SplitPPVals && calc.RatingCount > 1)
             {
@@ -458,15 +485,15 @@ namespace BLPPCounter.Counters
                 display.text = displayFormatter.Invoke(displayFc, PC.ExtraInfo, mistakes, accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppVals[displayNum * 2 - 1]), ppVals[displayNum * 2 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum - 1],
                     color(ppVals[displayNum * 4 - 1]), ppVals[displayNum * 4 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum * 3 - 1], replayAcc, TheCounter.CurrentLabels.Last()) + "\n";
         }
-        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent)
+        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
-            if (loadingReplay || !caughtUp)
+            if (!SetupTask.IsCompleted || !caughtUp)
             {
                 catchUpNotes = notes;
                 if (!caughtUp) //This check is done twice because we are dealing with multi thread communication.
                     return;
             }
-            if (!failed) UpdateBest(notes);
+            if (!failed) UpdateBest(notes, currentNote);
         }
         #endregion
     }

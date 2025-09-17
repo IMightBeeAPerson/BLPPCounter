@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using static GameplayModifiers;
 
@@ -95,11 +96,11 @@ namespace BLPPCounter.Utils.API_Handlers
             return (float)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_PLAYERID, userId) + "/" + accSaberType.ToString().ToLower()).ConfigureAwait(false))?["ap"];
         }
         public override Task<float[]> GetScoregraph(MapSelection ms) => SSAPI.Instance.GetScoregraph(ms);
-        internal override async Task AddMap(Dictionary<string, Map> Data, string hash)
+        internal override async Task AddMap(Dictionary<string, Map> Data, string hash, CancellationToken ct = default)
         {
             try
             {
-                if (UnrankedHashes.Contains(hash)) return;
+                if (UnrankedHashes.Contains(hash) || ct.IsCancellationRequested) return;
                 JEnumerable<JToken> diffs = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_DIFFS, hash)).ConfigureAwait(false)).Children();
                 bool anyRanked = false;
                 List<int> unrankedIdsToAdd = new List<int>();
@@ -107,6 +108,7 @@ namespace BLPPCounter.Utils.API_Handlers
                 {
                     int songId = (int)diff["leaderboardId"];
                     if (UnrankedIds.Contains(songId)) continue;
+                    if (ct.IsCancellationRequested) return;
                     string mapInfoStr = await CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, songId)).ConfigureAwait(false);
                     if (mapInfoStr is null)
                     {

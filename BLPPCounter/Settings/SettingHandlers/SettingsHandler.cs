@@ -301,16 +301,18 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             get
             {
-                if (!RelativeDefaultList.Contains(PC.RelativeDefault)) if (RelativeDefaultList.Count > 0)
-                        PC.RelativeDefault = (string)RelativeDefaultList[0];
-                    else PC.RelativeDefault = Targeter.NO_TARGET; return PC.RelativeDefault;
+                if (RelativeDefaultList.Count == 0)
+                    PC.RelativeDefault = Targeter.NO_TARGET;
+                else if (!RelativeDefaultList.Contains(PC.RelativeDefault))
+                    PC.RelativeDefault = (string)RelativeDefaultList[0];
+                return PC.RelativeDefault;
             }
             set { PC.RelativeDefault = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(RelativeDefault))); }
         }
         [UIComponent(nameof(DefaultCounterList))]
         private ListSetting DefaultCounterList;
         [UIValue(nameof(RelativeDefaultList))]
-        public List<object> RelativeDefaultList => TypesOfPP.Where(a => a is string b && !RelativeCounter.DisplayName.Equals(b)).ToList();
+        public List<object> RelativeDefaultList => TypesOfPP.Where(a => a is string b && !RelativeCounter.DisplayName.Equals(b)).Prepend(Targeter.NO_TARGET).ToList();
         #endregion
         #region Rank Counter Settings
         [UIValue(nameof(MinRank))]
@@ -357,6 +359,10 @@ namespace BLPPCounter.Settings.SettingHandlers
         private CustomCellListTableData CustomTargetList;
         [UIComponent(nameof(DisplayList))]
         private CustomCellListTableData DisplayList;
+        [UIComponent(nameof(ReloadCustomRanksButton))]
+        private Button ReloadCustomRanksButton;
+        [UIComponent(nameof(ReloadFollowersButton))]
+        private Button ReloadFollowersButton;
 #if !NEW_VERSION
         [UIObject(nameof(TargetModal))]
         private GameObject TargetModal;
@@ -381,9 +387,26 @@ namespace BLPPCounter.Settings.SettingHandlers
                         {
                             CustomTarget converted = await Utils.CustomTarget.ConvertToId(value);
                             if (Targeter.UsedIDs.Contains(converted.ID))
+                            {
+                                if (AutoSelectAddedTarget)
+                                {
+                                    SelectedTarget = IdToTarget[converted.ID];
+                                    UpdateSelectedTarget();
+                                    CustomTargetText.SetText("<color=#FFA500>Set as target, ID is in use.</color>");
+                                    CustomTargetInput.Text = "";
+                                    return;
+                                }
                                 throw new ArgumentException("this ID is already in use.");
+                            }
                             PC.CustomTargets.AddSorted(converted);
                             Targeter.AddTarget(converted);
+                            TargetInfo ti = GetTargetInfo((converted.ID.ToString(), converted.Rank));
+                            IdToTarget.Add(converted.ID, ti);
+                            if (AutoSelectAddedTarget)
+                            {
+                                SelectedTarget = ti;
+                                UpdateSelectedTarget();
+                            }
                             CustomTargetText.SetText("<color=\"green\">Success!</color>");
                             CustomTargetInput.Text = "";
                             IEnumerator WaitThenUpdate()
@@ -393,7 +416,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                             }
                             await WaitThenUpdate().AsTask(CoroutineHost.Instance);
                         }
-                        catch (ArgumentException e)
+                        catch (Exception e)
                         {
                             Plugin.Log.Warn(e.Message);
                             CustomTargetText.SetText($"<color=\"red\">Failure, {e.Message}</color>");
@@ -420,9 +443,26 @@ namespace BLPPCounter.Settings.SettingHandlers
                         {
                             CustomTarget converted = await Utils.CustomTarget.ConvertFromRank(value);
                             if (Targeter.UsedIDs.Contains(converted.ID))
+                            {
+                                if (AutoSelectAddedTarget)
+                                {
+                                    SelectedTarget = IdToTarget[converted.ID];
+                                    UpdateSelectedTarget();
+                                    CustomRankText.SetText("<color=#FFA500>Set as target, ID is in use.</color>");
+                                    CustomRankInput.Text = "";
+                                    return;
+                                }
                                 throw new ArgumentException("this ID is already in use.");
+                            }
                             PC.CustomTargets.AddSorted(converted);
                             Targeter.AddTarget(converted);
+                            TargetInfo ti = GetTargetInfo((converted.ID.ToString(), converted.Rank));
+                            IdToTarget.Add(converted.ID, ti);
+                            if (AutoSelectAddedTarget)
+                            {
+                                SelectedTarget = ti;
+                                UpdateSelectedTarget();
+                            }
                             CustomRankText.SetText("<color=\"green\">Success!</color>");
                             CustomRankInput.Text = "";
                             IEnumerator WaitThenUpdate()
@@ -432,7 +472,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                             }
                             await WaitThenUpdate().AsTask(CoroutineHost.Instance);
                         }
-                        catch (ArgumentException e)
+                        catch (Exception e)
                         {
                             Plugin.Log.Warn(e.Message);
                             CustomRankText.SetText($"<color=\"red\">Failure, {e.Message}</color>");
@@ -457,6 +497,16 @@ namespace BLPPCounter.Settings.SettingHandlers
                 PropertyChanged(this, new PropertyChangedEventArgs(nameof(Target)));
             }
         }
+        [UIValue(nameof(AutoSelectAddedTarget))]
+        public bool AutoSelectAddedTarget
+        {
+            get => PC.AutoSelectAddedTarget;
+            set 
+            {
+                PC.AutoSelectAddedTarget = value;
+                PropertyChanged(this, new PropertyChangedEventArgs(nameof(AutoSelectAddedTarget)));
+            }
+        }
         [UIValue(nameof(ClanTargetInfos))]
         private List<object> ClanTargetInfos => GetTargetList(Targeter.ClanTargets);
         [UIValue(nameof(FollowerTargetInfos))]
@@ -467,20 +517,41 @@ namespace BLPPCounter.Settings.SettingHandlers
         private List<object> SelectedTargetInfo => SelectedTarget is null ? new List<object>(0) : new List<object>(1) { SelectedTarget };
         private object SelectedTarget = null;
         private SelectableCell LastCellSelected;
-        private bool TargetMenuHasBeenOpened = false, TargetMenuOpen = false;
+        private bool TargetMenuHasBeenOpened = false;
+        private readonly Dictionary<long, TargetInfo> IdToTarget = new Dictionary<long, TargetInfo>();
+
         [UIAction(nameof(ResetTarget))]
-        public void ResetTarget()
+        private void ResetTarget()
         {
             Target = Targeter.NO_TARGET;
             PC.TargetID = -1;
             SelectedTarget = null;
             UpdateSelectedTarget();
         }
+        [UIAction(nameof(ReloadCustomRanks))]
+        private void ReloadCustomRanks()
+        {
+            ReloadCustomRanksButton.interactable = false;
+            Task.Run(() =>
+            {
+                Targeter.ReloadCustomPlayers();
+                ReloadCustomRanksButton.interactable = true;
+            });
+        }
+        [UIAction(nameof(ReloadFollowers))]
+        private void ReloadFollowers()
+        {
+            ReloadFollowersButton.interactable = false;
+            Task.Run(() =>
+            {
+                Targeter.ReloadFollowers();
+                ReloadFollowersButton.interactable = true;
+            });
+        }
 #pragma warning disable IDE0051
         [UIAction("#ShowTargetMenu")]
         private void ShowTargetMenu()
         {
-            TargetMenuOpen = true;
             if (!TargetMenuHasBeenOpened)
             {
                 TargetMenuHasBeenOpened = true;
@@ -491,11 +562,6 @@ namespace BLPPCounter.Settings.SettingHandlers
                 }
                 CoroutineHost.Start(WaitThenUpdate());
             }
-        }
-        [UIAction("#HideTargetMenu")]
-        private void HideTargetMenu()
-        {
-            TargetMenuOpen = false;
         }
 #pragma warning restore IDE0051
         public void UpdateTargetLists()
@@ -562,6 +628,15 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
             return outp;
         }
+        private TargetInfo GetTargetInfo((string ID, int Rank) id)
+        {
+            if (!Targeter.IDtoNames.TryGetValue(id.ID, out string name))
+            {
+                Plugin.Log.Warn($"ID \"{id}\" not found to have a display name.");
+                return null;
+            }
+            return new TargetInfo(name, id.ID, (Leaderboards.Beatleader, id.Rank));
+        }
 #endregion
 #pragma warning disable IDE0051
         [UIAction("#post-parse")]
@@ -583,17 +658,15 @@ namespace BLPPCounter.Settings.SettingHandlers
             CustomTargetList.tableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = CustomTargetInfos[index]; UpdateSelectedTarget(CustomTargetList.CellForIdx(view, index)); };
 #endif
         }
-        internal void SetSelectedTargetFirst()
+        internal void SetSelectedTargetRelation()
         {
+            //This will be slow, but it only runs once so who cares.
+            foreach (object cell in CustomTargetInfos.Union(FollowerTargetInfos).Union(ClanTargetInfos))
+                if (cell is TargetInfo ti && long.TryParse(ti.RealID, out long ID))
+                    IdToTarget.Add(ID, ti);
             if (PC.TargetID > -1)
             {
-                //This will be slow, but it only runs once so who cares.
-                foreach (object cell in CustomTargetInfos.Union(FollowerTargetInfos).Union(ClanTargetInfos))
-                    if (cell is TargetInfo ti && long.Parse(ti.RealID) == PC.TargetID)
-                    {
-                        SelectedTarget = cell;
-                        break;
-                    }
+                SelectedTarget = IdToTarget[PC.TargetID];
                 if (TargetMenuHasBeenOpened)
                     UpdateSelectedTarget();
             }

@@ -390,7 +390,7 @@ namespace BLPPCounter.Utils
             if (mode.Length == 0) mode = DEFAULT_MODE;
             int currentNum = 1;
             Leaderboards current;
-            (Leaderboards allowed, string mapKey) = await APIHandler.GetRankedLeaderboardsAndMapKey(hash, mapDiff, mode).ConfigureAwait(false);
+            (Leaderboards allowed, string mapKey) = await APIHandler.GetRankedLeaderboardsAndMapKey(hash, mapDiff, mode);
             GetProfile(Leaderboards.Beatleader, userID).ReloadLevels();
             if (allowed == Leaderboards.None) return false;
             int leaderCount = (int)Math.Log((int)Leaderboards.All + 1, 2);
@@ -405,7 +405,7 @@ namespace BLPPCounter.Utils
                 {
                     currentMode = TheCounter.SelectMode(mode, current);
                     Calculator calc = Calculator.GetCalc(current);
-                    float[] ratings = calc.SelectRatings(TheCounter.GetDifficulty(await TheCounter.GetMap(hash, currentMode, current).ConfigureAwait(false), mapDiff, current, currentMode, mods, true));
+                    float[] ratings = calc.SelectRatings(TheCounter.GetDifficulty(await TheCounter.GetMap(hash, currentMode, current), mapDiff, current, currentMode, mods, true));
                     float pp = calc.Inflate(calc.GetSummedPp(acc, ratings));
                     if (current != Leaderboards.Accsaber)
                         goodScore |= GetProfile(current, userID).AddPlay(pp, mapName, mapKey, mapDiff, mode);

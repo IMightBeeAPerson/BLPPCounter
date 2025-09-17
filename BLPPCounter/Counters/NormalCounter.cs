@@ -51,14 +51,14 @@ namespace BLPPCounter.Counters
         public static void ResetFormat() { }
         #endregion
         #region Updates
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
             bool displayFC = PluginConfig.Instance.PPFC && mistakes > 0;
             Calc.SetPp(acc, ppVals, 0, precision, ppContainer);
             if (displayFC) Calc.SetPp(fcPercent, ppVals, ppVals.Length / 2, precision, ppContainer);
             TheCounter.UpdateText(displayFC, display, ppVals, mistakes);
         }
-        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent) { }
+        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
         #endregion
     }
 }

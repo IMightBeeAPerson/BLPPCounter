@@ -1,15 +1,22 @@
-﻿using BLPPCounter.Settings.Configs;
+﻿using BLPPCounter.Helpfuls;
+using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers;
 using BLPPCounter.Utils.API_Handlers;
+using BLPPCounter.Utils.Misc_Classes;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
+using UnityEngine;
+using static AlphabetScrollInfo;
 using static UnityEngine.GraphicsBuffer;
-using BLPPCounter.Helpfuls;
 
 namespace BLPPCounter.Utils
 {
@@ -18,6 +25,7 @@ namespace BLPPCounter.Utils
         public static readonly string NO_TARGET = "None";
         public static readonly int MAX_LIST_LENGTH = 100;
         private static PluginConfig PC => PluginConfig.Instance;
+        private static readonly object CustomRefreshLock = new object();
         //These store the ids, not the names.
         private static List<(string ID, int Rank)> _clanTargets = null, _followerTargets = null, _customTargets = null;
         internal static readonly HashSet<long> UsedIDs = new HashSet<long>();
@@ -66,32 +74,33 @@ namespace BLPPCounter.Utils
             }
 
         _followerTargets:
-            IEnumerable<(string ID, string Name)> data = null;
             try
             {
-                data = await RequestFollowers(PlayerID);
-            }
-            catch (Exception ex)
-            {
-                Plugin.Log.Error($"Error getting follower info: {ex}");
-            }
-            if (data is null)
-            {
-                _followerTargets = new List<(string ID, int Rank)>(0);
-                goto _customTargets;
-            }
-            _followerTargets = new List<(string ID, int Rank)>(data.Count());
-            foreach (var (ID, Name) in data)
-            {
-                long id = long.Parse(ID);
-                if (UsedIDs.Contains(id))
+                if (!File.Exists(HelpfulPaths.TARGET_DATA))
                 {
-                    if (showWarnings) Plugin.Log.Warn($"There is a duplicate id \"{id}\" inside your follower list.");
-                    continue;
+                    await LoadFollowers();
+                    goto _customTargets;
                 }
-                UsedIDs.Add(id);
-                if (IDtoNames.TryAdd(ID, Name))
-                    _followerTargets.Add((ID, -1));
+                JsonSerializer serializer = new JsonSerializer();
+                IEnumerable<CustomTarget> followerData;
+                using (StreamReader reader = File.OpenText(HelpfulPaths.TARGET_DATA))
+                    followerData = serializer.Deserialize(reader, typeof(IEnumerable<CustomTarget>)) as IEnumerable<CustomTarget>;
+                _followerTargets = new List<(string ID, int Rank)>(followerData.Count());
+                foreach (CustomTarget target in followerData)
+                {
+                    _followerTargets.Add((target.ID.ToString(), target.Rank));
+                    IDtoNames.Add(target.ID.ToString(), target.Name);
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.Error("Followers failed to load!");
+                if (e is JsonSerializationException)
+                {
+                    Plugin.Log.Error($"The {HelpfulPaths.TARGET_DATA} file has bad json data in it. Deleting it.");
+                    File.Delete(HelpfulPaths.TARGET_DATA);
+                }
+                Plugin.Log.Error(e);
             }
 
         _customTargets:
@@ -142,7 +151,65 @@ namespace BLPPCounter.Utils
                 else
                     PC.Target = NO_TARGET;
             }
-            SettingsHandler.Instance.SetSelectedTargetFirst();
+            SettingsHandler.Instance.SetSelectedTargetRelation();
+        }
+        internal static void ReloadCustomPlayers()
+        {
+            List<CustomTarget> temp = PC.CustomTargets;
+            ReloadTargetList(ref temp, ref _customTargets);
+            PC.CustomTargets = temp;
+        }
+        internal static void ReloadFollowers()
+        {
+            foreach (var p in _followerTargets)
+            {
+                UsedIDs.Remove(long.Parse(p.ID));
+                IDtoNames.Remove(p.ID);
+            }
+            LoadFollowers().GetAwaiter().GetResult();
+            List<CustomTarget> targets = _followerTargets.Select(token => new CustomTarget(IDtoNames[token.ID], long.Parse(token.ID), token.Rank)).ToList();
+            ReloadTargetList(ref targets, ref _followerTargets);
+        }
+        internal static void ReloadTargetList(ref List<CustomTarget> listVar, ref List<(string ID, int Rank)> displayListVar)
+        {
+            if (Monitor.TryEnter(CustomRefreshLock))
+            {
+                try
+                {
+                    (listVar, displayListVar) = ReloadTargetListInternal(listVar, displayListVar).GetAwaiter().GetResult();
+                    IEnumerator WaitThenUpdate()
+                    {
+                        yield return new WaitForEndOfFrame();
+                        SettingsHandler.Instance.UpdateTargetLists();
+                    }
+                    WaitThenUpdate().AsTask(CoroutineHost.Instance).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    Plugin.Log.Error("Error reloading custom players\n" + ex);
+                }
+                finally
+                {
+                    Monitor.Exit(CustomRefreshLock);
+                }
+            }
+        } 
+        private static async Task<(List<CustomTarget>, List<(string ID, int Rank)>)> ReloadTargetListInternal(List<CustomTarget> list, List<(string ID, int Rank)> displayList)
+        {
+            List<CustomTarget> outpList = new List<CustomTarget>(list.Count);
+            List<(string ID, int Rank)> outpDisplayList;
+            foreach (CustomTarget ct in list)
+            {
+                var (Success, Content) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.BLAPI_USERID, ct.ID), BLAPI.Throttle);
+                if (!Success) continue;
+                string data = await Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (data is null || data.Length == 0) continue;
+                JToken playerData = JToken.Parse(data);
+                outpList.Add(new CustomTarget(playerData["name"].ToString(), ct.ID, (int)playerData["rank"]));
+            }
+            outpList.Sort((a, b) => a.Rank.CompareTo(b.Rank));
+            outpDisplayList = outpList.Select(token => (token.ID.ToString(), token.Rank)).ToList();
+            return (outpList, outpDisplayList);
         }
         public static void AddTarget(string name, string id, int rank)
         {
@@ -160,12 +227,12 @@ namespace BLPPCounter.Utils
         {
             try
             {
-                (bool success, HttpContent data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.BLAPI_USERID, playerID), BLAPI.Throttle).ConfigureAwait(false);
+                (bool success, HttpContent data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.BLAPI_USERID, playerID), BLAPI.Throttle);
                 if (!success) return "";
                 JToken playerData = JToken.Parse(await data.ReadAsStringAsync().ConfigureAwait(false));
                 PlayerName = playerData["name"].ToString();
                 string clan = playerData["clanOrder"].ToString().Split(',')[0];
-                (success, data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.BLAPI_CLAN_PLAYERS, clan, MAX_LIST_LENGTH), BLAPI.Throttle).ConfigureAwait(false);
+                (success, data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.BLAPI_CLAN_PLAYERS, clan, MAX_LIST_LENGTH), BLAPI.Throttle);
                 if (!success) return "";
                 return await data.ReadAsStringAsync().ConfigureAwait(false);
             }
@@ -176,14 +243,14 @@ namespace BLPPCounter.Utils
             }
             return "";
         }
-        public static async Task<IEnumerable<(string ID, string Name)>> RequestFollowers(string playerID)
+        public static async Task<IEnumerable<CustomTarget>> RequestFollowers(string playerID)
         {
             try
             {
-                async Task<IEnumerable<(string ID, string Name)>> PageHandler(string token) => 
+                async Task<IEnumerable<CustomTarget>> PageHandler(string token) => 
                     await Task.Run(() => 
-                JToken.Parse(token).Children().Select(t => (t["id"].ToString(), t["name"].ToString())));
-                IEnumerable<(string ID, string Name)> outp;
+                JToken.Parse(token).Children().Select(t => new CustomTarget(t["name"].ToString(), (long)t["id"], -1)));
+                IEnumerable<CustomTarget> outp;
                 outp = await APIHandler.CalledPagedAPIFlat(MAX_LIST_LENGTH, (page, count) => string.Format(HelpfulPaths.BLAPI_FOLLOWERS, playerID, page, count), BLAPI.Throttle, PageHandler);
                 //await BS_Utils.Gameplay.GetUserInfo.GetPlatformUserModel().GetUserFriendsUserIds(false).ConfigureAwait(false);
                 return outp;
@@ -195,7 +262,46 @@ namespace BLPPCounter.Utils
             }
             return null;
         }
-        private static void ResolveDupes<T>(Dictionary<string, T> dict, ref string name) 
+        internal static void SaveAll()
+        {
+            IEnumerable<JToken> toSave = FollowerTargets.Where(token => token.Rank >= 0)
+                .Select(token => JToken.FromObject(new CustomTarget(IDtoNames[token.ID], long.Parse(token.ID), token.Rank)));
+            using (StreamWriter sw = new StreamWriter(HelpfulPaths.TARGET_DATA))
+            {
+                JsonSerializer serializer = new JsonSerializer();
+                serializer.Serialize(sw, toSave, typeof(CustomTarget));
+            }
+        }
+        private static async Task LoadFollowers(bool ignoreDupes = false)
+        {
+            IEnumerable<CustomTarget> data = null;
+            try
+            {
+                data = await RequestFollowers(PlayerID);
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log.Error($"Error getting follower info: {ex}");
+            }
+            if (data is null)
+            {
+                _followerTargets = new List<(string ID, int Rank)>(0);
+                return;
+            }
+            _followerTargets = new List<(string ID, int Rank)>(data.Count());
+            foreach (CustomTarget target in data)
+            {
+                if (UsedIDs.Contains(target.ID))
+                {
+                    if (PC.TargeterStartupWarnings) Plugin.Log.Warn($"There is a duplicate id \"{target.ID}\" inside your follower list.");
+                    continue;
+                }
+                else UsedIDs.Add(target.ID);
+                if (IDtoNames.TryAdd(target.ID.ToString(), target.Name))
+                    _followerTargets.Add((target.ID.ToString(), target.Rank));
+            }
+        }
+        /*private static void ResolveDupes<T>(Dictionary<string, T> dict, ref string name) 
         {
             if (dict.ContainsKey(name))
             {
@@ -204,6 +310,6 @@ namespace BLPPCounter.Utils
                 while (dict.ContainsKey(name))
                     name = name.Substring(0, name.Length - 4 - (int)Math.Floor(Math.Log(c, 10))) + $" ({c++})";
             }
-        }
+        }*/
     }
 }

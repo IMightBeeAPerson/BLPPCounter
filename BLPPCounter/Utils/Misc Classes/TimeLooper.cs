@@ -13,7 +13,7 @@ namespace BLPPCounter.Utils
         private Task task;
         public int Delay;
         private bool taskComplete, taskExited;
-        public object Locker { get; private set; }
+        public object Locker { get; private set; } = new object();
         public bool IsPaused { get; private set; }
         public TimeLooper(Action task, int msDelay)
         {
@@ -29,7 +29,7 @@ namespace BLPPCounter.Utils
         {
             Delay = msDelay;
         }
-        public TimeLooper() { }
+        public TimeLooper() : this(0) { }
 
         public void GenerateTask(Action task)
         {
@@ -83,14 +83,14 @@ namespace BLPPCounter.Utils
         }
         public void Start()
         {
-            if (IsPaused) waiter.Set();
+            SetStatus(false);
         }
         public Task End()
         {
             taskComplete = true;
             return Task.Run(() =>
             {
-                if (IsPaused) waiter.Set();
+                SetStatus(false);
                 while (!taskExited)
                     Thread.Sleep(100); //Checks every 100ms whether or not the task is complete.
                 task.Dispose();

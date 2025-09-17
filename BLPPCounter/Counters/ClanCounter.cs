@@ -486,7 +486,7 @@ namespace BLPPCounter.Counters
         public static void AddToCache(MapSelection map, float[] vals) => mapCache.Add((map, vals));      
         #endregion
         #region Updates
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
             if (setupStatus > 0)
             {
@@ -531,7 +531,7 @@ namespace BLPPCounter.Counters
                 display.text = displayClan.Invoke(displayFc, pc.ExtraInfo, mistakes, () => color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
                     () => color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], TheCounter.CurrentLabels.Last(), message) + "\n";
         }
-        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent) { }
+        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
         private void UpdateWeightedCounter(float acc, int mistakes, float fcPercent)
         {
             bool displayFc = pc.PPFC && mistakes > 0;

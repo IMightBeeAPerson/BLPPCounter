@@ -98,6 +98,7 @@ namespace BLPPCounter
             BSEvents.menuSceneActive -= AddMenuStuff; // 1.34.2 and below
 #endif
             Profile.SaveAllProfiles();
+            Targeter.SaveAll();
             Harmony.UnpatchSelf();
         }
     }
