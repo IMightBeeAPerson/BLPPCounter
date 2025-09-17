@@ -187,9 +187,9 @@ namespace BLPPCounter
         private bool enabled;
         private float passRating, accRating, techRating, starRating;
         private int notes, comboNotes, mistakes;
-        private int fcTotalHitscore, fcMaxHitscore;
-        private double totalHitscore, maxHitscore;
+        private float totalHitscore, maxHitscore, fcTotalHitscore;
         private string mode, hash;
+        private NoteData currentNote;
         #endregion
         #region Inits & Overrides
 
@@ -312,8 +312,8 @@ namespace BLPPCounter
             enabled = usingDefaultLeaderboard = false;
             ForceOff = () => ForceTurnOff();
             if (fullDisable) return;
-            notes = fcMaxHitscore = comboNotes = fcTotalHitscore = mistakes = 0;
-            totalHitscore = maxHitscore = 0.0;
+            notes = comboNotes = mistakes = 0;
+            totalHitscore = maxHitscore = fcTotalHitscore = 0.0f;
             ChangeNotifiers(true);
             display = CanvasUtility.CreateTextFromSettings(Settings);
             display.fontSize = (float)pc.FontSize;
@@ -380,7 +380,7 @@ namespace BLPPCounter
                     if (updateFormat) { theCounter.UpdateFormat(); updateFormat = false; }
                     if (pc.UpdateAfterTime) SetTimeLooper();
                     SetLabels();
-                    if (notes < 1) theCounter.UpdateCounter(1, 0, 0, 1);
+                    if (notes < 1) theCounter.UpdateCounter(1, 0, 0, 1, null);
                     return;
                 } else
                     Plugin.Log.Warn("Maps failed to load, most likely unranked.");
@@ -422,26 +422,36 @@ namespace BLPPCounter
         }
         private void OnNoteScoredInternal(ScoringElement scoringElement)
         {
-            if (scoringElement is null || scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb)
+            if (scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb)
                 return;
             bool enteredLock = InitTask.IsCompleted && pc.UpdateAfterTime && Monitor.TryEnter(TimeLooper.Locker); //This is to make sure timeLooper is paused, not to pause this thread.
             NoteData.ScoringType st = scoringElement.noteData.scoringType;
+            currentNote = scoringElement.noteData;
+            int cutScore = scoringElement.cutScore, maxCutScore = scoringElement.maxPossibleCutScore;
             if (st == NoteData.ScoringType.Ignore) goto Finish; //if scoring type is Ignore, skip this function
             notes++;
             if (st != NoteData.ScoringType.NoScore) comboNotes++;
-            maxHitscore += notes < 14 ? scoringElement.maxPossibleCutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0) : scoringElement.maxPossibleCutScore;
-            if (scoringElement.cutScore > 0)
+
+            int offset = HandleWeirdNoteBehaviour(currentNote, maxCutScore);
+            if (offset != 0)
             {
-                totalHitscore += scoringElement.cutScore * (HelpfulMath.MultiplierForNote(comboNotes) / 8.0);
-                fcTotalHitscore += scoringElement.cutScore;
-                fcMaxHitscore += scoringElement.maxPossibleCutScore;
+                cutScore += offset;
+                maxCutScore += offset;
+            }
+
+            maxHitscore += notes < 14 ? maxCutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0f) : maxCutScore;
+            if (cutScore > 0)
+            {
+                totalHitscore += cutScore * (HelpfulMath.MultiplierForNote(comboNotes) / 8.0f);
+                fcTotalHitscore += notes < 14 ? cutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0f) : cutScore;
             }
             else OnMiss();
             Finish:
+            //Plugin.Log.Info($"Note #{notes} ({st}): {cutScore} / {maxCutScore}" + (maxCutScore != scoringElement.maxPossibleCutScore ? $" (shifted max from {scoringElement.maxPossibleCutScore})" : ""));
             if (!InitTask.IsCompleted) return;
-            theCounter.SoftUpdate((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
+            theCounter.SoftUpdate((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / maxHitscore, currentNote);
             if (enteredLock) Monitor.Exit(TimeLooper.Locker);
-            if (!pc.UpdateAfterTime) theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
+            if (!pc.UpdateAfterTime) theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / maxHitscore, currentNote);
             else TimeLooper.SetStatus(false);
         }
 
@@ -467,13 +477,35 @@ namespace BLPPCounter
             TimeLooper.GenerateTask(() =>
             {
                 if (currentNotes == notes) return true;
-                theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
+                theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / maxHitscore, currentNote);
                 currentNotes = notes;
                 return false;
             });
         }
         #endregion
         #region Helper Methods
+        public static int HandleWeirdNoteBehaviour(NoteData note, int maxCutscore)
+        {
+#if NEW_VERSION
+            if (note.gameplayType == NoteData.GameplayType.BurstSliderHead && note.scoringType != NoteData.ScoringType.ChainHead)
+                return ScoreModel.GetNoteScoreDefinition(NoteData.ScoringType.ChainHead).maxCutScore - maxCutscore;
+#else
+            if (note.gameplayType == NoteData.GameplayType.BurstSliderHead && note.scoringType != NoteData.ScoringType.BurstSliderHead)
+                return ScoreModel.GetNoteScoreDefinition(NoteData.ScoringType.BurstSliderHead).maxCutScore - maxCutscore;
+#endif
+            return 0;
+        }
+        public static NoteData.ScoringType HandleWeirdNoteBehaviour(NoteData note)
+        {
+#if NEW_VERSION
+            if (note.gameplayType == NoteData.GameplayType.BurstSliderHead && note.scoringType != NoteData.ScoringType.ChainHead)
+                return NoteData.ScoringType.ChainHead;
+#else
+            if (note.gameplayType == NoteData.GameplayType.BurstSliderHead && note.scoringType != NoteData.ScoringType.BurstSliderHead)
+                return NoteData.ScoringType.BurstSliderHead;
+#endif
+            return note.scoringType;
+        }
         private void ChangeNotifiers(bool a)
         {
             if (a)
@@ -662,7 +694,7 @@ namespace BLPPCounter
                 CurrentLabels[i] = predicate + Labels[CurrentLabels.Length == 1 ? 3 : i];
             else CurrentLabels[i] = predicate;
         }
-        #endregion
+#endregion
         #region Init
         private bool InitCounter()
         {

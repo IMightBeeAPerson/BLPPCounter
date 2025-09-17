@@ -191,7 +191,7 @@ namespace BLPPCounter.Counters
                 await SetupTask;
                 CatchupBest();
                 if (catchUpNotes == 0)
-                    UpdateCounter(1, 0, 0, 1);
+                    UpdateCounter(1, 0, 0, 1, null);
             });
         }
         private async Task SetupDataAsync(MapSelection map)
@@ -244,7 +244,7 @@ namespace BLPPCounter.Counters
             if (!PC.RelativeDefault.Equals(Targeter.NO_TARGET))
             {
                 backup = TheCounter.InitCounter(PC.RelativeDefault, display);
-                if (catchUpNotes < 1) backup.UpdateCounter(1, 0, 0, 1);
+                if (catchUpNotes < 1) backup.UpdateCounter(1, 0, 0, 1, null);
             }
             else
                 TheCounter.CancelCounter();
@@ -398,7 +398,7 @@ namespace BLPPCounter.Counters
             }
             caughtUp = true;
         }
-        private void UpdateBest(int notes)
+        private void UpdateBest(int notes, NoteData noteData)
         {
             float[] temp;
             if (!useReplay)
@@ -418,11 +418,12 @@ namespace BLPPCounter.Counters
                 if (wallArray.Dequeue().energy < 1.0f)
                     best[8] = HelpfulMath.DecreaseMultiplier((int)best[8]);
             }
-            best[9] += notes < 14 ? BLCalc.GetMaxCutScore(note) * (HelpfulMath.MultiplierForNote(notes) / 8.0f) : BLCalc.GetMaxCutScore(note);
+            NoteData.ScoringType scoringType = TheCounter.HandleWeirdNoteBehaviour(noteData);
+            best[9] += notes < 14 ? ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0f) : ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore;
             if (note.eventType == NoteEventType.good)
             {
                 best[8]++;
-                best[7] += BLCalc.GetCutScore(note) * (HelpfulMath.MultiplierForNote((int)best[8]) / 8.0f);
+                best[7] += BLCalc.GetCutScore(note.noteCutInfo, scoringType) * (HelpfulMath.MultiplierForNote((int)best[8]) / 8.0f);
             }
             else
             {
@@ -430,18 +431,19 @@ namespace BLPPCounter.Counters
                 if (note.eventType == NoteEventType.bomb)
                 {
                     bombs++;
-                    UpdateBest(notes);
+                    UpdateBest(notes, noteData);
                 }
             }
+            //Plugin.Log.Info($"Note #{notes} ({scoringType}): {BLCalc.GetCutScore(note.noteCutInfo, scoringType)} / {ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore}");
             temp = calc.GetPpWithSummedPp(best[7] / best[9], best[4], best[5], best[6]);
             for (int i = 0; i < temp.Length; i++)
                 best[i] = temp[i];
         }
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
             if (failed)
             {
-                backup?.UpdateCounter(acc, notes, mistakes, fcPercent);
+                backup?.UpdateCounter(acc, notes, mistakes, fcPercent, currentNote);
                 return;
             }
             if (!SetupTask.IsCompleted || !caughtUp) return;
@@ -483,7 +485,7 @@ namespace BLPPCounter.Counters
                 display.text = displayFormatter.Invoke(displayFc, PC.ExtraInfo, mistakes, accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppVals[displayNum * 2 - 1]), ppVals[displayNum * 2 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum - 1],
                     color(ppVals[displayNum * 4 - 1]), ppVals[displayNum * 4 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum * 3 - 1], replayAcc, TheCounter.CurrentLabels.Last()) + "\n";
         }
-        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent)
+        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
             if (!SetupTask.IsCompleted || !caughtUp)
             {
@@ -491,7 +493,7 @@ namespace BLPPCounter.Counters
                 if (!caughtUp) //This check is done twice because we are dealing with multi thread communication.
                     return;
             }
-            if (!failed) UpdateBest(notes);
+            if (!failed) UpdateBest(notes, currentNote);
         }
         #endregion
     }

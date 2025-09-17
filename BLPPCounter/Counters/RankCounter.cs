@@ -171,7 +171,7 @@ namespace BLPPCounter.Counters
         private int GetRank(float pp) { int val = Array.BinarySearch(mapPP, pp); return mapPP.Length - (val >= 0 ? val - 1 : Math.Abs(val) - 2); }
         #endregion
         #region Updates
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
             bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0;
             float[] ppVals = new float[(ratingLen + 1) * 2], temp;
@@ -197,7 +197,7 @@ namespace BLPPCounter.Counters
             text += displayRank(displayFc, PC.ExtraInfo, rank == 1, ppVals[ratingLen], ppVals[ratingLen * 2 + 1], rank, ppDiff, color, TheCounter.CurrentLabels.Last());
             display.text = text;
         }
-        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent) { }
+        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
         #endregion
 
     }

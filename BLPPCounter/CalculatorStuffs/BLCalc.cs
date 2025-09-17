@@ -114,21 +114,46 @@ namespace BLPPCounter.CalculatorStuffs
         #region Replay Math
         internal static (int Before, int After, int Acc) CutScoresForNote(BeatLeader.Models.Replay.NoteEvent note) =>
             CutScoresForNote(note.noteCutInfo, GetScoringType(note.noteID));
-        internal static (int Before, int After, int Acc) CutScoresForNote(BeatLeader.Models.Replay.NoteCutInfo cut, BLScoringType scoringType)
+        internal static (int Before, int After, int Acc) CutScoresForNote(BeatLeader.Models.Replay.NoteCutInfo cut, ScoringType scoringType)
         {
             float beforeCutRawScore = -1, afterCutRawScore = -1, cutDistanceRawScore;
             switch (scoringType)
             {
-                case BLScoringType.SliderTail:
-                    beforeCutRawScore = 70;
-                    break;
-                case BLScoringType.SliderHead:
+#if NEW_VERSION
+                case ScoringType.ArcHead:
+#else
+                case ScoringType.SliderHead:
+#endif
                     afterCutRawScore = 30;
                     break;
-                case BLScoringType.BurstSliderHead:
+#if NEW_VERSION
+                case ScoringType.ArcTail:
+#else
+                case ScoringType.SliderTail:
+#endif
+                    beforeCutRawScore = 70;
+                    break;
+#if NEW_VERSION
+                case ScoringType.ArcHeadArcTail:
+                    afterCutRawScore = 30;
+                    beforeCutRawScore = 70;
+                    break;
+                case ScoringType.ChainHead:
+#else
+                case ScoringType.BurstSliderHead:
+#endif
                     afterCutRawScore = 0;
                     break;
-                case BLScoringType.BurstSliderElement:
+#if NEW_VERSION
+                case ScoringType.ChainHeadArcTail:
+                    afterCutRawScore = 0;
+                    beforeCutRawScore = 70;
+                    break;
+                case ScoringType.ChainLink:
+                case ScoringType.ChainLinkArcHead:
+#else
+                case ScoringType.BurstSliderElement:
+#endif
                     return (0, 0, 20);
             }
             if (beforeCutRawScore < 0) beforeCutRawScore = Mathf.Clamp(Mathf.Round(70 * cut.beforeCutRating), 0, 70);
@@ -139,13 +164,23 @@ namespace BLPPCounter.CalculatorStuffs
         }
         internal static int GetMaxCutScore(BeatLeader.Models.Replay.NoteEvent note) =>
             GetMaxCutScore(GetScoringType(note.noteID));
-        internal static int GetMaxCutScore(BLScoringType scoringType)
+        internal static int GetMaxCutScore(ScoringType scoringType)
         {
             switch (scoringType)
             {
-                case BLScoringType.BurstSliderHead:
+#if NEW_VERSION
+                case ScoringType.ChainHead:
+                case ScoringType.ChainHeadArcTail:
+#else
+                case ScoringType.BurstSliderHead:
+#endif
                     return 85;
-                case BLScoringType.BurstSliderElement:
+#if NEW_VERSION
+                case ScoringType.ChainLink:
+                case ScoringType.ChainLinkArcHead:
+#else
+                case ScoringType.BurstSliderElement:
+#endif
                     return 20;
                 default:
                     return 115;
@@ -153,31 +188,19 @@ namespace BLPPCounter.CalculatorStuffs
         }
         internal static int GetCutScore(BeatLeader.Models.Replay.NoteEvent note) =>
             GetCutScore(note.noteCutInfo, GetScoringType(note.noteID));
-        internal static int GetCutScore(BeatLeader.Models.Replay.NoteCutInfo cut, BLScoringType scoringType)
+        internal static int GetCutScore(BeatLeader.Models.Replay.NoteCutInfo cut, ScoringType scoringType)
         {
             var (Before, After, Acc) = CutScoresForNote(cut, scoringType);
             return Before + After + Acc; 
         }
-        //Why in the world did BL decide to make their own scoring type enum ;-;.
         //Link: https://github.com/BeatLeader/beatleader-mod/blob/master/Source/7_Utils/ReplayStatisticUtils.cs#L15
-        internal enum BLScoringType
-        { 
-            Default,
-            Ignore,
-            NoScore,
-            Normal,
-            SliderHead,
-            SliderTail,
-            BurstSliderHead,
-            BurstSliderElement
-        }
-        internal static BLScoringType GetScoringType(int noteId)
+        internal static ScoringType GetScoringType(int noteId)
         {
             if (noteId < 100_000)
-                return (BLScoringType)(noteId / 10_000);
-            return (BLScoringType)(noteId / 10_000_000);
+                return (ScoringType)(noteId / 10_000 - 2);
+            return (ScoringType)(noteId / 10_000_000 - 2);
         }
-        #endregion
+#endregion
         #region Clan Math
         private float TotalPP(float coefficient, float[] ppVals, int startIndex)
         {

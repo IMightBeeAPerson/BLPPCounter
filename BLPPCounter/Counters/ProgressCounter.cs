@@ -66,7 +66,7 @@ namespace BLPPCounter.Counters
         public static void ResetFormat() { }
         #endregion
         #region Updates
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent)
+        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
             bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0;
             float[] ratings = calc.SelectRatings(starRating, accRating, passRating, techRating);
@@ -86,7 +86,7 @@ namespace BLPPCounter.Counters
                 ppVals[i] = (float)Math.Round(ppVals[i] * mult, precision);
             TheCounter.UpdateText(displayFc, display, ppVals, mistakes);
         }
-        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent) { }
+        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
         #endregion
     }
 }
