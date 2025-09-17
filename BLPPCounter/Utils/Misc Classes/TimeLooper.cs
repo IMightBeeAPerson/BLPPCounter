@@ -83,14 +83,14 @@ namespace BLPPCounter.Utils
         }
         public void Start()
         {
-            if (IsPaused) waiter.Set();
+            SetStatus(false);
         }
         public Task End()
         {
             taskComplete = true;
             return Task.Run(() =>
             {
-                if (IsPaused) waiter.Set();
+                SetStatus(false);
                 while (!taskExited)
                     Thread.Sleep(100); //Checks every 100ms whether or not the task is complete.
                 task.Dispose();

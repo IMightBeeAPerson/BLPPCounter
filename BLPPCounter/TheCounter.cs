@@ -184,7 +184,7 @@ namespace BLPPCounter
         #endregion
         #region Variables
         private TMP_Text display;
-        private bool enabled, hasNotifiers;
+        private bool enabled;
         private float passRating, accRating, techRating, starRating;
         private int notes, comboNotes, mistakes;
         private int fcTotalHitscore, fcMaxHitscore;
@@ -290,10 +290,9 @@ namespace BLPPCounter
             PercentNeededFormatter = null;
         }
         public override void CounterDestroy() {
-            if (enabled)
+            if (enabled && pc.UpdateAfterTime)
                 TimeLooper.End();
-            if (hasNotifiers) 
-                ChangeNotifiers(false);
+            ChangeNotifiers(false);
             if (!InitTask.IsCompleted)
             {
                 Plugin.Log.Warn("Player exited map faster than the init task could complete. Cancelling.");
@@ -310,7 +309,7 @@ namespace BLPPCounter
         }
         public override void CounterInit()
         {
-            enabled = hasNotifiers = usingDefaultLeaderboard = false;
+            enabled = usingDefaultLeaderboard = false;
             ForceOff = () => ForceTurnOff();
             if (fullDisable) return;
             notes = fcMaxHitscore = comboNotes = fcTotalHitscore = mistakes = 0;
@@ -404,9 +403,24 @@ namespace BLPPCounter
             else
                 ForceTurnOff();
         }
-#endregion
+        #endregion
         #region Event Calls
         private void OnNoteScored(ScoringElement scoringElement)
+        {
+            try
+            {
+                OnNoteScoredInternal(scoringElement);
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.Error("The counter encountered a fatal error, shutting down.");
+                ForceTurnOff();
+                Plugin.Log.Debug(e);
+                if (e is NullReferenceException)
+                    Plugin.Log.Debug($"NULL CHECKS: theCounter null? {theCounter is null} || scoringElement null? {scoringElement is null} || InitTask is null? {InitTask is null} || TimeLooper is null? {TimeLooper is null} || scoringElement.NoteData is null? {scoringElement?.noteData is null}");
+            }
+        }
+        private void OnNoteScoredInternal(ScoringElement scoringElement)
         {
             if (scoringElement is null || scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb)
                 return;
@@ -425,16 +439,10 @@ namespace BLPPCounter
             else OnMiss();
             Finish:
             if (!InitTask.IsCompleted) return;
-            if (theCounter is null)
-            {
-                Plugin.Log.Error("The counter is null into gameplay! This is bad, completely disabling for the map.");
-                ForceTurnOff();
-                return;
-            }
             theCounter.SoftUpdate((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
             if (enteredLock) Monitor.Exit(TimeLooper.Locker);
             if (!pc.UpdateAfterTime) theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / (float)fcMaxHitscore);
-            else if (TimeLooper.IsPaused) TimeLooper.SetStatus(false);
+            else TimeLooper.SetStatus(false);
         }
 
         private void OnBombHit(NoteController nc, in NoteCutInfo nci)
@@ -479,13 +487,12 @@ namespace BLPPCounter
                 wall.headDidEnterObstacleEvent -= OnWallHit;
                 bomb.noteWasCutEvent -= OnBombHit;
             }
-            hasNotifiers = a;
         }
         internal void ForceTurnOff()
         {
             enabled = false;
             display.text = "";
-            if (hasNotifiers) ChangeNotifiers(false);
+            ChangeNotifiers(false);
         }
         internal static void CancelCounter() => ForceOff.Invoke();
         public static void ClearCounter() => LastMap = default;

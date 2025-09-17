@@ -301,9 +301,10 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             get
             {
-                if (RelativeDefaultList.Count > 0 && !RelativeDefaultList.Contains(PC.RelativeDefault))
+                if (RelativeDefaultList.Count == 0)
+                    PC.RelativeDefault = Targeter.NO_TARGET;
+                else if (!RelativeDefaultList.Contains(PC.RelativeDefault))
                     PC.RelativeDefault = (string)RelativeDefaultList[0];
-                else PC.RelativeDefault = Targeter.NO_TARGET;
                 return PC.RelativeDefault;
             }
             set { PC.RelativeDefault = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(RelativeDefault))); }
