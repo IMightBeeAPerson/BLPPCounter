@@ -7,6 +7,7 @@ using System.Linq;
 using UnityEngine;
 using static GameplayModifiers;
 using static NoteData;
+using static ScoreModel;
 
 namespace BLPPCounter.CalculatorStuffs
 {
@@ -112,80 +113,44 @@ namespace BLPPCounter.CalculatorStuffs
         }//Yes this is chatGPT code, modified to work properly with my code.
         #endregion
         #region Replay Math
+        private static readonly int ScoringTypeMax = 
+            ((ScoringType[])Enum.GetValues(typeof(ScoringType))).Aggregate(-1, (total, current) => Math.Max(total, (int)current));
+        private static readonly int ExtendedScoringTypeMax = 
+            ((ExtendedScoringType[])Enum.GetValues(typeof(ExtendedScoringType))).Aggregate(-1, (total, current) => Math.Max(total, (int)current));
+        private static readonly Dictionary<ExtendedScoringType, NoteScoreDefinition> ExtendedNoteScoreDefinition = new Dictionary<ExtendedScoringType, NoteScoreDefinition>()
+        {
+#if !NEW_VERSION
+            {ExtendedScoringType.ArcHeadArcTail, new NoteScoreDefinition(15, 70, 70, 30, 30, 0) },
+            {ExtendedScoringType.ChainHeadArcTail, new NoteScoreDefinition(15, 70, 70, 0, 0, 0) },
+            {ExtendedScoringType.ChainLinkArcHead, new NoteScoreDefinition(0, 0, 0, 0, 0, 20) },
+#endif
+            {ExtendedScoringType.ChainHeadArcHead, new NoteScoreDefinition(15, 0, 70, 30, 30, 0) },
+            {ExtendedScoringType.ChainHeadArcHeadArcTail, new NoteScoreDefinition(15, 70, 70, 30, 30, 0) }
+        };
         internal static (int Before, int After, int Acc) CutScoresForNote(BeatLeader.Models.Replay.NoteEvent note) =>
             CutScoresForNote(note.noteCutInfo, GetScoringType(note.noteID));
         internal static (int Before, int After, int Acc) CutScoresForNote(BeatLeader.Models.Replay.NoteCutInfo cut, ScoringType scoringType)
         {
-            float beforeCutRawScore = -1, afterCutRawScore = -1, cutDistanceRawScore;
-            switch (scoringType)
-            {
-#if NEW_VERSION
-                case ScoringType.ArcHead:
-#else
-                case ScoringType.SliderHead:
-#endif
-                    afterCutRawScore = 30;
-                    break;
-#if NEW_VERSION
-                case ScoringType.ArcTail:
-#else
-                case ScoringType.SliderTail:
-#endif
-                    beforeCutRawScore = 70;
-                    break;
-#if NEW_VERSION
-                case ScoringType.ArcHeadArcTail:
-                    afterCutRawScore = 30;
-                    beforeCutRawScore = 70;
-                    break;
-                case ScoringType.ChainHead:
-#else
-                case ScoringType.BurstSliderHead:
-#endif
-                    afterCutRawScore = 0;
-                    break;
-#if NEW_VERSION
-                case ScoringType.ChainHeadArcTail:
-                    afterCutRawScore = 0;
-                    beforeCutRawScore = 70;
-                    break;
-                case ScoringType.ChainLink:
-                case ScoringType.ChainLinkArcHead:
-#else
-                case ScoringType.BurstSliderElement:
-#endif
-                    return (0, 0, 20);
-            }
-            if (beforeCutRawScore < 0) beforeCutRawScore = Mathf.Clamp(Mathf.Round(70 * cut.beforeCutRating), 0, 70);
-            if (afterCutRawScore < 0) afterCutRawScore = Mathf.Clamp(Mathf.Round(30 * cut.afterCutRating), 0, 30);
-           cutDistanceRawScore = Mathf.Round(15 * (1 - Mathf.Clamp01(cut.cutDistanceToCenter / 0.3f)));
+            NoteScoreDefinition noteVals = GetNoteScoreDefinition(scoringType);
 
-            return ((int)beforeCutRawScore, (int)afterCutRawScore, (int)cutDistanceRawScore);
+#if NEW_VERSION
+            if (scoringType == ScoringType.ChainLink || scoringType == ScoringType.ChainLinkArcHead)
+#else
+            if (scoringType == ScoringType.BurstSliderElement || (int)scoringType == (int)ExtendedScoringType.ChainLinkArcHead)
+                return (noteVals.minBeforeCutScore, noteVals.minAfterCutScore, noteVals.fixedCutScore);
+#endif
+
+            int beforeCutRawScore, afterCutRawScore, cutDistanceRawScore;
+            beforeCutRawScore = noteVals.minBeforeCutScore == noteVals.maxBeforeCutScore ? noteVals.maxBeforeCutScore :
+                (int)Mathf.Clamp(Mathf.Round(noteVals.maxBeforeCutScore * cut.beforeCutRating), noteVals.minBeforeCutScore, noteVals.maxBeforeCutScore);
+            afterCutRawScore = noteVals.minAfterCutScore == noteVals.maxAfterCutScore ? noteVals.maxAfterCutScore :
+                (int)Mathf.Clamp(Mathf.Round(noteVals.maxAfterCutScore * cut.afterCutRating), noteVals.minAfterCutScore, noteVals.maxAfterCutScore);
+            cutDistanceRawScore = noteVals.maxCenterDistanceCutScore > 0 ? (int)Mathf.Round(noteVals.maxCenterDistanceCutScore * (1 - Mathf.Clamp01(cut.cutDistanceToCenter / 0.3f))) : 0;
+
+            return (beforeCutRawScore, afterCutRawScore, cutDistanceRawScore);
         }
         internal static int GetMaxCutScore(BeatLeader.Models.Replay.NoteEvent note) =>
-            GetMaxCutScore(GetScoringType(note.noteID));
-        internal static int GetMaxCutScore(ScoringType scoringType)
-        {
-            switch (scoringType)
-            {
-#if NEW_VERSION
-                case ScoringType.ChainHead:
-                case ScoringType.ChainHeadArcTail:
-#else
-                case ScoringType.BurstSliderHead:
-#endif
-                    return 85;
-#if NEW_VERSION
-                case ScoringType.ChainLink:
-                case ScoringType.ChainLinkArcHead:
-#else
-                case ScoringType.BurstSliderElement:
-#endif
-                    return 20;
-                default:
-                    return 115;
-            }
-        }
+            ScoreModel.GetNoteScoreDefinition(GetScoringType(note.noteID)).maxCutScore;
         internal static int GetCutScore(BeatLeader.Models.Replay.NoteEvent note) =>
             GetCutScore(note.noteCutInfo, GetScoringType(note.noteID));
         internal static int GetCutScore(BeatLeader.Models.Replay.NoteCutInfo cut, ScoringType scoringType)
@@ -196,9 +161,24 @@ namespace BLPPCounter.CalculatorStuffs
         //Link: https://github.com/BeatLeader/beatleader-mod/blob/master/Source/7_Utils/ReplayStatisticUtils.cs#L15
         internal static ScoringType GetScoringType(int noteId)
         {
+            ScoringType outp;
             if (noteId < 100_000)
-                return (ScoringType)(noteId / 10_000 - 2);
-            return (ScoringType)(noteId / 10_000_000 - 2);
+                outp = (ScoringType)(noteId / 10_000 - 2);
+            else outp = (ScoringType)(noteId / 10_000_000 - 2);
+            return outp > (ScoringType)ExtendedScoringTypeMax ? ScoringType.Normal : outp;
+        }
+        internal static NoteScoreDefinition GetNoteScoreDefinition(ScoringType scoringType)
+        {
+            if ((int)scoringType > ScoringTypeMax)
+                return (int)scoringType > ExtendedScoringTypeMax ? ScoreModel.GetNoteScoreDefinition(ScoringType.Normal) : ExtendedNoteScoreDefinition[(ExtendedScoringType)scoringType];
+            return ScoreModel.GetNoteScoreDefinition(scoringType);
+        }
+        internal enum ExtendedScoringType
+        {
+#if !NEW_VERSION
+            ArcHeadArcTail = 6, ChainHeadArcTail, ChainLinkArcHead,
+#endif
+            ChainHeadArcHead, ChainHeadArcHeadArcTail //for now, 1.40.9+ stuff will always be used. Once modding there becomes normal, I'll change it to only work on pre 1.40.9
         }
 #endregion
         #region Clan Math

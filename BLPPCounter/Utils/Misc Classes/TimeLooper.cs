@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BLPPCounter.Utils.Misc_Classes;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,89 +12,77 @@ namespace BLPPCounter.Utils
     {
         private ManualResetEvent waiter;
         private Task task;
+        private Action lastTaskAction;
+        private CancellationTokenSource cts;
         public int Delay;
-        private bool taskComplete, taskExited;
-        public object Locker { get; private set; } = new object();
+        public readonly object Locker;
         public bool IsPaused { get; private set; }
-        public TimeLooper(Action task, int msDelay)
+        public TimeLooper(Action task, int msDelay) : this(msDelay)
         {
-            Delay = msDelay;
-            GenerateTask(task);
+            GenerateTask(task).GetAwaiter().GetResult();
         }
-        public TimeLooper(Func<bool> task, int msDelay)
+        public TimeLooper(Func<bool> task, int msDelay) : this(msDelay)
         {
-            Delay = msDelay;
-            GenerateTask(task);
+            GenerateTask(task).GetAwaiter().GetResult();
         }
         public TimeLooper(int msDelay)
         {
             Delay = msDelay;
+            //Locker = new object();
         }
         public TimeLooper() : this(0) { }
 
-        public void GenerateTask(Action task)
+        public async Task GenerateTask(Action task)
         {
-            SetupVars();
+            if (!this.task.IsCompleted)
+                await End();
+            waiter = new ManualResetEvent(false); //set == resume, reset == pause. Starts out in paused state.
+            IsPaused = true;
+            cts = new CancellationTokenSource();
+            CancellationToken ct = cts.Token;
+            lastTaskAction = task;
             this.task = Task.Run(() =>
             {
                 while (true)
                 {
                     waiter.WaitOne();
-                    if (taskComplete) break;
-                    lock (Locker)
-                        task.Invoke();
-                    if (taskComplete) break; //double break is so that we don't need to wait for Delay before ending nor will it execute the task if ended while paused
-                    Thread.Sleep(Delay);
-                }
-                taskExited = true;
-            });
-        }
-        public void GenerateTask(Func<bool> task)
-        {
-            SetupVars();
-            this.task = Task.Run(() =>
-            {
-                while (true)
-                {
-                    waiter.WaitOne();
-                    if (taskComplete) break;
                     lock (Locker)
                     {
-                        if (task.Invoke()) SetStatus(true);
+                        if (ct.IsCancellationRequested) return;
+                        task.Invoke();
                     }
-                    if (taskComplete) break; //double break is so that we don't need to wait for Delay before ending nor will it execute the task if ended while paused
+                    if (ct.IsCancellationRequested) return; //double break is so that we don't need to wait for Delay before ending nor will it execute the task if ended while paused
                     Thread.Sleep(Delay);
                 }
-                taskExited = true;
+            }, ct);
+        }
+        public Task GenerateTask(Func<bool> task) =>
+            GenerateTask(() =>
+            {
+                if (task.Invoke()) SetStatus(true);
             });
-        }
-        private void SetupVars()
-        {
-            waiter = new ManualResetEvent(false); //set == resume, reset == pause. Starts out in paused state.
-            taskComplete = false;
-            IsPaused = true;
-            taskExited = false;
-            Locker = new object();
-        }
+        private Task GenerateTask() => GenerateTask(lastTaskAction);
         public void SetStatus(bool isPaused)
         {
             if (IsPaused == isPaused) return;
             if (isPaused) waiter.Reset(); else waiter.Set();
             IsPaused = isPaused;
         }
-        public void Start()
+        public async Task Start()
         {
-            SetStatus(false);
+            if (!task.IsCompleted)
+                await End();
+            await GenerateTask();
         }
         public Task End()
         {
-            taskComplete = true;
-            return Task.Run(() =>
+            return Task.Run(async () =>
             {
+                cts.Cancel();
                 SetStatus(false);
-                while (!taskExited)
-                    Thread.Sleep(100); //Checks every 100ms whether or not the task is complete.
-                task.Dispose();
+                await task;
+                cts.Dispose();
+                waiter.Dispose();
             });
             
         }

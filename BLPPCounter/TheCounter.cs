@@ -6,6 +6,7 @@ using BLPPCounter.Settings.SettingHandlers;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.List_Settings;
+using BLPPCounter.Utils.Special_Utils;
 using BS_Utils.Utilities;
 using CountersPlus.Counters.Custom;
 using ModestTree;
@@ -25,8 +26,10 @@ using System.Runtime.InteropServices.WindowsRuntime; // Used in 1.37.0 and above
 using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
+using UnityEngine;
 using Zenject;
 using static GameplayModifiers;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 namespace BLPPCounter
 {
 
@@ -181,6 +184,7 @@ namespace BLPPCounter
         private static CancellationTokenSource InitTaskCanceller;
         private static CancellationToken InitTaskCancelToken;
         private static Action ForceOff;
+        private static HashSet<SliderKey> sliderMap;
         #endregion
         #region Variables
         private TMP_Text display;
@@ -291,7 +295,7 @@ namespace BLPPCounter
         }
         public override void CounterDestroy() {
             if (enabled && pc.UpdateAfterTime)
-                TimeLooper.End();
+                TimeLooper.End().GetAwaiter().GetResult();
             ChangeNotifiers(false);
             if (!InitTask.IsCompleted)
             {
@@ -314,6 +318,7 @@ namespace BLPPCounter
             if (fullDisable) return;
             notes = comboNotes = mistakes = 0;
             totalHitscore = maxHitscore = fcTotalHitscore = 0.0f;
+            sliderMap = new HashSet<SliderKey>();
             ChangeNotifiers(true);
             display = CanvasUtility.CreateTextFromSettings(Settings);
             display.fontSize = (float)pc.FontSize;
@@ -416,7 +421,7 @@ namespace BLPPCounter
                 Plugin.Log.Error("The counter encountered a fatal error, shutting down.");
                 ForceTurnOff();
                 Plugin.Log.Debug(e);
-                if (e is NullReferenceException)
+                if (e is NullReferenceException || e is ArgumentNullException)
                     Plugin.Log.Debug($"NULL CHECKS: theCounter null? {theCounter is null} || scoringElement null? {scoringElement is null} || InitTask is null? {InitTask is null} || TimeLooper is null? {TimeLooper is null} || scoringElement.NoteData is null? {scoringElement?.noteData is null}");
             }
         }
@@ -427,16 +432,17 @@ namespace BLPPCounter
             bool enteredLock = InitTask.IsCompleted && pc.UpdateAfterTime && Monitor.TryEnter(TimeLooper.Locker); //This is to make sure timeLooper is paused, not to pause this thread.
             NoteData.ScoringType st = scoringElement.noteData.scoringType;
             currentNote = scoringElement.noteData;
-            int cutScore = scoringElement.cutScore, maxCutScore = scoringElement.maxPossibleCutScore;
             if (st == NoteData.ScoringType.Ignore) goto Finish; //if scoring type is Ignore, skip this function
             notes++;
             if (st != NoteData.ScoringType.NoScore) comboNotes++;
 
+            int cutScore = scoringElement.cutScore, maxCutScore = scoringElement.maxPossibleCutScore;
             int offset = HandleWeirdNoteBehaviour(currentNote, maxCutScore);
             if (offset != 0)
             {
                 cutScore += offset;
                 maxCutScore += offset;
+
             }
 
             maxHitscore += notes < 14 ? maxCutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0f) : maxCutScore;
@@ -446,15 +452,21 @@ namespace BLPPCounter
                 fcTotalHitscore += notes < 14 ? cutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0f) : cutScore;
             }
             else OnMiss();
+            //Plugin.Log.Info($"Note #{notes} ({st}): {cutScore} / {maxCutScore}" + (offset != 0 ? $" (shifted max from {scoringElement.maxPossibleCutScore})" : ""));
             Finish:
-            //Plugin.Log.Info($"Note #{notes} ({st}): {cutScore} / {maxCutScore}" + (maxCutScore != scoringElement.maxPossibleCutScore ? $" (shifted max from {scoringElement.maxPossibleCutScore})" : ""));
             if (!InitTask.IsCompleted) return;
             theCounter.SoftUpdate((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / maxHitscore, currentNote);
             if (enteredLock) Monitor.Exit(TimeLooper.Locker);
             if (!pc.UpdateAfterTime) theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / maxHitscore, currentNote);
             else TimeLooper.SetStatus(false);
         }
-
+#if !NEW_VERSION
+        private void OnSliderSpawn(SliderController sc)
+        {
+            if (!sc.sliderData.hasHeadNote) return;
+            sliderMap.Add(KeyFromSliderData(sc.sliderData, true));
+        }
+#endif
         private void OnBombHit(NoteController nc, in NoteCutInfo nci)
         {
             if (nc.noteData.gameplayType == NoteData.GameplayType.Bomb)
@@ -484,25 +496,23 @@ namespace BLPPCounter
         }
         #endregion
         #region Helper Methods
-        public static int HandleWeirdNoteBehaviour(NoteData note, int maxCutscore)
-        {
-#if NEW_VERSION
-            if (note.gameplayType == NoteData.GameplayType.BurstSliderHead && note.scoringType != NoteData.ScoringType.ChainHead)
-                return ScoreModel.GetNoteScoreDefinition(NoteData.ScoringType.ChainHead).maxCutScore - maxCutscore;
-#else
-            if (note.gameplayType == NoteData.GameplayType.BurstSliderHead && note.scoringType != NoteData.ScoringType.BurstSliderHead)
-                return ScoreModel.GetNoteScoreDefinition(NoteData.ScoringType.BurstSliderHead).maxCutScore - maxCutscore;
-#endif
-            return 0;
-        }
+        public static int HandleWeirdNoteBehaviour(NoteData note, int maxCutscore) =>
+            ScoreModel.GetNoteScoreDefinition(HandleWeirdNoteBehaviour(note)).maxCutScore - maxCutscore;
         public static NoteData.ScoringType HandleWeirdNoteBehaviour(NoteData note)
         {
 #if NEW_VERSION
-            if (note.gameplayType == NoteData.GameplayType.BurstSliderHead && note.scoringType != NoteData.ScoringType.ChainHead)
-                return NoteData.ScoringType.ChainHead;
+            if (note.gameplayType == NoteData.GameplayType.BurstSliderHead && note.isArcHead)
+                return note.isArcTail ? NoteData.ScoringType.ArcHeadArcTail : NoteData.ScoringType.ArcHead;
 #else
-            if (note.gameplayType == NoteData.GameplayType.BurstSliderHead && note.scoringType != NoteData.ScoringType.BurstSliderHead)
-                return NoteData.ScoringType.BurstSliderHead;
+            bool isSliderHead = false;
+            SliderKey sk = KeyFromNoteData(note);
+            if (sliderMap.Contains(sk))
+            {
+                sliderMap.Remove(sk);
+                isSliderHead = true;
+            }
+            if (note.gameplayType == NoteData.GameplayType.BurstSliderHead && isSliderHead)
+                note.ChangeToSliderHead();
 #endif
             return note.scoringType;
         }
@@ -513,13 +523,26 @@ namespace BLPPCounter
                 sc.scoringForNoteFinishedEvent += OnNoteScored;
                 wall.headDidEnterObstacleEvent += OnWallHit;
                 bomb.noteWasCutEvent += OnBombHit;
+#if !NEW_VERSION
+                bomb.sliderWasSpawnedEvent += OnSliderSpawn;
+#endif
             } else
             {
                 sc.scoringForNoteFinishedEvent -= OnNoteScored;
                 wall.headDidEnterObstacleEvent -= OnWallHit;
                 bomb.noteWasCutEvent -= OnBombHit;
+#if !NEW_VERSION
+                bomb.sliderWasSpawnedEvent -= OnSliderSpawn;
+#endif
             }
         }
+#if !NEW_VERSION
+        private static SliderKey KeyFromNoteData(NoteData nd) =>
+            new SliderKey(Mathf.RoundToInt(nd.time * 1000f), nd.lineIndex, nd.noteLineLayer, nd.colorType, nd.cutDirection);
+        private static SliderKey KeyFromSliderData(SliderData sd, bool useHead) => useHead ?
+            new SliderKey(Mathf.RoundToInt(sd.time * 1000f), sd.headLineIndex, sd.headLineLayer, sd.colorType, sd.headCutDirection) :
+            new SliderKey(Mathf.RoundToInt(sd.tailTime * 1000f), sd.tailLineIndex, sd.tailLineLayer, sd.colorType, sd.tailCutDirection);
+#endif
         internal void ForceTurnOff()
         {
             enabled = false;

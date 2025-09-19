@@ -418,12 +418,12 @@ namespace BLPPCounter.Counters
                 if (wallArray.Dequeue().energy < 1.0f)
                     best[8] = HelpfulMath.DecreaseMultiplier((int)best[8]);
             }
-            NoteData.ScoringType scoringType = TheCounter.HandleWeirdNoteBehaviour(noteData);
+            NoteData.ScoringType scoringType = noteData.scoringType;
             best[9] += notes < 14 ? ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0f) : ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore;
             if (note.eventType == NoteEventType.good)
             {
                 best[8]++;
-                best[7] += BLCalc.GetCutScore(note.noteCutInfo, scoringType) * (HelpfulMath.MultiplierForNote((int)best[8]) / 8.0f);
+                best[7] += BLCalc.GetCutScore(note) * (HelpfulMath.MultiplierForNote((int)best[8]) / 8.0f);
             }
             else
             {
@@ -434,7 +434,7 @@ namespace BLPPCounter.Counters
                     UpdateBest(notes, noteData);
                 }
             }
-            //Plugin.Log.Info($"Note #{notes} ({scoringType}): {BLCalc.GetCutScore(note.noteCutInfo, scoringType)} / {ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore}");
+            //Plugin.Log.Info($"Note #{notes} ({scoringType}): {BLCalc.GetCutScore(note)} / {ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore}");
             temp = calc.GetPpWithSummedPp(best[7] / best[9], best[4], best[5], best[6]);
             for (int i = 0; i < temp.Length; i++)
                 best[i] = temp[i];

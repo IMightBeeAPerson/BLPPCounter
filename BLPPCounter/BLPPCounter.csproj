@@ -207,6 +207,7 @@
     <Compile Include="Utils\API Handlers\BLAPI.cs" />
     <Compile Include="Utils\API Handlers\SSAPI.cs" />
     <Compile Include="Utils\API Handlers\Throttler.cs" />
+    <Compile Include="Utils\Special Utils\SliderKey.cs" Condition="$(DefineConstants.Contains('NEW_VERSION')) == false" />
     <None Include="Utils\Special Utils\BoolStorage.cs" />
     <Compile Include="Utils\Enums\APCategory.cs" />
     <Compile Include="Utils\Enums\Leaderboards.cs" />
