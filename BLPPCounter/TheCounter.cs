@@ -184,8 +184,10 @@ namespace BLPPCounter
         private static CancellationTokenSource InitTaskCanceller;
         private static CancellationToken InitTaskCancelToken;
         private static Action ForceOff;
+#if !NEW_VERSION
         private static HashSet<SliderKey> sliderMap;
-        #endregion
+#endif
+#endregion
         #region Variables
         private TMP_Text display;
         private bool enabled;
@@ -318,7 +320,9 @@ namespace BLPPCounter
             if (fullDisable) return;
             notes = comboNotes = mistakes = 0;
             totalHitscore = maxHitscore = fcTotalHitscore = 0.0f;
+#if !NEW_VERSION
             sliderMap = new HashSet<SliderKey>();
+#endif
             ChangeNotifiers(true);
             display = CanvasUtility.CreateTextFromSettings(Settings);
             display.fontSize = (float)pc.FontSize;
@@ -408,7 +412,7 @@ namespace BLPPCounter
             else
                 ForceTurnOff();
         }
-        #endregion
+#endregion
         #region Event Calls
         private void OnNoteScored(ScoringElement scoringElement)
         {

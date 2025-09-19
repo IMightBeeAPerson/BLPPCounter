@@ -137,8 +137,8 @@ namespace BLPPCounter.CalculatorStuffs
             if (scoringType == ScoringType.ChainLink || scoringType == ScoringType.ChainLinkArcHead)
 #else
             if (scoringType == ScoringType.BurstSliderElement || (int)scoringType == (int)ExtendedScoringType.ChainLinkArcHead)
-                return (noteVals.minBeforeCutScore, noteVals.minAfterCutScore, noteVals.fixedCutScore);
 #endif
+                return (noteVals.minBeforeCutScore, noteVals.minAfterCutScore, noteVals.fixedCutScore);
 
             int beforeCutRawScore, afterCutRawScore, cutDistanceRawScore;
             beforeCutRawScore = noteVals.minBeforeCutScore == noteVals.maxBeforeCutScore ? noteVals.maxBeforeCutScore :
@@ -176,9 +176,9 @@ namespace BLPPCounter.CalculatorStuffs
         internal enum ExtendedScoringType
         {
 #if !NEW_VERSION
-            ArcHeadArcTail = 6, ChainHeadArcTail, ChainLinkArcHead,
+            ArcHeadArcTail = 6, ChainHeadArcTail = 7, ChainLinkArcHead = 8,
 #endif
-            ChainHeadArcHead, ChainHeadArcHeadArcTail //for now, 1.40.9+ stuff will always be used. Once modding there becomes normal, I'll change it to only work on pre 1.40.9
+            ChainHeadArcHead = 9, ChainHeadArcHeadArcTail = 10 //for now, 1.40.9+ stuff will always be used. Once modding there becomes normal, I'll change it to only work on pre 1.40.9
         }
 #endregion
         #region Clan Math

@@ -418,7 +418,11 @@ namespace BLPPCounter.Counters
                 if (wallArray.Dequeue().energy < 1.0f)
                     best[8] = HelpfulMath.DecreaseMultiplier((int)best[8]);
             }
+#if NEW_VERSION
+            NoteData.ScoringType scoringType = TheCounter.HandleWeirdNoteBehaviour(noteData);
+#else
             NoteData.ScoringType scoringType = noteData.scoringType;
+#endif
             if (note.eventType != NoteEventType.bomb)
                 best[9] += notes < 14 ? ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0f) : ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore;
             if (note.eventType == NoteEventType.good)
@@ -496,6 +500,6 @@ namespace BLPPCounter.Counters
             }
             if (!failed) UpdateBest(notes, currentNote);
         }
-        #endregion
+#endregion
     }
 }
