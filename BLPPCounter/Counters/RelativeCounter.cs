@@ -186,6 +186,7 @@ namespace BLPPCounter.Counters
                 for (int i = 0; i < selectedRatings.Length; i++)
                     replayRatings[i] = selectedRatings[i];
             }
+            replayPPVals = new float[replayRatings.Length + 1];
             ReplayMods = ReplayMods.ToUpper();
         }
         #endregion

@@ -238,6 +238,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             get => PC.ColorGradBlending;
             set { PC.ColorGradBlending = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ColorGradBlending))); }
         }
+        [UIValue(nameof(BlendMiddleColor))]
+        private bool BlendMiddleColor
+        {
+            get => PC.BlendMiddleColor;
+            set { PC.BlendMiddleColor = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(BlendMiddleColor))); }
+        }
         [UIValue(nameof(ColorGradFlipPercent))]
         private float ColorGradFlipPercent
         {

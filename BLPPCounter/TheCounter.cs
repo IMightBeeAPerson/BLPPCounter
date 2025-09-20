@@ -442,7 +442,6 @@ namespace BLPPCounter
             {
                 cutScore += offset;
                 maxCutScore += offset;
-
             }
 
             maxHitscore += notes < 14 ? maxCutScore * HelpfulMath.ClampedMultiplierForNote(notes) : maxCutScore;
@@ -456,8 +455,8 @@ namespace BLPPCounter
             Finish:
             if (enteredLock) Monitor.Exit(TimeLooper.Locker);
             if (!InitTask.IsCompleted) return;
-            theCounter.SoftUpdate((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / maxHitscore, currentNote);
-            if (!pc.UpdateAfterTime) theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / maxHitscore, currentNote);
+            theCounter.SoftUpdate(totalHitscore / maxHitscore, notes, mistakes, fcTotalHitscore / maxHitscore, currentNote);
+            if (!pc.UpdateAfterTime) theCounter.UpdateCounter(totalHitscore / maxHitscore, notes, mistakes, fcTotalHitscore / maxHitscore, currentNote);
             else TimeLooper.SetStatus(false);
         }
 #if !NEW_VERSION

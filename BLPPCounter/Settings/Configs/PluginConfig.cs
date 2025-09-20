@@ -43,6 +43,7 @@ namespace BLPPCounter.Settings.Configs
         #region Misc Settings
         public virtual float ColorGradMinDark { get; set; } = 0.5f;
         public virtual bool ColorGradBlending { get; set; } = true;
+        public virtual bool BlendMiddleColor { get; set; } = false;
         public virtual float ColorGradFlipPercent { get; set; } = 0.1f;
         public virtual int ColorGradMaxDiff { get; set; } = 100;
         #endregion

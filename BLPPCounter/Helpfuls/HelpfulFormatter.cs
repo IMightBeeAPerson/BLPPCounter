@@ -499,12 +499,19 @@ namespace BLPPCounter.Helpfuls
         {
             if (num == 0)
                 if (PC.ColorGradBlending)
-                    num = variance / 2f;
+                {
+                    if (!PC.BlendMiddleColor)
+                        num = variance / 2f;
+                }
                 else return ConvertColorToMarkup(PC.ColorGradZero);
             bool neg = num < 0;
-            float toConvert = Math.Min(Math.Max(Math.Abs(neg && !PC.ColorGradBlending ? 1.0f - -num / variance : num / variance), PC.ColorGradMinDark) + PC.ColorGradFlipPercent, 1f);
+            float toConvert = Math.Min(Math.Max(Math.Abs(neg && !PC.ColorGradBlending ? 1.0f - -num / variance : num / variance), PC.ColorGradMinDark) + (PC.BlendMiddleColor ? 0 : PC.ColorGradFlipPercent), 1f);
             if (PC.ColorGradBlending)
-                return ConvertColorToMarkup(Blend(PC.ColorGradMin, PC.ColorGradMax, neg ? toConvert : 1.0f - toConvert, neg ? 1.0f - toConvert : toConvert));
+                return ConvertColorToMarkup(PC.BlendMiddleColor ?
+                            neg ?
+                                Blend(PC.ColorGradMin, PC.ColorGradZero, toConvert) :
+                                Blend(PC.ColorGradZero, PC.ColorGradMax, 1.0f - toConvert) :
+                            Blend(PC.ColorGradMin, PC.ColorGradMax, neg ? toConvert : 1.0f - toConvert));
             return neg ? ConvertColorToMarkup(Multiply(PC.ColorGradMin, toConvert)) :
                 ConvertColorToMarkup(Multiply(PC.ColorGradMax, toConvert));
         }

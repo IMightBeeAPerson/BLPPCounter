@@ -247,6 +247,8 @@ namespace BLPPCounter.Helpfuls
             float maxMult = Math.Min(255f / Math.Max(Math.Max(newA, Math.Max(newR, Math.Max(newG, newB))), 0.1f), 1f);
             return System.Drawing.Color.FromArgb((int)Math.Round(newA * maxMult), (int)Math.Round(newR * maxMult), (int)Math.Round(newG * maxMult), (int)Math.Round(newB * maxMult));
         }
+        public static System.Drawing.Color Blend(System.Drawing.Color a, System.Drawing.Color b, float aWeight) =>
+            Blend(a, b, aWeight, 1f - aWeight);
         public static BSMLParserParams AddToComponent(BSMLResourceViewController brvc, GameObject container) =>
 #if NEW_VERSION
             BSMLParser.Instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc); // 1.37.0 and above

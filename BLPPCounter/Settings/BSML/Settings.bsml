@@ -28,6 +28,7 @@
     <color-setting text='Color Gradient At Zero' apply-on-change='true' value='ColorGradZero'/>
     <slider-setting text='Min Darkness' value='ColorGradMinDark' integer-only='false' min='0' max='1' increment='0.01' apply-on-change='true' show-buttons='true'/>
     <checkbox-setting text='Use Blending' apply-on-change='true' value='ColorGradBlending' hover-hint='Instead of abruptly changing between colors, blend them as you get closer to the player you are playing against'/>
+    <checkbox-setting text='Blend Middle Color' apply-on-change='true' value='BlendMiddleColor' hover-hint='When blending is enabled, also blend the color at zero'/>
     <slider-setting text='Percent Flip' value='ColorGradFlipPercent' integer-only='false' min='0' max='1' increment='0.01' apply-on-change='true' show-buttons='true'/>
     <slider-setting text='Maximum Difference' value='ColorGradMaxDiff' integer-only='true' min='0' max='1000' increment='1' apply-on-change='true' show-buttons='true'/>
   </vertical>
