@@ -24,7 +24,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 #pragma warning disable CS0649, IDE0051, IDE0044
         #region Static Variables
         public static SimpleSettingsHandler Instance { get; private set; } = new SimpleSettingsHandler();
-        private static readonly HashSet<string> NonSettingTags = new HashSet<string>(2) { "settings-container", "vertical" };
+        private static readonly HashSet<string> NonSettingTags = new HashSet<string>(2) { "settings-container", "vertical", "horizontal", "modal", "custom-list" };
         #endregion
         #region UI & Normal Variables
         private bool loaded = false;
@@ -40,7 +40,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (loaded) return;
             loaded = true;
             const string resource = "BLPPCounter.Settings.BSML.MenuSettings.bsml";
-            const string regex = "(?<=\\s)<\\/?([A-z\\-]+)[^>]*>(?=[^<]*?$)(?!\\z)";
+            const string regex = @"(?<=\s)<\/?([A-z\-]+)[^>~]*>(?=[^<]*?$)(?!\z)";
             MatchCollection mc = Regex.Matches(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), resource), regex, RegexOptions.Multiline);
 #if NEW_VERSION
             bool loadData = PluginConfig.Instance.SimpleMenuConfigLength == mc.Count(m => !NonSettingTags.Contains(m.Groups[1].Value)); //1.37.0 and above
@@ -48,7 +48,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             int count = 0;
             foreach (Match m in mc)
                 if (!NonSettingTags.Contains(m.Groups[1].Value)) count++;
-            loadData &= PluginConfig.Instance.SimpleMenuConfigLength == count; //1.34.2 and below
+            loadData &= PluginConfig.Instance.SimpleMenuConfig.Length == count; //1.34.2 and below
 #endif
             if (loadData) SimpleMenuSettingsHandler.Instance.LoadMenu();
             string huh = "";

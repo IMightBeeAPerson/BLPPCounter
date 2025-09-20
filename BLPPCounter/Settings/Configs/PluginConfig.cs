@@ -7,6 +7,9 @@ using BLPPCounter.Utils;
 using System.Drawing;
 using System.Reflection;
 using System.Linq;
+using BLPPCounter.Utils.Special_Utils;
+using Newtonsoft.Json;
+using BLPPCounter.Utils.Converters;
 
 [assembly: InternalsVisibleTo(GeneratedStore.AssemblyVisibilityTarget)]
 namespace BLPPCounter.Settings.Configs
@@ -78,8 +81,8 @@ namespace BLPPCounter.Settings.Configs
         #region Menu Settings
         #region Simple Settings
         public virtual bool SimpleUI { get; set; } = true;
-        public virtual long SimpleMenuConfig { get; set; } = 0; //Don't worry about this, nothing janky at all going on here :)
-        public virtual int SimpleMenuConfigLength { get; set; } = 0; //Nothing janky at all
+        [UseConverter(typeof(BoolStorageConverter))]
+        public virtual BoolStorage SimpleMenuConfig { get; set; } = new BoolStorage();
         #endregion
         #region Format Settings
         public virtual bool UpdatePreview { get; set; } = true;

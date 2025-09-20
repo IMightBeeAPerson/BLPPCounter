@@ -25,7 +25,7 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;NEW_VERSION</DefineConstants>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <Optimize>true</Optimize>
@@ -55,11 +55,6 @@
     <Reference Include="Counters+">
       <HintPath>$(BeatSaberDir)\Plugins\Counters+.dll</HintPath>
     </Reference>
-    <Reference Include="DataModels, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <Private>False</Private>
-      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\DataModels.dll</HintPath>
-      <SpecificVersion>False</SpecificVersion>
-    </Reference>
     <Reference Include="Interactable, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <Private>False</Private>
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\Interactable.dll</HintPath>
@@ -81,7 +76,9 @@
       <Private>False</Private>
       <SpecificVersion>False</SpecificVersion>
     </Reference>
-    <Reference Include="System.Net.Http, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
+    <Reference Include="System.Net.Http, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <SpecificVersion>True</SpecificVersion>
+    </Reference>
     <Reference Include="UnityEngine.TextCoreFontEngineModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" Condition="$(DefineConstants.Contains('34.2')) == true OR $(DefineConstants.Contains('NEW_VERSION')) == true" />
     <Reference Include="UnityEngine.TextCoreModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL" Condition="$(DefineConstants.Contains('34.2')) == false AND $(DefineConstants.Contains('NEW_VERSION')) == false" />
     <Reference Include="UnityEngine.TextRenderingModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
@@ -165,11 +162,6 @@
       <HintPath>$(BeatSaberDir)\Plugins\BS_Utils.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="ZenjectExtension, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <Private>False</Private>
-      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\ZenjectExtension.dll</HintPath>
-      <SpecificVersion>False</SpecificVersion>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CalculatorStuffs\APCalc.cs" />
@@ -208,6 +200,7 @@
     <Compile Include="Utils\API Handlers\SSAPI.cs" />
     <Compile Include="Utils\API Handlers\Throttler.cs" />
     <Compile Include="Utils\API Handlers\APIHandler.cs" />
+    <Compile Include="Utils\Converters\BoolStorageConverter.cs" />
     <Compile Include="Utils\Converters\SystemColorConverter.cs" />
     <Compile Include="Utils\Enums\APCategory.cs" />
     <Compile Include="Utils\Enums\PPType.cs" />
@@ -237,7 +230,7 @@
     <Compile Include="Utils\Serializable Classes\CustomTarget.cs" />
     <Compile Include="Utils\Special Utils\FilledList.cs" Condition="$(DefineConstants.Contains('NEW_VERSION')) == false" />
     <Compile Include="Utils\Special Utils\SliderKey.cs" Condition="$(DefineConstants.Contains('NEW_VERSION')) == false" />
-    <None Include="Utils\Special Utils\BoolStorage.cs" />
+    <Compile Include="Utils\Special Utils\BoolStorage.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="BLPPCounterController.cs" />
     <Compile Include="TheCounter.cs" />

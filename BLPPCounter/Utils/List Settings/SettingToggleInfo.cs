@@ -8,6 +8,9 @@ namespace BLPPCounter.Utils
 {
     internal class SettingToggleInfo
     {
+        private bool usable;
+        private readonly int id;
+        private readonly Action<int, bool> changeSettings;
         [UIValue("Text")]
         public string Text { get; private set; }
         [UIValue("Description")]
@@ -16,16 +19,14 @@ namespace BLPPCounter.Utils
         public string Type { get; private set; }
         [UIValue("Usable")]
         public bool Usable 
-        { get => usable;
+        { 
+            get => usable;
             set
             {
                 changeSettings(id, value);
                 usable = value;
             } 
         }
-        private bool usable;
-        private readonly int id;
-        private readonly Action<int, bool> changeSettings;
 
         public SettingToggleInfo(string text, string description, string type, int id, Action<int, bool> changeSettings)
         {

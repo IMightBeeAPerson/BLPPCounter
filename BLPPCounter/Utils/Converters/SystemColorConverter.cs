@@ -3,7 +3,7 @@ using IPA.Config.Data;
 using IPA.Config.Stores;
 using System.Drawing;
 
-namespace BLPPCounter.Utils
+namespace BLPPCounter.Utils.Converters
 {
     public class SystemColorConverter : ValueConverter<Color>
     {
