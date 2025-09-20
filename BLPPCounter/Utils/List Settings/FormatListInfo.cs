@@ -13,7 +13,9 @@ using static BLPPCounter.Helpfuls.HelpfulMisc;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Helpfuls;
 using System.Reflection;
+#if !NEW_VERSION
 using BLPPCounter.Utils.Special_Utils;
+#endif
 using BeatSaberMarkupLanguage.Components;
 
 namespace BLPPCounter.Utils

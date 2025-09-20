@@ -28,7 +28,8 @@ namespace BLPPCounter.Utils
         public TimeLooper(int msDelay)
         {
             Delay = msDelay;
-            //Locker = new object();
+            Locker = new object();
+            task = Task.CompletedTask;
         }
         public TimeLooper() : this(0) { }
 
@@ -48,8 +49,8 @@ namespace BLPPCounter.Utils
                     waiter.WaitOne();
                     lock (Locker)
                     {
-                        if (ct.IsCancellationRequested) return;
-                        task.Invoke();
+                        if (!ct.IsCancellationRequested)
+                            task.Invoke();
                     }
                     if (ct.IsCancellationRequested) return; //double break is so that we don't need to wait for Delay before ending nor will it execute the task if ended while paused
                     Thread.Sleep(Delay);

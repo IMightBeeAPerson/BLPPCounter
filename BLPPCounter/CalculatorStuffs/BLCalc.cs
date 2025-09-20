@@ -150,7 +150,7 @@ namespace BLPPCounter.CalculatorStuffs
             return (beforeCutRawScore, afterCutRawScore, cutDistanceRawScore);
         }
         internal static int GetMaxCutScore(BeatLeader.Models.Replay.NoteEvent note) =>
-            ScoreModel.GetNoteScoreDefinition(GetScoringType(note.noteID)).maxCutScore;
+            GetNoteScoreDefinition(GetScoringType(note.noteID)).maxCutScore;
         internal static int GetCutScore(BeatLeader.Models.Replay.NoteEvent note) =>
             GetCutScore(note.noteCutInfo, GetScoringType(note.noteID));
         internal static int GetCutScore(BeatLeader.Models.Replay.NoteCutInfo cut, ScoringType scoringType)

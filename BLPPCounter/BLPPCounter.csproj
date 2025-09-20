@@ -193,9 +193,9 @@
     <Compile Include="Patches\TabSelectionPatch.cs" />
     <Compile Include="Settings\Configs\MessageSettings.cs" />
     <Compile Include="Settings\Configs\PluginConfig.cs" />
-    <Compile Include="Settings\SettingHandlers\PpInfoTabHandler.cs" />
     <Compile Include="Settings\Configs\TextFormatSettings.cs" />
     <Compile Include="Settings\Configs\TokenFormatSettings.cs" />
+    <Compile Include="Settings\SettingHandlers\PpInfoTabHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\ColorSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\CustomAliasHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\FormatEditorHandler.cs" />
@@ -207,41 +207,41 @@
     <Compile Include="Utils\API Handlers\BLAPI.cs" />
     <Compile Include="Utils\API Handlers\SSAPI.cs" />
     <Compile Include="Utils\API Handlers\Throttler.cs" />
-    <Compile Include="Utils\Special Utils\SliderKey.cs" Condition="$(DefineConstants.Contains('NEW_VERSION')) == false" />
-    <None Include="Utils\Special Utils\BoolStorage.cs" />
+    <Compile Include="Utils\API Handlers\APIHandler.cs" />
+    <Compile Include="Utils\Converters\SystemColorConverter.cs" />
     <Compile Include="Utils\Enums\APCategory.cs" />
+    <Compile Include="Utils\Enums\PPType.cs" />
     <Compile Include="Utils\Enums\Leaderboards.cs" />
     <Compile Include="Utils\List Settings\SessionListInfo.cs" />
     <Compile Include="Utils\List Settings\TargetInfo.cs" />
+    <Compile Include="Utils\List Settings\AliasListInfo.cs" />
+    <Compile Include="Utils\List Settings\ColorListInfo.cs" />
+    <Compile Include="Utils\List Settings\FormatListInfo.cs" />
+    <Compile Include="Utils\List Settings\SettingToggleInfo.cs" />
+    <Compile Include="Utils\List Settings\ValueListInfo.cs" />
     <Compile Include="Utils\Misc Classes\AsyncLock.cs" />
     <Compile Include="Utils\Misc Classes\CoroutineHost.cs" />
     <Compile Include="Utils\Misc Classes\ExtraBypasses.cs" />
     <Compile Include="Utils\Misc Classes\Play.cs" />
     <Compile Include="Utils\Misc Classes\Session.cs" />
+    <Compile Include="Utils\Misc Classes\FormatRelation.cs" />
+    <Compile Include="Utils\Misc Classes\Map.cs" />
+    <Compile Include="Utils\Misc Classes\MapSelection.cs" />
+    <None Include="Utils\Misc Classes\PlaylistLoader.cs" />
+    <Compile Include="Utils\Misc Classes\Table.cs" />
+    <Compile Include="Utils\Misc Classes\Targeter.cs" />
+    <Compile Include="Utils\Misc Classes\TimeLooper.cs" />
     <Compile Include="Utils\Serializable Classes\Profile.cs" />
-    <Compile Include="Utils\Special Utils\FilledList.cs" />
-    <Compile Include="Utils\API Handlers\APIHandler.cs" />
     <Compile Include="Utils\Serializable Classes\ColorMatch.cs" />
     <Compile Include="Utils\Serializable Classes\CustomAlias.cs" />
     <Compile Include="Utils\Serializable Classes\CustomTarget.cs" />
-    <Compile Include="Utils\List Settings\AliasListInfo.cs" />
-    <Compile Include="Utils\List Settings\ColorListInfo.cs" />
-    <Compile Include="Utils\List Settings\FormatListInfo.cs" />
-    <Compile Include="Utils\Misc Classes\FormatRelation.cs" />
-    <Compile Include="Utils\List Settings\ValueListInfo.cs" />
-    <Compile Include="Utils\Misc Classes\Map.cs" />
+    <Compile Include="Utils\Special Utils\FilledList.cs" Condition="$(DefineConstants.Contains('NEW_VERSION')) == false" />
+    <Compile Include="Utils\Special Utils\SliderKey.cs" Condition="$(DefineConstants.Contains('NEW_VERSION')) == false" />
+    <None Include="Utils\Special Utils\BoolStorage.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="BLPPCounterController.cs" />
     <Compile Include="TheCounter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Utils\Misc Classes\MapSelection.cs" />
-    <None Include="Utils\Misc Classes\PlaylistLoader.cs" />
-    <Compile Include="Utils\Enums\PPType.cs" />
-    <Compile Include="Utils\List Settings\SettingToggleInfo.cs" />
-    <Compile Include="Utils\Converters\SystemColorConverter.cs" />
-    <Compile Include="Utils\Misc Classes\Table.cs" />
-    <Compile Include="Utils\Misc Classes\Targeter.cs" />
-    <Compile Include="Utils\Misc Classes\TimeLooper.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="manifest.json" />

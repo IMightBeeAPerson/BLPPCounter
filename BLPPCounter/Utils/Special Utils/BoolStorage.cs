@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BLPPCounter.Utils
+namespace BLPPCounter.Utils.Special_Utils
 {
     internal class BoolStorage
     {

@@ -26,6 +26,14 @@ namespace BLPPCounter.Helpfuls
             if (notes < 14) return 4;
             return 8;
         }
+        public static float ClampedMultiplierForNote(int notes)
+        {
+            if (notes >= 14) return 1f;
+            if (notes < 2) return 0.125f;
+            if (notes < 6) return 0.25f;
+            if (notes < 14) return 0.5f;
+            return 1f;
+        }
         public static int DecreaseMultiplier(int notes)
         {
             if (notes >= 14) return 6;

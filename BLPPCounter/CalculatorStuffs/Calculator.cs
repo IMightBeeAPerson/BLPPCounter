@@ -78,6 +78,12 @@ namespace BLPPCounter.CalculatorStuffs
         /// <param name="precision">This the number of decimals to round the numbers to.</param>
         /// <returns>Returns the summed pp for each type of rating. This should be the deflated pp value.</returns>
         public float GetSummedPp(float acc, int precision, params float[] ratings) => (float)Math.Round(GetSummedPp(acc, ratings), precision);
+        /// <summary>
+        /// Calculates the pp for given ratings and accuracy.
+        /// </summary>
+        /// <param name="acc">The accuracy, which should be between 0 and 1, inclusive.</param>
+        /// <param name="ratings">The rating values. This should match with the leaderboards index (for BL it should be 3, for SS it should 1, etc).</param>
+        /// <returns>Returns all pp for each type of rating. There is also the summed and inflated pp as the last element in <paramref name="ratings"/>.</returns>
         public float[] GetPpWithSummedPp(float acc, params float[] ratings) =>
             RatingCount == 1 ? GetPp(acc, ratings) : GetPp(acc, ratings).Append(Inflate(GetSummedPp(acc, ratings))).ToArray();
         /// <summary>

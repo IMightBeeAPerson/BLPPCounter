@@ -14,7 +14,9 @@ using TMPro;
 using BLPPCounter.Settings.Configs;
 using UnityEngine.UI;
 using static BLPPCounter.Helpfuls.HelpfulFormatter;
+#if !NEW_VERSION
 using BLPPCounter.Utils.Special_Utils;
+#endif
 
 namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 {

@@ -6,8 +6,6 @@ using BLPPCounter.Settings.SettingHandlers;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.List_Settings;
-using BLPPCounter.Utils.Special_Utils;
-using BS_Utils.Utilities;
 using CountersPlus.Counters.Custom;
 using ModestTree;
 using Newtonsoft.Json;
@@ -20,8 +18,8 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
-#if NEW_VERSION
-using System.Runtime.InteropServices.WindowsRuntime; // Used in 1.37.0 and above
+#if !NEW_VERSION
+using BLPPCounter.Utils.Special_Utils;
 #endif
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,7 +27,6 @@ using TMPro;
 using UnityEngine;
 using Zenject;
 using static GameplayModifiers;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 namespace BLPPCounter
 {
 
@@ -41,7 +38,6 @@ namespace BLPPCounter
         [Inject] private BeatmapLevel beatmap;
         [Inject] private BeatmapKey beatmapDiff; // 1.37.0 and above */
 #else
-
         [Inject] private IDifficultyBeatmap beatmap; // 1.34.2 and below
 #endif
         [Inject] private GameplayModifiers mods;
@@ -296,9 +292,9 @@ namespace BLPPCounter
             PercentNeededFormatter = null;
         }
         public override void CounterDestroy() {
+            ChangeNotifiers(false);
             if (enabled && pc.UpdateAfterTime)
                 TimeLooper.End().GetAwaiter().GetResult();
-            ChangeNotifiers(false);
             if (!InitTask.IsCompleted)
             {
                 Plugin.Log.Warn("Player exited map faster than the init task could complete. Cancelling.");
@@ -423,7 +419,7 @@ namespace BLPPCounter
             catch (Exception e)
             {
                 Plugin.Log.Error("The counter encountered a fatal error, shutting down.");
-                ForceTurnOff();
+                ForceTurnOff("Fatal error!\nPlease report this!");
                 Plugin.Log.Debug(e);
                 if (e is NullReferenceException || e is ArgumentNullException)
                     Plugin.Log.Debug($"NULL CHECKS: theCounter null? {theCounter is null} || scoringElement null? {scoringElement is null} || InitTask is null? {InitTask is null} || TimeLooper is null? {TimeLooper is null} || scoringElement.NoteData is null? {scoringElement?.noteData is null}");
@@ -449,18 +445,18 @@ namespace BLPPCounter
 
             }
 
-            maxHitscore += notes < 14 ? maxCutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0f) : maxCutScore;
+            maxHitscore += notes < 14 ? maxCutScore * HelpfulMath.ClampedMultiplierForNote(notes) : maxCutScore;
             if (cutScore > 0)
             {
-                totalHitscore += cutScore * (HelpfulMath.MultiplierForNote(comboNotes) / 8.0f);
-                fcTotalHitscore += notes < 14 ? cutScore * (HelpfulMath.MultiplierForNote(notes) / 8.0f) : cutScore;
+                totalHitscore += cutScore * HelpfulMath.ClampedMultiplierForNote(comboNotes);
+                fcTotalHitscore += notes < 14 ? cutScore * HelpfulMath.ClampedMultiplierForNote(notes) : cutScore;
             }
             else OnMiss();
             //Plugin.Log.Info($"Note #{notes} ({st}): {cutScore} / {maxCutScore}" + (offset != 0 ? $" (shifted max from {scoringElement.maxPossibleCutScore})" : ""));
             Finish:
+            if (enteredLock) Monitor.Exit(TimeLooper.Locker);
             if (!InitTask.IsCompleted) return;
             theCounter.SoftUpdate((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / maxHitscore, currentNote);
-            if (enteredLock) Monitor.Exit(TimeLooper.Locker);
             if (!pc.UpdateAfterTime) theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / maxHitscore, currentNote);
             else TimeLooper.SetStatus(false);
         }
@@ -547,10 +543,10 @@ namespace BLPPCounter
             new SliderKey(Mathf.RoundToInt(sd.time * 1000f), sd.headLineIndex, sd.headLineLayer, sd.colorType, sd.headCutDirection) :
             new SliderKey(Mathf.RoundToInt(sd.tailTime * 1000f), sd.tailLineIndex, sd.tailLineLayer, sd.colorType, sd.tailCutDirection);
 #endif
-        internal void ForceTurnOff()
+        internal void ForceTurnOff(string errorText = "")
         {
             enabled = false;
-            display.text = "";
+            display.text = errorText;
             ChangeNotifiers(false);
         }
         internal static void CancelCounter() => ForceOff.Invoke();
@@ -914,31 +910,34 @@ namespace BLPPCounter
                 ratings = null;
                 return false;
             }
-            //Too lazy to use a switch here, sue me.
-            if (leaderboard == Leaderboards.Scoresaber)
+            switch (leaderboard)
             {
-                ratings = new float[1];
-                ratings[0] = (float)data["starScoreSaber"];
-                if (!quiet) Plugin.Log.Info("Stars: " + ratings[0]);
-                return ratings[0] > 0;
+                case Leaderboards.Scoresaber:
+                    ratings = new float[1];
+                    ratings[0] = (float)data["starScoreSaber"];
+                    if (!quiet) Plugin.Log.Info("Stars: " + ratings[0]);
+                    return ratings[0] > 0;
+                case Leaderboards.Accsaber:
+                    ratings = new float[1];
+                    ratings[0] = (float)data["complexityAccSaber"];
+                    if (!quiet) Plugin.Log.Info("Complexity: " + ratings[0]);
+                    return ratings[0] > 0;
+                case Leaderboards.Beatleader:
+                    float multiplier = GetStarMultiplier(data, mods);
+                    ratings = new float[4];
+                    SongSpeed songSpeed = mods?.songSpeed ?? SongSpeed.Normal;
+                    ratings[0] = HelpfulPaths.GetRating(data, PPType.Star, songSpeed);
+                    ratings[1] = HelpfulPaths.GetRating(data, PPType.Acc, songSpeed) * multiplier;
+                    ratings[2] = HelpfulPaths.GetRating(data, PPType.Pass, songSpeed) * multiplier;
+                    ratings[3] = HelpfulPaths.GetRating(data, PPType.Tech, songSpeed) * multiplier;
+                    string mod = HelpfulMisc.GetModifierShortname(songSpeed).ToUpper();
+                    if (!quiet) Plugin.Log.Info(mod.Length > 0 ? $"{mod} Stars: {ratings[0]}\n{mod} Acc Rating: {ratings[1]}\n{mod} Pass Rating: {ratings[2]}\n{mod} Tech Rating: {ratings[3]}" : $"Stars: {ratings[0]}\nAcc Rating: {ratings[1]}\nPass Rating: {ratings[2]}\nTech Rating: {ratings[3]}");
+                    return ratings[3] > 0;
+                default:
+                    ratings = null;
+                    return false;
             }
-            if (leaderboard == Leaderboards.Accsaber)
-            {
-                ratings = new float[1];
-                ratings[0] = (float)data["complexityAccSaber"];
-                if (!quiet) Plugin.Log.Info("Complexity: " + ratings[0]);
-                return ratings[0] > 0;
-            }
-            float multiplier = GetStarMultiplier(data, mods);
-            ratings = new float[4];
-            SongSpeed songSpeed = mods?.songSpeed ?? SongSpeed.Normal;
-            ratings[0] = HelpfulPaths.GetRating(data, PPType.Star, songSpeed);
-            ratings[1] = HelpfulPaths.GetRating(data, PPType.Acc, songSpeed) * multiplier;
-            ratings[2] = HelpfulPaths.GetRating(data, PPType.Pass, songSpeed) * multiplier;
-            ratings[3] = HelpfulPaths.GetRating(data, PPType.Tech, songSpeed) * multiplier;
-            string mod = HelpfulMisc.GetModifierShortname(songSpeed).ToUpper();
-            if (!quiet) Plugin.Log.Info(mod.Length > 0 ? $"{mod} Stars: {ratings[0]}\n{mod} Acc Rating: {ratings[1]}\n{mod} Pass Rating: {ratings[2]}\n{mod} Tech Rating: {ratings[3]}" : $"Stars: {ratings[0]}\nAcc Rating: {ratings[1]}\nPass Rating: {ratings[2]}\nTech Rating: {ratings[3]}");
-            return ratings[3] > 0;
+            
         }
         public static float GetStarMultiplier(JToken data, GameplayModifiers mods)
         {
