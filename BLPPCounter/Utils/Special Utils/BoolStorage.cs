@@ -20,7 +20,9 @@ namespace BLPPCounter.Utils.Special_Utils
             currentStored = 0;
             currentBool = 0;
         }
-        public BoolStorage(params bool[] bools) : this()
+        public BoolStorage(params bool[] bools) : this(bools.AsEnumerable())
+        {}
+        public BoolStorage(IEnumerable<bool> bools) : this()
         {
             foreach (bool b in bools)
                 AddBool(b);
@@ -29,6 +31,12 @@ namespace BLPPCounter.Utils.Special_Utils
         {
             currentBool = bools[bools.Length - 1];
             this.bools = bools.Take(bools.Length - 1).ToList();
+            this.currentStored = (byte)currentStored;
+        }
+        public BoolStorage(int currentStored, IEnumerable<ulong> bools)
+        {
+            currentBool = bools.Last();
+            this.bools = bools.Take(bools.Count() - 1).ToList();
             this.currentStored = (byte)currentStored;
         }
         public BoolStorage(int dummyItems, bool initToTrue = false)

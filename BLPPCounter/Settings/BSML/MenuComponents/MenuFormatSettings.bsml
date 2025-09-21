@@ -5,7 +5,7 @@
     <dropdown-list-setting text='Choose Counter' apply-on-change='true' value='Counter' options='CounterNames' hover-hint='A player to compare against while playing'/>
     <dropdown-list-setting id='ChooseFormat' text='Choose Format' apply-on-change='true' value='FormatName' options='FormatNames' hover-hint='A player to compare against while playing'/>
     <settings-submenu text='Edit this Format' align='Center' on-click='ParseCurrentFormat'>
-        <vertical spacing='1' anchor-pos-x='0'>
+        <vertical spacing='1' anchor-pos-x='0' anchor-pos-y='5' pref-height='60' vertical-fit='PreferredSize' child-control-height='true'>
         <horizontal>
             <button text='Go Back' align='Left' click-event='back'/>
             <button id='TheSaveButton' text='Save' align='Center' on-click='SaveFormatToConfig'/>
@@ -56,7 +56,7 @@
         </vertical>
     </settings-submenu>
     <settings-submenu text='Edit Values' align='Center' on-click='ParseValues'>
-        <vertical anchor-pos-x='0' spacing='1' pref-width='100' horizontal-fit='PreferredSize'>
+        <vertical anchor-pos-x='0' spacing='1' pref-width='100' horizontal-fit='PreferredSize' anchor-pos-y='5' pref-height='60' vertical-fit='PreferredSize' child-control-height='true'>
         <horizontal>
             <button text='Go Back' align='Left' click-event='back'/>
             <button id='ValueSaveButton' text='Save' align='Center' on-click='SaveValues' interactable='false'/>

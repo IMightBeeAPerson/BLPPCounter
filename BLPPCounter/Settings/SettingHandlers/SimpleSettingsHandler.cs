@@ -40,14 +40,15 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (loaded) return;
             loaded = true;
             const string resource = "BLPPCounter.Settings.BSML.MenuSettings.bsml";
-            const string regex = @"(?<=\s)<\/?([A-z\-]+)[^>~]*>(?=[^<]*?$)(?!\z)";
+            const string regex = @"(?<=\s)<\/?([A-z\-]+)[^>]*>(?=[^<]*?$)(?!\z)";
             MatchCollection mc = Regex.Matches(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), resource), regex, RegexOptions.Multiline);
 #if NEW_VERSION
             bool loadData = PluginConfig.Instance.SimpleMenuConfigLength == mc.Count(m => !NonSettingTags.Contains(m.Groups[1].Value)); //1.37.0 and above
 #else
             int count = 0;
             foreach (Match m in mc)
-                if (!NonSettingTags.Contains(m.Groups[1].Value)) count++;
+                if (!NonSettingTags.Contains(m.Groups[1].Value) && !m.Value.Contains('~')) count++;
+            //Plugin.Log.Info($"Real Count: {PluginConfig.Instance.SimpleMenuConfig.Length}, counted count: {count}");
             loadData &= PluginConfig.Instance.SimpleMenuConfig.Length == count; //1.34.2 and below
 #endif
             if (loadData) SimpleMenuSettingsHandler.Instance.LoadMenu();
@@ -56,7 +57,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             foreach (SettingToggleInfo sti in SimpleMenuSettingsHandler.Instance.UISettings.Cast<SettingToggleInfo>())
                 usable[sti.Text] = sti.Usable;
             foreach (Match m in mc)
-                if (!loadData || NonSettingTags.Contains(m.Groups[1].Value) || (loadData && usable[Regex.Match(m.Value, "text=['\"]([^'\"]+)").Groups[1].Value]))
+                if (!loadData || NonSettingTags.Contains(m.Groups[1].Value) || m.Value.Contains('~') || (loadData && usable[Regex.Match(m.Value, "text=['\"]([^'\"]+)").Groups[1].Value]))
                     huh += m.Value + '\n';
 #if NEW_VERSION
             BSMLParser.Instance.Parse(huh, Container, SettingsHandler.Instance);

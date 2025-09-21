@@ -58,6 +58,7 @@ namespace BLPPCounter
             {
                 yield return new WaitForEndOfFrame();
                 SettingsHandler.Instance.UpdateTargetLists();
+                BSEvents.menuSceneActive -= AddMenuStuff;
             }
             CoroutineHost.Start(WaitThenUpdate());
         }
@@ -94,8 +95,7 @@ namespace BLPPCounter
 #else
             GameplaySetup.instance.RemoveTab("BL PP Counter");
             GameplaySetup.instance.RemoveTab("PP Calculator");
-            BSMLSettings.instance.RemoveSettingsMenu(SettingsHandler.Instance);
-            BSEvents.menuSceneActive -= AddMenuStuff; // 1.34.2 and below
+            BSMLSettings.instance.RemoveSettingsMenu(SettingsHandler.Instance); // 1.34.2 and below
 #endif
             Profile.SaveAllProfiles();
             Targeter.SaveAll();

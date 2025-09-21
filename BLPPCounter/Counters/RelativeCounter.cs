@@ -114,9 +114,7 @@ namespace BLPPCounter.Counters
         public string ReplayMods { get; private set; }
 
         private TMP_Text display;
-        private float accRating, passRating, techRating, starRating, accToBeat;
-        // pass, acc, tech, total, replay pass rating, replay acc rating, replay tech rating, current score, current combo, max score <br/>
-        // 7: replayScore, 8: replayCombo, 9: maxReplayScore
+        private float accRating, passRating, techRating, starRating, accToBeat, staticAccToBeat;
         private float[] replayPPVals;
         private float[] replayRatings;
         private float replayScore, maxReplayScore;
@@ -130,7 +128,7 @@ namespace BLPPCounter.Counters
         private Calculator calc;
         private Leaderboards leaderboard;
         private float[] selectedRatings, ppVals;
-        private bool caughtUp;
+        private bool caughtUp, usingModdedAcc;
         private int catchUpNotes, displayNum;
         #endregion
         #region Init
@@ -169,6 +167,7 @@ namespace BLPPCounter.Counters
             noteArray = bestReplay.notes.ToArray();
             wallArray = new Queue<BeatLeader.Models.Replay.WallEvent>(bestReplay.walls);
             ReplayMods = bestReplay.info.modifiers.ToLower();
+            usingModdedAcc = false;
             if (leaderboard == Leaderboards.Beatleader)
             {
                 Match hold = Regex.Match(ReplayMods, "(fs|sf|ss),?");
@@ -179,13 +178,16 @@ namespace BLPPCounter.Counters
                 replayRatings[0] = HelpfulPaths.GetRating(data, PPType.Acc, mod) * replayMult;
                 replayRatings[1] = HelpfulPaths.GetRating(data, PPType.Pass, mod) * replayMult;
                 replayRatings[2] = HelpfulPaths.GetRating(data, PPType.Tech, mod) * replayMult;
+                for (int i = 0; i < replayRatings.Length; i++)
+                    if (replayRatings[i] != selectedRatings[i])
+                    {
+                        usingModdedAcc = true;
+                        break;
+                    }
+                usingModdedAcc &= PC.ReplayMods;
             }
             else
-            {
-                replayRatings = new float[selectedRatings.Length];
-                for (int i = 0; i < selectedRatings.Length; i++)
-                    replayRatings[i] = selectedRatings[i];
-            }
+                replayRatings = selectedRatings;
             replayPPVals = new float[replayRatings.Length + 1];
             ReplayMods = ReplayMods.ToUpper();
         }
@@ -238,6 +240,7 @@ namespace BLPPCounter.Counters
                     else ppToBeat = calc.GetSummedPp(acc, selectedRatings);
                     accToBeat = calc.GetAccDeflated(ppToBeat, PC.DecimalPrecision, selectedRatings);
                 }
+                staticAccToBeat = accToBeat;
                 if (!failed) ResetVars();
                 return;
             }
@@ -445,6 +448,7 @@ namespace BLPPCounter.Counters
             }
             //Plugin.Log.Info($"Note #{notes} ({scoringType}): {BLCalc.GetCutScore(note)} / {ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore}");
             replayPPVals = calc.GetPpWithSummedPp(replayScore / maxReplayScore, replayRatings);
+            accToBeat = usingModdedAcc ? BLCalc.Instance.GetAccDeflatedUnsafe(replayPPVals[0] + replayPPVals[1] + replayPPVals[2], true, PC.DecimalPrecision, selectedRatings, accToBeat / 100.0f, 100) : (float)Math.Round(replayScore / maxReplayScore * 100.0f, PC.DecimalPrecision);
         }
         public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
@@ -475,10 +479,10 @@ namespace BLPPCounter.Counters
                 ppVals[i] = (float)Math.Round(ppVals[i], precision);
             string target = PC.ShowEnemy ? PC.Target : Targeter.NO_TARGET;
             string color(float num) => PC.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
-            float accDiff = (float)Math.Round((acc - (useReplay ? replayScore / maxReplayScore : 0)) * 100.0f, PC.DecimalPrecision);
+            float accDiff = (float)Math.Round(acc * 100.0f, PC.DecimalPrecision) - accToBeat;
             if (float.IsNaN(accDiff)) accDiff = 0f;
-            else if (!useReplay) accDiff -= accToBeat;
-            float replayAcc = PC.DynamicAcc && useReplay ? (float)Math.Round(replayScore / maxReplayScore * 100.0f, PC.DecimalPrecision) : accToBeat;
+            //else if (!useReplay) accDiff -= accToBeat;
+            float replayAcc = PC.DynamicAcc && useReplay ? accToBeat : staticAccToBeat;
             if (float.IsNaN(replayAcc)) replayAcc = 0f;
             if (PC.SplitPPVals && calc.RatingCount > 1)
             {

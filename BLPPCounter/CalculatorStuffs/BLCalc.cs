@@ -74,7 +74,7 @@ namespace BLPPCounter.CalculatorStuffs
         public override float[] SelectRatings(float[] ratings) => ratings.Skip(1).ToArray();
         public override float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings) //ratings order: acc pass tech
         {
-            if (deflatedPp > GetSummedPp(1.0f, ratings)) return precision >= 0 ? 100.0f : 1.0f;
+            if (deflatedPp > GetSummedPp(1.0f, ratings) || ratings is null || ratings.Length < 3) return precision >= 0 ? 100.0f : 1.0f;
             var (accRating, passRating, techRating) = (ratings[0], ratings[1], ratings[2]);
             deflatedPp -= GetPassPp(passRating);
             if (deflatedPp <= 0.0f) return 0.0f;
@@ -85,6 +85,12 @@ namespace BLPPCounter.CalculatorStuffs
         {
             float outp = GetAccDeflated(deflatedPp, precision, BLAPI.Instance.GetRatings(diffData, speed, modMult));
             return precision >= 0 ? (float)Math.Round(outp * 100.0f, precision) : outp;
+        }
+        public float GetAccDeflatedUnsafe(float deflatedPp, bool hasPassPp, int precision, float[] ratings, float initGuess = 1.0f, int maxIterations = 100)
+        {
+            var (accRating, passRating, techRating) = (ratings[0], ratings[1], ratings[2]);
+            if (hasPassPp) deflatedPp -= GetPassPp(passRating);
+            return (float)Math.Round(CalculateX(deflatedPp, techRating, accRating, initGuess, maxIterations: maxIterations) * 100.0f, precision);
         }
         public override float Inflate(float pp) => 650f * (float)Math.Pow(pp, 1.3f) / (float)Math.Pow(650f, 1.3f);
         public override float Deflate(float pp) => (float)Math.Pow(pp * (float)Math.Pow(650f, 1.3f) / 650f, 1.0f / 1.3f);

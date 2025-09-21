@@ -58,6 +58,7 @@ namespace BLPPCounter.Settings.Configs
         #endregion
         #region Relative Counter Settings
         public virtual bool UseReplay { get; set; } = true;
+        public virtual bool ReplayMods { get; set; } = true;
         public virtual bool DynamicAcc { get; set; } = true;
         public virtual bool ShowRank { get; set; } = true;
         public virtual string RelativeDefault { get; set; } = "Normal";

@@ -1,5 +1,5 @@
 <settings-submenu text='Add Custom Alias' hover-hint='Add your own aliases to use in the format editor' align='Center' on-click='Load'>
-  <vertical spacing='1' anchor-pos-x='0'>
+  <vertical spacing='1' anchor-pos-x='0' anchor-pos-y='5' pref-height='60' vertical-fit='PreferredSize' child-control-height='true'>
     <horizontal>
       <button text='Go Back' click-event='back' align='Left'/>
     </horizontal>
@@ -34,10 +34,10 @@
     <dropdown-list-setting text='Counter' apply-on-change='true' value='Counter' options='CounterNames'/>
     <dropdown-list-setting text='Format' id='ChooseFormat' apply-on-change='true' value='FormatName' options='FormatNames'/>
   </vertical>
-  <vertical anchor-pos-x='160' anchor-pos-y='5' pref-width='200' spacing='10' horizontal-fit='PreferredSize' bg='round-rect-panel' bg-color='#CCC'>
+  <vertical anchor-pos-x='160' anchor-pos-y='5' pref-width='210' spacing='10' horizontal-fit='PreferredSize' bg='round-rect-panel' bg-color='#CCC'>
     <horizontal bg='panel-top' pad-left='15' pad-right='15' horizontal-fit='PreferredSize'>
       <text text='Alias Table' align='Center' font-size='8'/>
     </horizontal>
-    <text id='InfoTable' text='' align='Left' word-wrapping='true'/>
+    <text id='InfoTable' text='' align='Left' word-wrapping='false'/>
   </vertical>
 </settings-submenu>
