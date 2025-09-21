@@ -36,6 +36,13 @@ namespace BLPPCounter.Settings.SettingHandlers
         private static PluginConfig PC => PluginConfig.Instance;
         public static SettingsHandler Instance { get; private set; } = new SettingsHandler();
         public static event Action<SettingsHandler> NewInstance;
+#if NEW_VERSION
+        internal static readonly int MENU_HEIGHT = 70;
+        internal static readonly int MENU_ANCHOR = 0;
+#else
+        internal static readonly int MENU_HEIGHT = 60;
+        internal static readonly int MENU_ANCHOR = 5;
+#endif
         #endregion
         #region Init
         public SettingsHandler()

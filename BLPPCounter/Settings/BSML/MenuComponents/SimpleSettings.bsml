@@ -1,4 +1,4 @@
-<vertical spacing='2' anchor-pos-y='5' pref-height='60' vertical-fit='PreferredSize' child-control-height='true'>
+<vertical spacing='2' anchor-pos-y='~MenuAnchor' pref-height='~MenuHeight' vertical-fit='PreferredSize' child-control-height='true'>
   <button text='Go Back' align='Center' click-event='back'/>
   <custom-list id='UICustomizer' contents='UISettings' show-scrollbar='true' cell-size='20' pref-width='100'>
     <vertical spacing='0' bg='round-rect-panel' bg-color='#CCC' horizontal-fit='Unconstrained' pad='2'>

@@ -1,5 +1,5 @@
 <settings-submenu text='Add Custom Alias' hover-hint='Add your own aliases to use in the format editor' align='Center' on-click='Load'>
-  <vertical spacing='1' anchor-pos-x='0' anchor-pos-y='5' pref-height='60' vertical-fit='PreferredSize' child-control-height='true'>
+  <vertical spacing='1' anchor-pos-x='0' anchor-pos-y='~MenuAnchor' pref-height='~MenuHeight' vertical-fit='PreferredSize' child-control-height='true'>
     <horizontal>
       <button text='Go Back' click-event='back' align='Left'/>
     </horizontal>

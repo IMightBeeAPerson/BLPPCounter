@@ -73,6 +73,10 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         #endregion
         #endregion
         #region UI Values
+        [UIValue(nameof(MenuHeight))]
+        private int MenuHeight => SettingsHandler.MENU_HEIGHT;
+        [UIValue(nameof(MenuAnchor))]
+        private int MenuAnchor => SettingsHandler.MENU_ANCHOR;
         #region Main Menu
 #if NEW_VERSION
         [UIValue(nameof(Counter))]

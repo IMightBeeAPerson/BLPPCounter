@@ -2,7 +2,6 @@
 using BeatSaberMarkupLanguage.Attributes;
 using BeatSaberMarkupLanguage.Components;
 using BeatSaberMarkupLanguage.ViewControllers;
-using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.Special_Utils;
@@ -22,23 +21,18 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private readonly Action<int, bool> AddChange;
         private bool loaded = false;
 
-        [UIComponent("UICustomizer")]
+        [UIComponent(nameof(UICustomizer))]
         private CustomCellListTableData UICustomizer;
-        /*[UIComponent("SaveButton")]
-        private UnityEngine.UI.Button saveButton;*/
-        [UIValue("UISettings")]
+        [UIValue(nameof(MenuHeight))]
+        private int MenuHeight = SettingsHandler.MENU_HEIGHT;
+        [UIValue(nameof(MenuAnchor))]
+        private int MenuAnchor = SettingsHandler.MENU_ANCHOR;
+        [UIValue(nameof(UISettings))]
         public List<object> UISettings { get; } = new List<object>();
 
         public SimpleMenuSettingsHandler()
         {
-            AddChange = (id, newVal) => 
-            {
-                PC.SimpleMenuConfig[id] = newVal;
-#if !NEW_VERSION
-                // if (!(saveButton is null)) // 1.34.2 and below
-#endif
-                // saveButton.interactable = changes > 0;
-            };
+            AddChange = (id, newVal) => PC.SimpleMenuConfig[id] = newVal;
         }
         [UIAction("#back")]
         private void GoBack()
@@ -54,7 +48,6 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             for (int i = 0; i < UISettings.Count; i++) 
                 if (UISettings[i] is SettingToggleInfo sti) 
                     sti.Usable = PC.SimpleMenuConfig[i];
-            //changes = 0;
 #if NEW_VERSION
             UICustomizer?.TableView.ReloadData(); // 1.37.0 and above
 #else
@@ -69,12 +62,6 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             MatchCollection mc = Regex.Matches(Utilities.GetResourceContent(System.Reflection.Assembly.GetExecutingAssembly(), resource), regex, RegexOptions.Multiline);
             if (PC.SimpleMenuConfig.Length != mc.Count)
                 PC.SimpleMenuConfig = new BoolStorage(mc.Count, true);
-            /*{
-                SettingsToSave = new bool[mc.Count];
-                for (int i = 0; i < SettingsToSave.Length; i++) SettingsToSave[i] = true;
-                PC.SimpleMenuConfigLength = mc.Count;
-                PC.SimpleMenuConfig = HelpfulMisc.ConvertBoolsToInt64(SettingsToSave);
-            }*/
             int count = 0;
             for (int i = 0; i < mc.Count; i++)
                 outp.Add(new SettingToggleInfo(

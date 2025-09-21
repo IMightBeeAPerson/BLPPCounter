@@ -27,7 +27,6 @@ namespace BLPPCounter.Settings.SettingHandlers
         private static readonly HashSet<string> NonSettingTags = new HashSet<string>(2) { "settings-container", "vertical", "horizontal", "modal", "custom-list" };
         #endregion
         #region UI & Normal Variables
-        private bool loaded = false;
 #if !NEW_VERSION
         private bool loadData = true;
 #endif
@@ -37,13 +36,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction("#post-parse")]
         private void LoadElements()
         {
-            if (loaded) return;
-            loaded = true;
             const string resource = "BLPPCounter.Settings.BSML.MenuSettings.bsml";
             const string regex = @"(?<=\s)<\/?([A-z\-]+)[^>]*>(?=[^<]*?$)(?!\z)";
             MatchCollection mc = Regex.Matches(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), resource), regex, RegexOptions.Multiline);
 #if NEW_VERSION
-            bool loadData = PluginConfig.Instance.SimpleMenuConfigLength == mc.Count(m => !NonSettingTags.Contains(m.Groups[1].Value)); //1.37.0 and above
+            bool loadData = PluginConfig.Instance.SimpleMenuConfig.Length == mc.Count(m => !NonSettingTags.Contains(m.Groups[1].Value) && !m.Value.Contains('~')); //1.37.0 and above
+            //Plugin.Log.Info($"Real Count: {PluginConfig.Instance.SimpleMenuConfig.Length}, counted count: {mc.Count(m => !NonSettingTags.Contains(m.Groups[1].Value) && !m.Value.Contains('~'))}");
 #else
             int count = 0;
             foreach (Match m in mc)
@@ -80,7 +78,6 @@ namespace BLPPCounter.Settings.SettingHandlers
                 if (Container is null || Container.transform is null) return;
                 Container.transform.DetachChildren();
                 loadData = PluginConfig.Instance.SimpleUI;
-                loaded = false;
                 LoadElements();
                 return;
             }
