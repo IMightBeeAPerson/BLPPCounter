@@ -544,16 +544,24 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="incrementNum">The number to set the increment to.</param>
         /// <param name="toSet">The <see cref="SliderSetting"/>s to set.</param>
-        public static void SetIncrements(int incrementNum, params SliderSetting[] toSet)
+        public static void SetIncrements(int incrementNum, params SliderSetting[] toSet) => SetIncrements(incrementNum, 1.0f, toSet);
+        /// <summary>
+        /// Sets the increment for the given <see cref="SliderSetting"/>s to the given number multiplied by a given <paramref name="mult"/>.
+        /// </summary>
+        /// <param name="incrementNum">The number to set the increment to.</param>
+        /// <param name="mult">The multiplier for <paramref name="incrementNum"/></param>
+        /// <param name="toSet">The <see cref="SliderSetting"/>s to set.</param>
+        public static void SetIncrements(int incrementNum, float mult, params SliderSetting[] toSet)
         {
+            float realIncrementNum = incrementNum * mult;
             foreach (SliderSetting s in toSet)
             {
 #if NEW_VERSION
-                s.Increments = incrementNum;
-                s.Slider.numberOfSteps = (int)Math.Round((s.Slider.maxValue - s.Slider.minValue) / incrementNum) + 1;
+                s.Increments = realIncrementNum;
+                s.Slider.numberOfSteps = (int)Math.Round((s.Slider.maxValue - s.Slider.minValue) / realIncrementNum) + 1;
 #else
                 s.increments = incrementNum;
-                s.slider.numberOfSteps = (int)Math.Round((s.slider.maxValue - s.slider.minValue) / incrementNum) + 1;
+                s.slider.numberOfSteps = (int)Math.Round((s.slider.maxValue - s.slider.minValue) / realIncrementNum) + 1;
 #endif
             }
         }

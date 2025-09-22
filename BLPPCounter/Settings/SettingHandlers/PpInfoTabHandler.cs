@@ -159,6 +159,9 @@ namespace BLPPCounter.Settings.SettingHandlers
                 UpdateTabSliders(value);
             }
         }
+        [UIValue(nameof(PercentSliderIncrementNum))]
+        private float PercentSliderIncrementNum => _SliderIncrementNum / 100f;
+
         private bool _ShowTrueID = PC.ShowTrueID;
         private float _PercentSliderMin = PC.PercentSliderMin;
         private float _PercentSliderMax = PC.PercentSliderMax;
@@ -1008,7 +1011,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void UpdateTabSliders(int amount = -1)
         {
             if (amount <= 0) amount = PC.SliderIncrementNum;
-            HelpfulMisc.SetIncrements(amount, MinPPSlider, MaxPPSlider, MinAccSlider, MaxAccSlider, CA_PPSliderSlider, CA_PercentSliderSlider, ProfilePPSlider);
+            HelpfulMisc.SetIncrements(amount, MinPPSlider, MaxPPSlider, CA_PPSliderSlider, ProfilePPSlider);
+            HelpfulMisc.SetIncrements(amount, 1f / 100f, MinAccSlider, MaxAccSlider, CA_PercentSliderSlider);
         }
 #endregion
     }

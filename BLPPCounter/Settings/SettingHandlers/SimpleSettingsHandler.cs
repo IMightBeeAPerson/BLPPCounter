@@ -55,7 +55,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             foreach (SettingToggleInfo sti in SimpleMenuSettingsHandler.Instance.UISettings.Cast<SettingToggleInfo>())
                 usable[sti.Text] = sti.Usable;
             foreach (Match m in mc)
-                if (!loadData || NonSettingTags.Contains(m.Groups[1].Value) || m.Value.Contains('~') || (loadData && usable[Regex.Match(m.Value, "text=['\"]([^'\"]+)").Groups[1].Value]))
+                if (!loadData || NonSettingTags.Contains(m.Groups[1].Value) || m.Value.Contains('~') || (loadData && usable[Regex.Match(m.Value, @"text=['""]([^'""]+)").Groups[1].Value]))
                     huh += m.Value + '\n';
 #if NEW_VERSION
             BSMLParser.Instance.Parse(huh, Container, SettingsHandler.Instance);
