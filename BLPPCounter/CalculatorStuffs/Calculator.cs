@@ -12,7 +12,6 @@ namespace BLPPCounter.CalculatorStuffs
 {
     public abstract class Calculator
     {
-        public static bool UsingDefault = false;
         /// <summary>
         /// How many ratings a leaderboard has. Beatleader would have 3 because of pass, tech, and acc ratings, while Scoresaber would only have 1.
         /// </summary>
@@ -107,8 +106,7 @@ namespace BLPPCounter.CalculatorStuffs
         public float InvertCurve(double curveOutput) => GetInvertCurve(curveOutput, PointList);
         public float CurveDerivative(float acc) => GetCurveDerivative(acc, PointList);
         #region Static Methods
-        public static Calculator GetCalc(bool useDefault = false) => GetCalc(!useDefault ? PluginConfig.Instance.Leaderboard : PluginConfig.Instance.DefaultLeaderboard);
-        public static Calculator GetSelectedCalc() => GetCalc(UsingDefault);
+        public static Calculator GetSelectedCalc() => GetCalc(TheCounter.Leaderboard);
         public static Calculator GetCalc(Leaderboards leaderboard)
         {
             switch(leaderboard)

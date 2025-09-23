@@ -15,9 +15,30 @@
       </vertical>
       <text text='Leaderboard Settings' align='Center'/>
       <vertical spacing='1'>
-        <list-setting text='Leaderboard' apply-on-change='true' value='Leaderboard' options='LeaderboardList' hover-hint='Choose which leaderboard to use (Only Beatleader has all features!)'/>
-        <checkbox-setting text='Default to leaderboard' apply-on-change='true' value='DefaultToLeaderboard' hover-hint='If the map is not usable for the selected leaderboard, try to default to the below leaderboard'/>
-        <list-setting id='DefLeader' text='Default Leaderboard' apply-on-change='true' value='DefaultLeaderboard' options='DefaultLeaderboards' hover-hint='The leaderboard to default on (cannot be the same as selected leaderboard)'/>
+        <button text='Leaderboard Selection' align='Center' click-event='ShowLeaderModal'/>
+        <modal show-event='ShowLeaderModal' hide-event='HideLeaderModal' click-off-closes='true' size-delta='100 80'>
+          <vertical spacing='10' bg='round-rect-panel' bg-color='#CCC' pref-width='100' pref-height='80' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' child-control-width='true' pad-bottom='10'>
+            <custom-list id='LeaderboardTable' contents='LeaderboardOptions' pref-width='100' pref-height='50' cell-size='20' show-scrollbar='true'>
+              <vertical spacing='3' horizontal-fit='PreferredSize'>
+                <text text='~Leaderboard' align='Center' font-size='5'/>
+                <horizontal spacing='10'>
+                  <button text='Remove' face-color='red' align='Left' on-click='RemoveLeaderboard'/>
+                  <horizontal spacing='1'>
+                    <button text='Move Up' align='Left' on-click='SwapUp'/>
+                    <button text='Move Down' align='Right' on-click='SwapDown'/>
+                  </horizontal>
+                </horizontal>
+              </vertical>
+            </custom-list>
+            <vertical spacing='1'>
+              <list-setting id='LeaderboardSelector' text='Leaderboard' apply-on-change='true' value='Leaderboard' options='LeaderboardList' hover-hint='Choose which leaderboard to use (Only Beatleader has all features!)'/>
+              <horizontal>
+                <button text='Add Leaderboard' on-click='AddLeaderboard' align='Left'/>
+                <button text='Exit' click-event='HideLeaderModal' align='Right'/>
+              </horizontal>
+            </vertical>
+          </vertical>
+        </modal>
         <checkbox-setting text='Show On Unranked Maps' apply-on-change='true' value='UseUnranked' hover-hint='Patreons of BL can see ratings for unranked maps'/>
         <checkbox-setting text='Show Leaderboard in Label' apply-on-change='true' value='LeaderInLabel' hover-hint='Shows the leaderboard inside of the label aspect of the counter'/>
       </vertical>

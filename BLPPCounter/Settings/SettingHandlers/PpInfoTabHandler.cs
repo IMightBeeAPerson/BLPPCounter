@@ -50,7 +50,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private (JToken Diffdata, JToken Scoredata) CurrentDiff;
         private AsyncLock RefreshLock = new AsyncLock(), ProfileLock = new AsyncLock();
         private bool SelectButtonsOn = false;
-        internal Leaderboards CurrentLeaderboard { get; private set; } = PC.Leaderboard;
+        internal Leaderboards CurrentLeaderboard { get; private set; } = PC.LeaderboardsInUse.First();
         private Calculator CurrentCalculator => Calculator.GetCalc(CurrentLeaderboard);
         private APIHandler CurrentAPI => APIHandler.GetAPI(CurrentLeaderboard);
 #if NEW_VERSION
@@ -359,11 +359,11 @@ namespace BLPPCounter.Settings.SettingHandlers
         }*/
         [UIAction(nameof(RefreshProfilePP))] private void RefreshProfilePP()
         {
-            Task.Run(async () => await RefreshProfileScores().ConfigureAwait(false));
+            Task.Run(async () => await RefreshProfileScores());
         }
         private async Task RefreshProfileScores()
         {
-            AsyncLock.Releaser? theLock = await ProfileLock.TryLockAsync().ConfigureAwait(false);
+            AsyncLock.Releaser? theLock = await ProfileLock.TryLockAsync();
             if (theLock is null) return;
             using (theLock.Value)
             {
@@ -371,7 +371,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 if (CurrentProfile is null)
                     UpdateProfile();
                 CurrentProfile.ReloadScores();
-                await Refresh(true).ConfigureAwait(false);
+                await Refresh(true);
                 ReloadDataButton.interactable = true;
             }
         }
@@ -966,7 +966,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             {
                 try
                 {
-                    CurrentLeaderboard = PC.Leaderboard;
+                    CurrentLeaderboard = PC.LeaderboardsInUse.First();
                     UpdateMods();
                     TargetPP = await UpdateTargetPP();
                     await UpdateTabDisplay(forceRefresh, false);

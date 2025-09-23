@@ -26,8 +26,6 @@ namespace BLPPCounter.Utils.API_Handlers
         };
         private static readonly Throttler BSThrottler = new Throttler(50, 10);
 
-        public static bool UsingDefault = false;
-
         public abstract string API_HASH { get; }
         public abstract Task<(bool Success, HttpContent Content)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3);
         public static async Task<(bool Success, HttpContent Content)> CallAPI_Static(string path, Throttler throttler = null, bool quiet = false, int maxRetries = 3)
@@ -308,8 +306,7 @@ namespace BLPPCounter.Utils.API_Handlers
 
         public abstract Task<float> GetProfilePP(string userId);
         internal abstract Task AddMap(Dictionary<string, Map> Data, string hash, CancellationToken ct = default);
-        public static APIHandler GetAPI(bool useDefault = false) => GetAPI(!useDefault ? PluginConfig.Instance.Leaderboard : PluginConfig.Instance.DefaultLeaderboard);
-        public static APIHandler GetSelectedAPI() => GetAPI(UsingDefault);
+        public static APIHandler GetSelectedAPI() => GetAPI(TheCounter.Leaderboard);
         public static APIHandler GetAPI(Leaderboards leaderboard)
         {
             switch (leaderboard)

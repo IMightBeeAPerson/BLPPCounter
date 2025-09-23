@@ -24,7 +24,6 @@ using BLPPCounter.Utils.Special_Utils;
 using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
-using UnityEngine;
 using Zenject;
 using static GameplayModifiers;
 namespace BLPPCounter
@@ -50,8 +49,10 @@ namespace BLPPCounter
         public static Dictionary<string, Map> Data { get; private set; }
         public static string DisplayName => "Main";
         private static PluginConfig pc => PluginConfig.Instance;
-        private static bool dataLoaded = false, fullDisable = false, usingDefaultLeaderboard = false;
-        internal static Leaderboards Leaderboard => usingDefaultLeaderboard ? pc.DefaultLeaderboard : pc.Leaderboard;
+        private static bool dataLoaded = false, fullDisable = false;
+        private static int leaderboardIndex = 0;
+        internal static Leaderboards Leaderboard => pc.LeaderboardsInUse.Count == 0 ? default : pc.LeaderboardsInUse[leaderboardIndex];
+        internal static bool LastLeaderboard => pc.LeaderboardsInUse.Count - 1 <= leaderboardIndex;
         internal static MapSelection LastMap;
         internal static GameplayModifiers LastMods = null;
         public static IMyCounters theCounter { get; internal set; }
@@ -264,6 +265,12 @@ namespace BLPPCounter
             {
                 if (!DisplayNames.Contains(pc.PPType))
                     pc.PPType = DisplayNames[0];
+            } else if (ValidDisplayNames.Values.Where(arr => arr.Length > 0).Count() > 0)
+            {
+                pc.LeaderboardsInUse.Add(ValidDisplayNames.Where(kvp => kvp.Value.Length > 0).First().Key);
+                if (!DisplayNames.Contains(pc.PPType))
+                    pc.PPType = DisplayNames[0];
+                Plugin.Log.Warn("There was no leaderboards added which causes issues. Added a working leaderboard.");
             } else
             {
                 Plugin.Log.Critical("No counter is in working order!!! Shutting down this counter as it will only cause issues.");
@@ -311,9 +318,10 @@ namespace BLPPCounter
         }
         public override void CounterInit()
         {
-            enabled = usingDefaultLeaderboard = false;
+            enabled = false;
+            leaderboardIndex = 0;
             ForceOff = () => ForceTurnOff();
-            if (fullDisable) return;
+            if (fullDisable || LastLeaderboard) return;
             notes = comboNotes = mistakes = 0;
             totalHitscore = maxHitscore = fcTotalHitscore = 0.0f;
 #if !NEW_VERSION
@@ -334,9 +342,10 @@ namespace BLPPCounter
                 Data = new Dictionary<string, Map>();
                 InitData();
             }
+            Plugin.Log.Info("Attempting to load " + Leaderboard + "...");
             try
             {
-                if (!dataLoaded) await APIHandler.GetAPI(usingDefaultLeaderboard).AddMap(Data, hash, ct);
+                if (!dataLoaded) await APIHandler.GetAPI(Leaderboard).AddMap(Data, hash, ct);
                 enabled = SetupMapData(ct);
                 if (ct.IsCancellationRequested)
                     return;
@@ -371,8 +380,6 @@ namespace BLPPCounter
                         } 
                         LastMap = ms;
                         LastMods = mods;
-                        APIHandler.UsingDefault = usingDefaultLeaderboard;
-                        Calculator.UsingDefault = usingDefaultLeaderboard;
                         if (!InitCounter())
                         {
                             Plugin.Log.Warn("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
@@ -394,15 +401,14 @@ namespace BLPPCounter
                 Plugin.Log.Error($"The counter failed to be initialized: {e.Message}\nSource: {e.Source}");
                 if (e is KeyNotFoundException) Plugin.Log.Error($"Data dictionary length: {Data.Count}");
                 Plugin.Log.Debug(e);
-                if (usingDefaultLeaderboard)
+                if (LastLeaderboard)
                     ForceTurnOff();
             }
         Failed:
-            if (!usingDefaultLeaderboard)
+            if (!LastLeaderboard)
             {
-                usingDefaultLeaderboard = true;
-                usingDefaultLeaderboard = DisplayNames.Contains(pc.PPType);
-                if (!usingDefaultLeaderboard || ct.IsCancellationRequested) return;
+                leaderboardIndex++;
+                if (!DisplayNames.Contains(pc.PPType) || ct.IsCancellationRequested) return;
                 await AsyncCounterInit(ct);
             }
             else
@@ -709,10 +715,10 @@ namespace BLPPCounter
         }
         private static void SetLabels()
         {
-            CurrentLabels = new string[Calculator.GetCalc(usingDefaultLeaderboard).DisplayRatingCount];
-            string predicate = pc.LeaderInLabel ? Calculator.GetCalc(usingDefaultLeaderboard).Label : "";
+            CurrentLabels = new string[Calculator.GetCalc(Leaderboard).DisplayRatingCount];
+            string predicate = pc.LeaderInLabel ? Calculator.GetCalc(Leaderboard).Label : "";
             for (int i = 0; i < CurrentLabels.Length; i++)
-            if (pc.LeaderInLabel && ((usingDefaultLeaderboard && pc.DefaultLeaderboard != Leaderboards.Accsaber) || (!usingDefaultLeaderboard && pc.Leaderboard != Leaderboards.Accsaber)))
+            if (pc.LeaderInLabel && Leaderboard != Leaderboards.Accsaber)
                 CurrentLabels[i] = predicate + Labels[CurrentLabels.Length == 1 ? 3 : i];
             else CurrentLabels[i] = predicate;
         }
@@ -940,7 +946,7 @@ namespace BLPPCounter
         }
         public static float GetStarMultiplier(JToken data, GameplayModifiers mods)
         {
-            if (!Calculator.GetCalc(usingDefaultLeaderboard).UsesModifiers || mods is null) return 1.0f;
+            if (!Calculator.GetCalc(Leaderboard).UsesModifiers || mods is null) return 1.0f;
             float outp = 1.0f;
             if (mods.ghostNotes) outp += HelpfulPaths.GetMultiAmount(data, "gn");
             if (mods.noArrows) outp += HelpfulPaths.GetMultiAmount(data, "na");
@@ -952,7 +958,7 @@ namespace BLPPCounter
         #region Updates
         public static void UpdateText(bool displayFc, TMP_Text display, float[] ppVals, int mistakes)
         {
-            int num = Calculator.GetCalc(usingDefaultLeaderboard).DisplayRatingCount; //4 comes from the maximum amount of ratings of currently supported leaderboards
+            int num = Calculator.GetCalc(Leaderboard).DisplayRatingCount;
             if (pc.SplitPPVals && num > 1) {
                 string outp = "";
                 for (int i = 0; i < 4; i++) 
@@ -964,7 +970,7 @@ namespace BLPPCounter
         public static string GetUpdateText(bool displayFc, float[] ppVals, int mistakes, string[] labels = null)
         {
             if (labels is null) labels = Labels.ToArray();
-            int num = Calculator.GetCalc(usingDefaultLeaderboard).DisplayRatingCount; //4 comes from the maximum amount of ratings of currently supported leaderboards
+            int num = Calculator.GetCalc(Leaderboard).DisplayRatingCount; //4 comes from the maximum amount of ratings of currently supported leaderboards
             if (pc.SplitPPVals && num > 1)
             {
                 string outp = "";

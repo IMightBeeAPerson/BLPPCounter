@@ -35,11 +35,8 @@ namespace BLPPCounter.Settings.Configs
         public virtual string PPType { get; set; } = "Normal";
         #endregion
         #region Leaderboard Settings
-        public virtual bool DefaultToLeaderboard { get; set; } = true;
-        [UseConverter]
-        public virtual Leaderboards Leaderboard { get; set; } = Leaderboards.Beatleader;
-        [UseConverter]
-        public virtual Leaderboards DefaultLeaderboard { get; set; } = Leaderboards.Scoresaber;
+        [UseConverter(typeof(ListConverter<Leaderboards>))]
+        public virtual List<Leaderboards> LeaderboardsInUse { get; set; } = new List<Leaderboards>();
         public virtual bool UseUnranked { get; set; } = true;
         public virtual bool LeaderInLabel { get; set; } = true;
         #endregion

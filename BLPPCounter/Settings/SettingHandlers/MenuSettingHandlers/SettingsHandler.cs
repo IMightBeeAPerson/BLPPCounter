@@ -4,6 +4,7 @@ using BeatSaberMarkupLanguage.Components.Settings;
 using BLPPCounter.Counters;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
+using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.List_Settings;
 using BLPPCounter.Utils.Misc_Classes;
@@ -18,7 +19,6 @@ using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using Zenject;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -80,15 +80,16 @@ namespace BLPPCounter.Settings.SettingHandlers
                 }
             };
         }
+#pragma warning disable IDE0051
+
+        [UIAction("#post-parse")]
+        private void PostParse()
+        {
+            TargetPostParse();
+        }
+#pragma warning restore IDE0051
         #endregion
         #region General Settings
-
-        [UIValue(nameof(UseUnranked))]
-        public bool UseUnranked
-        {
-            get => PC.UseUnranked;
-            set {PC.UseUnranked = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseUnranked))); }
-        }
         [UIValue(nameof(DecimalPrecision))]
         public int DecimalPrecision
         {
@@ -150,56 +151,37 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region Leaderboard Settings
-        [UIComponent(nameof(DefLeader))] 
-        private ListSetting DefLeader;
-        [UIValue(nameof(Leaderboard))]
-        public string Leaderboard
+        private LeaderboardSettingsHandler LeaderboardSettings => LeaderboardSettingsHandler.Instance;
+        [UIComponent(nameof(LeaderboardTable))] 
+        private CustomCellListTableData LeaderboardTable
         {
-            get => PC.Leaderboard.ToString();
-            set 
-            {
-                PC.Leaderboard = (Leaderboards)Enum.Parse(typeof(Leaderboards), value);
-                if (!(DefLeader is null))
-                {
-#if NEW_VERSION
-                    DefLeader.Values = DefaultLeaderboards;
-                    if (!DefLeader.Values.Contains(DefaultLeaderboard))
-                        DefaultLeaderboard = DefLeader.Values[0] as string;
-#else
-                    DefLeader.values = DefaultLeaderboards;
-                    if (!DefLeader.values.Contains(DefaultLeaderboard))
-                        DefaultLeaderboard = DefLeader.values[0] as string;
-#endif
-                    DefLeader.ReceiveValue();
-                }
-                PropertyChanged(this, new PropertyChangedEventArgs(nameof(Leaderboard)));
-            }
+            set => LeaderboardSettings.LeaderboardTable = value;
+            get => LeaderboardSettings.LeaderboardTable;
+        }
+        [UIComponent(nameof(LeaderboardSelector))]
+        private ListSetting LeaderboardSelector
+        {
+            set => LeaderboardSettings.LeaderboardSelector = value;
+            get => LeaderboardSettings.LeaderboardSelector;
+        }
+        [UIValue(nameof(Leaderboard))]
+        private string Leaderboard
+        {
+            get => LeaderboardSettings.NextLeaderboardToAdd.ToString();
+            set { LeaderboardSettings.NextLeaderboardToAdd = (Leaderboards)Enum.Parse(typeof(Leaderboards), value); PropertyChanged(this, new PropertyChangedEventArgs(nameof(Leaderboard))); }
         }
         [UIValue(nameof(LeaderboardList))]
-        public List<object> LeaderboardList
+        private List<object> LeaderboardList => LeaderboardSettings.LeaderboardList;
+        [UIValue(nameof(LeaderboardOptions))]
+        private List<object> LeaderboardOptions => LeaderboardSettings.LeaderboardOptions;
+        [UIAction(nameof(AddLeaderboard))]
+        private void AddLeaderboard() => LeaderboardSettings.AddCell();
+        [UIValue(nameof(UseUnranked))]
+        public bool UseUnranked
         {
-            get
-            {
-                List<object> outp = new List<object>((int)Math.Log((int)Leaderboards.All + 1, 2));
-                for (int i = 1; i < (int)Leaderboards.All; i <<= 1)
-                    outp.Add(((Leaderboards)i).ToString());
-                return outp;
-            }
+            get => PC.UseUnranked;
+            set { PC.UseUnranked = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseUnranked))); }
         }
-        [UIValue(nameof(DefaultToLeaderboard))]
-        public bool DefaultToLeaderboard
-        {
-            get => PC.DefaultToLeaderboard;
-            set { PC.DefaultToLeaderboard = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(DefaultToLeaderboard))); }
-        }
-        [UIValue(nameof(DefaultLeaderboard))]
-        public string DefaultLeaderboard
-        {
-            get => PC.DefaultLeaderboard.ToString();
-            set { PC.DefaultLeaderboard = (Leaderboards)Enum.Parse(typeof(Leaderboards), value); PropertyChanged(this, new PropertyChangedEventArgs(nameof(DefaultLeaderboard))); }
-        }
-        [UIValue(nameof(DefaultLeaderboards))]
-        public List<object> DefaultLeaderboards => LeaderboardList.Where(l => !l.Equals(Leaderboard)).ToList();
         [UIValue(nameof(LeaderInLabel))] 
         public bool LeaderInLabel
         {
@@ -657,9 +639,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             return new TargetInfo(name, id.ID, (Leaderboards.Beatleader, id.Rank));
         }
 #endregion
-#pragma warning disable IDE0051
-        [UIAction("#post-parse")]
-        private void PostParse()
+        private void TargetPostParse()
         {
 #if NEW_VERSION
             ClanTargetList.TableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = ClanTargetInfos[index]; UpdateSelectedTarget(view.GetCellAtIndex(index)); };

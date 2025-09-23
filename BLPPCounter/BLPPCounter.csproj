@@ -191,12 +191,13 @@
     <Compile Include="Settings\Configs\PluginConfig.cs" />
     <Compile Include="Settings\Configs\TextFormatSettings.cs" />
     <Compile Include="Settings\Configs\TokenFormatSettings.cs" />
+    <Compile Include="Settings\SettingHandlers\MenuSettingHandlers\LeaderboardSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\PpInfoTabHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\ColorSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\CustomAliasHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\FormatEditorHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\MenuSettingsHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\SettingsHandler.cs" />
+    <Compile Include="Settings\SettingHandlers\MenuSettingHandlers\SettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\SimpleSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\SimpleMenuSettingsHandler.cs" />
     <Compile Include="Utils\API Handlers\APAPI.cs" />
@@ -209,6 +210,7 @@
     <Compile Include="Utils\Enums\APCategory.cs" />
     <Compile Include="Utils\Enums\PPType.cs" />
     <Compile Include="Utils\Enums\Leaderboards.cs" />
+    <Compile Include="Utils\List Settings\LeaderboardListInfo.cs" />
     <Compile Include="Utils\List Settings\SessionListInfo.cs" />
     <Compile Include="Utils\List Settings\TargetInfo.cs" />
     <Compile Include="Utils\List Settings\AliasListInfo.cs" />
