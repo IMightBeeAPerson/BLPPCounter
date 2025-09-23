@@ -86,6 +86,9 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void PostParse()
         {
             TargetPostParse();
+#if !NEW_VERSION
+            LeaderboardPostParse();
+#endif
         }
 #pragma warning restore IDE0051
         #endregion
@@ -152,18 +155,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         #endregion
         #region Leaderboard Settings
         private LeaderboardSettingsHandler LeaderboardSettings => LeaderboardSettingsHandler.Instance;
-        [UIComponent(nameof(LeaderboardTable))] 
-        private CustomCellListTableData LeaderboardTable
-        {
-            set => LeaderboardSettings.LeaderboardTable = value;
-            get => LeaderboardSettings.LeaderboardTable;
-        }
+        [UIObject(nameof(LeaderboardModal))]
+        private GameObject LeaderboardModal;
+        [UIComponent(nameof(LeaderboardTable))]
+        internal CustomCellListTableData LeaderboardTable;
         [UIComponent(nameof(LeaderboardSelector))]
-        private ListSetting LeaderboardSelector
-        {
-            set => LeaderboardSettings.LeaderboardSelector = value;
-            get => LeaderboardSettings.LeaderboardSelector;
-        }
+        internal ListSetting LeaderboardSelector;
         [UIValue(nameof(Leaderboard))]
         private string Leaderboard
         {
@@ -188,6 +185,17 @@ namespace BLPPCounter.Settings.SettingHandlers
             get => PC.LeaderInLabel;
             set { PC.LeaderInLabel = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(LeaderInLabel))); }
         }
+#if !NEW_VERSION
+        private void LeaderboardPostParse()
+        {
+            IEnumerator WaitThenUpdate()
+            {
+                yield return new WaitForEndOfFrame();
+                (LeaderboardModal.transform as RectTransform).sizeDelta = new Vector2(100, 80);
+            }
+            CoroutineHost.Start(WaitThenUpdate());
+        }
+#endif
 #endregion
         #region Misc Settings
         [UIAction(nameof(ClearCache))]

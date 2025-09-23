@@ -16,9 +16,9 @@
       <text text='Leaderboard Settings' align='Center'/>
       <vertical spacing='1'>
         <button text='Leaderboard Selection' align='Center' click-event='ShowLeaderModal'/>
-        <modal show-event='ShowLeaderModal' hide-event='HideLeaderModal' click-off-closes='true' size-delta='100 80'>
-          <vertical spacing='10' bg='round-rect-panel' bg-color='#CCC' pref-width='100' pref-height='80' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' child-control-width='true' pad-bottom='10'>
-            <custom-list id='LeaderboardTable' contents='LeaderboardOptions' pref-width='100' pref-height='50' cell-size='20' show-scrollbar='true'>
+        <modal id='LeaderboardModal' show-event='ShowLeaderModal' hide-event='HideLeaderModal' click-off-closes='true' size-delta='100 80'>
+          <vertical spacing='10' bg='round-rect-panel' bg-color='#CCC' pref-width='80' pref-height='80' horizontal-fit='PreferredSize' vertical-fit='PreferredSize' child-control-width='true' pad-bottom='10'>
+            <custom-list id='LeaderboardTable' contents='LeaderboardOptions' pref-width='80' pref-height='50' cell-size='20' show-scrollbar='true'>
               <vertical spacing='3' horizontal-fit='PreferredSize'>
                 <text text='~Leaderboard' align='Center' font-size='5'/>
                 <horizontal spacing='10'>

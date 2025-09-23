@@ -4,10 +4,12 @@ using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.List_Settings;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
 {
@@ -20,18 +22,19 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         internal List<object> LeaderboardOptions => PC.LeaderboardsInUse.Select(token => (object)new LeaderboardListInfo(token)).ToList();
         internal List<object> LeaderboardList => PC.LeaderboardsInUse.Count == _usableLeaderboards.Count ?
             new List<object>(1) { Leaderboards.None.ToString() } :
-            UsableLeaderboards.Where(token => !PC.LeaderboardsInUse.Contains(token)).Select(token => (object)token.ToString()).ToList();
+            _usableLeaderboards.Where(token => !PC.LeaderboardsInUse.Contains(token)).Select(token => (object)token.ToString()).ToList();
 
         private readonly List<Leaderboards> _usableLeaderboards;
         public Leaderboards NextLeaderboardToAdd;
-        internal ListSetting LeaderboardSelector = null;
-        internal CustomCellListTableData LeaderboardTable = null;
+        internal ListSetting LeaderboardSelector => SettingsHandler.Instance.LeaderboardSelector;
+        internal CustomCellListTableData LeaderboardTable => SettingsHandler.Instance.LeaderboardTable;
 
         private LeaderboardSettingsHandler() 
         {
             _usableLeaderboards = new List<Leaderboards>((int)Math.Log((int)Leaderboards.All + 1, 2));
             for (int i = 1; i < (int)Leaderboards.All; i <<= 1)
                 _usableLeaderboards.Add((Leaderboards)i);
+            NextLeaderboardToAdd = (Leaderboards)Enum.Parse(typeof(Leaderboards), LeaderboardList.First() as string);
         }
 
         internal void RemoveCell(Leaderboards leaderboard)
@@ -67,12 +70,22 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         }
         internal void Refresh()
         {
+            //Plugin.Log.Info($"NULL CHECKS: LeaderboardOptions: {LeaderboardOptions is null} || LeaderboardList: {LeaderboardList is null} || LeaderboardTable: {LeaderboardTable is null} || LeaderboardSelector: {LeaderboardSelector is null} || LeaderboardList.First(): {LeaderboardList.First() is null}");
+#if NEW_VERSION
             LeaderboardTable.Data = LeaderboardOptions;
             LeaderboardSelector.Values = LeaderboardList;
+#else
+            LeaderboardTable.data = LeaderboardOptions;
+            LeaderboardSelector.values = LeaderboardList;
+#endif
             LeaderboardSelector.Value = LeaderboardList.First();
             NextLeaderboardToAdd = (Leaderboards)Enum.Parse(typeof(Leaderboards), LeaderboardList.First() as string);
 
+#if NEW_VERSION
             LeaderboardTable.TableView.ReloadData();
+#else
+            LeaderboardTable.tableView.ReloadData();
+#endif
             LeaderboardSelector.ApplyValue();
         }
     }
