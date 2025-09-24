@@ -50,13 +50,13 @@ namespace BLPPCounter.Settings.SettingHandlers
             NewInstance?.Invoke(this);
             TypesOfPPChanged += () =>
             {
-                if (CounterList != null) CounterList.UpdateListSetting(TypesOfPP.Cast<string>().ToList());
+                if (CounterList != null) CounterList.UpdateListSetting(TypesOfPP);
                 else if (!TypesOfPP.Any(obj => ((string)obj).Equals(PPType))) PPType = (string)TypesOfPP[0];
-                if (DefaultCounterList != null) DefaultCounterList.UpdateListSetting(RelativeDefaultList.Cast<string>().ToList());
+                if (DefaultCounterList != null) DefaultCounterList.UpdateListSetting(RelativeDefaultList);
                 else if (!RelativeDefaultList.Any(obj => ((string)obj).Equals(RelativeDefault))) RelativeDefault = (string)RelativeDefaultList[0];
                 PpInfoTabHandler.Instance.ChangeTabSettings = true;
                 PpInfoTabHandler.Instance.ResetTabs();
-                TheCounter.theCounter = null;
+                TheCounter.SettingChanged = true;
             };
             PropertyChanged += (obj, args) =>
             {
@@ -66,7 +66,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                         TypesOfPPChanged?.Invoke();
                         break;
                     case nameof(UseUnranked):
-                        TheCounter.theCounter = null;
+                        TheCounter.SettingChanged = true;
                         break;
                     case nameof(DecimalPrecision):
                         string hold = "";
@@ -167,6 +167,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             get => LeaderboardSettings.NextLeaderboardToAdd.ToString();
             set { LeaderboardSettings.NextLeaderboardToAdd = (Leaderboards)Enum.Parse(typeof(Leaderboards), value); PropertyChanged(this, new PropertyChangedEventArgs(nameof(Leaderboard))); }
         }
+        internal void LeaderboardUpdate() => PropertyChanged(this, new PropertyChangedEventArgs(nameof(Leaderboard)));
         [UIValue(nameof(LeaderboardList))]
         private List<object> LeaderboardList => LeaderboardSettings.LeaderboardList;
         [UIValue(nameof(LeaderboardOptions))]

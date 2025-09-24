@@ -28,6 +28,7 @@ using System.Threading.Tasks;
 using TMPro;
 using Zenject;
 using static GameplayModifiers;
+using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 namespace BLPPCounter
 {
 
@@ -52,12 +53,12 @@ namespace BLPPCounter
         public static string DisplayName => "Main";
         private static PluginConfig pc => PluginConfig.Instance;
         private static bool dataLoaded = false, fullDisable = false;
-        private static int leaderboardIndex = 0;
-        internal static Leaderboards Leaderboard => pc.LeaderboardsInUse.Count == 0 ? default : pc.LeaderboardsInUse[leaderboardIndex];
+        private static int leaderboardIndex = 0, lastLeaderboardIndex = 0;
+        internal static Leaderboards Leaderboard => pc.LeaderboardsInUse.Count <= leaderboardIndex ? default : pc.LeaderboardsInUse[leaderboardIndex];
         internal static bool LastLeaderboard => pc.LeaderboardsInUse.Count - 1 <= leaderboardIndex;
         internal static MapSelection LastMap;
         internal static GameplayModifiers LastMods = null;
-        public static IMyCounters theCounter { get; internal set; }
+        public static IMyCounters theCounter { get; private set; }
         public static ReadOnlyDictionary<string, Type> StaticFunctions { get; private set; }
         public static ReadOnlyDictionary<string, Type> StaticProperties { get; private set; }
         public static Type[] ValidCounters { get; private set; }
@@ -189,7 +190,7 @@ namespace BLPPCounter
 #endregion
         #region Variables
         private TMP_Text display;
-        private bool enabled;
+        private bool enabled, checkedLastIndex;
         private float passRating, accRating, techRating, starRating;
         private int notes, comboNotes, mistakes;
         private float totalHitscore, maxHitscore, fcTotalHitscore;
@@ -207,8 +208,9 @@ namespace BLPPCounter
             }
             SettingsHandler.NewInstance += (handler) => handler.PropertyChanged += PropChanged;
             SettingsHandler.Instance.PropertyChanged += PropChanged;
+            LeaderboardSettingsHandler.Instance.LeaderboardUpdated += () => lastLeaderboardIndex = leaderboardIndex = 0;// Plugin.Log.Info($"LeaderboardIndex: {leaderboardIndex}, Leaderboard: {Leaderboard}"); };
 
-            StaticFunctions = new ReadOnlyDictionary<string, Type>(new Dictionary<string, Type>() 
+                StaticFunctions = new ReadOnlyDictionary<string, Type>(new Dictionary<string, Type>() 
             { { "InitFormat", typeof(bool) }, { "ResetFormat", typeof(void) } });
             StaticProperties = new ReadOnlyDictionary<string, Type>(new Dictionary<string, Type>()
             { {"DisplayName", typeof(string) }, {"OrderNumber", typeof(int) }, {"DisplayHandler", typeof(string) }, {"ValidLeaderboards", typeof(Leaderboards) } });
@@ -263,21 +265,26 @@ namespace BLPPCounter
                 Plugin.Log.Error(e.ToString());
                 return;
             }
-            if (DisplayNames.Count() > 0)
+
+            if (DisplayNames.Length == 0)
             {
-                if (!DisplayNames.Contains(pc.PPType))
-                    pc.PPType = DisplayNames[0];
-            } else if (ValidDisplayNames.Values.Where(arr => arr.Length > 0).Count() > 0)
-            {
-                pc.LeaderboardsInUse.Add(ValidDisplayNames.Where(kvp => kvp.Value.Length > 0).First().Key);
-                if (!DisplayNames.Contains(pc.PPType))
-                    pc.PPType = DisplayNames[0];
-                Plugin.Log.Warn("There was no leaderboards added which causes issues. Added a working leaderboard.");
-            } else
-            {
-                Plugin.Log.Critical("No counter is in working order!!! Shutting down this counter as it will only cause issues.");
-                fullDisable = true;
+                if (ValidDisplayNames.Values.Where(arr => arr.Length > 0).Count() > 0)
+                {
+                    pc.LeaderboardsInUse.Add(ValidDisplayNames.Where(kvp => kvp.Value.Length > 0).First().Key);
+                    Plugin.Log.Warn("There was no leaderboards added which causes issues. Added a working leaderboard.");
+                }
+                else goto Fail;
             }
+            if (DisplayNames.Length > 0)
+            {
+                if (!DisplayNames.Contains(pc.PPType))
+                    pc.PPType = DisplayNames[0];
+                goto End;
+            }
+            Fail:
+            Plugin.Log.Critical("No counter is in working order!!! Shutting down this counter as it will only cause issues.");
+            fullDisable = true;
+            End:
             LoadSomeTaohableData();
         }
         public static bool InitFormat()
@@ -302,8 +309,12 @@ namespace BLPPCounter
         }
         public override void CounterDestroy() {
             ChangeNotifiers(false);
-            if (enabled && pc.UpdateAfterTime)
-                TimeLooper.End().GetAwaiter().GetResult();
+            if (enabled)
+            {
+                lastLeaderboardIndex = leaderboardIndex;
+                if (pc.UpdateAfterTime)
+                    TimeLooper.End().GetAwaiter().GetResult();
+            }
             if (!InitTask.IsCompleted)
             {
                 Plugin.Log.Warn("Player exited map faster than the init task could complete. Cancelling.");
@@ -320,10 +331,10 @@ namespace BLPPCounter
         }
         public override void CounterInit()
         {
-            enabled = false;
-            leaderboardIndex = 0;
+            enabled = checkedLastIndex = false;
+            leaderboardIndex = lastLeaderboardIndex;
             ForceOff = () => ForceTurnOff();
-            if (fullDisable || LastLeaderboard) return;
+            if (fullDisable || Leaderboard == default) return;
             notes = comboNotes = mistakes = 0;
             totalHitscore = maxHitscore = fcTotalHitscore = 0.0f;
 #if !NEW_VERSION
@@ -344,6 +355,8 @@ namespace BLPPCounter
                 Data = new Dictionary<string, Map>();
                 InitData();
             }
+            if (leaderboardIndex == lastLeaderboardIndex && checkedLastIndex)
+                goto Failed;
             Plugin.Log.Info("Attempting to load " + Leaderboard + "...");
             try
             {
@@ -358,15 +371,14 @@ namespace BLPPCounter
 #else
                     hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
 #endif
-                    bool counterChange = theCounter?.Name.Equals(pc.PPType) ?? false;
+                    bool counterChange = !SettingChanged && (!theCounter?.Name.Equals(pc.PPType) ?? false);
                     if (counterChange)
                         if ((GetPropertyFromTypes("DisplayHandler", theCounter.GetType()).Values.First() as string).Equals(DisplayName))
                             //Need to recall this one so that it implements the current counter's wants properly
                             if (FormatTheFormat(pc.FormatSettings.DefaultTextFormat)) InitDisplayFormat();
-                    //Plugin.Log.Info($"CounterChange = {counterChange}\nNULL CHECKS\nLast map: {lastMap.Equals(default)}, hash: {hash is null}, pc: {pc is null}, PPType: {pc?.PPType is null}, lastTarget: {lastTarget is null}, Target: {pc.Target is null}");
+                    //Plugin.Log.Info($"CounterChange = {counterChange}, SettingChanged = {SettingChanged}\nNULL CHECKS\nLast map: {LastMap.Equals(default)}, hash: {hash is null}, pc: {pc is null}, PPType: {pc?.PPType is null}, lastTarget: {lastTarget is null}, Target: {pc.Target is null}");
                     if (theCounter is null || SettingChanged || counterChange || LastMap.Equals(default) || !hash.Equals(LastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
                     {
-                        SettingChanged = false;
                         Map m = await GetMap(hash, mode, Leaderboard, ct);
                         if (ct.IsCancellationRequested)
                             return;
@@ -387,6 +399,7 @@ namespace BLPPCounter
                             Plugin.Log.Warn("Counter somehow failed to init. Weedoo weedoo weedoo weedoo.");
                             goto Failed;
                         }
+                        SettingChanged = false;
                     }
                     else if (!APIAvoidanceMode())
                         goto Failed;
@@ -407,9 +420,19 @@ namespace BLPPCounter
                     ForceTurnOff();
             }
         Failed:
-            if (!LastLeaderboard)
+            if (!LastLeaderboard || (!checkedLastIndex && pc.LeaderboardsInUse.Count > 1))
             {
-                leaderboardIndex++;
+                if (leaderboardIndex == lastLeaderboardIndex)
+                {
+                    if (checkedLastIndex)
+                        leaderboardIndex++;
+                    else
+                    {
+                        leaderboardIndex = lastLeaderboardIndex == 0 ? 1 : 0;
+                        checkedLastIndex = true;
+                    }
+                }
+                else leaderboardIndex++;
                 if (!DisplayNames.Contains(pc.PPType) || ct.IsCancellationRequested) return;
                 await AsyncCounterInit(ct);
             }

@@ -395,14 +395,14 @@ namespace BLPPCounter.Helpfuls
             comparer(item1[value] as T, item2[value] as T);
         public static int CompareStructValues<T>(JToken item1, JToken item2, string value, Func<T, T, int> comparer) where T : struct =>
            comparer((T)Convert.ChangeType(item1[value], typeof(T)), (T)Convert.ChangeType(item2[value], typeof(T)));
-        public static void UpdateListSetting(this ListSetting menu, List<string> newValues)//https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/documentation-comments
+        public static void UpdateListSetting(this ListSetting menu, List<object> newValues)
         {
 #if NEW_VERSION
-            menu.Values = newValues; // 1.37.0 and above
+            menu.Values = newValues;
 #else
-            menu.values = newValues.Cast<object>().ToList(); // 1.34.2 and below
+            menu.values = newValues;
 #endif
-            if (!newValues.Any(str => str.Equals((string)menu.Value))) menu.Value = newValues[0];
+            if (!newValues.Any(str => str.Equals(menu.Value))) menu.Value = newValues[0];
             else menu.Value = menu.Value; //seems stupid but calls the update method.
             menu.ApplyValue(); //Update the actual value
         }

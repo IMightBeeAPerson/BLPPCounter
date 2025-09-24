@@ -18,6 +18,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         internal static LeaderboardSettingsHandler Instance = new LeaderboardSettingsHandler();
         private static PluginConfig PC => PluginConfig.Instance;
 
+        public event Action LeaderboardUpdated;
         public IReadOnlyList<Leaderboards> UsableLeaderboards => _usableLeaderboards;
         internal List<object> LeaderboardOptions => PC.LeaderboardsInUse.Select(token => (object)new LeaderboardListInfo(token)).ToList();
         internal List<object> LeaderboardList => PC.LeaderboardsInUse.Count == _usableLeaderboards.Count ?
@@ -26,8 +27,8 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
 
         private readonly List<Leaderboards> _usableLeaderboards;
         public Leaderboards NextLeaderboardToAdd;
-        internal ListSetting LeaderboardSelector => SettingsHandler.Instance.LeaderboardSelector;
-        internal CustomCellListTableData LeaderboardTable => SettingsHandler.Instance.LeaderboardTable;
+        private ListSetting LeaderboardSelector => SettingsHandler.Instance.LeaderboardSelector;
+        private CustomCellListTableData LeaderboardTable => SettingsHandler.Instance.LeaderboardTable;
 
         private LeaderboardSettingsHandler() 
         {
@@ -70,22 +71,19 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         }
         internal void Refresh()
         {
+            LeaderboardUpdated?.Invoke();
             //Plugin.Log.Info($"NULL CHECKS: LeaderboardOptions: {LeaderboardOptions is null} || LeaderboardList: {LeaderboardList is null} || LeaderboardTable: {LeaderboardTable is null} || LeaderboardSelector: {LeaderboardSelector is null} || LeaderboardList.First(): {LeaderboardList.First() is null}");
 #if NEW_VERSION
             LeaderboardTable.Data = LeaderboardOptions;
             LeaderboardSelector.Values = LeaderboardList;
+            LeaderboardTable.TableView.ReloadData();
 #else
             LeaderboardTable.data = LeaderboardOptions;
             LeaderboardSelector.values = LeaderboardList;
-#endif
-            LeaderboardSelector.Value = LeaderboardList.First();
-            NextLeaderboardToAdd = (Leaderboards)Enum.Parse(typeof(Leaderboards), LeaderboardList.First() as string);
-
-#if NEW_VERSION
-            LeaderboardTable.TableView.ReloadData();
-#else
             LeaderboardTable.tableView.ReloadData();
 #endif
+            //NextLeaderboardToAdd = (Leaderboards)Enum.Parse(typeof(Leaderboards), LeaderboardList.First() as string);
+            LeaderboardSelector.Value = LeaderboardList.First();
             LeaderboardSelector.ApplyValue();
         }
     }

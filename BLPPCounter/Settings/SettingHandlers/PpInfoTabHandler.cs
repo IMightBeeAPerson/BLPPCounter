@@ -549,7 +549,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             try
             {
                 string actualMode = TheCounter.SelectMode(mode, CurrentLeaderboard);
-                Map map = await TheCounter.GetMap(hash, actualMode, CurrentLeaderboard).ConfigureAwait(false);
+                Map map = await TheCounter.GetMap(hash, actualMode, CurrentLeaderboard);
                 //Plugin.Log.Info($"SelectedMap: {map}");
                 if (!map.TryGet(actualMode, CurrentMap.difficulty, out var val))
                     throw new Exception();
@@ -718,7 +718,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void SucceededMap(StandardLevelScenesTransitionSetupDataSO transition, LevelCompletionResults results)
         {
             ClearMapTabs();
-            TheCounter.theCounter = null;
+            TheCounter.SettingChanged = true;
             Task.Run(async () => {
 #if NEW_VERSION
                 await CompletedMap(HelpfulMisc.GetAcc(transition, results), transition.beatmapKey, transition.beatmapLevel);
@@ -909,7 +909,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             string hash = Sldvc.selectedDifficultyBeatmap.level.levelID.Split('_')[2];
 #endif
             string actualModeName = TheCounter.SelectMode(modeName, CurrentLeaderboard);
-            Map map = mapFailed ? null : await TheCounter.GetMap(hash, actualModeName, CurrentLeaderboard).ConfigureAwait(false);
+            Map map = mapFailed ? null : await TheCounter.GetMap(hash, actualModeName, CurrentLeaderboard);
             (string MapId, JToken Data) val = default;
             bool failed = !(map?.TryGet(actualModeName, diff, out val) ?? false);
             if (failed)
