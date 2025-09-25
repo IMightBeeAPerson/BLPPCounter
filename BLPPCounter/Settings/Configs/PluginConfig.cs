@@ -39,6 +39,7 @@ namespace BLPPCounter.Settings.Configs
         public virtual List<Leaderboards> LeaderboardsInUse { get; set; } = new List<Leaderboards>();
         public virtual bool UseUnranked { get; set; } = true;
         public virtual bool LeaderInLabel { get; set; } = true;
+        public virtual bool HuntLoads { get; set; } = true;
         #endregion
         #region Misc Settings
         public virtual float ColorGradMinDark { get; set; } = 0.5f;

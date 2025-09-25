@@ -84,20 +84,22 @@ namespace BLPPCounter.Utils.API_Handlers
         }
         public override float GetPP(JToken scoreData) => (float)scoreData["pp"];
         public override int GetScore(JToken scoreData) => (int)scoreData["modifiedScore"];
-        public override async Task<float[]> GetScoregraph(MapSelection ms)
+        public override async Task<(float acc, float pp)[]> GetScoregraph(MapSelection ms)
         {
             if (ms.IsUsable)
             {
                 string data = await CallAPI_String($"leaderboard/{ms.MapData.Item1}/scoregraph").ConfigureAwait(false);
-                return JToken.Parse(data).Children().Select(a => (float)Math.Round((double)a["pp"], PluginConfig.Instance.DecimalPrecision)).ToArray();
+                return JToken.Parse(data).Children().Select(a => ((float)Math.Round((float)a["accuracy"], PluginConfig.Instance.DecimalPrecision + 2), (float)Math.Round((double)a["pp"], PluginConfig.Instance.DecimalPrecision))).ToArray();
             } else
             {
                 string data = await CallAPI_String($"leaderboard/scores/{ms.MapData.Item1}?count={PluginConfig.Instance.MinRank}").ConfigureAwait(false);
                 JToken mapData = ms.MapData.Item2;
                 float maxScore = (int)mapData["maxScore"];
                 float acc = (float)mapData["accRating"], pass = (float)mapData["passRating"], tech = (float)mapData["techRating"];
-                return JToken.Parse(data)["scores"].Children().Select(a =>
-                (float)Math.Round(BLCalc.Instance.Inflate(BLCalc.Instance.GetSummedPp((int)a["modifiedScore"] / maxScore, acc, pass, tech)), PluginConfig.Instance.DecimalPrecision)).ToArray();
+                return JToken.Parse(data)["scores"].Children().Select(a => (
+                (float)Math.Round((float)a["modifiedScore"] / (float)mapData["maxScore"], PluginConfig.Instance.DecimalPrecision + 2),
+                (float)Math.Round(BLCalc.Instance.Inflate(BLCalc.Instance.GetSummedPp((int)a["modifiedScore"] / maxScore, acc, pass, tech)), PluginConfig.Instance.DecimalPrecision)
+                )).ToArray();
             }
         }
         public override async Task<Play[]> GetScores(string userId, int count)

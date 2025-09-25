@@ -379,7 +379,7 @@ namespace BLPPCounter
                     //Plugin.Log.Info($"CounterChange = {counterChange}, SettingChanged = {SettingChanged}\nNULL CHECKS\nLast map: {LastMap.Equals(default)}, hash: {hash is null}, pc: {pc is null}, PPType: {pc?.PPType is null}, lastTarget: {lastTarget is null}, Target: {pc.Target is null}");
                     if (theCounter is null || SettingChanged || counterChange || LastMap.Equals(default) || !hash.Equals(LastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
                     {
-                        Map m = await GetMap(hash, mode, Leaderboard, ct);
+                        Map m = await GetMap(hash, mode, Leaderboard, ct: ct);
                         if (ct.IsCancellationRequested)
                             return;
 #if NEW_VERSION
@@ -587,11 +587,16 @@ namespace BLPPCounter
             Data = new Dictionary<string, Map>();
             InitData();
         }
-        public static async Task<Map> GetMap(string hash, string mode, Leaderboards leaderboard, CancellationToken ct = default)
+        public static async Task<Map> GetMap(string hash, string mode, Leaderboards leaderboard, bool forceHunt = false, CancellationToken ct = default)
         {
             if (!dataLoaded) ForceLoadMaps();
             if (!Data.TryGetValue(hash, out Map m) || !m.GetModes().Contains(mode))
             {
+                if (!pc.HuntLoads && !forceHunt)
+                {
+                    Plugin.Log.Warn("Map not in cache.");
+                    return m;
+                }
                 Plugin.Log.Warn("Map not in cache, attempting API call to get map data...");
                 await APIHandler.GetAPI(leaderboard).AddMap(Data, hash, ct);
                 if (!Data.TryGetValue(hash, out m))
@@ -879,7 +884,7 @@ namespace BLPPCounter
 #endif
             try
             {
-                Map theMap = GetMap(hash, mode, Leaderboard, ct).GetAwaiter().GetResult();
+                Map theMap = GetMap(hash, mode, Leaderboard, ct: ct).GetAwaiter().GetResult();
                 if (theMap is null)
                 {
                     Plugin.Log.Warn("The map is still not in the loaded cache.");

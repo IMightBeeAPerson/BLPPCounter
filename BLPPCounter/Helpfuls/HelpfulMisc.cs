@@ -692,8 +692,22 @@ namespace BLPPCounter.Helpfuls
         /// <returns>The index where the value should be inserted.</returns>
         public static int FindInsertValue<T>(T[] arr, T value) where T : IComparable<T>
         {
-            if (arr is null || arr.Length == 0 || (value?.Equals(default(T)) ?? false)) return -1;
+            if (arr is null || arr.Length == 0 || (value?.Equals(default(T)) ?? true)) return -1;
             int index = Array.BinarySearch(arr, value);
+            if (index >= 0) return index;
+            return -index - 1;
+        }
+        /// <summary>
+        /// Given a sorted array (largest to smallest) <paramref name="arr"/> and a <paramref name="value"/>, find where this value is to be inserted.
+        /// </summary>
+        /// <typeparam name="T">A type that can be compared using <see cref="IComparable{T}"/></typeparam>
+        /// <param name="arr">The sorted array to check (is not modified).</param>
+        /// <param name="value">the value to check for insertion.</param>
+        /// <returns>The index where the value should be inserted.</returns>
+        public static int FindInsertValueReverse<T>(T[] arr, T value) where T : IComparable<T>
+        {
+            if (arr is null || arr.Length == 0 || (value?.Equals(default(T)) ?? true)) return -1;
+            int index = ReverseBinarySearch(arr, value);
             if (index >= 0) return index;
             return -index - 1;
         }

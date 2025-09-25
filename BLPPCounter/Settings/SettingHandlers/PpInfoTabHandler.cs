@@ -549,7 +549,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             try
             {
                 string actualMode = TheCounter.SelectMode(mode, CurrentLeaderboard);
-                Map map = await TheCounter.GetMap(hash, actualMode, CurrentLeaderboard);
+                Map map = await TheCounter.GetMap(hash, actualMode, CurrentLeaderboard, true);
                 //Plugin.Log.Info($"SelectedMap: {map}");
                 if (!map.TryGet(actualMode, CurrentMap.difficulty, out var val))
                     throw new Exception();
@@ -909,13 +909,13 @@ namespace BLPPCounter.Settings.SettingHandlers
             string hash = Sldvc.selectedDifficultyBeatmap.level.levelID.Split('_')[2];
 #endif
             string actualModeName = TheCounter.SelectMode(modeName, CurrentLeaderboard);
-            Map map = mapFailed ? null : await TheCounter.GetMap(hash, actualModeName, CurrentLeaderboard);
+            Map map = mapFailed ? null : await TheCounter.GetMap(hash, actualModeName, CurrentLeaderboard, true);
             (string MapId, JToken Data) val = default;
             bool failed = !(map?.TryGet(actualModeName, diff, out val) ?? false);
             if (failed)
             {
                 //Plugin.Log.Warn("Map failed to load. Most likely unranked.");
-                map = await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader).ConfigureAwait(false);
+                map = await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader, true);
                 if (!map.TryGet(modeName, diff, out val))
                 {
                     Plugin.Log.Error("Completely failed to load any map whatsoever. Either you are disconnected from the internet or beatleader is down.");
@@ -924,7 +924,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
             BeatmapID = val.MapId;
             JToken tokens = val.Data;
-            TrueBeatmapID =  BLAPI.CleanUpId(IsBL || failed ? BeatmapID : (await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader).ConfigureAwait(false)).Get(modeName ?? "Standard", CurrentMap.difficulty).MapId);
+            TrueBeatmapID =  BLAPI.CleanUpId(IsBL || failed ? BeatmapID : (await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader, true)).Get(modeName ?? "Standard", CurrentMap.difficulty).MapId);
             //Plugin.Log.Info("CurrentMap\n" + map);
             CurrentDiff = (tokens, CurrentDiff.Scoredata);
             MapDiffText = HelpfulMisc.AddSpaces(CurrentMap.difficulty.ToString().Replace("+", "Plus"));

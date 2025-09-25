@@ -13,6 +13,8 @@ using static BLPPCounter.Helpfuls.HelpfulMisc;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Helpfuls;
 using System.Reflection;
+using BLPPCounter.Settings.SettingHandlers.MenuViews;
+
 #if !NEW_VERSION
 using BLPPCounter.Utils.Special_Utils;
 #endif
@@ -341,6 +343,7 @@ namespace BLPPCounter.Utils
                 AboveInfo = other.AboveInfo;
                 other.AboveInfo = this;
                 UpdateTable();
+                FormatEditorHandler.Instance.GotoCell(index - 1);
             }
         }
         [UIAction(nameof(MoveChunkDown))] private void MoveChunkDown()
@@ -354,6 +357,7 @@ namespace BLPPCounter.Utils
                 other.AboveInfo = AboveInfo;
                 AboveInfo = other;
                 UpdateTable();
+                FormatEditorHandler.Instance.GotoCell(index + 1);
             }
         }
         [UIAction(nameof(RemoveChunk))] private void RemoveChunk()
@@ -364,6 +368,7 @@ namespace BLPPCounter.Utils
             TellParentTheyHaveAChild(true);
             ParentList.Remove(this);
             UpdateTable();
+            FormatEditorHandler.Instance.GotoCell(index);
         }
         #endregion
         #region Functions
@@ -455,7 +460,8 @@ namespace BLPPCounter.Utils
         public bool Updatable()
         {
             FormatListInfo parent = AboveInfo;
-            if (((Capture_Open | Group_Open | Rich_Text_Open | Escaped_Token) & Chunk) != 0) return HasChild || (Chunk == Escaped_Token && TokenParams == null);
+            if (Chunk == Escaped_Token) return TokenParams is null;
+            if (((Capture_Open | Group_Open | Rich_Text_Open) & Chunk) != 0) return HasChild;
             if (((Capture_Close | Group_Close | Rich_Text_Close | Parameter) & Chunk) == 0) return true;
             ChunkType open = (ChunkType)((int)Chunk / 2);
             if (Chunk == Group_Close) open |= Capture_Open | Capture_Close;

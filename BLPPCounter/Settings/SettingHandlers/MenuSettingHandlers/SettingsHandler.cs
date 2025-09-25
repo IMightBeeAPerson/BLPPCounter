@@ -186,6 +186,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             get => PC.LeaderInLabel;
             set { PC.LeaderInLabel = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(LeaderInLabel))); }
         }
+        [UIValue(nameof(HuntLoads))] 
+        public bool HuntLoads
+        {
+            get => PC.HuntLoads;
+            set { PC.HuntLoads = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(HuntLoads))); }
+        }
 #if !NEW_VERSION
         private void LeaderboardPostParse()
         {

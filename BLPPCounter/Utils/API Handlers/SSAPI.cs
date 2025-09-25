@@ -1,5 +1,6 @@
 ﻿using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
+using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.Misc_Classes;
 using IPA.Config.Data;
@@ -108,12 +109,28 @@ namespace BLPPCounter.Utils.API_Handlers
         {
             return (float)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_USERID, userId, "basic")).ConfigureAwait(false))?["pp"];
         }
-        public override async Task<float[]> GetScoregraph(MapSelection ms)
+        public override async Task<(float acc, float pp)[]> GetScoregraph(MapSelection ms)
         {
-            IEnumerable<float> pps = new List<float>();
-            string path = string.Format(HelpfulPaths.SSAPI_HASH, ms.Hash, "scores", Map.FromDiff(ms.Difficulty));
-            const int pages = 5;
-            if (ms.IsUsable)
+            try
+            {
+                List<(float, float)> pps = new List<(float, float)>();
+                string path = string.Format(HelpfulPaths.SSAPI_HASH, ms.Hash, "scores", Map.FromDiff(ms.Difficulty));
+                int pages = (int)Math.Ceiling(PluginConfig.Instance.MinRank / 12f);
+                int maxScore = (int)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, ms.Hash, "info", Map.FromDiff(ms.Difficulty))).ConfigureAwait(false))["maxScore"];
+                for (int i = 1; i < pages; i++)
+                    pps.AddRange(JToken.Parse(await CallAPI_String(path + "&page=" + i).ConfigureAwait(false))["scores"].Children().Select(token => (
+                    (float)Math.Round((float)token["modifiedScore"] / maxScore, PluginConfig.Instance.DecimalPrecision + 2),
+                    (float)Math.Round((float)token["pp"], PluginConfig.Instance.DecimalPrecision)
+                    )));
+                return pps.ToArray();
+            }
+            catch (Exception ex) 
+            {
+                Plugin.Log.Error("Issue getting scoregraph for scoresaber");
+                Plugin.Log.Error(ex);
+                return new (float, float)[0];
+            }
+            /*if (ms.IsUsable)
             {
                 for (int i = 1; i < pages; i++)
                     pps = pps.Union(JToken.Parse(await CallAPI_String(path + "&page=" + i).ConfigureAwait(false))["scores"].Children().Select(token => (float)token["pp"]));
@@ -124,8 +141,7 @@ namespace BLPPCounter.Utils.API_Handlers
                 int maxScore = (int)mapData["maxScore"];
                 for (int i = 1; i < pages; i++)
                     pps = pps.Union(JToken.Parse(await CallAPI_String(path + "&page=" + i).ConfigureAwait(false))["scores"].Children().Select(token => (float)token["modifiedScore"] / maxScore));
-            }
-            return pps.ToArray();
+            }*/
         }
         internal override async Task AddMap(Dictionary<string, Map> Data, string hash, CancellationToken ct = default)
         {

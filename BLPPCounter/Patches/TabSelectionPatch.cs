@@ -92,7 +92,7 @@ namespace BLPPCounter.Patches
                 UpdateLastSegmentControl = () => CellEvent(__instance, 0); //this is stupid, but don't really feel like fixing it
             }
         }
-        static TabSelectionPatch()
+        internal static void AddStartPatch()
         {
             SoloFlowPatch.EnteredMainMenu += () => ModTabSelected?.Invoke("");
         }

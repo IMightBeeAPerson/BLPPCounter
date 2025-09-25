@@ -268,7 +268,7 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false);
         public abstract float GetPP(JToken scoreData);
         public abstract int GetScore(JToken scoreData);
-        public abstract Task<float[]> GetScoregraph(MapSelection ms);
+        public abstract Task<(float acc, float pp)[]> GetScoregraph(MapSelection ms);
         public abstract Task<Play[]> GetScores(string userId, int count);
         protected async Task<Play[]> GetScores(
         string userId, int count, string apiPathFormat, string scoreArrayPath, bool isZeroIndexed,

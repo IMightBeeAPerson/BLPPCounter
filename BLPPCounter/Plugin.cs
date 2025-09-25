@@ -44,8 +44,9 @@ namespace BLPPCounter
         //\[ERROR @ (?:\d{2}:?){3} \| BL PP Counter\] [^ ]+Exception:
         private async void AddMenuStuff()
         {
-            TabSelectionPatch.ClearData();
 #if NEW_VERSION
+            TabSelectionPatch.ClearData();
+            TabSelectionPatch.AddStartPatch();
             BSMLSettings.Instance.AddSettingsMenu("BL PP Counter", HelpfulPaths.SETTINGS_BSML, MenuSettingsHandler.Instance);
             GameplaySetup.Instance.AddTab("PP Calculator", HelpfulPaths.PP_CALC_BSML, PpInfoTabHandler.Instance); // 1.37.0 and above */
 #else
@@ -58,7 +59,9 @@ namespace BLPPCounter
             {
                 yield return new WaitForEndOfFrame();
                 SettingsHandler.Instance.UpdateTargetLists();
+#if !NEW_VERSION
                 BSEvents.menuSceneActive -= AddMenuStuff;
+#endif
             }
             CoroutineHost.Start(WaitThenUpdate());
         }
@@ -69,6 +72,7 @@ namespace BLPPCounter
 #if NEW_VERSION
             BeatSaberMarkupLanguage.Util.MainMenuAwaiter.MainMenuInitializing += AddMenuStuff; //async (kinda) || 1.37.0 and above
 #else
+            BSEvents.menuSceneActive += () => { TabSelectionPatch.ClearData(); TabSelectionPatch.AddStartPatch(); };
             BSEvents.menuSceneActive += AddMenuStuff; // 1.34.2 and below
 #endif
             TabSelectionPatch.AddTabName("PP Calculator");

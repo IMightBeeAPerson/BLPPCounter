@@ -1,4 +1,5 @@
-<vertical spacing='1' vertical-fit='PreferredSize' horizontal-fit='PreferredSize' pref-width='100'>
+<bg>
+  <vertical spacing='1' vertical-fit='PreferredSize' horizontal-fit='PreferredSize' pref-width='100'>
     <horizontal>
         <button text='Go Back' align='Left' click-event='back'/>
     </horizontal>
@@ -11,19 +12,19 @@
             <button id='TheSaveButton' text='Save' align='Center' on-click='SaveFormatToConfig'/>
             <button text='Update Preview' align='Right' on-click='ForceUpdatePreviewDisplay'/>
         </horizontal>
-         <modal show-event='AddNewChunk' hide-event='CloseWindow' click-off-closes='true' size-delta-x='80' size-delta-y='30'>
-           <vertical spacing='1'>
-             <text text='Add New Chunk' align='Center'/>
-             <horizontal spacing='2'>
-               <button id='AddAboveSelectedButton' text='Add Above Selected' align='Left' interactable='false' on-click='AddAboveSelected' click-event='CloseWindow'/>
-               <button text='Add To Top' align='Right' on-click='AddTopChunk' click-event='CloseWindow'/>
-             </horizontal>
-             <horizontal spacing='2'>
-               <button id='AddBelowSelectedButton' text='Add Below Selected' align='Left' interactable='false' on-click='AddBelowSelected' click-event='CloseWindow'/>
-               <button text='Add to Bottom' align='Right' on-click='AddBottomChunk' click-event='CloseWindow'/>
-             </horizontal>
-           </vertical>
-         </modal>
+          <modal show-event='AddNewChunk' hide-event='CloseWindow' click-off-closes='true' size-delta-x='80' size-delta-y='30'>
+            <vertical spacing='1'>
+              <text text='Add New Chunk' align='Center'/>
+              <horizontal spacing='2'>
+                <button id='AddAboveSelectedButton' text='Add Above Selected' align='Left' interactable='false' on-click='AddAboveSelected' click-event='CloseWindow'/>
+                <button text='Add To Top' align='Right' on-click='AddTopChunk' click-event='CloseWindow'/>
+              </horizontal>
+              <horizontal spacing='2'>
+                <button id='AddBelowSelectedButton' text='Add Below Selected' align='Left' interactable='false' on-click='AddBelowSelected' click-event='CloseWindow'/>
+                <button text='Add to Bottom' align='Right' on-click='AddBottomChunk' click-event='CloseWindow'/>
+              </horizontal>
+            </vertical>
+          </modal>
         <custom-list id='FormatEditor' contents='FormatChunks' show-scrollbar='true' pref-width='100' pref-height='60' cell-size='30' select-cell='SelectedCell' clickable-cells='true'>
             <vertical id='BGContainer' bg='round-rect-panel' bg-color='#CCC' horizontal-fit='Unconstrained' pad='2'>
               <dropdown-list-setting text='Choose Type' apply-on-change='true' value='ChunkStr' options='TypesOfChunks' hover-hint='The types of chunks'/>
@@ -51,8 +52,8 @@
         <text id='PreviewDisplay' rich-text='true' text='' align='Center' word-wrapping='true'/>
         <text id='SaveMessage' rich-text='true' align='Center'/>
         </vertical>
-        <vertical anchor-pos-x='-225' vertical-fit='PreferredSize' horizontal-fit='PreferredSize' pref-width='200' bg='round-rect-panel' bg-color='#CCC'>
-        <text id='AliasTable' text='No Table Loaded!' align='Left' word-wrapping='true' rich-text='true'/>
+        <vertical anchor-pos-x='-225' child-expand-width='true' child-expand-height='true' pad='15' bg='round-rect-panel' bg-color='#CCC'>
+        <text id='AliasTable' text='No Table Loaded!' align='Left' word-wrapping='false' rich-text='true'/>
         </vertical>
     </settings-submenu>
     <settings-submenu text='Edit Values' align='Center' on-click='ParseValues'>
@@ -77,5 +78,8 @@
         </vertical>
     </settings-submenu>
     <text id='RawFormatText' rich-text='true' word-wrapping='true'/>
+  </vertical>
+  <vertical anchor-pos-x='90' vertical-fit='PreferredSize' perf-height='50' bg='round-rect-panel' bg-color='#CCC'>
     <text id='FormattedText' align='Center'/>
-</vertical>
+  </vertical>
+</bg>
