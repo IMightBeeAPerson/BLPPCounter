@@ -1068,7 +1068,19 @@ namespace BLPPCounter.Helpfuls
         }
         public static void AddSorted<T>(this List<T> list, T toAdd, Comparison<T> comparer, bool greatestFirst = false) =>
             AddSorted(list, toAdd, Comparer<T>.Create(comparer), greatestFirst);
-
+        public static SongSpeed GetSongSpeed(string mods)
+        {
+            Match regexSpeed = Regex.Match(mods.ToLower(), "fs|sf|ss");
+            return regexSpeed.Success ? GetModifierFromShortname(regexSpeed.Value) : SongSpeed.Normal;
+        }
+        public static (SongSpeed speed, float modMult) ParseModifiers(string mods, JToken modifierData, bool allowNoFail = false, char delimiter = ',')
+        {
+            mods = mods.ToLower();
+            Match regexSpeed = Regex.Match(mods, "fs|sf|ss");
+            string[] modArr = Regex.Replace(mods, allowNoFail ? "(?:fs|sf|ss),?" : "(?:fs|sf|ss|nf),?", "").Split(delimiter);
+            SongSpeed speed = regexSpeed.Success ? GetModifierFromShortname(regexSpeed.Value) : SongSpeed.Normal;
+            return (speed, HelpfulPaths.GetMultiAmounts(modifierData, modArr));
+        }
             /*float[] ConvertArr(double[] arr)
             {
                 float[] outp = new float[arr.Length];

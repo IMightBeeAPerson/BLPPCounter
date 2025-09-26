@@ -11,6 +11,7 @@ using System.Text;
 using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Settings.SettingHandlers;
+using System.Collections.Generic;
 
 namespace BLPPCounter.Helpfuls
 {
@@ -152,7 +153,7 @@ namespace BLPPCounter.Helpfuls
         public static float GetMultiAmount(JToken data, string name)
         {
             if (!Calculator.GetSelectedCalc().UsesModifiers) return 1.0f;
-            MatchCollection mc = Regex.Matches(data.TryEnter("difficulty")["modifierValues"].ToString(), "^\\s*\"(.+?)\": *(-?\\d(?:\\.\\d+)?).*$", RegexOptions.Multiline);
+            MatchCollection mc = Regex.Matches(data.TryEnter("difficulty")["modifierValues"].ToString(), @"^\s*""(.+?)"": *(-?\d(?:\.\d+)?).*$", RegexOptions.Multiline);
 #if NEW_VERSION
             string val = mc.FirstOrDefault(m => m.Groups[1].Value.Equals(name))?.Groups[2].Value; // 1.37.0 and above
 #else
@@ -160,11 +161,23 @@ namespace BLPPCounter.Helpfuls
 #endif
             return val is null ? 0 : float.Parse(val);
         }
+        public static Dictionary<string, float> GetMultiAmounts(JToken data)
+        {
+            MatchCollection mc = Regex.Matches(data.TryEnter("difficulty")["modifierValues"].ToString(), @"^\s*""(.+?)"": *(-?\d(?:\.\d+)?).*$", RegexOptions.Multiline);
+            Dictionary<string, float> multiAmounts = new Dictionary<string, float>(mc.Count - 1);
+            foreach (Match m in mc)
+            {
+                if (m.Groups[1].Value.Equals("modifierId")) continue;
+                multiAmounts.Add(m.Groups[1].Value, float.Parse(m.Groups[2].Value));
+            }
+            return multiAmounts;
+        }
         public static float GetMultiAmounts(JToken data, string[] names) 
         {
             //Plugin.Log.Info(data.ToString());
-            float outp = 1; 
-            foreach (string n in names) outp += GetMultiAmount(data, n);
+            float outp = 1;
+            Dictionary<string, float> vals = GetMultiAmounts(data);
+            foreach (string n in names) outp += vals.TryGetValue(n, out float val) ? val : 0;
             return outp; 
         }
 #endregion

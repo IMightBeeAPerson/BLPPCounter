@@ -212,7 +212,11 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         }
         internal void GotoCell(int index)
         {
+#if NEW_VERSION
             FormatEditor.TableView.ScrollToCellWithIdx(index, TableView.ScrollPositionType.Center, false);
+#else
+            FormatEditor.tableView.ScrollToCellWithIdx(index, TableView.ScrollPositionType.Center, false);
+#endif
         }
         
         [UIAction(nameof(SelectedCell))]
@@ -342,7 +346,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             TheSaveButton.interactable = false;
             UpdateFormatDisplay();
         }
-        #endregion
+#endregion
         #region Value Editor
         private void UpdatePreviewForValue(bool forceUpdate = false)
         {
@@ -389,6 +393,6 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             ValueSaveButton.interactable = false;
         }
         #endregion
-        #endregion
+#endregion
     }
 }

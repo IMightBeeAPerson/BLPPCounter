@@ -86,10 +86,10 @@ namespace BLPPCounter.CalculatorStuffs
             float outp = GetAccDeflated(deflatedPp, precision, BLAPI.Instance.GetRatings(diffData, speed, modMult));
             return precision >= 0 ? (float)Math.Round(outp * 100.0f, precision) : outp;
         }
-        public float GetAccDeflatedUnsafe(float deflatedPp, bool hasPassPp, int precision, float[] ratings, float initGuess = 1.0f, int maxIterations = 100)
+        public float GetAccDeflatedUnsafe(float deflatedPp, int precision, float[] ratings, float initGuess = 1.0f, int maxIterations = 100)
         {
             var (accRating, passRating, techRating) = (ratings[0], ratings[1], ratings[2]);
-            if (hasPassPp) deflatedPp -= GetPassPp(passRating);
+            deflatedPp -= GetPassPp(passRating);
             return (float)Math.Round(CalculateX(deflatedPp, techRating, accRating, initGuess, maxIterations: maxIterations) * 100.0f, precision);
         }
         public override float Inflate(float pp) => 650f * (float)Math.Pow(pp, 1.3f) / (float)Math.Pow(650f, 1.3f);

@@ -166,14 +166,15 @@ namespace BLPPCounter.Counters
             ReplayDecoder.TryDecodeReplay(replayData, out bestReplay);
             noteArray = bestReplay.notes.ToArray();
             wallArray = new Queue<BeatLeader.Models.Replay.WallEvent>(bestReplay.walls);
-            ReplayMods = bestReplay.info.modifiers.ToLower();
+            ReplayMods = bestReplay.info.modifiers.ToUpper();
             usingModdedAcc = false;
             if (leaderboard == Leaderboards.Beatleader)
             {
-                Match hold = Regex.Match(ReplayMods, "(fs|sf|ss),?");
+                /*Match hold = Regex.Match(ReplayMods, "(fs|sf|ss),?");
                 SongSpeed mod = hold.Success ? HelpfulMisc.GetModifierFromShortname(hold.Groups[1].Value) : SongSpeed.Normal;
                 data = data["difficulty"];
-                float replayMult = HelpfulPaths.GetMultiAmounts(data, Regex.Replace(Regex.Replace(ReplayMods, "fs|sf|ss|nf", ""), hold.Value, "").Split(','));
+                float replayMult = HelpfulPaths.GetMultiAmounts(data, Regex.Replace(Regex.Replace(ReplayMods, "fs|sf|ss|nf", ""), hold.Value, "").Split(','));*/
+                var (mod, replayMult) = HelpfulMisc.ParseModifiers(ReplayMods, data);
                 replayRatings = new float[3];
                 replayRatings[0] = HelpfulPaths.GetRating(data, PPType.Acc, mod) * replayMult;
                 replayRatings[1] = HelpfulPaths.GetRating(data, PPType.Pass, mod) * replayMult;
@@ -189,7 +190,6 @@ namespace BLPPCounter.Counters
             else
                 replayRatings = selectedRatings;
             replayPPVals = new float[replayRatings.Length + 1];
-            ReplayMods = ReplayMods.ToUpper();
         }
         #endregion
         #region Overrides
@@ -448,7 +448,7 @@ namespace BLPPCounter.Counters
             }
             //Plugin.Log.Info($"Note #{notes} ({scoringType}): {BLCalc.GetCutScore(note)} / {ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore}");
             replayPPVals = calc.GetPpWithSummedPp(replayScore / maxReplayScore, replayRatings);
-            accToBeat = usingModdedAcc ? BLCalc.Instance.GetAccDeflatedUnsafe(replayPPVals[0] + replayPPVals[1] + replayPPVals[2], true, PC.DecimalPrecision, selectedRatings, accToBeat / 100.0f, 100) : (float)Math.Round(replayScore / maxReplayScore * 100.0f, PC.DecimalPrecision);
+            accToBeat = usingModdedAcc ? BLCalc.Instance.GetAccDeflatedUnsafe(replayPPVals[0] + replayPPVals[1] + replayPPVals[2], PC.DecimalPrecision, selectedRatings, accToBeat / 100.0f) : (float)Math.Round(replayScore / maxReplayScore * 100.0f, PC.DecimalPrecision);
         }
         public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
