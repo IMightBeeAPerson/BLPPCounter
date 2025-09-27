@@ -8,6 +8,6 @@ namespace BLPPCounter.Utils
 {
     public enum PPType
     {
-        Acc, Tech, Pass, Total, Star
+        Star, Acc, Pass, Tech
     }
 }

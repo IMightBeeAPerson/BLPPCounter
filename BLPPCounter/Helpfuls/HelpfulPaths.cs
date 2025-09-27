@@ -12,6 +12,7 @@ using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Settings.SettingHandlers;
 using System.Collections.Generic;
+using System.Collections;
 
 namespace BLPPCounter.Helpfuls
 {
@@ -143,13 +144,20 @@ namespace BLPPCounter.Helpfuls
         }
         public static float[] GetAllRatingsOfSpeed(JToken data, Calculator calc, SongSpeed mod = SongSpeed.Normal)
         { //star, acc, pass, tech
-            float[] outp = calc.SelectRatings(GetRating(data, PPType.Star, mod), GetRating(data, PPType.Acc, mod), GetRating(data, PPType.Pass, mod), GetRating(data, PPType.Tech, mod));
+            float[] outp = Enum.GetValues(typeof(PPType)).Cast<PPType>().Select(type => GetRating(data, type, mod)).ToArray();
+            if (!(calc is null)) outp = calc.SelectRatings(outp);
             outp = outp.FilledWithDefaults() ? new float[0] : outp;
             return outp;
         }
-        public static float[] GetAllRatings(JToken data, Calculator calc) =>
-            GetAllRatingsOfSpeed(data, calc, SongSpeed.Slower).Union(GetAllRatingsOfSpeed(data, calc, SongSpeed.Normal)).Union(GetAllRatingsOfSpeed(data, calc, SongSpeed.Faster)).Union(GetAllRatingsOfSpeed(data, calc, SongSpeed.SuperFast)).ToArray();
-
+        public static float[] GetAllRatingsOfSpeed(JToken data, SongSpeed mod = SongSpeed.Normal) => GetAllRatingsOfSpeed(data, null, mod);
+        public static float[] GetAllRatings(JToken data, Calculator calc)
+        {
+            List<float> outp = new List<float>(4 * 4); //length of PPType Enum times the length of the SongSpeed Enum.
+            foreach (SongSpeed s in HelpfulMisc.OrderedSpeeds)
+                outp.AddRange(GetAllRatingsOfSpeed(data, calc, s));
+            return outp.ToArray();
+        }
+        public static float[] GetAllRatings(JToken data) => GetAllRatings(data, null);
         public static float GetMultiAmount(JToken data, string name)
         {
             if (!Calculator.GetSelectedCalc().UsesModifiers) return 1.0f;

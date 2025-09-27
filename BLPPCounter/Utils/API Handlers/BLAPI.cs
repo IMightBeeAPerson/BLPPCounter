@@ -88,19 +88,19 @@ namespace BLPPCounter.Utils.API_Handlers
         {
             if (ms.IsUsable)
             {
-                string data = await CallAPI_String($"leaderboard/{ms.MapData.Item1}/scoregraph").ConfigureAwait(false);
+                string data = await CallAPI_String($"leaderboard/{ms.MapData.songId}/scoregraph").ConfigureAwait(false);
                 return JToken.Parse(data).Children().Select(a => {
-                    var (speed, modMult) = HelpfulMisc.ParseModifiers(a["modifiers"].ToString(), ms.MapData.Item2);
+                    var (speed, modMult) = HelpfulMisc.ParseModifiers(a["modifiers"].ToString(), ms.MapData.diffData);
                     return ((float)a["accuracy"] / 100f, (float)Math.Round((float)a["pp"], PluginConfig.Instance.DecimalPrecision), speed, modMult);
                 }).ToArray();
             } else
             {
-                string data = await CallAPI_String($"leaderboard/scores/{ms.MapData.Item1}?count={PluginConfig.Instance.MinRank}").ConfigureAwait(false);
-                JToken mapData = ms.MapData.Item2;
+                string data = await CallAPI_String($"leaderboard/scores/{ms.MapData.songId}?count={PluginConfig.Instance.MinRank}").ConfigureAwait(false);
+                JToken mapData = ms.MapData.diffData;
                 float maxScore = (int)mapData["maxScore"];
                 float acc = (float)mapData["accRating"], pass = (float)mapData["passRating"], tech = (float)mapData["techRating"];
                 return JToken.Parse(data)["scores"].Children().Select(a => {
-                    var (speed, modMult) = HelpfulMisc.ParseModifiers(a["modifiers"].ToString(), ms.MapData.Item2);
+                    var (speed, modMult) = HelpfulMisc.ParseModifiers(a["modifiers"].ToString(), ms.MapData.diffData);
                     return (
                     (float)a["modifiedScore"] / (float)mapData["maxScore"],
                     (float)Math.Round(BLCalc.Instance.Inflate(BLCalc.Instance.GetSummedPp((int)a["modifiedScore"] / maxScore, acc, pass, tech)), PluginConfig.Instance.DecimalPrecision),

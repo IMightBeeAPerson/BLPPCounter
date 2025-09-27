@@ -27,6 +27,7 @@ namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
     {
+        public static readonly SongSpeed[] OrderedSpeeds = new SongSpeed[4] { SongSpeed.Slower, SongSpeed.Normal, SongSpeed.Faster, SongSpeed.SuperFast };
         /// <summary>
         /// Returns a number based off the song speed, in the correct number, with slower being 0 and super fast being 3.
         /// </summary>

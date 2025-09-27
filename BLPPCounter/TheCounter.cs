@@ -383,7 +383,7 @@ namespace BLPPCounter
                         if (ct.IsCancellationRequested)
                             return;
 #if NEW_VERSION
-                        MapSelection ms = new MapSelection(m, beatmapDiff.difficulty, mode, starRating, accRating, passRating, techRating); // 1.34.2 and below
+                        MapSelection ms = new MapSelection(m, beatmapDiff.difficulty, mode, mods.songSpeed, starRating, accRating, passRating, techRating); // 1.34.2 and below
 #else
                         MapSelection ms = new MapSelection(m, beatmap.difficulty, mode, starRating, accRating, passRating, techRating); // 1.37.0 and below
 #endif
@@ -608,7 +608,7 @@ namespace BLPPCounter
         {
             (_, JToken diffData) = m.Get(mode, diff);
             if (!SetupMapData(diffData, leaderboard, out float[] ratings, mods, quiet)) return default;
-            return new MapSelection(m, diff, mode, ratings);
+            return new MapSelection(m, diff, mode, mods?.songSpeed ?? SongSpeed.Slower, ratings);
         }
         public static string SelectMode(string mainMode, Leaderboards leaderboard)
         {
@@ -778,9 +778,9 @@ namespace BLPPCounter
         {
             Plugin.Log.Debug("API Avoidance mode is active.");
 #if NEW_VERSION
-            MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmapDiff.difficulty, mode, starRating, accRating, passRating, techRating); // 1.37.0 and above
+            MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmapDiff.difficulty, mode, mods.songSpeed, starRating, accRating, passRating, techRating); // 1.37.0 and above
 #else
-            MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmap.difficulty, mode, starRating, accRating, passRating, techRating); // 1.34.2 and below
+            MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmap.difficulty, mode, mods.songSpeed, starRating, accRating, passRating, techRating); // 1.34.2 and below
 #endif
             if (!thisMap.IsUsable) return false;
             //Plugin.Log.Debug($"Last Map\n-------------------\n{LastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");

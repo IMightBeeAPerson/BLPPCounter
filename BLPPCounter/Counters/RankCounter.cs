@@ -108,18 +108,24 @@ namespace BLPPCounter.Counters
             string songId = map.MapData.Item1;
             APIHandler api = APIHandler.GetSelectedAPI();
             mapData = api.GetScoregraph(map).GetAwaiter().GetResult();
-            if (mapData[0].pp <= 0) for (int i = 0; i < mapData.Length; i++)
+            bool isUnranked = mapData[0].pp <= 0;
+            for (int i = 0; i < mapData.Length; i++)
+            {
+                if (!isUnranked && (TheCounter.Leaderboard != Leaderboards.Beatleader || mapData[i].speed == map.MapSpeed))
+                    continue;
+                if (TheCounter.Leaderboard == Leaderboards.Beatleader)
                 {
-                    if (TheCounter.Leaderboard == Leaderboards.Beatleader)
-                    {
-                        float[] specificRating = HelpfulPaths.GetAllRatingsOfSpeed(map.MapData.Item2, calc, mapData[i].speed);
-                        mapData[i] = (mapData[i].acc, (float)Math.Round(calc.Inflate(calc.GetSummedPp(mapData[i].acc, specificRating)), PC.DecimalPrecision), mapData[i].speed, mapData[i].modMult);
-                    }
-                    else mapData[i] = (mapData[i].acc, (float)Math.Round(calc.Inflate(calc.GetSummedPp(mapData[i].acc, ratings)), PC.DecimalPrecision), mapData[i].speed, mapData[i].modMult);
+                    float[] specificPps = calc.GetPpWithSummedPp(mapData[i].acc, HelpfulPaths.GetAllRatingsOfSpeed(map.MapData.diffData, calc, mapData[i].speed));
+                    mapData[i] = (
+                        BLCalc.Instance.GetAccDeflatedUnsafe(specificPps[0] + specificPps[1] + specificPps[2], PC.DecimalPrecision, ratings) / 100f,
+                        (float)Math.Round(specificPps[3], PC.DecimalPrecision),
+                        mapData[i].speed, mapData[i].modMult);
                 }
+                else mapData[i] = (mapData[i].acc, (float)Math.Round(calc.Inflate(calc.GetSummedPp(mapData[i].acc, ratings)), PC.DecimalPrecision), mapData[i].speed, mapData[i].modMult);
+            }
             Array.Sort(mapData, (a,b) => (b.pp - a.pp) < 0 ? -1 : 1);
             rankArr = mapData.Select(t => t.pp).ToArray();
-            Plugin.Log.Debug($"[{string.Join(", ", mapData)}]");
+            Plugin.Log.Info($"[{string.Join(", ", mapData.Select(t => (t.acc, t.pp)))}]");
         }
         public void ReinitCounter(TMP_Text display) => this.display = display;
         public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating, float starRating)
@@ -201,8 +207,8 @@ namespace BLPPCounter.Counters
                     ppVals[i + temp.Length] = temp[i];
             }
             int rank = GetRank(ppVals[ratingLen]);
-            float ppDiff = (float)Math.Abs(Math.Round(mapData[rank - 1].pp - ppVals[ratingLen], precision));
-            float accDiff = (float)Math.Abs(Math.Round((mapData[rank - 1].acc - acc) * 100f, precision));
+            float ppDiff = (float)Math.Abs(Math.Round(mapData[Math.Max(rank - 2, 0)].pp - ppVals[ratingLen], precision));
+            float accDiff = (float)Math.Abs(Math.Round((mapData[Math.Max(rank - 2, 0)].acc - acc) * 100f, precision));
             string color = HelpfulFormatter.GetWeightedRankColor(rank);
             string text = "";
             //Plugin.Log.Info("PPVals: " + HelpfulMisc.Print(ppVals));
