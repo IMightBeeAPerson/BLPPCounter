@@ -653,7 +653,6 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
             return new TargetInfo(name, id.ID, (Leaderboards.Beatleader, id.Rank));
         }
-#endregion
         private void TargetPostParse()
         {
 #if NEW_VERSION
@@ -685,5 +684,6 @@ namespace BLPPCounter.Settings.SettingHandlers
                     UpdateSelectedTarget();
             }
         }
+        #endregion
     }
 }

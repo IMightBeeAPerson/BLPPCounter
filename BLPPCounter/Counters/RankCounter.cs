@@ -12,10 +12,11 @@ using BeatLeader.Replayer;
 using BLPPCounter.Utils.API_Handlers;
 using UnityEngine;
 using static GameplayModifiers;
+using BLPPCounter.Utils.Misc_Classes;
 
 namespace BLPPCounter.Counters
 {
-    public class RankCounter : IMyCounters
+    public class RankCounter : MyCounters
     {
         #region Static Variables
         public static int OrderNumber => 4;
@@ -85,25 +86,17 @@ namespace BLPPCounter.Counters
             );
         #endregion
         #region Variables
-        public string Name => DisplayName;
-        private int precision;
-        private TMP_Text display;
-        private float[] ratings, rankArr;
+        public override string Name => DisplayName;
+        private float[] rankArr;
         private (float acc, float pp, SongSpeed speed, float modMult)[] mapData;
         private int ratingLen;
-        private Calculator calc;
         #endregion
         #region Inits
-        public RankCounter(TMP_Text display, float accRating, float passRating, float techRating, float starRating)
+        public RankCounter(TMP_Text display, MapSelection map) : base(display, map)
         {
-            this.display = display;
-            precision = PluginConfig.Instance.DecimalPrecision;
-            calc = Calculator.GetSelectedCalc();
-            ratings = calc.SelectRatings(starRating, accRating, passRating, techRating);
-            ratingLen = ratings.Length == 1 ? 0 : ratings.Length;
+            ratingLen = ratings.SelectedRatings.Length == 1 ? 0 : ratings.SelectedRatings.Length;
         }
-        public RankCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating, map.StarRating) { SetupData(map); }
-        public void SetupData(MapSelection map)
+        public override void SetupData(MapSelection map)
         {
             string songId = map.MapData.Item1;
             APIHandler api = APIHandler.GetSelectedAPI();
@@ -117,29 +110,26 @@ namespace BLPPCounter.Counters
                 {
                     float[] specificPps = calc.GetPpWithSummedPp(mapData[i].acc, HelpfulPaths.GetAllRatingsOfSpeed(map.MapData.diffData, calc, mapData[i].speed));
                     mapData[i] = (
-                        BLCalc.Instance.GetAccDeflatedUnsafe(specificPps[0] + specificPps[1] + specificPps[2], PC.DecimalPrecision, ratings) / 100f,
+                        BLCalc.Instance.GetAccDeflatedUnsafe(specificPps[0] + specificPps[1] + specificPps[2], PC.DecimalPrecision, ratings.SelectedRatings) / 100f,
                         (float)Math.Round(specificPps[3], PC.DecimalPrecision),
                         mapData[i].speed, mapData[i].modMult);
                 }
-                else mapData[i] = (mapData[i].acc, (float)Math.Round(calc.Inflate(calc.GetSummedPp(mapData[i].acc, ratings)), PC.DecimalPrecision), mapData[i].speed, mapData[i].modMult);
+                else mapData[i] = (mapData[i].acc, (float)Math.Round(calc.Inflate(calc.GetSummedPp(mapData[i].acc, ratings.SelectedRatings)), PC.DecimalPrecision), mapData[i].speed, mapData[i].modMult);
             }
             Array.Sort(mapData, (a,b) => (b.pp - a.pp) < 0 ? -1 : 1);
             rankArr = mapData.Select(t => t.pp).ToArray();
             Plugin.Log.Info($"[{string.Join(", ", mapData.Select(t => (t.acc, t.pp)))}]");
         }
-        public void ReinitCounter(TMP_Text display) => this.display = display;
-        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating, float starRating)
+        public override void ReinitCounter(TMP_Text display, RatingContainer ratingVals)
         {
-            this.display = display;
-            precision = PluginConfig.Instance.DecimalPrecision;
-            calc = Calculator.GetSelectedCalc();
-            ratings = calc.SelectRatings(starRating, accRating, passRating, techRating);
-            ratingLen = ratings.Length == 1 ? 0 : ratings.Length;
+            base.ReinitCounter(display, ratingVals);
+            ratingLen = ratings.SelectedRatings.Length == 1 ? 0 : ratings.SelectedRatings.Length;
         }
-        public void ReinitCounter(TMP_Text display, MapSelection map) 
-        { 
-            ReinitCounter(display, map.PassRating, map.AccRating, map.TechRating, map.StarRating);
-            SetupData(map); 
+        public override void ReinitCounter(TMP_Text display, MapSelection map) 
+        {
+            ratingLen = Calculator.GetSelectedCalc().SelectRatings(map).Length;
+            if (ratingLen == 1) ratingLen = 0;
+            base.ReinitCounter(display, map);
         }
         #endregion
         #region Helper Methods
@@ -173,7 +163,7 @@ namespace BLPPCounter.Counters
                 return simple.Invoke(vals);
             };
         }
-        public void UpdateFormat() => InitTheFormat();
+        public override void UpdateFormat() => InitTheFormat();
         public static bool InitFormat()
         {
             if (rankIniter == null) FormatTheFormat(PC.FormatSettings.RankTextFormat);
@@ -192,23 +182,23 @@ namespace BLPPCounter.Counters
         }
         #endregion
         #region Updates
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
+        public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
             bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0;
             float[] ppVals = new float[(ratingLen + 1) * 2], temp;
-            temp = calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision, ratings);
+            temp = calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision, ratings.SelectedRatings);
             //Plugin.Log.Info($"ratings: {HelpfulMisc.Print(temp)}\ttemp: {HelpfulMisc.Print(temp)}");
             for (int i = 0; i < temp.Length; i++)
                 ppVals[i] = temp[i];
             if (displayFc)
             {
-                temp = calc.GetPpWithSummedPp(fcPercent, PluginConfig.Instance.DecimalPrecision, ratings);
+                temp = calc.GetPpWithSummedPp(fcPercent, PluginConfig.Instance.DecimalPrecision, ratings.SelectedRatings);
                 for (int i = 0; i < temp.Length; i++)
                     ppVals[i + temp.Length] = temp[i];
             }
             int rank = GetRank(ppVals[ratingLen]);
-            float ppDiff = (float)Math.Abs(Math.Round(mapData[Math.Max(rank - 2, 0)].pp - ppVals[ratingLen], precision));
-            float accDiff = (float)Math.Abs(Math.Round((mapData[Math.Max(rank - 2, 0)].acc - acc) * 100f, precision));
+            float ppDiff = (float)Math.Abs(Math.Round(mapData[Math.Max(rank - 2, 0)].pp - ppVals[ratingLen], PluginConfig.Instance.DecimalPrecision));
+            float accDiff = (float)Math.Abs(Math.Round((mapData[Math.Max(rank - 2, 0)].acc - acc) * 100f, PluginConfig.Instance.DecimalPrecision));
             string color = HelpfulFormatter.GetWeightedRankColor(rank);
             string text = "";
             //Plugin.Log.Info("PPVals: " + HelpfulMisc.Print(ppVals));
@@ -219,7 +209,7 @@ namespace BLPPCounter.Counters
             text += displayRank(displayFc, PC.ExtraInfo, rank == 1, ppVals[ratingLen], ppVals[ratingLen * 2 + 1], rank, ppDiff, accDiff, color, TheCounter.CurrentLabels.Last());
             display.text = text;
         }
-        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
+        public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
         #endregion
 
     }

@@ -25,7 +25,7 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;NEW_VERSION</DefineConstants>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <Optimize>true</Optimize>
@@ -173,7 +173,7 @@
     <Compile Include="CalculatorStuffs\Calculator.cs" />
     <Compile Include="CalculatorStuffs\SSCalc.cs" />
     <Compile Include="Counters\ClanCounter.cs" />
-    <Compile Include="Counters\IMyCounters.cs" />
+    <Compile Include="Counters\MyCounters.cs" />
     <Compile Include="Counters\NormalCounter.cs" />
     <Compile Include="Counters\ProgressCounter.cs" />
     <Compile Include="Counters\RankCounter.cs" />
@@ -222,6 +222,7 @@
     <Compile Include="Utils\Misc Classes\CoroutineHost.cs" />
     <Compile Include="Utils\Misc Classes\ExtraBypasses.cs" />
     <Compile Include="Utils\Misc Classes\Play.cs" />
+    <Compile Include="Utils\Misc Classes\RatingContainer.cs" />
     <Compile Include="Utils\Misc Classes\Session.cs" />
     <Compile Include="Utils\Misc Classes\FormatRelation.cs" />
     <Compile Include="Utils\Misc Classes\Map.cs" />

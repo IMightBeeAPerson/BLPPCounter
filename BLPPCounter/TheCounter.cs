@@ -29,6 +29,7 @@ using TMPro;
 using Zenject;
 using static GameplayModifiers;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
+using BLPPCounter.Utils.Misc_Classes;
 namespace BLPPCounter
 {
 
@@ -58,7 +59,7 @@ namespace BLPPCounter
         internal static bool LastLeaderboard => pc.LeaderboardsInUse.Count - 1 <= leaderboardIndex;
         internal static MapSelection LastMap;
         internal static GameplayModifiers LastMods = null;
-        public static IMyCounters theCounter { get; private set; }
+        public static MyCounters theCounter { get; private set; }
         public static ReadOnlyDictionary<string, Type> StaticFunctions { get; private set; }
         public static ReadOnlyDictionary<string, Type> StaticProperties { get; private set; }
         public static Type[] ValidCounters { get; private set; }
@@ -191,7 +192,7 @@ namespace BLPPCounter
         #region Variables
         private TMP_Text display;
         private bool enabled, checkedLastIndex;
-        private float passRating, accRating, techRating, starRating;
+        private RatingContainer ratings;
         private int notes, comboNotes, mistakes;
         private float totalHitscore, maxHitscore, fcTotalHitscore;
         private string mode, hash;
@@ -219,7 +220,7 @@ namespace BLPPCounter
 
             try
             {
-                var validTypes = GetValidCounters();
+                Type[] validTypes = GetValidCounters();
                 Dictionary<string, object> methodOutp = GetMethodFromTypes("InitFormat", validTypes);
                 for (int i = validTypes.Length - 1; i >= 0; i--)
                 {
@@ -252,7 +253,7 @@ namespace BLPPCounter
                 Dictionary<Leaderboards, string[]> DNames = new Dictionary<Leaderboards, string[]>();
                 foreach (Leaderboards l in Enum.GetValues(typeof(Leaderboards)))
                     DNames[l] = hold.Where(kvp => (kvp.Value & l) > 0).Select(kvp => kvp.Key).ToArray();
-                IEnumerable<Leaderboards> keys = (Leaderboards[])Enum.GetValues(typeof(Leaderboards));
+                IEnumerable<Leaderboards> keys = Enum.GetValues(typeof(Leaderboards)).Cast<Leaderboards>();
                 foreach (Leaderboards l in keys)
                 {
                     HashSet<string> ls = new HashSet<string>(DNames[l].Select(n => counterToDisplayName[n]));
@@ -379,13 +380,13 @@ namespace BLPPCounter
                     //Plugin.Log.Info($"CounterChange = {counterChange}, SettingChanged = {SettingChanged}\nNULL CHECKS\nLast map: {LastMap.Equals(default)}, hash: {hash is null}, pc: {pc is null}, PPType: {pc?.PPType is null}, lastTarget: {lastTarget is null}, Target: {pc.Target is null}");
                     if (theCounter is null || SettingChanged || counterChange || LastMap.Equals(default) || !hash.Equals(LastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
                     {
-                        Map m = await GetMap(hash, mode, Leaderboard, ct: ct);
+                        Map m = await GetMap(hash, mode, Leaderboard, pc.UseUnranked && Leaderboard == Leaderboards.Beatleader, ct);
                         if (ct.IsCancellationRequested)
                             return;
 #if NEW_VERSION
-                        MapSelection ms = new MapSelection(m, beatmapDiff.difficulty, mode, mods.songSpeed, starRating, accRating, passRating, techRating); // 1.34.2 and below
+                        MapSelection ms = new MapSelection(m, beatmapDiff.difficulty, mode, ratings, mods.songSpeed); // 1.34.2 and below
 #else
-                        MapSelection ms = new MapSelection(m, beatmap.difficulty, mode, starRating, accRating, passRating, techRating); // 1.37.0 and below
+                        MapSelection ms = new MapSelection(m, beatmap.difficulty, mode, ratings, mods.songSpeed); // 1.37.0 and below
 #endif
                         if (!ms.IsUsable)
                         {
@@ -433,7 +434,7 @@ namespace BLPPCounter
                     }
                 }
                 else leaderboardIndex++;
-                if (!DisplayNames.Contains(pc.PPType) || ct.IsCancellationRequested) return;
+                if (ct.IsCancellationRequested) return;
                 await AsyncCounterInit(ct);
             }
             else
@@ -608,7 +609,7 @@ namespace BLPPCounter
         {
             (_, JToken diffData) = m.Get(mode, diff);
             if (!SetupMapData(diffData, leaderboard, out float[] ratings, mods, quiet)) return default;
-            return new MapSelection(m, diff, mode, mods?.songSpeed ?? SongSpeed.Slower, ratings);
+            return new MapSelection(m, diff, mode, mods?.songSpeed ?? SongSpeed.Slower, leaderboard, ratings);
         }
         public static string SelectMode(string mainMode, Leaderboards leaderboard)
         {
@@ -674,7 +675,7 @@ namespace BLPPCounter
         {
             List<Type> counters = new List<Type>();
             //The line below adapted from: https://stackoverflow.com/questions/26733/getting-all-types-that-implement-an-interface
-            var types = Assembly.GetExecutingAssembly().GetTypes().Where(mytype => mytype.GetInterfaces().Contains(typeof(IMyCounters)));
+            var types = Assembly.GetExecutingAssembly().GetTypes().Where(mytype => mytype.BaseType?.Equals(typeof(MyCounters)) ?? false);
             foreach (Type t in types)
             {
                 var methods = t.GetMethods(BindingFlags.Public | BindingFlags.Static);
@@ -756,12 +757,19 @@ namespace BLPPCounter
         #region Init
         private bool InitCounter()
         {
-            IMyCounters outpCounter = InitCounter(pc.PPType, display);
-            if (outpCounter is null) return false;
-            theCounter = outpCounter;
-            return true;
+            try
+            {
+                MyCounters outpCounter = InitCounter(pc.PPType, display);
+                if (outpCounter is null) return false;
+                theCounter = outpCounter;
+                return true;
+            } catch (Exception e)
+            {
+                Plugin.Log.Error("There was an error making the counter:\n" + e);
+                return false;
+            }
         }
-        public static IMyCounters InitCounter(string name, TMP_Text display)
+        public static MyCounters InitCounter(string name, TMP_Text display)
         {
             if (!DisplayNameToCounter.TryGetValue(name, out string displayName))
             {
@@ -770,7 +778,19 @@ namespace BLPPCounter
             }
             Type counterType = ValidCounters.FirstOrDefault(a => a.FullName.Equals(displayName)) ?? 
                 throw new ArgumentException($"Name '{displayName}' is not a counter! Valid counter names are:\n{string.Join("\n", ValidCounters as IEnumerable<Type>)}");
-            IMyCounters outp = (IMyCounters)Activator.CreateInstance(counterType, display, LastMap);
+            if (GetPropertyFromTypes("ValidLeaderboards", counterType).TryGetValue(counterType.FullName, out object info) && info is Leaderboards valid)
+            {
+                if ((valid & Leaderboard) == Leaderboards.None)
+                {
+                    Plugin.Log.Warn("The leaderboard selected is not valid for the given counter type.");
+                    return null;
+                }
+            } else
+            {
+                Plugin.Log.Error("There was an error with reading the leaderboard type of the counter.");
+                return null;
+            }
+            MyCounters outp = (MyCounters)Activator.CreateInstance(counterType, display, LastMap);
             outp.UpdateFormat();
             return outp;
         }
@@ -778,9 +798,9 @@ namespace BLPPCounter
         {
             Plugin.Log.Debug("API Avoidance mode is active.");
 #if NEW_VERSION
-            MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmapDiff.difficulty, mode, mods.songSpeed, starRating, accRating, passRating, techRating); // 1.37.0 and above
+            MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmapDiff.difficulty, mode, ratings, mods.songSpeed); // 1.37.0 and above
 #else
-            MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmap.difficulty, mode, mods.songSpeed, starRating, accRating, passRating, techRating); // 1.34.2 and below
+            MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmap.difficulty, mode, ratings, mods.songSpeed); // 1.34.2 and below
 #endif
             if (!thisMap.IsUsable) return false;
             //Plugin.Log.Debug($"Last Map\n-------------------\n{LastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
@@ -788,7 +808,7 @@ namespace BLPPCounter
             (ratingDiff, diffDiff) = thisMap.GetDifference(LastMap);
             //Plugin.Log.Debug($"DID CHANGE || Rating: {ratingDiff}, Difficulty: {diffDiff}");
             if (diffDiff) theCounter.ReinitCounter(display, thisMap);
-            else if (ratingDiff) theCounter.ReinitCounter(display, passRating, accRating, techRating, starRating);
+            else if (ratingDiff) theCounter.ReinitCounter(display, ratings);
             else theCounter.ReinitCounter(display);
             LastMap = thisMap;
             return true;
@@ -917,15 +937,7 @@ namespace BLPPCounter
         {
             if (!SetupMapData(data, Leaderboard, out float[] ratings, mods))
                 return false;
-            if (ratings.Length == 1)
-                starRating = ratings[0];
-            else
-            {
-                starRating = ratings[0];
-                accRating = ratings[1];
-                passRating = ratings[2];
-                techRating = ratings[3];
-            }
+            this.ratings = RatingContainer.GetContainer(Leaderboard, ratings);
             return true;
         }
         /// <summary>

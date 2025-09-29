@@ -67,7 +67,7 @@ namespace BLPPCounter.CalculatorStuffs
         /// </summary>
         public abstract float[] SelectRatings(params float[] ratings);
         public float[] SelectRatings(MapSelection mapDiff) => 
-            SelectRatings(mapDiff.StarRating, mapDiff.AccRating, mapDiff.PassRating, mapDiff.TechRating);
+            SelectRatings(mapDiff.Ratings.GetAllRatings());
         public float GetSummedPp(float acc, params float[] ratings) => GetPp(acc, ratings).Aggregate(0.0f, (total, current) => total + current);
         /// <summary>
         /// Calculates the pp for given ratings and accuracy, then sums the number and rounds it to the number of decimals given.
