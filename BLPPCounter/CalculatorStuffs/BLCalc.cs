@@ -125,7 +125,7 @@ namespace BLPPCounter.CalculatorStuffs
             ((ExtendedScoringType[])Enum.GetValues(typeof(ExtendedScoringType))).Aggregate(-1, (total, current) => Math.Max(total, (int)current));
         private static readonly Dictionary<ExtendedScoringType, NoteScoreDefinition> ExtendedNoteScoreDefinition = new Dictionary<ExtendedScoringType, NoteScoreDefinition>()
         {
-#if !NEW_VERSION
+#if !NEWER_VERSION
             {ExtendedScoringType.ArcHeadArcTail, new NoteScoreDefinition(15, 70, 70, 30, 30, 0) },
             {ExtendedScoringType.ChainHeadArcTail, new NoteScoreDefinition(15, 70, 70, 0, 0, 0) },
             {ExtendedScoringType.ChainLinkArcHead, new NoteScoreDefinition(0, 0, 0, 0, 0, 20) },
@@ -139,8 +139,10 @@ namespace BLPPCounter.CalculatorStuffs
         {
             NoteScoreDefinition noteVals = GetNoteScoreDefinition(scoringType);
 
-#if NEW_VERSION
+#if NEWER_VERSION
             if (scoringType == ScoringType.ChainLink || scoringType == ScoringType.ChainLinkArcHead)
+#elif NEW_VERSION
+            if (scoringType == (ScoringType)5 || (int)scoringType == (int)ExtendedScoringType.ChainLinkArcHead)
 #else
             if (scoringType == ScoringType.BurstSliderElement || (int)scoringType == (int)ExtendedScoringType.ChainLinkArcHead)
 #endif
@@ -175,13 +177,21 @@ namespace BLPPCounter.CalculatorStuffs
         }
         internal static NoteScoreDefinition GetNoteScoreDefinition(ScoringType scoringType)
         {
-            if ((int)scoringType > ScoringTypeMax)
-                return (int)scoringType > ExtendedScoringTypeMax ? ScoreModel.GetNoteScoreDefinition(ScoringType.Normal) : ExtendedNoteScoreDefinition[(ExtendedScoringType)scoringType];
-            return ScoreModel.GetNoteScoreDefinition(scoringType);
+            try
+            {
+                if ((int)scoringType > ScoringTypeMax)
+                    return (int)scoringType > ExtendedScoringTypeMax ? ScoreModel.GetNoteScoreDefinition(ScoringType.Normal) : ExtendedNoteScoreDefinition[(ExtendedScoringType)scoringType];
+                return ScoreModel.GetNoteScoreDefinition(scoringType);
+            } catch (Exception e)
+            {
+                Plugin.Log.Error("There was an error trying to get the ScoringType \"" + scoringType + "\". Defaulting to ScoringType.Normal.");
+                Plugin.Log.Error(e);
+                return ScoreModel.GetNoteScoreDefinition(ScoringType.Normal);
+            }
         }
         internal enum ExtendedScoringType
         {
-#if !NEW_VERSION
+#if !NEWER_VERSION
             ArcHeadArcTail = 6, ChainHeadArcTail = 7, ChainLinkArcHead = 8,
 #endif
             ChainHeadArcHead = 9, ChainHeadArcHeadArcTail = 10 //for now, 1.40.9+ stuff will always be used. Once modding there becomes normal, I'll change it to only work on pre 1.40.9

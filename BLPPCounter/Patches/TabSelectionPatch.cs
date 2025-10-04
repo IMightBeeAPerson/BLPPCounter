@@ -1,4 +1,5 @@
-﻿using BLPPCounter.Settings.SettingHandlers;
+﻿using BLPPCounter.Helpfuls;
+using BLPPCounter.Settings.SettingHandlers;
 using BS_Utils.Utilities;
 using HarmonyLib;
 using HMUI;
@@ -28,12 +29,17 @@ namespace BLPPCounter.Patches
         [UsedImplicitly]
         private static void Postfix(SegmentedControl __instance)
         {
+            //Skip objects already loaded.
             if (LoadedObjects.Contains(__instance.GetHashCode()))
             {
                 if (__instance.GetHashCode() == ModTabHash)
                     ModTabSelected.Invoke("");
                 return;
             }
+            //string tabSelectorCells = __instance.cells.Aggregate("", (total, cell) => cell is TextSegmentedControlCell tscc ? total + ", " + tscc.text : total);
+            //if (tabSelectorCells.Length > 2) tabSelectorCells = tabSelectorCells.Substring(2);
+            //Plugin.Log.Info("Loaded, count = " + __instance.cells.Count() + ", names = [" + tabSelectorCells + "]");
+            //Plugin.Log.Info($"Name: {__instance.name}");
 #if NEW_VERSION
             if (!__instance.name.Equals("BSMLTabSelector") || PpInfoTabHandler.Instance.MainTabSelector.TextSegmentedControl.Equals(__instance))
 #else
@@ -50,8 +56,7 @@ namespace BLPPCounter.Patches
                 }
                 return;
             }
-            LastLoadedTabSelector = tabSelectorCells;
-            if (__instance.cells.Count() == 2 && __instance.cells.Any(scc => scc is TextSegmentedControlCell tscc && tscc.text.Equals("Mods")))
+            if (__instance.cells.Count == 2 && __instance.cells.Any(scc => scc is TextSegmentedControlCell tscc && tscc.text.Equals("Mods")))
             {
                 ModTabSelected = str =>
                 {
@@ -59,14 +64,18 @@ namespace BLPPCounter.Patches
                     if (IsOnModsTab && LastSelectedModTab.Length != 0 && TabGotSelected.ContainsKey(LastSelectedModTab)) 
                         TabGotSelected[LastSelectedModTab]?.Invoke();
                 };
+                //Plugin.Log.Info("Event tab added");
                 __instance.didSelectCellEvent += (sc, index) =>
                 {
+                    //Plugin.Log.Info("Cell selected!" + $" (Cell #{index})");
                     if (sc.cells[index] is TextSegmentedControlCell tscc) ModTabSelected?.Invoke(tscc.text);
                 };
                 ModTabHash = __instance.GetHashCode();
                 LoadedObjects.Add(ModTabHash);
                 return;
             }
+            LastLoadedTabSelector = tabSelectorCells;
+            //Plugin.Log.Info($"AllTabsFound = {AllTabsFound}, Tabs left = {HelpfulMisc.Print(TabNames)}");
             //Plugin.Log.Info("Loaded, count = " + __instance.cells.Count() + ", names = [" + tabSelectorCells + "]");
             if (AllTabsFound && __instance.cells[0] is TextSegmentedControlCell textCell && TabGotSelected.ContainsKey(textCell.text))
             {

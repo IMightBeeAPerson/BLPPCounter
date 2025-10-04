@@ -533,7 +533,11 @@ namespace BLPPCounter
         {
 #if NEW_VERSION
             if (note.gameplayType == NoteData.GameplayType.BurstSliderHead && note.isArcHead)
+#endif
+#if NEWER_VERSION
                 return note.isArcTail ? NoteData.ScoringType.ArcHeadArcTail : NoteData.ScoringType.ArcHead;
+#elif NEW_VERSION
+                return note.isArcTail ? (NoteData.ScoringType)BLCalc.ExtendedScoringType.ArcHeadArcTail : (NoteData.ScoringType)2;
 #else
             bool isSliderHead = false;
             SliderKey sk = KeyFromNoteData(note);

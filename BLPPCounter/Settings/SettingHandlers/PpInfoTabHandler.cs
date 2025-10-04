@@ -263,32 +263,32 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(TrueMapID))] private TextMeshProUGUI TrueMapID;
         [UIValue(nameof(BeatmapName))] private string BeatmapName
         {
-            get => _BeatmapName;
-            set { if (MapName is null) return; MapName.text = $"<color=#777>Map Name: <color=#AAA>{value.ClampString(25)}</color>"; _BeatmapName = value; }
+            get => $"<color=#777>Map Name: <color=#AAA>{_BeatmapName.ClampString(25)}</color>";
+            set { if (MapName is null) return; _BeatmapName = value; MapName.text = $"<color=#777>Map Name: <color=#AAA>{value.ClampString(25)}</color>"; }
         }
         private string _BeatmapName = "";
         [UIValue(nameof(BeatmapID))] private string BeatmapID
         {
-            get => _BeatmapID;
-            set { if (MapID is null) return; MapID.text = $"<color=#777>Map ID: <color=#AAA>{value}</color>"; _BeatmapID = value; }
+            get => $"<color=#777>Map ID: <color=#AAA>{_BeatmapID}</color>";
+            set { if (MapID is null) return; _BeatmapID = value; MapID.text = $"<color=#777>Map ID: <color=#AAA>{value}</color>"; }
         }
         private string _BeatmapID = "";
         [UIValue(nameof(MapModeText))] private string MapModeText
         {
-            get => _MapModeText;
-            set { if (MapID is null) return; MapMode.text = $"<color=#777>Map Type: <color=#AAA>{value}</color>"; _MapModeText = value; }
+            get => $"<color=#777>Map Type: <color=#AAA>{_MapModeText}</color>";
+            set { if (MapID is null) return; _MapModeText = value; MapMode.text = $"<color=#777>Map Type: <color=#AAA>{value}</color>"; }
         }
         private string _MapModeText = "";
         [UIValue(nameof(MapDiffText))] private string MapDiffText
         {
-            get => _MapDiffText;
-            set { if (MapID is null) return; MapDiff.text = $"<color=#777>Map Difficulty: <color=#AAA>{value}</color>"; _MapDiffText = value; }
+            get => $"<color=#777>Map Difficulty: <color=#AAA>{_MapDiffText}</color>";
+            set { if (MapID is null) return; _MapDiffText = value; MapDiff.text = $"<color=#777>Map Difficulty: <color=#AAA>{value}</color>"; }
         }
         private string _MapDiffText = "";
         [UIValue(nameof(TrueBeatmapID))] private string TrueBeatmapID
         {
-            get => _TrueBeatmapID;
-            set { if (MapID is null) return; TrueMapID.text = $"<color=#777>True Map ID: <color=#AAA>{value}</color>"; _TrueBeatmapID = value; }
+            get => $"<color=#777>True Map ID: <color=#AAA>{_TrueBeatmapID}</color>";
+            set { if (MapID is null) return; _TrueBeatmapID = value; TrueMapID.text = $"<color=#777>True Map ID: <color=#AAA>{value}</color>"; }
         }
         private string _TrueBeatmapID = "";
 #endregion
@@ -555,7 +555,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                     throw new Exception();
                 BeatmapID = val.MapId;
                 diffData = val.Data;
-                TrueBeatmapID = BLAPI.CleanUpId(IsBL ? BeatmapID : map.Get(mode ?? "Standard", CurrentMap.difficulty).MapId);
+                TrueBeatmapID = BLAPI.CleanUpId(IsBL ? _BeatmapID : map.Get(mode ?? "Standard", CurrentMap.difficulty).MapId);
 #if NEW_VERSION
                 BeatmapName = Sldvc.beatmapLevel.songName;
 #else
@@ -882,7 +882,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             if (!IsBL || CurrentDiff.Diffdata is null || !BLAPI.Instance.MapIsUsable(CurrentDiff.Diffdata)) return;
             ClanTarget.SetText(TargetHasScore ? GetTarget() : GetNoScoreTarget());
-            PPToCapture = ClanCounter.LoadNeededPp(BeatmapID, out _, out string owningClan)?.First() ?? -1f;
+            PPToCapture = ClanCounter.LoadNeededPp(_BeatmapID, out _, out string owningClan)?.First() ?? -1f;
             OwningClan.SetText($"<color=red>{owningClan}</color> owns this map.");
             PPTarget.SetText($"<color=#0F0>{Math.Round(PPToCapture, PC.DecimalPrecision)}</color> " + GetPPLabel());
         }
@@ -924,7 +924,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
             BeatmapID = val.MapId;
             JToken tokens = val.Data;
-            TrueBeatmapID =  BLAPI.CleanUpId(IsBL || failed ? BeatmapID : (await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader, true)).Get(modeName ?? "Standard", CurrentMap.difficulty).MapId);
+            TrueBeatmapID =  BLAPI.CleanUpId(IsBL || failed ? _BeatmapID : (await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader, true)).Get(modeName ?? "Standard", CurrentMap.difficulty).MapId);
             //Plugin.Log.Info("CurrentMap\n" + map);
             CurrentDiff = (tokens, CurrentDiff.Scoredata);
             MapDiffText = HelpfulMisc.AddSpaces(CurrentMap.difficulty.ToString().Replace("+", "Plus"));
@@ -951,14 +951,14 @@ namespace BLPPCounter.Settings.SettingHandlers
         private async Task DoRefresh(bool forceRefresh)
         {
             //Plugin.Log.Info($"ActualMap: {Sldvc?.selectedDifficultyBeatmap.level.songName ?? "null"} || Currently Saved Map: {CurrentMap?.level.songName ?? "null"}");
-            //Plugin.Log.Info("TabSelectionPatch: " + TabSelectionPatch.GetIfTabIsSelected(TabName));
+            //Plugin.Log.Info($"ActualMap: [{Sldvc?.beatmapKey.levelId}, {Sldvc?.beatmapKey.difficulty}] || Currently Saved Map: [{CurrentMap.levelId}, {CurrentMap.difficulty}]");
+            //Plugin.Log.Info("TabSelectionPatch: " + TabSelectionPatch.GetIfTabIsSelected(TabName) + ", Maps equal? " + (Sldvc?.beatmapKey.Equals(CurrentMap)));
+            //Plugin.Log.Info("Are we on the tab? " + TabSelectionPatch.IsOnModsTab);
             if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || !TabSelectionPatch.IsOnModsTab) return;
 #if NEW_VERSION
-            if (!forceRefresh && (Sldvc?.beatmapKey.Equals(CurrentMap) ?? false)) return; // 1.37.0 and above
-
+            if (!forceRefresh && (Sldvc?.beatmapKey.levelId?.Equals(CurrentMap.levelId) ?? false) && Sldvc.beatmapKey.difficulty == CurrentMap.difficulty) return; // 1.37.0 and above
 #else
             if (!forceRefresh && (Sldvc?.selectedDifficultyBeatmap?.Equals(CurrentMap) ?? false)) return; // 1.34.2 and below
-
 #endif
             AsyncLock.Releaser? theLock = await RefreshLock.TryLockAsync();
             if (theLock is null) return;

@@ -29,6 +29,7 @@ namespace BLPPCounter
         internal static Harmony Harmony { get; private set; }
         internal static string Name => "PPCounter";
         private Task TargeterTask;
+        private bool FirstCall = true;
         [Init]
         /// <summary>
         /// Called when the plugin is first loaded by IPA (either when the game starts or when the plugin is enabled if it starts disabled).
@@ -54,6 +55,8 @@ namespace BLPPCounter
             GameplaySetup.instance.AddTab("PP Calculator", HelpfulPaths.PP_CALC_BSML, PpInfoTabHandler.Instance); // 1.34.2 and below */
 #endif
             SimpleSettingsHandler.Instance.ChangeMenuTab(false);
+            if (!FirstCall) return;
+            FirstCall = false;
             await TargeterTask.ConfigureAwait(false);
             IEnumerator WaitThenUpdate()
             {

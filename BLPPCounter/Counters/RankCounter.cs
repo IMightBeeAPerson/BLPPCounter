@@ -101,7 +101,7 @@ namespace BLPPCounter.Counters
             string songId = map.MapData.Item1;
             APIHandler api = APIHandler.GetSelectedAPI();
             mapData = api.GetScoregraph(map).GetAwaiter().GetResult();
-            bool isUnranked = mapData[0].pp <= 0;
+            bool isUnranked = mapData[0].pp <= 0 || TheCounter.Leaderboard == Leaderboards.Accsaber;
             for (int i = 0; i < mapData.Length; i++)
             {
                 if (!isUnranked && (TheCounter.Leaderboard != Leaderboards.Beatleader || mapData[i].speed == map.MapSpeed))
