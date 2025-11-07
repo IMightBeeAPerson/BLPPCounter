@@ -15,6 +15,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
@@ -379,6 +380,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         private Button ReloadCustomRanksButton;
         [UIComponent(nameof(ReloadFollowersButton))]
         private Button ReloadFollowersButton;
+        [UIComponent(nameof(DeleteTarget))]
+        private Button DeleteTarget;
 #if !NEW_VERSION
         [UIObject(nameof(TargetModal))]
         private GameObject TargetModal;
@@ -466,9 +469,8 @@ namespace BLPPCounter.Settings.SettingHandlers
                                     UpdateSelectedTarget();
                                     CustomRankText.SetText("<color=#FFA500>Set as target, ID is in use.</color>");
                                     CustomRankInput.Text = "";
-                                    return;
-                                }
-                                throw new ArgumentException("this ID is already in use.");
+                                } else throw new ArgumentException("this ID is already in use.");
+                                return;
                             }
                             PC.CustomTargets.AddSorted(converted);
                             Targeter.AddTarget(converted);
@@ -479,7 +481,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                                 SelectedTarget = ti;
                                 UpdateSelectedTarget();
                             }
-                            CustomRankText.SetText("<color=\"green\">Success!</color>");
+                            CustomRankText.SetText("<color=\"green\">Success" + (AutoSelectAddedTarget ? ", player set as target." : "!") + "</color>");
                             CustomRankInput.Text = "";
                             IEnumerator WaitThenUpdate()
                             {
@@ -491,6 +493,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                         catch (Exception e)
                         {
                             Plugin.Log.Warn(e.Message);
+                            Plugin.Log.Debug(e);
                             CustomRankText.SetText($"<color=\"red\">Failure, {e.Message}</color>");
                         }
                     }
@@ -533,7 +536,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private List<object> SelectedTargetInfo => SelectedTarget is null ? new List<object>(0) : new List<object>(1) { SelectedTarget };
         private object SelectedTarget = null;
         private SelectableCell LastCellSelected;
-        private bool TargetMenuHasBeenOpened = false;
+        private bool TargetMenuIsOpen = false;
         private readonly Dictionary<long, TargetInfo> IdToTarget = new Dictionary<long, TargetInfo>();
 
         [UIAction(nameof(ResetTarget))]
@@ -564,25 +567,40 @@ namespace BLPPCounter.Settings.SettingHandlers
                 ReloadFollowersButton.interactable = true;
             });
         }
+        [UIAction(nameof(RemoveTarget))]
+        private void RemoveTarget()
+        {
+            if (PC.Target.Equals(Targeter.NO_TARGET)) return;
+            if (!Targeter.DeleteTarget(PC.TargetID.ToString())) return;
+            SelectedTarget = null;
+            UpdateSelectedTarget();
+            if (TargetMenuIsOpen)
+            {
+                CustomTargetList.Data = CustomTargetInfos;
+                CustomTargetList.TableView.ReloadData();
+            }
+        }
 #pragma warning disable IDE0051
         [UIAction("#ShowTargetMenu")]
         private void ShowTargetMenu()
         {
-            if (!TargetMenuHasBeenOpened)
+            IEnumerator WaitThenUpdate()
             {
-                TargetMenuHasBeenOpened = true;
-                IEnumerator WaitThenUpdate()
-                {
-                    yield return new WaitForEndOfFrame();
-                    UpdateTargetLists();
-                }
-                CoroutineHost.Start(WaitThenUpdate());
+                yield return new WaitForEndOfFrame();
+                UpdateTargetLists();
             }
+            CoroutineHost.Start(WaitThenUpdate());
+            TargetMenuIsOpen = true;
+        }
+        [UIAction("#HideTargetMenu")]
+        private void HideTargetMenu()
+        {
+            TargetMenuIsOpen = false;
         }
 #pragma warning restore IDE0051
         public void UpdateTargetLists()
         {
-            if (!TargetMenuHasBeenOpened) return;
+            if (!TargetMenuIsOpen) return;
 #if NEW_VERSION
             ClanTargetList.Data = ClanTargetInfos;
             FollowerTargetList.Data = FollowerTargetInfos;
@@ -608,13 +626,17 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void UpdateSelectedTarget()
         {
             if (SelectedTarget is TargetInfo ti && !(ti is null))
+            {
                 ti.SetAsTarget();
+                DeleteTarget.interactable = Targeter.CustomTargets.Any(token => token.ID.Equals(ti.RealID));
+            }
             else
             {
                 Target = Targeter.NO_TARGET;
                 PC.TargetID = -1;
+                DeleteTarget.interactable = false;
             }
-            if (!TargetMenuHasBeenOpened) return;
+            if (!TargetMenuIsOpen) return;
 #if NEW_VERSION
             DisplayList.Data = SelectedTargetInfo;
             DisplayList.TableView.ReloadData();
@@ -680,9 +702,15 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (PC.TargetID > -1)
             {
                 SelectedTarget = IdToTarget[PC.TargetID];
-                if (TargetMenuHasBeenOpened)
+                if (TargetMenuIsOpen)
                     UpdateSelectedTarget();
             }
+            int count = 0;
+            while (DeleteTarget is null && count++ < 20) Thread.Sleep(50);
+            if (DeleteTarget is null)
+                Plugin.Log.Warn("DeleteTarget button not initialized.");
+            else 
+                DeleteTarget.interactable = Targeter.CustomTargets.Any(token => token.ID.Equals(PC.TargetID.ToString()));
         }
         #endregion
     }

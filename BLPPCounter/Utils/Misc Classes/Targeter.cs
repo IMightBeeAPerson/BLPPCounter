@@ -157,6 +157,8 @@ namespace BLPPCounter.Utils
         {
             List<CustomTarget> temp = PC.CustomTargets;
             ReloadTargetList(ref temp, ref _customTargets);
+            foreach (CustomTarget t in temp)
+                UsedIDs.Add(t.ID);
             PC.CustomTargets = temp;
         }
         internal static void ReloadFollowers()
@@ -215,6 +217,7 @@ namespace BLPPCounter.Utils
         {
             IDtoNames[id] = name;
             _customTargets.AddSorted((id, rank), (first, second) => first.Item2.CompareTo(second.Item2));
+            UsedIDs.Add(long.Parse(id));
         }
         public static void AddTarget(CustomTarget target) => AddTarget(target.Name, target.ID.ToString(), target.Rank);
         public static void SetTarget(string name, long id)
@@ -223,6 +226,15 @@ namespace BLPPCounter.Utils
             PC.TargetID = id;
         }
         public static void SetTarget(CustomTarget target) => SetTarget(target.Name, target.ID);
+        public static bool DeleteTarget(string id)
+        {
+            var element = _customTargets.FirstOrDefault(token => token.ID.Equals(id));
+            CustomTarget pcElement = PC.CustomTargets.FirstOrDefault(token => token.ID.ToString().Equals(id));
+            if (element == default || pcElement.CompareTo(default) == 0) return false;
+            _customTargets.Remove(element);
+            PC.CustomTargets.Remove(pcElement);
+            return true;
+        }
         public static async Task<string> RequestClan(string playerID)
         {
             try

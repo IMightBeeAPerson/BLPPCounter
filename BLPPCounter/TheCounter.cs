@@ -372,6 +372,12 @@ namespace BLPPCounter
 #else
                     hash = beatmap.level.levelID.Split('_')[2]; // 1.34.2 and below
 #endif
+                    if (hash.Substring(hash.Length - 3, 3).ToLower().Equals("wip"))
+                    {
+                        Plugin.Log.Warn("WIP Map, counter will disable.");
+                        ForceTurnOff();
+                        return;
+                    }
                     bool counterChange = !SettingChanged && (!theCounter?.Name.Equals(pc.PPType) ?? false);
                     if (counterChange)
                         if ((GetPropertyFromTypes("DisplayHandler", theCounter.GetType()).Values.First() as string).Equals(DisplayName))

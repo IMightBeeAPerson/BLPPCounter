@@ -132,6 +132,7 @@
                   </horizontal>
                 </vertical>
               </custom-list>
+              <button id='DeleteTarget' text='Delete Target' on-click='RemoveTarget' face-color='red' interactable='false'/>
             </horizontal>
             <horizontal>
               <button text='Reset Target' on-click='ResetTarget' hover-hint='Resets the target back to yourself' align='Left'/>
