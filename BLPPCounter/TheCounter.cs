@@ -349,14 +349,14 @@ namespace BLPPCounter
             InitTaskCancelToken = InitTaskCanceller.Token;
             InitTask = Task.Run(async () => await AsyncCounterInit(InitTaskCancelToken), InitTaskCancelToken);
         }
-        private async Task AsyncCounterInit(CancellationToken ct) 
+        private async Task AsyncCounterInit(CancellationToken ct, bool ignoreLast = false) 
         {
             if (!dataLoaded)
             {
                 Data = new Dictionary<string, Map>();
                 InitData();
             }
-            if (leaderboardIndex == lastLeaderboardIndex && checkedLastIndex)
+            if (leaderboardIndex == lastLeaderboardIndex && checkedLastIndex || leaderboardIndex >= pc.LeaderboardsInUse.Count)
                 goto Failed;
             Plugin.Log.Info("Attempting to load " + Leaderboard + "...");
             try
@@ -384,8 +384,15 @@ namespace BLPPCounter
                             //Need to recall this one so that it implements the current counter's wants properly
                             if (FormatTheFormat(pc.FormatSettings.DefaultTextFormat)) InitDisplayFormat();
                     //Plugin.Log.Info($"CounterChange = {counterChange}, SettingChanged = {SettingChanged}\nNULL CHECKS\nLast map: {LastMap.Equals(default)}, hash: {hash is null}, pc: {pc is null}, PPType: {pc?.PPType is null}, lastTarget: {lastTarget is null}, Target: {pc.Target is null}");
-                    if (theCounter is null || SettingChanged || counterChange || LastMap.Equals(default) || !hash.Equals(LastMap.Hash) || pc.PPType.Equals(ProgressCounter.DisplayName) || !lastTarget.Equals(pc.Target))
+                    if (theCounter is null || SettingChanged || counterChange || LastMap.Equals(default) || !hash.Equals(LastMap.Hash) || !lastTarget.Equals(pc.Target))
                     {
+                        if (!ignoreLast && lastLeaderboardIndex != 0 && lastLeaderboardIndex == leaderboardIndex)
+                        {
+                            Plugin.Log.Info("Ignoring last leaderboard used since the map has changed.");
+                            leaderboardIndex = 0;
+                            await AsyncCounterInit(ct, true);
+                            return;
+                        }
                         Map m = await GetMap(hash, mode, Leaderboard, pc.UseUnranked && Leaderboard == Leaderboards.Beatleader, ct);
                         if (ct.IsCancellationRequested)
                             return;
@@ -429,17 +436,12 @@ namespace BLPPCounter
         Failed:
             if (!LastLeaderboard || (!checkedLastIndex && pc.LeaderboardsInUse.Count > 1))
             {
-                if (leaderboardIndex == lastLeaderboardIndex)
+                if (leaderboardIndex == lastLeaderboardIndex && !checkedLastIndex)
                 {
-                    if (checkedLastIndex)
-                        leaderboardIndex++;
-                    else
-                    {
-                        leaderboardIndex = lastLeaderboardIndex == 0 ? 1 : 0;
-                        checkedLastIndex = true;
-                    }
+                    leaderboardIndex = lastLeaderboardIndex == 0 ? 1 : 0;
+                    checkedLastIndex = true;
                 }
-                else leaderboardIndex++;
+                else leaderboardIndex += leaderboardIndex + 1 == lastLeaderboardIndex ? 2 : 1;
                 if (ct.IsCancellationRequested) return;
                 await AsyncCounterInit(ct);
             }
