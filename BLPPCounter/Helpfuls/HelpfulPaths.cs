@@ -68,6 +68,7 @@ namespace BLPPCounter.Helpfuls
         public static readonly string APAPI_CATEGORY_SCORES = "https://api.accsaber.com/players/{0}/{1}/scores"; //user_id, accsaber category (true, standard, tech)
         public static readonly string APAPI_RECENT_SCORE = "https://api.accsaber.com/players/{0}/recent-scores?pageSize=1"; //user_id
 
+        //Docs: https://api.beatsaver.com/docs/index.html
         public static readonly string BSAPI = "https://api.beatsaver.com/";
         public static readonly string BSAPI_MAPID = "https://api.beatsaver.com/maps/id/{0}";
         public static readonly string BSAPI_HASH = "https://api.beatsaver.com/maps/hash/{0}";

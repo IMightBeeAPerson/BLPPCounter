@@ -61,7 +61,8 @@ namespace BLPPCounter.Helpfuls
                 {"Hide", 'h' }
             };
         }
-        public static (string, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<(char, int), string[]>) ParseCounterFormat(string format, Dictionary<string, char> aliasConverter, string counterName)
+        public static (string formatted, Dictionary<(char, int), string> tokens, Dictionary<int, char> priority, Dictionary<(char, int), string[]> extraArgs) ParseCounterFormat(
+            string format, Dictionary<string, char> aliasConverter, string counterName)
         {
             Dictionary<(char, int), string> tokens = new Dictionary<(char, int), string>();
             Dictionary<(char, int), string[]> extraArgs = new Dictionary<(char, int), string[]>();
@@ -110,11 +111,12 @@ namespace BLPPCounter.Helpfuls
                 }
                 format = Regex.Replace(format, TestRegexAliasPattern, AliasReplace);
             }//*/
-            if (aliasConverter == null)
+            if (aliasConverter is null)
                 Plugin.Log.Debug("No alias converter given! Thankfully, there are no aliases present so there will not be an error.");
+            //TestParse(format);
             for (int i = 0; i < format.Length; i++)//[p$ ]&[[c&x]&]<1 / [o$ ]&[[f&y]&] >&l<2\n&m[t\n$]>
             {
-                if (Regex.Match(format.Substring(i), "^<(?:(?<Key>[^=]+)=[^>]+>(?=.*?<\\/\\k<Key>>)|\\/[^>]+>)", RegexOptions.Singleline) is Match m && m.Success)
+                if (Regex.Match(format.Substring(i), @"^<(?:(?<Key>[^=]+)=[^>]+>(?=.*?<\/\k<Key>>)|\/[^>]+>)", RegexOptions.Singleline) is Match m && m.Success)
                 {
                     if (capture)
                         captureStr += format.Substring(i, m.Length);
@@ -247,6 +249,15 @@ namespace BLPPCounter.Helpfuls
             if (capture)
                 throw new FormatException($"Invalid capture format, must close capture bracket.\nSyntax: {CAPTURE_OPEN}<number> ... {CAPTURE_CLOSE}");
             return (formatted, tokens, priority, extraArgs);
+        }
+        private static void TestParse(string format)
+        {
+            //(?<Tokens>(?<!&)&.)
+            Regex tokenRegex = new Regex(string.Format("(?<Tokens>(?<!{0}){0}.)", Regex.Escape($"{ESCAPE_CHAR}")));
+            //(?<!&)\[(?<Token>.)(?<Text>(?:[^\[\]$]*|(?<Replace>\$))+)\]
+            Regex groupRegex = new Regex(string.Format("(?<!{0}){1}(?<Token>.)(?<Text>(?:[^{1}{2}$]*|(?<Replace>{3}))+){2}", Regex.Escape($"{ESCAPE_CHAR}{GROUP_OPEN}{GROUP_CLOSE}{INSERT_SELF}").ToArray()));
+            //<\d+[^<>]*>
+            Regex captureRegex = new Regex(string.Format(@"{0}\d+[^{0}{1}]*{1}", Regex.Escape($"{CAPTURE_OPEN}{CAPTURE_CLOSE}").ToArray()));
         }
         private static string ReplaceShorthand(string format, string richVal, int i, out int newCount, out string newRichVal)
         {

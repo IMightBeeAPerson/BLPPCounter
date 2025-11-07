@@ -118,7 +118,7 @@ namespace BLPPCounter.Counters
             }
             Array.Sort(mapData, (a,b) => (b.pp - a.pp) < 0 ? -1 : 1);
             rankArr = mapData.Select(t => t.pp).ToArray();
-            Plugin.Log.Info($"[{string.Join(", ", mapData.Select(t => (t.acc, t.pp)))}]");
+            //Plugin.Log.Debug($"[{string.Join(", ", mapData.Select(t => (t.acc, t.pp)))}]");
         }
         public override void ReinitCounter(TMP_Text display, RatingContainer ratingVals)
         {

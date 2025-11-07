@@ -139,7 +139,7 @@ namespace BLPPCounter.Utils
                     ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
                     if (IsAP) APCategories = HelpfulMisc.CompressEnums(ActualAPCategories);
                 }
-                TotalPP = (usingAP ? (api as APAPI).GetProfilePP(UserID, AccSaberType) : api.GetProfilePP(UserID)).Result;
+                TotalPP = (usingAP ? (api as APAPI).GetProfilePP(UserID, AccSaberType) : api.GetProfilePP(UserID)).GetAwaiter().GetResult();
                 if (CurrentSession is null) CurrentSession = new Session(Leaderboard, UserID, TotalPP);
                 InitTable();
             }
@@ -560,25 +560,28 @@ namespace BLPPCounter.Utils
         /// <param name="scores">The loaded weighted pp values in an array.</param>
         /// <param name="index">The score number (NOT zero index, starts at 1).</param>
         /// <returns>The profile pp gained from such a score.</returns>
-        private float GetProfilePP(float weightedPp, int index)
+        private float GetProfilePP(float weightedPp, int index, int ignoredScore = -1)
         {
             float weightedSum = TotalPP;
             if (index-- >= WeightedScores.Length)
                 return -1;
-            else for (int j = 0; j < index; weightedSum -= WeightedScores[j], j++) ;
             float outp;
             if (Leaderboard == Leaderboards.Accsaber)
             {//Gotta do things a bit different with accsaber due to the way they weight stuff
                 float offset = 0, currentWeight = GetWeight(index + 2);
                 for (; index < WeightedScores.Length; index++)
                 {
-                    offset += WeightedScores[index] - Scores[index] * currentWeight;
+                    if (index != ignoredScore)
+                        offset += WeightedScores[index] - Scores[index] * currentWeight;
                     currentWeight = GetNextWeight(currentWeight);
                 }
                 outp = (float)Math.Round(weightedPp - offset, PluginConfig.Instance.DecimalPrecision);
             }
             else
+            {
+                for (int j = 0; j < index; weightedSum -= WeightedScores[j], j++) ;
                 outp = (float)Math.Round(weightedPp - (1.0f - GetWeight(2)) * weightedSum, PluginConfig.Instance.DecimalPrecision);
+            }
             return outp < 0 ? 0 : outp;
         }
         /// <summary>
@@ -622,9 +625,9 @@ namespace BLPPCounter.Utils
         /// <param name="diff">The difficulty of the map that this score set on.</param>
         /// <param name="mode">The BeatmapCharacteristic of the map.</param>
         /// <returns>Returns whether or not the score was good enough to enter the <see cref="Scores"/> array.</returns>
-        public bool AddPlay(float rawPP, string mapName, string mapKey, BeatmapDifficulty diff, string mode)
+        public bool AddPlay(float rawPP, string mapName, string mapKey, BeatmapDifficulty diff, string mode, bool ignoreSession = false)
         {
-            Plugin.Log.Info($"{Leaderboard}: {HelpfulMisc.Print(new object[] { rawPP, mapName, diff })}");
+            Plugin.Log.Info($"{Leaderboard}{(Leaderboard == Leaderboards.Accsaber ? $" ({AccSaberType})" : "")}: {HelpfulMisc.Print(new object[] { rawPP, mapName, diff })}");
             if (float.IsNaN(rawPP) || Scores[Scores.Length - 1] > rawPP) return false;
             //Plugin.Log.Debug($"Recieved score: " + rawPP);
             int index = HelpfulMisc.ReverseBinarySearch(Scores, rawPP);
@@ -633,8 +636,8 @@ namespace BLPPCounter.Utils
             if (index >= Scores.Length || (isDupe && !isBetter)) return false;
             float profilePP = GetProfilePP(GetWeightedPP(rawPP), index + 1);
             float oldScore = ScoreIDs.IndexOf(mapKey);
-            if (oldScore >= 0) oldScore = Scores[(int)oldScore];
-            CurrentSession.AddPlay(mapName, mapKey, diff, mode, rawPP, profilePP, oldScore);
+            oldScore = oldScore >= 0 ? Scores[(int)oldScore] : 0;
+            if (!ignoreSession) CurrentSession.AddPlay(mapName, mapKey, diff, mode, rawPP, profilePP, oldScore);
             if (profilePP > 0) TotalPP += profilePP;
             if (isDupe)
             {
@@ -658,8 +661,8 @@ namespace BLPPCounter.Utils
             if (Leaderboard == Leaderboards.Accsaber && AccSaberType != APCategory.All)
             {
                 Profile p = GetProfile(Leaderboards.Accsaber, UserID, APCategory.All);
-                if (!p.AddPlay(rawPP, mapName, mapKey, diff, mode))
-                    p.CurrentSession.AddPlay(mapName, mapKey, diff, mode, rawPP, profilePP, oldScore);
+                p.AddPlay(rawPP, mapName, mapKey, diff, mode, true);
+                p.CurrentSession.AddPlay(mapName, mapKey, diff, mode, rawPP, profilePP, oldScore);
             }
             ReloadTableValues();
             return true;

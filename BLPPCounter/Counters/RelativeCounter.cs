@@ -387,13 +387,11 @@ namespace BLPPCounter.Counters
                     replayPPVals = calc.GetPpWithSummedPp(accToBeat / 100.0f, ratings.SelectedRatings);
                 return;
             } //Past here will be treating it as if the leaderboard selected is beatleader, as that is the source of the replay.
-            if (notes < 1) return;
+            if (notes < 1 || notes + bombs - 1 >= noteArray.Length) return;
             BeatLeader.Models.Replay.NoteEvent note = noteArray[notes + bombs - 1];
             while (wallArray.Count() > 0 && wallArray.Peek().spawnTime < note.spawnTime)
-            {
                 if (wallArray.Dequeue().energy < 1.0f)
                     replayCombo = HelpfulMath.DecreaseMultiplier(replayCombo);
-            }
 #if NEW_VERSION
             NoteData.ScoringType scoringType = TheCounter.HandleWeirdNoteBehaviour(noteData);
 #else
