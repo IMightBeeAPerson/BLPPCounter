@@ -257,14 +257,28 @@ namespace BLPPCounter.Utils
         }
         public static async Task<IEnumerable<CustomTarget>> RequestFollowers(string playerID)
         {
+            List<CustomTarget> outp = null;
             try
             {
                 async Task<IEnumerable<CustomTarget>> PageHandler(string token) => 
                     await Task.Run(() => 
                 JToken.Parse(token).Children().Select(t => new CustomTarget(t["name"].ToString(), (long)t["id"], -1)));
-                IEnumerable<CustomTarget> outp;
-                outp = await APIHandler.CalledPagedAPIFlat(MAX_LIST_LENGTH, (page, count) => string.Format(HelpfulPaths.BLAPI_FOLLOWERS, playerID, page, count), BLAPI.Throttle, PageHandler);
-                //await BS_Utils.Gameplay.GetUserInfo.GetPlatformUserModel().GetUserFriendsUserIds(false).ConfigureAwait(false);
+                outp = (await APIHandler.CalledPagedAPIFlat(MAX_LIST_LENGTH, (page, count) => string.Format(HelpfulPaths.BLAPI_FOLLOWERS, playerID, page, count), BLAPI.Throttle, PageHandler)).ToList();
+                if (PC.UseSteamFriends)
+                {
+                    IReadOnlyList<string> friends = await BS_Utils.Gameplay.GetUserInfo.GetPlatformUserModel().GetUserFriendsUserIds(false).ConfigureAwait(false);
+                    if (!(friends is null))
+                        foreach (string id in friends)
+                        {
+                            if (outp.Any(token => token.ID.ToString().Equals(id))) continue;
+                            string str = await APIHandler.GetAPI(Leaderboards.Beatleader).CallAPI_String(string.Format(HelpfulPaths.BLAPI_USERID, id));
+                            if (str is null) continue;
+                            JToken player = JToken.Parse(str);
+                            if (((int)player["rank"]) == 0) continue;
+                            outp.Add(new CustomTarget(player["name"].ToString(), long.Parse(player["id"].ToString()), (int)player["rank"]));
+                            //Plugin.Log.Info("Added player id \"" + outp.Last() + '"');
+                        }
+                }
                 return outp;
             }
             catch (HttpRequestException e)
@@ -272,7 +286,7 @@ namespace BLPPCounter.Utils
                 Plugin.Log.Warn("There was an error when doing the API requests for follower data: " + e.Message);
                 Plugin.Log.Debug(e);
             }
-            return null;
+            return outp;
         }
         internal static void SaveAll()
         {

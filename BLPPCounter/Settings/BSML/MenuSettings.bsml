@@ -74,6 +74,7 @@
       <text text='Target Settings' align='Center'/>
       <vertical spacing='1'>
         <checkbox-setting text='Print Warnings' apply-on-change='true' value='TargeterStartupWarnings' hover-hint='(DEBUG ONLY) Whether or not to print warnings for duplicate ids found.'/>
+        <checkbox-setting text='Use Steam Friends' apply-on-change='true' value='UseSteamFriends' hover-hint='When loading followers, also check your steam friends list and load them as well.'/>
         <string-setting text='Custom Target' id='CustomTargetInput' value='CustomTarget' apply-on-change='true' hover-hint='Enter the user id or alias of a person'/>
         <text text='' align='Right' id='CustomTargetText'/>
         <string-setting text='Custom Rank' id='CustomRankInput' value='CustomRank' apply-on-change='true' hover-hint='Enter the rank of a person'/>

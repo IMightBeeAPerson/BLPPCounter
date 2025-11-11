@@ -356,7 +356,7 @@ namespace BLPPCounter
                 Data = new Dictionary<string, Map>();
                 InitData();
             }
-            if (leaderboardIndex == lastLeaderboardIndex && checkedLastIndex || leaderboardIndex >= pc.LeaderboardsInUse.Count)
+            if (leaderboardIndex == lastLeaderboardIndex && checkedLastIndex)
                 goto Failed;
             Plugin.Log.Info("Attempting to load " + Leaderboard + "...");
             try
@@ -378,6 +378,13 @@ namespace BLPPCounter
                         ForceTurnOff();
                         return;
                     }
+                    if (!LastMap.Equals(default) && !hash.Equals(LastMap.Hash) && !ignoreLast && lastLeaderboardIndex != 0 && lastLeaderboardIndex == leaderboardIndex)
+                    {
+                        Plugin.Log.Info("Ignoring last leaderboard used since the map has changed.");
+                        leaderboardIndex = 0;
+                        await AsyncCounterInit(ct, true);
+                        return;
+                    }
                     bool counterChange = !SettingChanged && (!theCounter?.Name.Equals(pc.PPType) ?? false);
                     if (counterChange)
                         if ((GetPropertyFromTypes("DisplayHandler", theCounter.GetType()).Values.First() as string).Equals(DisplayName))
@@ -386,20 +393,13 @@ namespace BLPPCounter
                     //Plugin.Log.Info($"CounterChange = {counterChange}, SettingChanged = {SettingChanged}\nNULL CHECKS\nLast map: {LastMap.Equals(default)}, hash: {hash is null}, pc: {pc is null}, PPType: {pc?.PPType is null}, lastTarget: {lastTarget is null}, Target: {pc.Target is null}");
                     if (theCounter is null || SettingChanged || counterChange || LastMap.Equals(default) || !hash.Equals(LastMap.Hash) || !lastTarget.Equals(pc.Target))
                     {
-                        if (!ignoreLast && lastLeaderboardIndex != 0 && lastLeaderboardIndex == leaderboardIndex)
-                        {
-                            Plugin.Log.Info("Ignoring last leaderboard used since the map has changed.");
-                            leaderboardIndex = 0;
-                            await AsyncCounterInit(ct, true);
-                            return;
-                        }
                         Map m = await GetMap(hash, mode, Leaderboard, pc.UseUnranked && Leaderboard == Leaderboards.Beatleader, ct);
                         if (ct.IsCancellationRequested)
                             return;
 #if NEW_VERSION
-                        MapSelection ms = new MapSelection(m, beatmapDiff.difficulty, mode, ratings, mods.songSpeed); // 1.34.2 and below
+                        MapSelection ms = new MapSelection(m, beatmapDiff.difficulty, mode, ratings, mods.songSpeed); // 1.37.0 and above
 #else
-                        MapSelection ms = new MapSelection(m, beatmap.difficulty, mode, ratings, mods.songSpeed); // 1.37.0 and below
+                        MapSelection ms = new MapSelection(m, beatmap.difficulty, mode, ratings, mods.songSpeed); // 1.34.2 and below
 #endif
                         if (!ms.IsUsable)
                         {
@@ -441,9 +441,9 @@ namespace BLPPCounter
                     leaderboardIndex = lastLeaderboardIndex == 0 ? 1 : 0;
                     checkedLastIndex = true;
                 }
-                else leaderboardIndex += leaderboardIndex + 1 == lastLeaderboardIndex ? 2 : 1;
+                else leaderboardIndex += leaderboardIndex + 1 == lastLeaderboardIndex && !checkedLastIndex && !ignoreLast ? 2 : 1;
                 if (ct.IsCancellationRequested) return;
-                await AsyncCounterInit(ct);
+                await AsyncCounterInit(ct, ignoreLast);
             }
             else
                 ForceTurnOff();

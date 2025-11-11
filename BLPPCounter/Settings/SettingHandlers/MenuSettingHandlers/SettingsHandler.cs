@@ -352,6 +352,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             get => PC.TargeterStartupWarnings;
             set { PC.TargeterStartupWarnings = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(TargeterStartupWarnings))); }
         }
+        [UIValue(nameof(UseSteamFriends))]
+        public bool UseSteamFriends
+        {
+            get => PC.UseSteamFriends;
+            set { PC.UseSteamFriends = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseSteamFriends))); }
+        }
         [UIValue(nameof(ShowEnemy))]
         public bool ShowEnemy
         {
@@ -576,8 +582,13 @@ namespace BLPPCounter.Settings.SettingHandlers
             UpdateSelectedTarget();
             if (TargetMenuIsOpen)
             {
+#if NEW_VERSION
                 CustomTargetList.Data = CustomTargetInfos;
                 CustomTargetList.TableView.ReloadData();
+#else
+                CustomTargetList.data = CustomTargetInfos;
+                CustomTargetList.tableView.ReloadData();
+#endif
             }
         }
 #pragma warning disable IDE0051
@@ -712,6 +723,6 @@ namespace BLPPCounter.Settings.SettingHandlers
             else 
                 DeleteTarget.interactable = Targeter.CustomTargets.Any(token => token.ID.Equals(PC.TargetID.ToString()));
         }
-        #endregion
+#endregion
     }
 }
