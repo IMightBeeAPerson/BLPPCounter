@@ -1,25 +1,28 @@
-﻿using static GameplayModifiers;
-using Newtonsoft.Json.Linq;
-using System;
-using System.Net.Http;
+﻿using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
-using UnityEngine.Windows.Speech;
+using BLPPCounter.Utils.Misc_Classes;
+using ModestTree;
+using Newtonsoft.Json.Linq;
+using OnlineServices.API;
+using System;
 using System.Collections.Generic;
-using BLPPCounter.Helpfuls;
 using System.Linq;
-using System.Runtime.CompilerServices;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using BLPPCounter.Utils.Misc_Classes;
-using BLPPCounter.Utils.Enums;
-using ModestTree;
-using System.Xml.Schema;
+using UnityEngine.Windows.Speech;
+using static GameplayModifiers;
 
 namespace BLPPCounter.Utils.API_Handlers
 {
     internal abstract class APIHandler
     {
-        protected static readonly TimeSpan ClientTimeout = new TimeSpan(0, 0, 5);
+        private static TimeSpan clientTimeout = TimeSpan.FromSeconds(PluginConfig.Instance.APITimeout);
+        internal static TimeSpan ClientTimeout
+        {
+            get => clientTimeout;
+            set { clientTimeout = value; client.Timeout = value; }
+        }
         protected static readonly HttpClient client = new HttpClient
         {
             Timeout = ClientTimeout
@@ -40,7 +43,7 @@ namespace BLPPCounter.Utils.API_Handlers
 
                     Plugin.Log.Debug("API Call: " + path);
 
-                    HttpResponseMessage response = await client.GetAsync(new Uri(path)).ConfigureAwait(false); //Seems this isn't needed, but gonna leave it here: .Replace(" ", "%20")
+                    HttpResponseMessage response = await client.GetAsync(new Uri(path)).ConfigureAwait(false);
                     int status = (int)response.StatusCode;
                     if (status >= 400 && status < 500)
                     {
@@ -54,6 +57,18 @@ namespace BLPPCounter.Utils.API_Handlers
                 }
                 catch (Exception e)
                 {
+                    if (e is TaskCanceledException)
+                    {
+                        if (!quiet)
+                        {
+                            Plugin.Log.Error($"API request failed with a TaskCanceledException, meaning the request almost certainly timed out. Clearing pool and retrying one more time.");
+                            Plugin.Log.Debug(e);
+                        }
+                        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, new Uri(path));
+                        request.Headers.ConnectionClose = true;
+                        await client.SendAsync(request).ConfigureAwait(false);
+                        attempt = maxRetries - 1;
+                    }
                     if (!quiet)
                     {
                         Plugin.Log.Error($"API request failed (attempt {attempt}/{maxRetries})\nPath: {path}\nError: {e.Message}");

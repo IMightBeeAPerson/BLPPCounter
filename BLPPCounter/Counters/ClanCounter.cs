@@ -278,25 +278,25 @@ namespace BLPPCounter.Counters
             }
             showRank = PC.ShowRank && setupStatus != 1 && setupStatus != 3;
         }
-        public static float[] LoadNeededPp(string mapId, out bool mapCaptured, out string owningClan, ref int playerClanId)
+        public static async Task<(float[] clanPP, bool mapCaptured, string owningClan, int playerClanId)> LoadNeededPp(string mapId, int playerClanId)
         {
             string id = Targeter.TargetID, check;
-            mapCaptured = false;
-            owningClan = "None";
-            check = BLAPI.Instance.CallAPI_String($"https://api.beatleader.com/player/{id}").Result;
+            bool mapCaptured = false;
+            string owningClan = "None";
+            check = await BLAPI.Instance.CallAPI_String($"https://api.beatleader.com/player/{id}").ConfigureAwait(false);
             if (playerClanId < 0 && check.Length > 0) playerClanId = ParseId(JToken.Parse(check));
-            check = BLAPI.Instance.CallAPI_String($"{string.Format(HelpfulPaths.BLAPI_CLAN, mapId)}?page=1&count=1").Result;
-            if (check.Length == 0) return null;
+            check = await BLAPI.Instance.CallAPI_String($"{string.Format(HelpfulPaths.BLAPI_CLAN, mapId)}?page=1&count=1").ConfigureAwait(false);
+            if (check.Length == 0) return (null, mapCaptured, owningClan, playerClanId);
             JToken clanData = JToken.Parse(check);
-            if ((int)clanData["difficulty"]["status"] != 3) return null; //Map isn't ranked
+            if ((int)clanData["difficulty"]["status"] != 3) return (null, mapCaptured, owningClan, playerClanId); //Map isn't ranked
             clanData = clanData["clanRanking"].Children().First();
             owningClan = clanData["clan"]["tag"].ToString();
             int clanId = -1;
-            if (clanData.Count() > 0) clanId = (int)clanData["clan"]["id"]; else return null;
+            if (clanData.Count() > 0) clanId = (int)clanData["clan"]["id"]; else return (null, mapCaptured, owningClan, playerClanId);
             mapCaptured = clanId <= 0 || clanId == playerClanId;
             float pp = (float)clanData["pp"];
-            check = RequestClanLeaderboard(id, mapId, playerClanId).Result;
-            if (check.Length == 0) return new float[1] { pp }; //No scores are set, so player must capture it by themselves.
+            check = await RequestClanLeaderboard(id, mapId, playerClanId);
+            if (check.Length == 0) return (new float[1] { pp }, mapCaptured, owningClan, playerClanId); //No scores are set, so player must capture it by themselves.
             JEnumerable<JToken> scores = JToken.Parse(check)["associatedScores"].Children();
             List<float> actualPpVals = new List<float>();
             float playerScore = 0.0f;
@@ -311,9 +311,20 @@ namespace BLPPCounter.Counters
             float[] clanPPs = clone.ToArray();
             Array.Sort(clanPPs, (a, b) => (int)Math.Round(b - a));
             float neededPp = mapCaptured ? 0.0f : BLCalc.Instance.GetNeededPlay(actualPpVals, pp, playerScore);
-            return clanPPs.Prepend(neededPp).ToArray();
+            return (clanPPs.Prepend(neededPp).ToArray(), mapCaptured, owningClan, playerClanId);
         }
-        public static float[] LoadNeededPp(string mapId, out bool mapCaptured, out string owningClan) { int no = -1; return LoadNeededPp(mapId, out mapCaptured, out owningClan, ref no); }
+        public static float[] LoadNeededPp(string mapId, out bool mapCaptured, out string owningClan, ref int playerClanId)
+        {
+            float[] outp;
+            (outp, mapCaptured, owningClan, playerClanId) = LoadNeededPp(mapId, playerClanId).GetAwaiter().GetResult();
+            return outp;
+        }
+        public static float[] LoadNeededPp(string mapId, out bool mapCaptured, out string owningClan) 
+        {
+            float[] outp;
+            (outp, mapCaptured, owningClan, _) = LoadNeededPp(mapId, -1).GetAwaiter().GetResult(); 
+            return outp;
+        }
         public override void ReinitCounter(TMP_Text display, RatingContainer ratingVals) {
             base.ReinitCounter(display, ratingVals);
             neededPPs[5] = calc.GetAcc(neededPPs[3], PC.DecimalPrecision, ratings.Ratings);
@@ -344,7 +355,7 @@ namespace BLPPCounter.Counters
         private static async Task<string> RequestClanLeaderboard(string id, string mapId, int playerClanId)
         {
             int clanId = playerClanId > 0 ? playerClanId : ParseId(await BLAPI.Instance.CallAPI_String($"{HelpfulPaths.BLAPI}player/{id}", forceNoHeader: true).ConfigureAwait(false));
-            return await BLAPI.Instance.CallAPI_String($"{HelpfulPaths.BLAPI}leaderboard/clanRankings/{mapId}/clan/{clanId}?count=100&page=1", forceNoHeader: true).ConfigureAwait(false);
+            return await BLAPI.Instance.CallAPI_String(string.Format(HelpfulPaths.BLAPI_CLAN + "/clan/{1}?count=100&page=1", mapId, clanId), forceNoHeader: true).ConfigureAwait(false);
         }
         #endregion
         #region Helper Functions

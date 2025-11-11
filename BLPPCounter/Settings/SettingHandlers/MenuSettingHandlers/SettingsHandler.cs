@@ -6,6 +6,7 @@ using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Utils;
+using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.List_Settings;
 using BLPPCounter.Utils.Misc_Classes;
 using CountersPlus.ConfigModels;
@@ -76,6 +77,9 @@ namespace BLPPCounter.Settings.SettingHandlers
                         break;
                     case nameof(Target):
                         PpInfoTabHandler.Instance.ResetTabs();
+                        break;
+                    case nameof(APITimeout):
+                        APIHandler.ClientTimeout = TimeSpan.FromSeconds(PC.APITimeout);
                         break;
 
                 }
@@ -208,6 +212,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         #region Misc Settings
         [UIAction(nameof(ClearCache))]
         public void ClearCache() { ClanCounter.ClearCache(); TheCounter.ClearCounter(); }
+        [UIValue(nameof(APITimeout))]
+        public int APITimeout
+        {
+            get => PC.APITimeout;
+            set { PC.APITimeout = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(APITimeout))); }
+        }
         [UIValue(nameof(UseGrad))]
         public bool UseGrad
         {

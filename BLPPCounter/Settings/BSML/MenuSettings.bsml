@@ -45,6 +45,7 @@
       </vertical>
       <text text='Misc Settings' align='Center'/>
       <vertical spacing='1'>
+        <slider-setting text='API Timeout' apply-on-change='true' value='APITimeout' integer-only='true' min='1' max='60' increment='1' show-buttons='true'/>
         <button text='Clear Cache' on-click='ClearCache' hover-hint='Clears the map cache'/>
         <checkbox-setting text='Use Gradient' apply-on-change='true' value='UseGrad' hover-hint='Instead of solid green/red, use a gradient based off of the value'/>
         <color-setting text='Color Gradient Minimum' apply-on-change='true' value='ColorGradMin'/>

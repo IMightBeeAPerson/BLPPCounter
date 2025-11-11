@@ -42,6 +42,7 @@ namespace BLPPCounter.Settings.Configs
         public virtual bool HuntLoads { get; set; } = true;
         #endregion
         #region Misc Settings
+        public virtual int APITimeout { get; set; } = 5; //in seconds
         public virtual float ColorGradMinDark { get; set; } = 0.5f;
         public virtual bool ColorGradBlending { get; set; } = true;
         public virtual bool BlendMiddleColor { get; set; } = false;
