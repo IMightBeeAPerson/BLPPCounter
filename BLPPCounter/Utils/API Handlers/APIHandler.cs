@@ -30,10 +30,16 @@ namespace BLPPCounter.Utils.API_Handlers
         private static readonly Throttler BSThrottler = new Throttler(50, 10);
 
         public abstract string API_HASH { get; }
-        public abstract Task<(bool Success, HttpContent Content)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3);
-        public static async Task<(bool Success, HttpContent Content)> CallAPI_Static(string path, Throttler throttler = null, bool quiet = false, int maxRetries = 3)
+        public abstract Task<(bool Success, HttpContent Content)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3, CancellationToken ct = default);
+        public static async Task<(bool Success, HttpContent Content)> CallAPI_Static(string path, Throttler throttler = null, bool quiet = false, int maxRetries = 3, CancellationToken ct = default)
         {
             const int initialRetryDelayMs = 500;
+            bool closeRequest = false;
+            if (ct.IsCancellationRequested)
+            {
+                Plugin.Log.Warn("API call skipped due to CancellationToken.");
+                return (false, null);
+            }
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 try
@@ -43,7 +49,15 @@ namespace BLPPCounter.Utils.API_Handlers
 
                     Plugin.Log.Debug("API Call: " + path);
 
-                    HttpResponseMessage response = await client.GetAsync(new Uri(path)).ConfigureAwait(false);
+                    HttpResponseMessage response;
+                    if (closeRequest)
+                    {
+                        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, new Uri(path));
+                        request.Headers.ConnectionClose = true;
+                        response = await client.SendAsync(request, ct).ConfigureAwait(false);
+                        closeRequest = false;
+                    } else response = await client.GetAsync(new Uri(path), ct).ConfigureAwait(false);
+
                     int status = (int)response.StatusCode;
                     if (status >= 400 && status < 500)
                     {
@@ -59,15 +73,23 @@ namespace BLPPCounter.Utils.API_Handlers
                 {
                     if (e is TaskCanceledException)
                     {
+                        if (ct.IsCancellationRequested)
+                        {
+                            Plugin.Log.Warn("API call has been canceled through cancel token.");
+                            break;
+                        }
                         if (!quiet)
                         {
                             Plugin.Log.Error($"API request failed with a TaskCanceledException, meaning the request almost certainly timed out. Clearing pool and retrying one more time.");
                             Plugin.Log.Debug(e);
                         }
-                        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, new Uri(path));
-                        request.Headers.ConnectionClose = true;
-                        await client.SendAsync(request).ConfigureAwait(false);
-                        attempt = maxRetries - 1;
+
+                        if (closeRequest)
+                            continue;
+
+                        attempt = Math.Max(maxRetries - 2, 0);
+                        closeRequest = true;
+                        continue;
                     }
                     if (!quiet)
                     {
@@ -207,15 +229,15 @@ namespace BLPPCounter.Utils.API_Handlers
                 }
             }
         }
-        public async Task<string> CallAPI_String(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3)
+        public async Task<string> CallAPI_String(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3, CancellationToken ct = default)
         {
-            var data = await CallAPI(path, quiet, forceNoHeader, maxRetries).ConfigureAwait(false);
+            var data = await CallAPI(path, quiet, forceNoHeader, maxRetries, ct).ConfigureAwait(false);
             if (!data.Success) return null;
             return await data.Content.ReadAsStringAsync().ConfigureAwait(false);
         }
-        public async Task<byte[]> CallAPI_Bytes(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3)
+        public async Task<byte[]> CallAPI_Bytes(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3, CancellationToken ct = default)
         {
-            var data = await CallAPI(path, quiet, forceNoHeader, maxRetries).ConfigureAwait(false);
+            var data = await CallAPI(path, quiet, forceNoHeader, maxRetries, ct).ConfigureAwait(false);
             if (!data.Success) return null;
             return await data.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
         }
@@ -280,10 +302,10 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName);
         public abstract Task<string> GetHashData(string hash, int diffNum);
         public abstract string GetHash(JToken diffData);
-        public abstract Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false);
+        public abstract Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false, CancellationToken ct = default);
         public abstract float GetPP(JToken scoreData);
         public abstract int GetScore(JToken scoreData);
-        public abstract Task<(float acc, float pp, SongSpeed speed, float modMult)[]> GetScoregraph(MapSelection ms);
+        public abstract Task<(float acc, float pp, SongSpeed speed, float modMult)[]> GetScoregraph(MapSelection ms, CancellationToken ct = default);
         public abstract Task<Play[]> GetScores(string userId, int count);
         protected async Task<Play[]> GetScores(
         string userId, int count, string apiPathFormat, string scoreArrayPath, bool isZeroIndexed,

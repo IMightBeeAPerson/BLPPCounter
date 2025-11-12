@@ -13,6 +13,7 @@ using BLPPCounter.Utils.API_Handlers;
 using UnityEngine;
 using static GameplayModifiers;
 using BLPPCounter.Utils.Misc_Classes;
+using System.Threading;
 
 namespace BLPPCounter.Counters
 {
@@ -92,15 +93,15 @@ namespace BLPPCounter.Counters
         private int ratingLen;
         #endregion
         #region Inits
-        public RankCounter(TMP_Text display, MapSelection map) : base(display, map)
+        public RankCounter(TMP_Text display, MapSelection map, CancellationToken ct) : base(display, map, ct)
         {
             ratingLen = ratings.SelectedRatings.Length == 1 ? 0 : ratings.SelectedRatings.Length;
         }
-        public override void SetupData(MapSelection map)
+        public override void SetupData(MapSelection map, CancellationToken ct)
         {
-            string songId = map.MapData.Item1;
+            string songId = map.MapData.songId;
             APIHandler api = APIHandler.GetSelectedAPI();
-            mapData = api.GetScoregraph(map).GetAwaiter().GetResult();
+            mapData = api.GetScoregraph(map, ct).GetAwaiter().GetResult();
             bool isUnranked = mapData[0].pp <= 0 || TheCounter.Leaderboard == Leaderboards.Accsaber;
             for (int i = 0; i < mapData.Length; i++)
             {

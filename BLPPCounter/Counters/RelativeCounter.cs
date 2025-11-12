@@ -1,7 +1,6 @@
 ﻿using System;
 using TMPro;
 using BeatLeader.Models.Replay;
-using System.Net.Http;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Utils;
@@ -9,11 +8,7 @@ using BLPPCounter.Helpfuls;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 using System.Linq;
-using static GameplayModifiers;
-using System.Text.RegularExpressions;
-using BLPPCounter.Utils.List_Settings;
 using BLPPCounter.Utils.API_Handlers;
-using BeatLeader.Models.AbstractReplay;
 using System.Threading.Tasks;
 using System.Threading;
 using BLPPCounter.Utils.Misc_Classes;
@@ -27,7 +22,7 @@ namespace BLPPCounter.Counters
         public static string DisplayName => "Relative";
         public static Leaderboards ValidLeaderboards => Leaderboards.All;
         public static string DisplayHandler => DisplayName;
-        private static Func<bool, bool, int, string, string, string, float, string, string, float, float, string, string> displayFormatter;
+        private static Func<bool, bool, int, string, string, string, string, float, string, string, float, float, string, string> displayFormatter;
         public static Type[] FormatterTypes => displayFormatter.GetType().GetGenericArguments();
         private static Func<Func<Dictionary<char, object>, string>> displayIniter;
         private static PluginConfig PC => PluginConfig.Instance;
@@ -43,7 +38,8 @@ namespace BLPPCounter.Counters
                     { "FCPP", 'o' },
                     { "Accuracy", 'a' },
                     { "Target", 't' },
-                    { "Mistakes", 'e' }
+                    { "Mistakes", 'e' },
+                    { "Mistake Color", 'z' }
                 };
         internal static readonly FormatRelation DefaultFormatRelation = new FormatRelation("Main Format", DisplayName,
             PC.FormatSettings.RelativeTextFormat, str => PC.FormatSettings.RelativeTextFormat = str, FormatAlias,
@@ -59,7 +55,8 @@ namespace BLPPCounter.Counters
                 { 'o', "Must use as a group value, and will color everything inside group" },
                 { 'a', "The label (ex: PP, Tech PP, etc)" },
                 { 't', "The amount of mistakes made in the map. This includes bomb and wall hits" },
-                { 'e', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" }
+                { 'e', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" },
+                { 'z', "Color for mistakes compared to your replay mistakes" }
             }, str => { var hold = GetTheFormat(str, out string errorStr, false); return (hold, errorStr); },
             new Dictionary<char, object>(13)
             {
@@ -75,7 +72,8 @@ namespace BLPPCounter.Counters
                 {'o', 654.32f },
                 {'a', 99.54f },
                 {'l', "PP" },
-                {'t', "Person" }
+                {'t', "Person" },
+                {'z', "yellow" }
             }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(7)
             {
                 {'c', 0 },
@@ -120,9 +118,9 @@ namespace BLPPCounter.Counters
         private float replayScore, maxReplayScore;
         private int replayCombo;
         private Replay bestReplay;
-        private BeatLeader.Models.Replay.NoteEvent[] noteArray;
-        private Queue<BeatLeader.Models.Replay.WallEvent> wallArray;
-        private int bombs;
+        private NoteEvent[] noteArray;
+        private Queue<WallEvent> wallArray;
+        private int bombs, replayMistakes;
         private MyCounters backup;
         private bool failed, useReplay;
         private Leaderboards leaderboard;
@@ -131,7 +129,7 @@ namespace BLPPCounter.Counters
         private int catchUpNotes, displayNum;
         #endregion
         #region Init
-        public RelativeCounter(TMP_Text display, MapSelection map) : base(display, map)
+        public RelativeCounter(TMP_Text display, MapSelection map, CancellationToken ct) : base(display, map, ct)
         {
             failed = false;
             useReplay = PC.UseReplay;
@@ -141,11 +139,11 @@ namespace BLPPCounter.Counters
             ppVals = new float[displayNum * 4]; //16 for bl (displayRatingCount bc gotta store total pp as well)
             ResetVars();
         }
-        private void SetupReplayData(MapSelection map, JToken data)
+        private void SetupReplayData(MapSelection map, JToken data, CancellationToken ct = default)
         {
             if (data is null)
             {
-                data = BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true).GetAwaiter().GetResult();
+                data = BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true, ct).GetAwaiter().GetResult();
                 if (data is null)
                 {
                     useReplay = false;
@@ -153,20 +151,16 @@ namespace BLPPCounter.Counters
                 }
             }
             string replay = (string)data["replay"];
-            byte[] replayData = BLAPI.Instance.CallAPI_Bytes(replay, true).Result ?? throw new Exception("The replay link from the API is bad! (replay link failed to return data)");
+            byte[] replayData = BLAPI.Instance.CallAPI_Bytes(replay, true, ct: ct).GetAwaiter().GetResult() ?? throw new Exception("The replay link from the API is bad! (replay link failed to return data)");
             ReplayDecoder.TryDecodeReplay(replayData, out bestReplay);
             noteArray = bestReplay.notes.ToArray();
-            wallArray = new Queue<BeatLeader.Models.Replay.WallEvent>(bestReplay.walls);
+            wallArray = new Queue<WallEvent>(bestReplay.walls);
             ReplayMods = bestReplay.info.modifiers.ToUpper();
             usingModdedAcc = false;
             if (leaderboard == Leaderboards.Beatleader)
             {
                 data = data["difficulty"];
                 var (mod, replayMult) = HelpfulMisc.ParseModifiers(ReplayMods, data);
-                /*replayRatings = new float[3];
-                replayRatings[0] = HelpfulPaths.GetRating(data, PPType.Acc, mod) * replayMult;
-                replayRatings[1] = HelpfulPaths.GetRating(data, PPType.Pass, mod) * replayMult;
-                replayRatings[2] = HelpfulPaths.GetRating(data, PPType.Tech, mod) * replayMult;*/
                 replayRatings = RatingContainer.GetContainer(leaderboard, HelpfulPaths.GetAllRatingsOfSpeed(data, calc, mod).Select(num => num * replayMult).ToArray());
                 replayRatings.SetSelectedRatings(leaderboard);
                 usingModdedAcc = PC.ReplayMods && !ratings.Equals(replayRatings);
@@ -177,32 +171,32 @@ namespace BLPPCounter.Counters
         }
         #endregion
         #region Overrides
-        public override void SetupData(MapSelection map)
+        public override void SetupData(MapSelection map, CancellationToken ct)
         {
             caughtUp = false;
             catchUpNotes = 0;
             Task.Run(async () =>
             {
-                SetupTask = SetupDataAsync(map);
+                SetupTask = SetupDataAsync(map, ct);
                 await SetupTask;
                 CatchupBest();
                 if (catchUpNotes == 0)
                     UpdateCounter(1, 0, 0, 1, null);
-            });
+            }, ct);
         }
-        private async Task SetupDataAsync(MapSelection map)
+        private async Task SetupDataAsync(MapSelection map, CancellationToken ct)
         {
             try
             {
-                Plugin.Log.Info($"Data: {HelpfulMisc.Print(new object[] { Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true })}");
-                JToken playerData = await APIHandler.GetSelectedAPI().GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true).ConfigureAwait(false);
+                //Plugin.Log.Info($"Data: {HelpfulMisc.Print(new object[] { Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true })}");
+                JToken playerData = await APIHandler.GetSelectedAPI().GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true, ct).ConfigureAwait(false);
                 if (playerData is null)
                 {
                     Plugin.Log.Warn("Relative counter cannot be loaded due to the player never having played this map before! (API didn't return the corrent status)");
                     goto Failed;
                 }
                 //Only BL has useable replays, so only send data if this is a BL replay.
-                if (PC.UseReplay) SetupReplayData(map, leaderboard == Leaderboards.Beatleader ? playerData : null);
+                if (PC.UseReplay) SetupReplayData(map, leaderboard == Leaderboards.Beatleader ? playerData : null, ct);
                 if ((float)playerData["pp"] is float thePP && thePP > 0)
                     accToBeat = calc.GetAcc(thePP, PC.DecimalPrecision, ratings.SelectedRatings);
                 else
@@ -290,6 +284,7 @@ namespace BLPPCounter.Counters
         private void ResetVars()
         {
             bombs = 0;
+            replayMistakes = 0;
             replayScore = 0;
             replayCombo = 0;
             maxReplayScore = 0;
@@ -314,6 +309,7 @@ namespace BLPPCounter.Counters
                 {
                     HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{vals['c']}", "</color>");
                     HelpfulFormatter.SurroundText(tokensCopy, 'f', $"{vals['f']}", "</color>");
+                    HelpfulFormatter.SurroundText(tokensCopy, 'z', $"{vals['z']}", "</color>");
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1');
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
                 }, out errorMessage, applySettings);//this is one line of code lol
@@ -322,12 +318,12 @@ namespace BLPPCounter.Counters
         public static void InitDefaultFormat()
         {
             var simple = displayIniter.Invoke();
-            displayFormatter = (fc, totPp, mistakes, accDiff, color, modPp, regPp, fcCol, fcModPp, fcRegPp, acc, label) =>
+            displayFormatter = (fc, totPp, mistakes, missColor, accDiff, color, modPp, regPp, fcCol, fcModPp, fcRegPp, acc, label) =>
             {
                 Dictionary<char, object> vals = new Dictionary<char, object>()
                 {
                     { (char)1, fc }, {(char)2, totPp }, {'e', mistakes }, {'d', accDiff }, { 'c', color }, {'x',  modPp }, {'p', regPp },
-                    { 'f', fcCol }, { 'y', fcModPp }, { 'o', fcRegPp }, {'a', acc }, {'l', label }
+                    { 'f', fcCol }, { 'y', fcModPp }, { 'o', fcRegPp }, {'a', acc }, {'l', label }, {'z', missColor }
                 };
                 return simple.Invoke(vals);
             };
@@ -362,11 +358,13 @@ namespace BLPPCounter.Counters
                     case NoteEventType.bomb:
                         replayCombo = HelpfulMath.DecreaseMultiplier(replayCombo);
                         bombs++;
+                        replayMistakes++;
                         notes--;
                         continue;
                     default:
                         maxReplayScore += notes < 14 ? BLCalc.GetMaxCutScore(note) * HelpfulMath.ClampedMultiplierForNote(notes) : BLCalc.GetMaxCutScore(note); 
                         replayCombo = HelpfulMath.DecreaseMultiplier(replayCombo);
+                        replayMistakes++;
                         break;
 
                 }
@@ -391,7 +389,10 @@ namespace BLPPCounter.Counters
             BeatLeader.Models.Replay.NoteEvent note = noteArray[notes + bombs - 1];
             while (wallArray.Count() > 0 && wallArray.Peek().spawnTime < note.spawnTime)
                 if (wallArray.Dequeue().energy < 1.0f)
+                {
                     replayCombo = HelpfulMath.DecreaseMultiplier(replayCombo);
+                    replayMistakes++;
+                }
 #if NEW_VERSION
             NoteData.ScoringType scoringType = TheCounter.HandleWeirdNoteBehaviour(noteData);
 #else
@@ -407,11 +408,13 @@ namespace BLPPCounter.Counters
                 case NoteEventType.bomb:
                     replayCombo = HelpfulMath.DecreaseMultiplier(replayCombo);
                     bombs++;
+                    replayMistakes++;
                     UpdateBest(notes, noteData);
                     return;
                 default:
                     maxReplayScore += notes < 14 ? BLCalc.GetNoteScoreDefinition(scoringType).maxCutScore * HelpfulMath.ClampedMultiplierForNote(notes) : BLCalc.GetNoteScoreDefinition(scoringType).maxCutScore;
                     replayCombo = HelpfulMath.DecreaseMultiplier(replayCombo);
+                    replayMistakes++;
                     break;
 
             }
@@ -449,6 +452,7 @@ namespace BLPPCounter.Counters
                 ppVals[i] = (float)Math.Round(ppVals[i], PC.DecimalPrecision);
             string target = PC.ShowEnemy ? PC.Target : Targeter.NO_TARGET;
             string color(float num) => PC.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
+            string missColor(int miss, int replayMiss) => HelpfulFormatter.NumberToColor(miss == 0 && replayMiss == 0 ? 1 : replayMiss - miss);
             float accDiff = (float)Math.Round(acc * 100.0f, PC.DecimalPrecision) - accToBeat;
             if (float.IsNaN(accDiff)) accDiff = 0f;
             //else if (!useReplay) accDiff -= accToBeat;
@@ -458,12 +462,12 @@ namespace BLPPCounter.Counters
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
-                    text += displayFormatter.Invoke(displayFc, PC.ExtraInfo && i == 3, mistakes, accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppVals[i + displayNum]), ppVals[i + displayNum].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
+                    text += displayFormatter.Invoke(displayFc, PC.ExtraInfo && i == 3, mistakes, missColor(mistakes, replayMistakes), accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppVals[i + displayNum]), ppVals[i + displayNum].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
                         color(ppVals[i + displayNum * 3]), ppVals[i + displayNum * 3].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + displayNum * 2], replayAcc, TheCounter.CurrentLabels[i]) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayFormatter.Invoke(displayFc, PC.ExtraInfo, mistakes, accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppVals[displayNum * 2 - 1]), ppVals[displayNum * 2 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum - 1],
+                display.text = displayFormatter.Invoke(displayFc, PC.ExtraInfo, mistakes, missColor(mistakes, replayMistakes), accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppVals[displayNum * 2 - 1]), ppVals[displayNum * 2 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum - 1],
                     color(ppVals[displayNum * 4 - 1]), ppVals[displayNum * 4 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum * 3 - 1], replayAcc, TheCounter.CurrentLabels.Last()) + "\n";
         }
         public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)

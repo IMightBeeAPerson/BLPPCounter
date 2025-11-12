@@ -157,6 +157,7 @@ namespace BLPPCounter.Utils.Misc_Classes
         /// </param>
         /// <returns>A <see cref="RatingContainer"/> that stores the ratings.</returns>
         /// <exception cref="ArgumentException">Thrown if the ratings given do not match the requirements for a given <paramref name="leaderboard"/>.</exception>
+        /// <exception cref="ArgumentNullException">Thrown if the ratings array given is null.</exception>
         public static RatingContainer GetContainer(Leaderboards leaderboard, params float[] ratings)
         {
             if (ratings is null) throw new ArgumentNullException("ratings");

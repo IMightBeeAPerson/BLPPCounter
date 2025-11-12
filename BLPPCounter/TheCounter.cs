@@ -591,6 +591,7 @@ namespace BLPPCounter
             enabled = false;
             display.text = errorText;
             ChangeNotifiers(false);
+            theCounter = null;
         }
         internal static void CancelCounter() => ForceOff.Invoke();
         public static void ClearCounter() => LastMap = default;
@@ -767,11 +768,11 @@ namespace BLPPCounter
         }
 #endregion
         #region Init
-        private bool InitCounter()
+        private bool InitCounter(CancellationToken ct = default)
         {
             try
             {
-                MyCounters outpCounter = InitCounter(pc.PPType, display);
+                MyCounters outpCounter = InitCounter(pc.PPType, display, ct);
                 if (outpCounter is null) return false;
                 theCounter = outpCounter;
                 return true;
@@ -781,7 +782,7 @@ namespace BLPPCounter
                 return false;
             }
         }
-        public static MyCounters InitCounter(string name, TMP_Text display)
+        public static MyCounters InitCounter(string name, TMP_Text display, CancellationToken ct = default)
         {
             if (!DisplayNameToCounter.TryGetValue(name, out string displayName))
             {
@@ -802,9 +803,21 @@ namespace BLPPCounter
                 Plugin.Log.Error("There was an error with reading the leaderboard type of the counter.");
                 return null;
             }
-            MyCounters outp = (MyCounters)Activator.CreateInstance(counterType, display, LastMap);
-            outp.UpdateFormat();
-            return outp;
+            try
+            {
+                MyCounters outp = (MyCounters)Activator.CreateInstance(counterType, display, LastMap, ct);
+                outp.UpdateFormat();
+                return outp;
+            } catch (TargetInvocationException e)
+            {
+                if (e.InnerException is TaskCanceledException)
+                {
+                    Plugin.Log.Warn("Creation of the counter failed due to cancellation token being invoked.");
+                    Plugin.Log.Debug(e);
+                    return null;
+                }
+                else throw e;
+            }
         }
         private bool APIAvoidanceMode()
         {

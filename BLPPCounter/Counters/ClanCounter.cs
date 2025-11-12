@@ -13,6 +13,7 @@ using BLPPCounter.Utils.List_Settings;
 using BLPPCounter.Utils.API_Handlers;
 using System.Threading.Tasks;
 using BLPPCounter.Utils.Misc_Classes;
+using System.Threading;
 
 namespace BLPPCounter.Counters
 {
@@ -231,8 +232,8 @@ namespace BLPPCounter.Counters
         private bool showRank;
         #endregion
         #region Init & Overrides
-        public ClanCounter(TMP_Text display, MapSelection map) : base(display, map) { }
-        public override void SetupData(MapSelection map) //setupStatus key: 0 = success, 1 = Map not ranked, 2 = Map already captured, 3 = load failed, 4 = map too hard to capture
+        public ClanCounter(TMP_Text display, MapSelection map, CancellationToken ct) : base(display, map, ct) { }
+        public override void SetupData(MapSelection map, CancellationToken ct) //setupStatus key: 0 = success, 1 = Map not ranked, 2 = Map already captured, 3 = load failed, 4 = map too hard to capture
         {
             setupStatus = 0;
             JToken mapData = map.MapData.diffData;
@@ -278,14 +279,14 @@ namespace BLPPCounter.Counters
             }
             showRank = PC.ShowRank && setupStatus != 1 && setupStatus != 3;
         }
-        public static async Task<(float[] clanPP, bool mapCaptured, string owningClan, int playerClanId)> LoadNeededPp(string mapId, int playerClanId)
+        public static async Task<(float[] clanPP, bool mapCaptured, string owningClan, int playerClanId)> LoadNeededPp(string mapId, int playerClanId, CancellationToken ct = default)
         {
             string id = Targeter.TargetID, check;
             bool mapCaptured = false;
             string owningClan = "None";
-            check = await BLAPI.Instance.CallAPI_String($"https://api.beatleader.com/player/{id}").ConfigureAwait(false);
+            check = await BLAPI.Instance.CallAPI_String(string.Format(HelpfulPaths.BLAPI_USERID_FULL, id), ct: ct).ConfigureAwait(false);
             if (playerClanId < 0 && check.Length > 0) playerClanId = ParseId(JToken.Parse(check));
-            check = await BLAPI.Instance.CallAPI_String($"{string.Format(HelpfulPaths.BLAPI_CLAN, mapId)}?page=1&count=1").ConfigureAwait(false);
+            check = await BLAPI.Instance.CallAPI_String($"{string.Format(HelpfulPaths.BLAPI_CLAN, mapId)}?page=1&count=1", ct: ct).ConfigureAwait(false);
             if (check.Length == 0) return (null, mapCaptured, owningClan, playerClanId);
             JToken clanData = JToken.Parse(check);
             if ((int)clanData["difficulty"]["status"] != 3) return (null, mapCaptured, owningClan, playerClanId); //Map isn't ranked
@@ -295,7 +296,7 @@ namespace BLPPCounter.Counters
             if (clanData.Count() > 0) clanId = (int)clanData["clan"]["id"]; else return (null, mapCaptured, owningClan, playerClanId);
             mapCaptured = clanId <= 0 || clanId == playerClanId;
             float pp = (float)clanData["pp"];
-            check = await RequestClanLeaderboard(id, mapId, playerClanId);
+            check = await RequestClanLeaderboard(id, mapId, playerClanId, ct);
             if (check.Length == 0) return (new float[1] { pp }, mapCaptured, owningClan, playerClanId); //No scores are set, so player must capture it by themselves.
             JEnumerable<JToken> scores = JToken.Parse(check)["associatedScores"].Children();
             List<float> actualPpVals = new List<float>();
@@ -313,16 +314,16 @@ namespace BLPPCounter.Counters
             float neededPp = mapCaptured ? 0.0f : BLCalc.Instance.GetNeededPlay(actualPpVals, pp, playerScore);
             return (clanPPs.Prepend(neededPp).ToArray(), mapCaptured, owningClan, playerClanId);
         }
-        public static float[] LoadNeededPp(string mapId, out bool mapCaptured, out string owningClan, ref int playerClanId)
+        public static float[] LoadNeededPp(string mapId, out bool mapCaptured, out string owningClan, ref int playerClanId, CancellationToken ct = default)
         {
             float[] outp;
-            (outp, mapCaptured, owningClan, playerClanId) = LoadNeededPp(mapId, playerClanId).GetAwaiter().GetResult();
+            (outp, mapCaptured, owningClan, playerClanId) = LoadNeededPp(mapId, playerClanId, ct).GetAwaiter().GetResult();
             return outp;
         }
-        public static float[] LoadNeededPp(string mapId, out bool mapCaptured, out string owningClan) 
+        public static float[] LoadNeededPp(string mapId, out bool mapCaptured, out string owningClan, CancellationToken ct = default) 
         {
             float[] outp;
-            (outp, mapCaptured, owningClan, _) = LoadNeededPp(mapId, -1).GetAwaiter().GetResult(); 
+            (outp, mapCaptured, owningClan, _) = LoadNeededPp(mapId, -1, ct).GetAwaiter().GetResult(); 
             return outp;
         }
         public override void ReinitCounter(TMP_Text display, RatingContainer ratingVals) {
@@ -352,10 +353,18 @@ namespace BLPPCounter.Counters
         }
         #endregion
         #region API Requests
-        private static async Task<string> RequestClanLeaderboard(string id, string mapId, int playerClanId)
+        private static async Task<string> RequestClanLeaderboard(string id, string mapId, int playerClanId, CancellationToken ct = default)
         {
-            int clanId = playerClanId > 0 ? playerClanId : ParseId(await BLAPI.Instance.CallAPI_String($"{HelpfulPaths.BLAPI}player/{id}", forceNoHeader: true).ConfigureAwait(false));
-            return await BLAPI.Instance.CallAPI_String(string.Format(HelpfulPaths.BLAPI_CLAN + "/clan/{1}?count=100&page=1", mapId, clanId), forceNoHeader: true).ConfigureAwait(false);
+            try
+            {
+                int clanId = playerClanId > 0 ? playerClanId : ParseId(await BLAPI.Instance.CallAPI_String($"{HelpfulPaths.BLAPI}player/{id}", forceNoHeader: true, ct: ct).ConfigureAwait(false));
+                return await BLAPI.Instance.CallAPI_String(string.Format(HelpfulPaths.BLAPI_CLAN + "/clan/{1}?count=100&page=1", mapId, clanId), forceNoHeader: true, ct: ct).ConfigureAwait(false);
+            } catch (TaskCanceledException e)
+            {
+                Plugin.Log.Warn("RequestClanLeaderboard failed due to CancellationToken being invoked.");
+                Plugin.Log.Debug(e);
+                return "";
+            }
         }
         #endregion
         #region Helper Functions

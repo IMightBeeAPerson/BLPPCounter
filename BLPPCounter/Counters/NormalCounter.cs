@@ -1,5 +1,6 @@
 ﻿using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
+using System.Threading;
 using TMPro;
 
 namespace BLPPCounter.Counters
@@ -14,11 +15,11 @@ namespace BLPPCounter.Counters
         private float[] ppVals;
 
         #region Init
-        public NormalCounter(TMP_Text display, MapSelection map) : base(display, map)
+        public NormalCounter(TMP_Text display, MapSelection map, CancellationToken ct) : base(display, map, ct)
         {
             ppVals = new float[calc.DisplayRatingCount * 2];
         }
-        public override void SetupData(MapSelection map) { }
+        public override void SetupData(MapSelection map, CancellationToken ct) { }
         public override void UpdateFormat() { }
         public static bool InitFormat() => TheCounter.FormatUsable;
         public static void ResetFormat() { }

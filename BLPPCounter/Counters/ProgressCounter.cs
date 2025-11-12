@@ -1,10 +1,11 @@
 ﻿using BLPPCounter.CalculatorStuffs;
+using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
-using BLPPCounter.Helpfuls;
-using System;
-using TMPro;
 using BLPPCounter.Utils.API_Handlers;
+using System;
+using System.Threading;
+using TMPro;
 
 namespace BLPPCounter.Counters
 {
@@ -19,7 +20,7 @@ namespace BLPPCounter.Counters
         private int totalNotes;
         private float[] ppVals;
         #region Init
-        public ProgressCounter(TMP_Text display, MapSelection map) : base(display, map)
+        public ProgressCounter(TMP_Text display, MapSelection map, CancellationToken ct) : base(display, map, ct)
         {
             ppVals = new float[calc.DisplayRatingCount * 2];
         }
@@ -30,7 +31,7 @@ namespace BLPPCounter.Counters
             base.ReinitCounter(display, map);
             totalNotes = HelpfulMath.NotesForMaxScore(APIHandler.GetSelectedAPI().GetMaxScore(map.MapData.diffData));
         }
-        public override void SetupData(MapSelection map)
+        public override void SetupData(MapSelection map, CancellationToken ct)
         {
             totalNotes = HelpfulMath.NotesForMaxScore(APIHandler.GetSelectedAPI().GetMaxScore(map.MapData.diffData));
         }

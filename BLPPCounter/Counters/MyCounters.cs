@@ -1,6 +1,7 @@
 ﻿using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.Misc_Classes;
+using System.Threading;
 using TMPro;
 
 namespace BLPPCounter.Counters
@@ -11,13 +12,13 @@ namespace BLPPCounter.Counters
         protected Calculator calc;
         protected RatingContainer ratings;
 
-        public MyCounters(TMP_Text display, MapSelection map) //this is the constructor that needs to be overritten
+        public MyCounters(TMP_Text display, MapSelection map, CancellationToken ct) //this is the constructor that needs to be overritten
         {
             this.display = display;
             calc = Calculator.GetSelectedCalc();
             ratings = map.Ratings;
             ratings.SetSelectedRatings();
-            SetupData(map);
+            SetupData(map, ct);
         }
         public virtual void ReinitCounter(TMP_Text display)
         {//same difficulty, modifier, and map
@@ -38,7 +39,7 @@ namespace BLPPCounter.Counters
             ratings.SetSelectedRatings();
             SetupData(map);
         }
-        public abstract void SetupData(MapSelection map);
+        public abstract void SetupData(MapSelection map, CancellationToken ct);
         public abstract void UpdateFormat();
         public abstract void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote);
         public abstract void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote);

@@ -24,7 +24,7 @@ namespace BLPPCounter.Utils.API_Handlers
         internal static BLAPI Instance { get; private set; } = new BLAPI();
         private BLAPI() { }
         public override string API_HASH => HelpfulPaths.BLAPI_HASH;
-        public override async Task<(bool, HttpContent)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3)
+        public override async Task<(bool, HttpContent)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3, CancellationToken ct = default)
         {
             const string LinkHeader = "https://";
             const string LeaderboardHeader = "api.beatleader";
@@ -33,7 +33,7 @@ namespace BLPPCounter.Utils.API_Handlers
             Throttler t = null;
             if (path.Substring(LinkHeader.Length, LeaderboardHeader.Length).Equals(LeaderboardHeader))
                 t = Throttle;
-            return await CallAPI_Static(path, t, quiet, maxRetries).ConfigureAwait(false);
+            return await CallAPI_Static(path, t, quiet, maxRetries, ct).ConfigureAwait(false);
         }
         public override float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1)
         {
@@ -76,26 +76,26 @@ namespace BLPPCounter.Utils.API_Handlers
         }
         public override async Task<string> GetHashData(string hash, int diffNum) =>
             await CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash)).ConfigureAwait(false);
-        public override async Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false)
+        public override async Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false, CancellationToken ct = default)
         {
-            string outp = await CallAPI_String(string.Format(HelpfulPaths.BLAPI_SCORE, userId, hash, diff, mode), quiet, maxRetries: 1).ConfigureAwait(false);
+            string outp = await CallAPI_String(string.Format(HelpfulPaths.BLAPI_SCORE, userId, hash, diff, mode), quiet, maxRetries: 1, ct: ct).ConfigureAwait(false);
             if (outp is null || outp.Length == 0) return null;
             return JToken.Parse(outp);
         }
         public override float GetPP(JToken scoreData) => (float)scoreData["pp"];
         public override int GetScore(JToken scoreData) => (int)scoreData["modifiedScore"];
-        public override async Task<(float acc, float pp, SongSpeed speed, float modMult)[]> GetScoregraph(MapSelection ms)
+        public override async Task<(float acc, float pp, SongSpeed speed, float modMult)[]> GetScoregraph(MapSelection ms, CancellationToken ct = default)
         {
             if (ms.IsUsable)
             {
-                string data = await CallAPI_String($"leaderboard/{ms.MapData.songId}/scoregraph").ConfigureAwait(false);
+                string data = await CallAPI_String($"leaderboard/{ms.MapData.songId}/scoregraph", ct: ct).ConfigureAwait(false);
                 return JToken.Parse(data).Children().Select(a => {
                     var (speed, modMult) = HelpfulMisc.ParseModifiers(a["modifiers"].ToString(), ms.MapData.diffData);
                     return ((float)a["accuracy"] / 100f, (float)Math.Round((float)a["pp"], PluginConfig.Instance.DecimalPrecision), speed, modMult);
                 }).ToArray();
             } else
             {
-                string data = await CallAPI_String($"leaderboard/scores/{ms.MapData.songId}?count={PluginConfig.Instance.MinRank}").ConfigureAwait(false);
+                string data = await CallAPI_String($"leaderboard/scores/{ms.MapData.songId}?count={PluginConfig.Instance.MinRank}", ct: ct).ConfigureAwait(false);
                 JToken mapData = ms.MapData.diffData;
                 float maxScore = (int)mapData["maxScore"];
                 float acc = (float)mapData["accRating"], pass = (float)mapData["passRating"], tech = (float)mapData["techRating"];
@@ -148,7 +148,7 @@ namespace BLPPCounter.Utils.API_Handlers
             try
             {
                 if (ct.IsCancellationRequested) return;
-                string dataStr = await CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash)).ConfigureAwait(false);
+                string dataStr = await CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash), ct: ct).ConfigureAwait(false);
                 if (dataStr is null || dataStr.Length == 0) return;
                 JToken dataToken = JObject.Parse(dataStr);
                 JEnumerable<JToken> mapTokens = dataToken["song"]["difficulties"].Children();
