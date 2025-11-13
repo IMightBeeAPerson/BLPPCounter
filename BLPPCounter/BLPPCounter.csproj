@@ -178,6 +178,7 @@
     <Compile Include="Counters\ProgressCounter.cs" />
     <Compile Include="Counters\RankCounter.cs" />
     <Compile Include="Counters\RelativeCounter.cs" />
+    <Compile Include="Helpfuls\FormatHelpers\TokenKey.cs" />
     <Compile Include="Helpfuls\HelpfulMath.cs" />
     <Compile Include="Helpfuls\HelpfulMisc.cs" />
     <Compile Include="Helpfuls\HelpfulPaths.cs" />
@@ -221,6 +222,7 @@
     <Compile Include="Utils\Misc Classes\AsyncLock.cs" />
     <Compile Include="Utils\Misc Classes\CoroutineHost.cs" />
     <Compile Include="Utils\Misc Classes\ExtraBypasses.cs" />
+    <Compile Include="Utils\Misc Classes\FormatWrapper.cs" />
     <Compile Include="Utils\Misc Classes\Play.cs" />
     <Compile Include="Utils\Misc Classes\RatingContainer.cs" />
     <Compile Include="Utils\Misc Classes\Session.cs" />

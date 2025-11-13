@@ -37,7 +37,13 @@ namespace BLPPCounter.Counters
             calc = Calculator.GetSelectedCalc();
             ratings = map.Ratings;
             ratings.SetSelectedRatings();
-            SetupData(map);
+            // Provide a default CancellationToken for callers that don't have one
+            SetupData(map, CancellationToken.None);
+        }
+        // Backwards-compatible overload used by existing callers that don't provide a CancellationToken
+        public virtual void SetupData(MapSelection map)
+        {
+            SetupData(map, CancellationToken.None);
         }
         public abstract void SetupData(MapSelection map, CancellationToken ct);
         public abstract void UpdateFormat();

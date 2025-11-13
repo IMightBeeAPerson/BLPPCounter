@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using UnityEngine;
 using static BLPPCounter.Helpfuls.HelpfulMisc;
 using System.Collections;
+using BLPPCounter.Helpfuls.FormatHelpers;
 
 namespace BLPPCounter.Helpfuls
 {
@@ -61,11 +62,11 @@ namespace BLPPCounter.Helpfuls
                 {"Hide", 'h' }
             };
         }
-        public static (string formatted, Dictionary<(char, int), string> tokens, Dictionary<int, char> priority, Dictionary<(char, int), string[]> extraArgs) ParseCounterFormat(
+        public static (string formatted, Dictionary<TokenKey, string> tokens, Dictionary<int, char> priority, Dictionary<TokenKey, string[]> extraArgs) ParseCounterFormat(
             string format, Dictionary<string, char> aliasConverter, string counterName)
         {
-            Dictionary<(char, int), string> tokens = new Dictionary<(char, int), string>();
-            Dictionary<(char, int), string[]> extraArgs = new Dictionary<(char, int), string[]>();
+            Dictionary<TokenKey, string> tokens = new Dictionary<TokenKey, string>();
+            Dictionary<TokenKey, string[]> extraArgs = new Dictionary<TokenKey, string[]>();
             Dictionary<int, char> priority = new Dictionary<int, char>();
             aliasConverter = new Dictionary<string, char>(aliasConverter); //so that it doesn't edit the original
 
@@ -168,7 +169,7 @@ namespace BLPPCounter.Helpfuls
                     if (i + 1 < format.Length && format[i + 1] == PARAM_OPEN)
                     {
                         var vals = HandleExtraParams(format, i, sortIndex, out i);
-                        extraArgs.Add((vals.Item1, vals.Item2), vals.Item3);
+                        extraArgs.Add(new TokenKey(vals.Item1, vals.Item2), vals.Item3);
                     }
                     int index = repIndex++, sIndex = sortIndex++;
                     while (format[++i] != GROUP_CLOSE && i < format.Length)
@@ -179,13 +180,13 @@ namespace BLPPCounter.Helpfuls
                         {
                             if (!IsSpecialChar(format[i + 1]))
                             {
-                                tokens[(format[++i], FORMAT_SPLIT + sortIndex)] = $"{{{repIndex}}}";
+                                tokens[new TokenKey(format[++i], FORMAT_SPLIT + sortIndex)] = $"{{{repIndex}}}";
                                 priority[FORMAT_SPLIT + sortIndex++] = format[i];
                                 bracket += $"{{{repIndex++}}}";
                                 if (i + 1 < format.Length && format[i + 1] == PARAM_OPEN)
                                 {
                                     var vals = HandleExtraParams(format, i, sortIndex - 1 + FORMAT_SPLIT, out i);
-                                    extraArgs.Add((vals.Item1, vals.Item2), vals.Item3);
+                                    extraArgs.Add(new TokenKey(vals.Item1, vals.Item2), vals.Item3);
                                 }
                                     
                             } else bracket += format[++i];
@@ -203,7 +204,7 @@ namespace BLPPCounter.Helpfuls
                         sIndex += FORMAT_SPLIT;
                     }
                     priority[sIndex] = symbol;
-                    tokens[(symbol, sIndex)] = bracket;
+                    tokens[new TokenKey(symbol, sIndex)] = bracket;
 
                     continue;
                 }
@@ -224,7 +225,7 @@ namespace BLPPCounter.Helpfuls
                         if (format[i] != CAPTURE_CLOSE)
                             throw new FormatException($"Invalid capture format, you cannot nest capture statements.\nSyntax: {CAPTURE_OPEN}<number> ... {CAPTURE_CLOSE}");
                         capture = false;
-                        tokens[(num, ssIndex)] = captureStr;
+                        tokens[new TokenKey(num, ssIndex)] = captureStr;
                         priority[ssIndex] = num;
                         continue;
                     }
@@ -238,26 +239,17 @@ namespace BLPPCounter.Helpfuls
                 }
                 if (!char.IsLetter(format[i]))
                     throw new FormatException($"Invalid escape format, escape character must be followed by a special character or a letter.\nSyntax: {ESCAPE_CHAR}<letter> OR {ESCAPE_CHAR}<special character>");
-                tokens[(format[i], tempIndex)] = $"{{{repIndex++}}}";
+                tokens[new TokenKey(format[i], tempIndex)] = $"{{{repIndex++}}}";
                 priority[tempIndex] = format[i];
                 if (i + 1 < format.Length && format[i+1] == PARAM_OPEN)
                 {
                     var vals = HandleExtraParams(format, i, tempIndex, out i);
-                    extraArgs.Add((vals.Item1, vals.Item2), vals.Item3);
+                    extraArgs.Add(new TokenKey(vals.Item1, vals.Item2), vals.Item3);
                 }
             }
             if (capture)
                 throw new FormatException($"Invalid capture format, must close capture bracket.\nSyntax: {CAPTURE_OPEN}<number> ... {CAPTURE_CLOSE}");
             return (formatted, tokens, priority, extraArgs);
-        }
-        private static void TestParse(string format)
-        {
-            //(?<Tokens>(?<!&)&.)
-            Regex tokenRegex = new Regex(string.Format("(?<Tokens>(?<!{0}){0}.)", Regex.Escape($"{ESCAPE_CHAR}")));
-            //(?<!&)\[(?<Token>.)(?<Text>(?:[^\[\]$]*|(?<Replace>\$))+)\]
-            Regex groupRegex = new Regex(string.Format("(?<!{0}){1}(?<Token>.)(?<Text>(?:[^{1}{2}$]*|(?<Replace>{3}))+){2}", Regex.Escape($"{ESCAPE_CHAR}{GROUP_OPEN}{GROUP_CLOSE}{INSERT_SELF}").ToArray()));
-            //<\d+[^<>]*>
-            Regex captureRegex = new Regex(string.Format(@"{0}\d+[^{0}{1}]*{1}", Regex.Escape($"{CAPTURE_OPEN}{CAPTURE_CLOSE}").ToArray()));
         }
         private static string ReplaceShorthand(string format, string richVal, int i, out int newCount, out string newRichVal)
         {
@@ -316,28 +308,28 @@ namespace BLPPCounter.Helpfuls
             errorMessage = "";
             return false;
         }
-        public static Func<Func<Dictionary<char, object>, string>> GetBasicTokenParser(
+        public static Func<Func<FormatWrapper, string>> GetBasicTokenParser(
             string format,
             Dictionary<string, char> aliasConverter,
             string counterName,
             Action<TokenParser> settings,
-            Action<Dictionary<(char, int), string>, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<char, object>> varSettings,
+            Action<Dictionary<TokenKey, string>, Dictionary<TokenKey, string>, Dictionary<int, char>, FormatWrapper> varSettings,
             out string errorStr,
             bool applySettings = true)
             => GetBasicTokenParser(format, aliasConverter, counterName, settings, varSettings, null, null, out errorStr, applySettings);
-        public static Func<Func<Dictionary<char, object>, string>> GetBasicTokenParser(
+        public static Func<Func<FormatWrapper, string>> GetBasicTokenParser(
             string format,
             Dictionary<string, char> aliasConverter,
             string counterName,
             Action<TokenParser> settings,
-            Action<Dictionary<(char, int), string>, Dictionary<(char, int), string>, Dictionary<int, char>, Dictionary<char, object>> varSettings,
+            Action<Dictionary<TokenKey, string>, Dictionary<TokenKey, string>, Dictionary<int, char>, FormatWrapper> varSettings,
             Func<char, string[], bool> confirmFormat,
-            Func<char, string[], Dictionary<char, object>, Dictionary<(char, int), string>, string> implementArgs,
+            Func<char, string[], FormatWrapper, Dictionary<TokenKey, string>, string> implementArgs,
             out string errorStr,
             bool applySettings = true)
         {
-            Dictionary<(char, int), string> tokens;
-            Dictionary<(char, int), string[]> extraArgs;
+            Dictionary<TokenKey, string> tokens;
+            Dictionary<TokenKey, string[]> extraArgs;
             Dictionary<int, char> priority;
             string formatted;
             confirmFormat = GetParentConfirmFormat(confirmFormat);
@@ -347,8 +339,8 @@ namespace BLPPCounter.Helpfuls
                 (formatted, tokens, priority, extraArgs) = ParseCounterFormat(format, new Dictionary<string, char>(aliasConverter), counterName);
                 foreach (var val in extraArgs.Keys)
                 {
-                    if (!confirmFormat.Invoke(val.Item1, extraArgs[val]))
-                        throw new FormatException($"Invalid extra parameter format, one of three things happened, too many arguments, too few arguments, or a non reference where a reference should be.\nThis is for the char '{val.Item1}'");
+                    if (!confirmFormat.Invoke(val.Symbol, extraArgs[val]))
+                        throw new FormatException($"Invalid extra parameter format, one of three things happened, too many arguments, too few arguments, or a non reference where a reference should be.\nThis is for the char '{val.Symbol}'");
                 }
             }
             catch (Exception e)
@@ -366,22 +358,22 @@ namespace BLPPCounter.Helpfuls
                     Plugin.Log.Info("Formatted || " + formatted);//*/
             return () =>
             {
-                var thing = TokenParser.UnrapTokens(tokens, true, formatted);
+                TokenParser thing = TokenParser.UnrapTokens(tokens, true, formatted);
                 if (applySettings) settings.Invoke(thing);
                 string newFormatted = thing.Formatted;
-                Dictionary<(char, int), string> tokensCopy1 = thing.GetReference();
+                Dictionary<TokenKey, string> tokensCopy1 = thing.GetReference();
                 //Plugin.Log.Info(thing.ToString());
-                List <(char, int)> first = new List<(char, int)>();
-                List<(char, int)> second = new List<(char, int)>();
-                List<(char, int)> captureChars = new List<(char, int)>();
-                foreach ((char, int) val in tokensCopy1.Keys)
+                List <TokenKey> first = new List<TokenKey>();
+                List<TokenKey> second = new List<TokenKey>();
+                List<TokenKey> captureChars = new List<TokenKey>();
+                foreach (TokenKey val in tokensCopy1.Keys)
                 {
-                    if (char.IsDigit(val.Item1)) { captureChars.Add(val); first.Add(val); continue; }
-                    if (val.Item2 < FORMAT_SPLIT) { first.Add(val); second.Add(val); }
-                    else second.Add((val.Item1, val.Item2 - FORMAT_SPLIT));
+                    if (char.IsDigit(val.Symbol)) { captureChars.Add(val); first.Add(val); continue; }
+                    if (val.Priority < FORMAT_SPLIT) { first.Add(val); second.Add(val); }
+                    else second.Add(new TokenKey(val.Symbol, val.Priority - FORMAT_SPLIT));
                 }
-                second.Sort((a, b) => a.Item2 - b.Item2);
-                first.Sort((a, b) => a.Item2 - b.Item2);
+                second.Sort((a, b) => a.Priority - b.Priority);
+                first.Sort((a, b) => a.Priority - b.Priority);
                 /*Plugin.Log.Info(string.Join(",", first));
                 Plugin.Log.Info(string.Join(",", second));//*/
                 return (vals) =>
@@ -390,21 +382,21 @@ namespace BLPPCounter.Helpfuls
                     foreach (var token in tokensCopy1)
                         Plugin.Log.Info($"{token.Key} || " + ToLiteral(token.Value));
                     Plugin.Log.Info("Formatted || " + formatted);//*/
-                    Dictionary<(char, int), string> tokensCopy2 = new Dictionary<(char, int), string>(tokensCopy1);
+                    Dictionary<TokenKey, string> tokensCopy2 = new Dictionary<TokenKey, string>(tokensCopy1);
                     varSettings.Invoke(tokensCopy1, tokensCopy2, priority, vals);
                     foreach (var val in extraArgs.Keys)
-                        vals.TryAdd(val.Item1, implementArgs.Invoke(val.Item1, extraArgs[val], vals, tokensCopy2));
-                    foreach ((char, int) val in captureChars)
+                        vals.SetValue(val.Symbol, implementArgs.Invoke(val.Symbol, extraArgs[val], vals, tokensCopy2));
+                    foreach (TokenKey val in captureChars)
                     {
                         string newVal = "", toParse = tokensCopy2[val];
-                        int priorityCount = val.Item2;
+                        int priorityCount = val.Priority;
                         if (toParse.Length == 0) continue;
                         for (int j = 0; j < toParse.Length; j++)
                             if (toParse[j] == ESCAPE_CHAR)
                             {
                                 string toTry = null;
                                 char temp = toParse[++j];
-                                while (!tokensCopy2.TryGetValue((temp, ++priorityCount + FORMAT_SPLIT), out toTry));
+                                while (!tokensCopy2.TryGetValue(new TokenKey(temp, ++priorityCount + FORMAT_SPLIT), out toTry));
                                 newVal += toTry;
                             }
                             else newVal += toParse[j];
@@ -412,10 +404,10 @@ namespace BLPPCounter.Helpfuls
                     }
                     object[] firstArr = new object[first.Count];
                     int i = 0;
-                    foreach ((char, int) val in first) firstArr[i++] = tokensCopy2[val];
+                    foreach (TokenKey val in first) firstArr[i++] = tokensCopy2[val];
                     object[] secondArr = new object[second.Count];
                     i = 0;
-                    foreach ((char, int) val in second) secondArr[i++] = vals[val.Item1];
+                    foreach (TokenKey val in second) secondArr[i++] = vals[val.Symbol];
                     return string.Format(string.Format(newFormatted, firstArr), secondArr);
                 };
             };
@@ -444,8 +436,8 @@ namespace BLPPCounter.Helpfuls
                 }
             };
         }
-        private static Func<char, string[], Dictionary<char, object>, Dictionary<(char, int), string>, string> GetParentImplementArgs
-            (Func<char, string[], Dictionary<char, object>, Dictionary<(char, int), string>, string> child)
+        private static Func<char, string[], FormatWrapper, Dictionary<TokenKey, string>, string> GetParentImplementArgs
+            (Func<char, string[], FormatWrapper, Dictionary<TokenKey, string>, string> child)
         {
             return (paramChar, values, vals, tokens) =>
             {
@@ -461,8 +453,8 @@ namespace BLPPCounter.Helpfuls
                         decimal toCompare = values.Length == 2 ? decimal.Parse(values[1]) : 0;
                         if (decimal.Parse(vals[values[0][0]] + "") <= toCompare)
                         {
-                            List<(char, int)> arr = tokens.Keys.Where(a => a.Item1 == values[0][0]).ToList();
-                            foreach ((char, int) item in arr)
+                            List<TokenKey> arr = tokens.Keys.Where(a => a.Symbol == values[0][0]).ToList();
+                            foreach (TokenKey item in arr)
                                 tokens[item] = "";
                         }
                         return "";
@@ -470,23 +462,23 @@ namespace BLPPCounter.Helpfuls
                 }
             };
         }
-        public static void SetText(Dictionary<(char, int), string> tokens, char c, string text = "") 
+        public static void SetText(Dictionary<TokenKey, string> tokens, char c, string text = "") 
         { 
-            List<(char, int)> toModify = new List<(char, int)>();
-            foreach (var item in tokens.Keys) if (item.Item1 == c) toModify.Add((c, item.Item2));
+            List<TokenKey> toModify = new List<TokenKey>();
+            foreach (var item in tokens.Keys) if (item.Symbol == c) toModify.Add(new TokenKey(c, item.Priority));
             foreach (var item in toModify)
-                if (item.Item2 < FORMAT_SPLIT || text.IsEmpty())
-                    tokens[(item.Item1, item.Item2)] = text;
+                if (item.Priority < FORMAT_SPLIT || text.IsEmpty())
+                    tokens[new TokenKey(item.Symbol, item.Priority)] = text;
                 else
-                    tokens[(item.Item1, item.Item2)] = Regex.Replace(tokens[(item.Item1, item.Item2)], "\\{\\d\\}", text);
+                    tokens[new TokenKey(item.Symbol, item.Priority)] = Regex.Replace(tokens[new TokenKey(item.Symbol, item.Priority)], "\\{\\d\\}", text);
             
         }
-        public static void SurroundText(Dictionary<(char, int), string> tokens, char c, string preText, string postText) 
+        public static void SurroundText(Dictionary<TokenKey, string> tokens, char c, string preText, string postText) 
         {
-            IEnumerable<int> keys = new List<int>(tokens.Keys.Where(val => val.Item1 == c).Select(val => val.Item2)); 
+            IEnumerable<int> keys = new List<int>(tokens.Keys.Where(val => val.Symbol == c).Select(val => val.Priority)); 
             //The lengths I have to to avoid cocerrent modification exceptions :(
             foreach (var item in keys)
-                tokens[(c, item)] = preText + tokens[(c, item)] + postText;
+                tokens[new TokenKey(c, item)] = preText + tokens[new TokenKey(c, item)] + postText;
         }
         public static bool IsReferenceChar(string s) => s.Length == 1 && char.IsLetter(s[0]) && !IsSpecialChar(s[0]);
         public static bool IsSpecialChar(char c) => SPECIAL_CHARS.Contains(c);
@@ -590,12 +582,12 @@ namespace BLPPCounter.Helpfuls
         public class TokenParser
         {
             private readonly Dictionary<char, List<int>> topLevelTokens, bottomLevelTokens;
-            private readonly Dictionary<(char, int), List<(char, int)>> tokenRelations;
-            private readonly Dictionary<(char, int), string> tokenValues;
+            private readonly Dictionary<TokenKey, List<TokenKey>> tokenRelations;
+            private readonly Dictionary<TokenKey, string> tokenValues;
             public string Formatted { get; private set; }
 
             private TokenParser(Dictionary<char, List<int>> topLevelTokens, Dictionary<char, List<int>> bottomLevelTokens,
-                Dictionary<(char, int), List<(char, int)>> tokenRelations, Dictionary<(char, int), string> tokenValues)
+                Dictionary<TokenKey, List<TokenKey>> tokenRelations, Dictionary<TokenKey, string> tokenValues)
             {
                 this.topLevelTokens = topLevelTokens;
                 this.bottomLevelTokens = bottomLevelTokens;
@@ -604,41 +596,41 @@ namespace BLPPCounter.Helpfuls
                 Formatted = "";
             }
 
-            public static TokenParser UnrapTokens(Dictionary<(char, int), string> tokens, bool makeNewReference = true, string formatted = "")
+            public static TokenParser UnrapTokens(Dictionary<TokenKey, string> tokens, bool makeNewReference = true, string formatted = "")
             {
                 Dictionary<char, List<int>> topLevelTokens = new Dictionary<char, List<int>>(), bottomLevelTokens = new Dictionary<char, List<int>>();
-                Dictionary<(char, int), List<(char, int)>> tokenRelations = new Dictionary<(char, int), List<(char, int)>>();
-                List<(char, int)> sortedKeys = tokens.Keys.ToList();
-                sortedKeys.Sort((a, b) => a.Item2 - b.Item2);
+                Dictionary<TokenKey, List<TokenKey>> tokenRelations = new Dictionary<TokenKey, List<TokenKey>>();
+                List<TokenKey> sortedKeys = tokens.Keys.ToList();
+                sortedKeys.Sort((a, b) => a.Priority - b.Priority);
                 foreach (var key in sortedKeys)
-                    if (key.Item2 <= FORMAT_SPLIT)
-                        if (!topLevelTokens.ContainsKey(key.Item1))
-                            topLevelTokens.Add(key.Item1, new List<int>() { key.Item2 });
+                    if (key.Priority <= FORMAT_SPLIT)
+                        if (!topLevelTokens.ContainsKey(key.Symbol))
+                            topLevelTokens.Add(key.Symbol, new List<int>() { key.Priority });
                         else
-                            topLevelTokens[key.Item1].Add(key.Item2);
+                            topLevelTokens[key.Symbol].Add(key.Priority);
                     else
-                        if (!bottomLevelTokens.ContainsKey(key.Item1))
-                        bottomLevelTokens.Add(key.Item1, new List<int>() { key.Item2 });
+                        if (!bottomLevelTokens.ContainsKey(key.Symbol))
+                        bottomLevelTokens.Add(key.Symbol, new List<int>() { key.Priority });
                         else
-                            bottomLevelTokens[key.Item1].Add(key.Item2);
-                sortedKeys.Sort((a, b) => (a.Item2 > FORMAT_SPLIT ? a.Item2 - FORMAT_SPLIT : a.Item2) - (b.Item2 > FORMAT_SPLIT ? b.Item2 - FORMAT_SPLIT : b.Item2));
-                (char, int) lastVal = default;
-                List<(char, int)> toAdd = new List<(char, int)>();
+                            bottomLevelTokens[key.Symbol].Add(key.Priority);
+                sortedKeys.Sort((a, b) => (a.Priority > FORMAT_SPLIT ? a.Priority - FORMAT_SPLIT : a.Priority) - (b.Priority > FORMAT_SPLIT ? b.Priority - FORMAT_SPLIT : b.Priority));
+                TokenKey lastVal = default;
+                List<TokenKey> toAdd = new List<TokenKey>();
                 foreach (var key in sortedKeys)
-                    if (key.Item2 <= FORMAT_SPLIT)
+                    if (key.Priority <= FORMAT_SPLIT)
                     {
-                        if (lastVal != default) tokenRelations.Add(lastVal, new List<(char, int)>(toAdd));
+                        if (!lastVal.Equals(default)) tokenRelations.Add(lastVal, new List<TokenKey>(toAdd));
                         lastVal = key;
                         toAdd.Clear();
                     }
                     else
                         toAdd.Add(key);
-                tokenRelations.Add(lastVal, new List<(char, int)>(toAdd));
+                tokenRelations.Add(lastVal, new List<TokenKey>(toAdd));
                 return new TokenParser(topLevelTokens, bottomLevelTokens, tokenRelations,
-                    makeNewReference ? new Dictionary<(char, int), string>(tokens) : tokens) { Formatted = formatted };
+                    makeNewReference ? new Dictionary<TokenKey, string>(tokens) : tokens) { Formatted = formatted };
             }
-            public Dictionary<(char, int), string> RerapTokens() => new Dictionary<(char, int), string>(tokenValues);
-            public Dictionary<(char, int), string> GetReference() => tokenValues;
+            public Dictionary<TokenKey, string> RerapTokens() => new Dictionary<TokenKey, string>(tokenValues);
+            public Dictionary<TokenKey, string> GetReference() => tokenValues;
 
             public bool MakeTokenConstant(char token, string value = "")
             {
@@ -648,26 +640,26 @@ namespace BLPPCounter.Helpfuls
                     int toRemove = -1;
                     foreach (int priority in topLevelTokens[key])
                     {
-                        List<(char, int)> relations = tokenRelations[(key, priority)];
-                        int index = relations.FindIndex(a => a.Item1 == token);
+                        List<TokenKey> relations = tokenRelations[new TokenKey(key, priority)];
+                        int index = relations.FindIndex(a => a.Symbol == token);
                         if (index == -1) continue;
-                        int tokenPriority = relations[index].Item2;
+                        int tokenPriority = relations[index].Priority;
                         if (char.IsDigit(key))
                         {
-                            string newValue = Regex.Replace(tokenValues[(token, tokenPriority)], "\\{\\d+\\}", value);
-                            if (tokenValues[(key, priority)].Contains($"{ESCAPE_CHAR}{token}"))
-                                tokenValues[(key, priority)] = tokenValues[(key, priority)].Replace($"{ESCAPE_CHAR}{token}", newValue);
+                            string newValue = Regex.Replace(tokenValues[new TokenKey(token, tokenPriority)], "\\{\\d+\\}", value);
+                            if (tokenValues[new TokenKey(key, priority)].Contains($"{ESCAPE_CHAR}{token}"))
+                                tokenValues[new TokenKey(key, priority)] = tokenValues[new TokenKey(key, priority)].Replace($"{ESCAPE_CHAR}{token}", newValue);
                             else
                             {
-                                string repStr = tokenValues[(token, tokenPriority)];
+                                string repStr = tokenValues[new TokenKey(token, tokenPriority)];
                                 index = relations.FindIndex(a => tokenValues[a].Equals(repStr));
                                 if (index == -1) throw new ArgumentException("The token given has been parsed incorrectly somehow. There is a bug in the code somewhere.");
                                 tokenValues[relations[index]] = Regex.Replace(tokenValues[relations[index]], "\\{\\d+\\}", value);
                             }
                         }
                         else
-                            tokenValues[(key, priority)] = Regex.Replace(tokenValues[(key, priority)], "\\{\\d+\\}", value);
-                        tokenValues.Remove((token, tokenPriority));
+                            tokenValues[new TokenKey(key, priority)] = Regex.Replace(tokenValues[new TokenKey(key, priority)], "\\{\\d+\\}", value);
+                        tokenValues.Remove(new TokenKey(token, tokenPriority));
                         toRemove = tokenPriority;
                         break;
                     }
@@ -680,13 +672,13 @@ namespace BLPPCounter.Helpfuls
                         {
                             var matches = Regex.Matches(v.Value, "\\{\\d+\\}");
                             if (matches.Count == 0) continue;
-                            var num = v.Key.Item2 > FORMAT_SPLIT ? v.Key.Item2 - FORMAT_SPLIT : v.Key.Item2;
+                            var num = v.Key.Priority > FORMAT_SPLIT ? v.Key.Priority - FORMAT_SPLIT : v.Key.Priority;
                             if (num > toCompare)
-                                toSubtract.Add((v.Key.Item1, v.Key.Item2, int.Parse(matches[0].Value.Substring(1, matches[0].Length - 2))));
+                                toSubtract.Add((v.Key.Symbol, v.Key.Priority, int.Parse(matches[0].Value.Substring(1, matches[0].Length - 2))));
                         }
                         foreach (var v in toSubtract)
                         {
-                            var val = (v.Item1, v.Item2);
+                            TokenKey val = new TokenKey(v.Item1, v.Item2);
                             tokenValues[val] = Regex.Replace(tokenValues[val], "\\{\\d+\\}", $"{{{v.Item3 - 1}}}");
                         }
                     }
@@ -696,19 +688,19 @@ namespace BLPPCounter.Helpfuls
             }
             public void SetText(char c, string text = "")
             {
-                List<(char, int)> toModify = new List<(char, int)>();
-                foreach (var item in tokenValues.Keys) if (item.Item1 == c) toModify.Add((c, item.Item2));
+                List<TokenKey> toModify = new List<TokenKey>();
+                foreach (var item in tokenValues.Keys) if (item.Symbol == c) toModify.Add(new TokenKey(c, item.Priority));
                 foreach (var item in toModify)
-                    if (item.Item2 < FORMAT_SPLIT || text.IsEmpty())
-                        tokenValues[(item.Item1, item.Item2)] = text;
+                    if (item.Priority < FORMAT_SPLIT || text.IsEmpty())
+                        tokenValues[new TokenKey(item.Symbol, item.Priority)] = text;
                     else
-                        tokenValues[(item.Item1, item.Item2)] = Regex.Replace(tokenValues[(item.Item1, item.Item2)], "\\{\\d\\}", text);
+                        tokenValues[new TokenKey(item.Symbol, item.Priority)] = Regex.Replace(tokenValues[new TokenKey(item.Symbol, item.Priority)], "\\{\\d\\}", text);
             }
             public void SurroundText(char c, string preText, string postText)
             {
-                List<(char, int, string)> toModify = new List<(char, int, string)>();
-                foreach (var item in tokenValues.Keys) if (item.Item1 == c) toModify.Add((c, item.Item2, preText + tokenValues[item] + postText));
-                foreach (var item in toModify) tokenValues[(item.Item1, item.Item2)] = item.Item3;
+                var toModify = new List<(char Symbol, int Priority, string Value)>();
+                foreach (var item in tokenValues.Keys) if (item.Symbol == c) toModify.Add((c, item.Priority, preText + tokenValues[item] + postText));
+                foreach (var item in toModify) tokenValues[new TokenKey(item.Symbol, item.Priority)] = item.Value;
             }
             public override string ToString()
             {
@@ -720,7 +712,7 @@ namespace BLPPCounter.Helpfuls
                     outp += $"\n{token.Key} || [{string.Join(", ", token.Value)}]";
                 outp += "\nToken relations: ";
                 foreach (var token in tokenRelations)
-                    outp += $"\n{token.Key.Item1} || [{string.Join(", ", token.Value)}]";
+                    outp += $"\n{token.Key.Symbol} || [{string.Join(", ", token.Value)}]";
                 outp += "\nToken values: ";
                 foreach (var token in tokenValues)
                     outp += $"\n{token.Key} || {ToLiteral(token.Value)}";
