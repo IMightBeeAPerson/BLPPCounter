@@ -1,14 +1,15 @@
-﻿using ModestTree;
+﻿using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
+using ModestTree;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using UnityEngine;
 using static BLPPCounter.Helpfuls.HelpfulMisc;
-using System.Collections;
-using BLPPCounter.Helpfuls.FormatHelpers;
 
 namespace BLPPCounter.Helpfuls
 {
@@ -62,230 +63,429 @@ namespace BLPPCounter.Helpfuls
                 {"Hide", 'h' }
             };
         }
-        public static (string formatted, Dictionary<TokenKey, string> tokens, Dictionary<int, char> priority, Dictionary<TokenKey, string[]> extraArgs) ParseCounterFormat(
-            string format, Dictionary<string, char> aliasConverter, string counterName)
+        #region Parser & Helpers
+        public static Tuple<string,
+                    Dictionary<TokenKey, string>,
+                    Dictionary<int, char>,
+                    Dictionary<TokenKey, string[]>>
+    ParseCounterFormat(string format, Dictionary<string, char> aliasConverter, string counterName)
         {
+            string aliasError;
+            if (FindAliasErrorsInFormat(format, out aliasError))
+                throw new FormatException(aliasError);
+
+            if (format.Contains(ESCAPE_CHAR.ToString() + ALIAS) ||
+                format.Contains(GROUP_OPEN.ToString() + ALIAS))
+                format = ExpandAliases(format, aliasConverter, counterName);
+
+            StringBuilder formatted = new StringBuilder();
+            StringBuilder captureSb = new StringBuilder();
+
             Dictionary<TokenKey, string> tokens = new Dictionary<TokenKey, string>();
             Dictionary<TokenKey, string[]> extraArgs = new Dictionary<TokenKey, string[]>();
             Dictionary<int, char> priority = new Dictionary<int, char>();
-            aliasConverter = new Dictionary<string, char>(aliasConverter); //so that it doesn't edit the original
 
-            foreach (var e in GLOBAL_ALIASES) aliasConverter.TryAdd(e.Key, e.Value);
-            CustomAlias.ApplyAliases(PluginConfig.Instance.TokenSettings.TokenAliases, aliasConverter, counterName);
+            int repIndex = 0;
+            int forRepIndex = 0;
+            int sortIndex = 0;
+            bool inCapture = false;
+            char captureId = '\0';
+            int capturePriority = -1;
+            string pendingClose = string.Empty;
 
-            string formatted = "";
-            int repIndex = 0, forRepIndex = 0, sortIndex = 0;
-            bool capture = false;
-            string captureStr = "", richVal = "";
-            int ssIndex = -1;
-            char num = (char)0;
-            if (FindAliasErrorsInFormat(format, out string errorMessage))
-                throw new FormatException(errorMessage);
-            if (format.Contains($"{ESCAPE_CHAR}{ALIAS}") || format.Contains($"{GROUP_OPEN}{ALIAS}"))
+            for (int i = 0; i < format.Length; i++)
             {
-                if (aliasConverter == null)
-                    throw new ArgumentNullException("No alias converter given while format contains aliases! Please remove aliases from the format as there is no way to parse them.\nFormat: " + format);
-                string AliasReplace(Match m)//(?<Token>[&[]'[^']+')(?!\()|(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)
-                {
-                    bool invalidName = false;
-                    string val = m.Groups["Token"].Value;
-                    char t;
-                    if (val[1] == ALIAS) if (aliasConverter.TryGetValue(val.Substring(2, val.Length - 3), out t)) val = $"{val[0]}{t}";
-                        else invalidName = true;
-                    string outp = val;
-                    if (!invalidName && m.Groups["Params"].Success)
-                    {
-                        outp += PARAM_OPEN;
-                        foreach (string param in m.Groups["Params"].Value.Split(DELIMITER))
-                            if (param[0] == ALIAS)
-                            {
-                                if (aliasConverter.TryGetValue(param.Substring(1, param.Length-2), out t)) outp += $"{t}{DELIMITER}";
-                                else { val = param.Substring(1, param.Length - 2); invalidName = true; break; }
-                            }
-                            else outp += $"{param}{DELIMITER}";
-                        outp = outp.Substring(0, outp.Length - 1);
-                    }
-                    if (invalidName) throw new FormatException($"Incorrect aliasing used. The alias name '{val}' does not exist for {counterName} counter." +
-                        $"\nCorrect Format: {ESCAPE_CHAR}{ALIAS}<Alias Name>{ALIAS} OR {GROUP_OPEN}{ALIAS}<Alias Name>{ALIAS} ... {GROUP_CLOSE}" +
-                        $"\nPossible alias names are listed below:\n{string.Join("\n", aliasConverter).Replace("[", "\"").Replace("]", "").Replace(", ", "\" as ")}");
-                    return outp;
-                }
-                format = Regex.Replace(format, TestRegexAliasPattern, AliasReplace);
-            }//*/
-            if (aliasConverter is null)
-                Plugin.Log.Debug("No alias converter given! Thankfully, there are no aliases present so there will not be an error.");
-            //TestParse(format);
-            for (int i = 0; i < format.Length; i++)//[p$ ]&[[c&x]&]<1 / [o$ ]&[[f&y]&] >&l<2\n&m[t\n$]>
-            {
-                if (Regex.Match(format.Substring(i), @"^<(?:(?<Key>[^=]+)=[^>]+>(?=.*?<\/\k<Key>>)|\/[^>]+>)", RegexOptions.Singleline) is Match m && m.Success)
-                {
-                    if (capture)
-                        captureStr += format.Substring(i, m.Length);
-                    else
-                        formatted += format.Substring(i, m.Length);
-                    i += m.Length - 1;
-                    //Plugin.Log.Info("Formatted: " + formatted + " || i = " + i);
-                    continue;
-                }
-                if (!IsSpecialChar(format[i]) ||
-                    (format[i] == ESCAPE_CHAR && (IsSpecialChar(format[i + 1]) || format[i + 1] == PARAM_OPEN)))
-                {
-                    if (format[i] == ESCAPE_CHAR) i++;
-                    if (capture)
-                        captureStr += format[i];
-                    else
-                        formatted += format[i];
-                    continue;
-                }
-                if (format[i] == RICH_SHORT)
-                {
-                    string toSet = ReplaceShorthand(format, richVal, i, out i, out richVal);
-                    if (capture) captureStr += toSet; else formatted += toSet;
-                    continue;
-                }
-                if (!capture) formatted += $"{{{forRepIndex++}}}";
-                if (format[i] == GROUP_OPEN)
-                {
-                    string bracket = "";
-                    char symbol = format[++i];
-                    if (!char.IsLetter(symbol) || symbol == RICH_SHORT)
-                    {
-                        bool isRich = symbol == RICH_SHORT, badFormat = false;
-                        if (isRich || symbol == '<')
-                        {
-                            if (isRich) bracket += ReplaceShorthand(format, richVal, i, out i, out richVal);
-                            else
-                                if (char.IsLetter(format[i + 1]))
-                                {
-                                    while (format[i] != '>') bracket += format[i++];
-                                    bracket += format[i++]; //grabs closing bracket
-                                    Plugin.Log.Info("Formatted: " + bracket + " || i = " + i);
-                            }
-                            else badFormat = true;
-                        }
-                        else badFormat = true;
-                        if (badFormat) throw new FormatException($"Invalid group format, must define what letter group corresponds to.\nSyntax: {GROUP_OPEN}<letter> ... {GROUP_CLOSE}");
-                    }
-                    if (i + 1 < format.Length && format[i + 1] == PARAM_OPEN)
-                    {
-                        var vals = HandleExtraParams(format, i, sortIndex, out i);
-                        extraArgs.Add(new TokenKey(vals.Item1, vals.Item2), vals.Item3);
-                    }
-                    int index = repIndex++, sIndex = sortIndex++;
-                    while (format[++i] != GROUP_CLOSE && i < format.Length)
-                    {
-                        if (format[i] == INSERT_SELF) { bracket += $"{{{index}}}"; continue; }
-                        if (format[i] == RICH_SHORT) { bracket += ReplaceShorthand(format, richVal, i, out i, out richVal); continue; }
-                        if (format[i] == ESCAPE_CHAR)
-                        {
-                            if (!IsSpecialChar(format[i + 1]))
-                            {
-                                tokens[new TokenKey(format[++i], FORMAT_SPLIT + sortIndex)] = $"{{{repIndex}}}";
-                                priority[FORMAT_SPLIT + sortIndex++] = format[i];
-                                bracket += $"{{{repIndex++}}}";
-                                if (i + 1 < format.Length && format[i + 1] == PARAM_OPEN)
-                                {
-                                    var vals = HandleExtraParams(format, i, sortIndex - 1 + FORMAT_SPLIT, out i);
-                                    extraArgs.Add(new TokenKey(vals.Item1, vals.Item2), vals.Item3);
-                                }
-                                    
-                            } else bracket += format[++i];
-                            continue;
-                        }
-                        else bracket += format[i];
-                    }
-                    if (i == format.Length)
-                        throw new FormatException($"Invalid group format, must close group bracket.\nSyntax: {GROUP_OPEN}<letter> ... {GROUP_CLOSE}");
-                    if (sortIndex == sIndex) sortIndex++;
-                    if (repIndex == index) repIndex++;
-                    if (capture)
-                    {
-                        captureStr += $"{ESCAPE_CHAR}{symbol}";
-                        sIndex += FORMAT_SPLIT;
-                    }
-                    priority[sIndex] = symbol;
-                    tokens[new TokenKey(symbol, sIndex)] = bracket;
+                char c = format[i];
 
+                // Skip escaped specials
+                if (c == ESCAPE_CHAR && i + 1 < format.Length &&
+                    (IsSpecialChar(format[i + 1]) || format[i + 1] == PARAM_OPEN))
+                {
+                    Append(captureSb, formatted, inCapture, format[++i]);
                     continue;
                 }
-                if (format[i] == CAPTURE_OPEN || format[i] == CAPTURE_CLOSE)
+
+                // Normal text
+                if (!IsSpecialChar(c))
                 {
-                    if (!capture)
-                    {
-                        capture = true;
-                        captureStr = "";
-                        ssIndex = sortIndex++;
-                        num = format[++i];
-                        if (!char.IsDigit(num))
-                            throw new FormatException($"Invalid capture format, must have number after open bracket.\nSyntax: {CAPTURE_OPEN}<number> ... {CAPTURE_CLOSE}");
-                        continue;
-                    }
-                    else
-                    {
-                        if (format[i] != CAPTURE_CLOSE)
-                            throw new FormatException($"Invalid capture format, you cannot nest capture statements.\nSyntax: {CAPTURE_OPEN}<number> ... {CAPTURE_CLOSE}");
-                        capture = false;
-                        tokens[new TokenKey(num, ssIndex)] = captureStr;
-                        priority[ssIndex] = num;
-                        continue;
-                    }
+                    Append(captureSb, formatted, inCapture, c);
+                    continue;
                 }
-                int tempIndex = sortIndex++;
+
+                // Rich shorthand
+                if (c == RICH_SHORT)
+                {
+                    string tag = ReplaceShorthand(format, ref i, ref pendingClose);
+                    Append(captureSb, formatted, inCapture, tag);
+                    continue;
+                }
+
+                // All other cases from here on will be replaced during the first layer, and thus need a placeholder
+                if (!inCapture) formatted.Append($"{{{forRepIndex++}}}");
+
+                // Capture brackets
+                if (c == CAPTURE_OPEN || c == CAPTURE_CLOSE)
+                {
+                    HandleCapture(format, ref i, ref inCapture, ref captureId, ref capturePriority,
+                                  captureSb, tokens, priority, ref sortIndex);
+                    continue;
+                }
+
+                // Groups
+                if (c == GROUP_OPEN)
+                {
+                    HandleGroup(format, ref i, ref repIndex, ref sortIndex,
+                                tokens, priority, extraArgs,
+                                captureSb, inCapture, ref pendingClose);
+                    continue;
+                }
+
+                // Escaped tokens (&x)
+                if (c == ESCAPE_CHAR && i + 1 < format.Length)
+                {
+                    HandleEscaped(format, ref i, ref repIndex, ref sortIndex,
+                                  tokens, priority, extraArgs,
+                                  captureSb, inCapture);
+                    continue;
+                }
+
+                // Literal fallback
+                Append(captureSb, formatted, inCapture, c);
+            }
+
+            if (inCapture)
+                throw new FormatException("Unclosed capture block starting with " + CAPTURE_OPEN + captureId);
+
+            return Tuple.Create(formatted.ToString(), tokens, priority, extraArgs);
+        }
+
+        private static string ReplaceShorthand(string format, ref int i, ref string pendingClose)
+        {
+            // If a close tag is pending, return it and clear state
+            if (!string.IsNullOrEmpty(pendingClose))
+            {
+                string close = pendingClose;
+                pendingClose = string.Empty;
+                return close;
+            }
+
+            // Parse keyword until delimiter
+            int start = ++i;
+            while (i < format.Length && format[i] != DELIMITER)
                 i++;
-                if (capture)
-                {
-                    captureStr += $"{ESCAPE_CHAR}{format[i]}";
-                    tempIndex += FORMAT_SPLIT;
-                }
-                if (!char.IsLetter(format[i]))
-                    throw new FormatException($"Invalid escape format, escape character must be followed by a special character or a letter.\nSyntax: {ESCAPE_CHAR}<letter> OR {ESCAPE_CHAR}<special character>");
-                tokens[new TokenKey(format[i], tempIndex)] = $"{{{repIndex++}}}";
-                priority[tempIndex] = format[i];
-                if (i + 1 < format.Length && format[i+1] == PARAM_OPEN)
-                {
-                    var vals = HandleExtraParams(format, i, tempIndex, out i);
-                    extraArgs.Add(new TokenKey(vals.Item1, vals.Item2), vals.Item3);
-                }
-            }
-            if (capture)
-                throw new FormatException($"Invalid capture format, must close capture bracket.\nSyntax: {CAPTURE_OPEN}<number> ... {CAPTURE_CLOSE}");
-            return (formatted, tokens, priority, extraArgs);
-        }
-        private static string ReplaceShorthand(string format, string richVal, int i, out int newCount, out string newRichVal)
-        {
-            if (!richVal.IsEmpty())
-            {
-                newRichVal = "";
-                newCount = i;
-                return richVal;
-            }
-            string keyword = "", value = "";
-            while (++i < format.Length && format[i] != DELIMITER) keyword += format[i];
-            if (i >= format.Length) throw new FormatException($"Invalid rich text shorthand, must put the delimiter ({DELIMITER}) between the keyword and value.");
-            keyword = ConvertRichShorthand(keyword);
-            newRichVal = $"</{keyword}>";
-            while (++i < format.Length && format[i] != RICH_SHORT) value += format[i];
-            if (i >= format.Length) throw new FormatException($"Invalid rich text shorthand, must put the rich shorthand symbol ({RICH_SHORT}) between the value and the contents.");
-            if (value.Contains(' ')) value = $"\"{value}\"";
-            newCount = i;
-            return $"<{keyword}={value}>";
-        }
-        private static (char, int, string[]) HandleExtraParams(string format, int i, int priority, out int newCount)
-        {
-            char originChar = format[i];
-            List<string> inp = new List<string>();
-            i++;
-            while (i < format.Length && format[i] != PARAM_CLOSE)
-            {
-                string hold = "";
-                while (++i < format.Length && format[i] != DELIMITER && format[i] != PARAM_CLOSE)
-                    hold += format[i];
-                inp.Add(hold);
-            }
+
             if (i >= format.Length)
-                throw new FormatException($"Invalid extra parameter format, missing closing bracket ('{PARAM_CLOSE}').\nSyntax: {ESCAPE_CHAR}{originChar}{PARAM_OPEN}<character 1>{DELIMITER},<character 2>{DELIMITER}...{PARAM_CLOSE}");
-            newCount = i;
-            return (originChar, priority, inp.ToArray());
+                throw new FormatException("Invalid rich text shorthand: missing delimiter '" + DELIMITER + "'.");
+
+            string keyword = format.Substring(start, i - start);
+            keyword = ConvertRichShorthand(keyword);
+
+            // Parse value until the next RICH_SHORT
+            int valStart = ++i;
+            while (i < format.Length && format[i] != RICH_SHORT)
+                i++;
+
+            if (i >= format.Length)
+                throw new FormatException("Invalid rich text shorthand: missing closing '" + RICH_SHORT + "'.");
+
+            string value = format.Substring(valStart, i - valStart);
+            if (value.IndexOf(' ') >= 0)
+                value = "\"" + value + "\"";
+
+            pendingClose = "</" + keyword + ">";
+            return "<" + keyword + "=" + value + ">";
+        }
+        private static void HandleCapture(string format, ref int i, ref bool inCapture, ref char captureId, ref int capturePriority,
+        StringBuilder captureSb, Dictionary<TokenKey, string> tokens, Dictionary<int, char> priority, ref int sortIndex)
+        {
+            if (!inCapture)
+            {
+                inCapture = true;
+                i++;
+                if (i >= format.Length || !char.IsDigit(format[i]))
+                    throw new FormatException("Capture must start with a number after '" + CAPTURE_OPEN + "'.");
+
+                captureId = format[i];
+                capturePriority = sortIndex++;
+                captureSb.Length = 0;
+            }
+            else
+            {
+                inCapture = false;
+                tokens[new TokenKey(captureId, capturePriority)] = captureSb.ToString();
+                priority[capturePriority] = captureId;
+            }
+        }
+        private static void HandleGroup(
+        string format,
+        ref int i,
+        ref int repIndex,
+        ref int sortIndex,
+        Dictionary<TokenKey, string> tokens,
+        Dictionary<int, char> priority,
+        Dictionary<TokenKey, string[]> extraArgs,
+        StringBuilder captureSb,
+        bool inCapture,
+        ref string pendingClose)
+        {
+            // Move past GROUP_OPEN ('[' or similar)
+            if (++i >= format.Length)
+                throw new FormatException("Unexpected end after group open.");
+
+            char symbol = format[i];
+            StringBuilder groupContent = new StringBuilder();
+
+            // Must start with a letter or shorthand marker
+            if (!char.IsLetter(symbol) && symbol != RICH_SHORT && symbol != '<')
+                throw new FormatException("Invalid group: must start with a letter or shorthand.");
+
+            //Make sure shorthand or tag given is valid.
+            bool isRich = symbol == RICH_SHORT;
+            if (isRich || symbol == '<')
+            {
+                if (isRich)
+                {
+                    string tag = ReplaceShorthand(format, ref i, ref pendingClose);
+                    groupContent.Append(tag);
+                }
+                else if (i + 1 < format.Length && char.IsLetter(format[i + 1])) 
+                {
+                    while (format[i] != '>' && i < format.Length)
+                    {
+                        groupContent.Append(format[i]); //add the tag in full to group content.
+                        i++;
+                    }
+                    groupContent.Append(format[i]); //append the closing '>'
+                    i++;
+                }
+                else throw new FormatException($"Invalid group format, must define what letter group corresponds to.\nSyntax: {GROUP_OPEN}<letter> ... {GROUP_CLOSE}");
+            }
+
+            // Read parameters if any (&x(...))
+            if (i + 1 < format.Length && format[i + 1] == PARAM_OPEN)
+            {
+                char originChar = symbol;
+                string[] args = ParseExtraParams(format, ref i, originChar);
+                extraArgs[new TokenKey(originChar, sortIndex)] = args;
+            }
+
+            int groupStartPriority = sortIndex++;
+            int localRepIndex = repIndex++;
+
+            // Read group content until closing bracket
+            while (++i < format.Length)
+            {
+                char c = format[i];
+
+                if (c == GROUP_CLOSE)
+                    break;
+
+                if (c == INSERT_SELF)
+                {
+                    groupContent.Append("{").Append(localRepIndex).Append("}");
+                    continue;
+                }
+
+                if (c == RICH_SHORT)
+                {
+                    string tag = ReplaceShorthand(format, ref i, ref pendingClose);
+                    groupContent.Append(tag);
+                    continue;
+                }
+
+                if (c == ESCAPE_CHAR)
+                {
+                    if (i + 1 < format.Length && !IsSpecialChar(format[i + 1]))
+                    {
+                        i++;
+                        TokenKey tk = new TokenKey(format[i], FORMAT_SPLIT + sortIndex);
+                        tokens[tk] = "{" + repIndex + "}";
+                        priority[FORMAT_SPLIT + sortIndex] = format[i];
+
+                        if (i + 1 < format.Length && format[i + 1] == PARAM_OPEN)
+                        {
+                            string[] args = ParseExtraParams(format, ref i, format[i]);
+                            extraArgs[tk] = args;
+                        }
+
+                        groupContent.Append("{").Append(repIndex++).Append("}");
+                    }
+                    else
+                    {
+                        i++;
+                        groupContent.Append(format[i]);
+                    }
+                    continue;
+                }
+
+                groupContent.Append(c);
+            }
+
+            if (i >= format.Length)
+                throw new FormatException("Unclosed group: missing '" + GROUP_CLOSE + "'.");
+
+            if (sortIndex == groupStartPriority) sortIndex++;
+            if (repIndex == localRepIndex) repIndex++;
+
+            if (inCapture)
+            {
+                captureSb.Append(ESCAPE_CHAR).Append(symbol);
+                groupStartPriority += FORMAT_SPLIT;
+            }
+
+            priority[groupStartPriority] = symbol;
+            tokens[new TokenKey(symbol, groupStartPriority)] = groupContent.ToString();
+        }
+        private static void HandleEscaped(
+        string format,
+        ref int i,
+        ref int repIndex,
+        ref int sortIndex,
+        Dictionary<TokenKey, string> tokens,
+        Dictionary<int, char> priority,
+        Dictionary<TokenKey, string[]> extraArgs,
+        StringBuilder captureSb,
+        bool inCapture)
+        {
+            i++; // skip the ESCAPE_CHAR
+
+            if (i >= format.Length || !char.IsLetter(format[i]))
+                throw new FormatException("Invalid escape: must be followed by a letter or special char.");
+
+            char symbol = format[i];
+            int currentPriority = sortIndex++;
+
+            if (inCapture)
+            {
+                captureSb.Append(ESCAPE_CHAR).Append(symbol);
+                currentPriority += FORMAT_SPLIT;
+            }
+
+            tokens[new TokenKey(symbol, currentPriority)] = "{" + repIndex++ + "}";
+            priority[currentPriority] = symbol;
+
+            if (i + 1 < format.Length && format[i + 1] == PARAM_OPEN)
+            {
+                string[] args = ParseExtraParams(format, ref i, symbol);
+                extraArgs[new TokenKey(symbol, currentPriority)] = args;
+            }
+        }
+        private static string[] ParseExtraParams(string format, ref int i, char originChar)
+        {
+            List<string> args = new List<string>();
+            i++; // skip '('
+
+            string current = string.Empty;
+
+            while (++i < format.Length)
+            {
+                char c = format[i];
+                if (c == DELIMITER || c == PARAM_CLOSE)
+                {
+                    args.Add(current);
+                    current = string.Empty;
+                    if (c == PARAM_CLOSE)
+                        break;
+                }
+                else
+                {
+                    current += c;
+                }
+            }
+
+            if (i >= format.Length || format[i] != PARAM_CLOSE)
+                throw new FormatException(
+                    "Missing closing '" + PARAM_CLOSE + "' for parameters of " + originChar + ".");
+
+            return args.ToArray();
+        }
+        private static string ExpandAliases(string format, Dictionary<string, char> aliasConverter, string counterName)
+        {
+            if (aliasConverter == null)
+                throw new ArgumentNullException("No alias converter given while format contains aliases! Please remove aliases from the format as there is no way to parse them.\nFormat: " + format);
+
+            // Add global aliases and custom token aliases (caller should already have merged globals, but keep safe)
+            foreach (var e in GLOBAL_ALIASES)
+                aliasConverter.TryAdd(e.Key, e.Value);
+
+            // Use the regex pattern you built earlier (TestRegexAliasPattern).
+            // That pattern expects named groups "Token" and optionally "Params"
+            Regex aliasRegex = new Regex(TestRegexAliasPattern, RegexOptions.Singleline);
+
+            string Resolver(Match m)
+            {
+                bool invalidName = false;
+                string tokenText = m.Groups["Token"].Value; // e.g. &'alias' or &x etc.
+                char resolvedChar = (char)0;
+
+                // If the token is in the long alias form (e.g. &'Name') the second character will be the ALIAS char
+                if (tokenText.Length >= 2 && tokenText[1] == ALIAS)
+                {
+                    // long form: tokenText like "&'AliasName'" or "[ 'Alias' ]" depending on syntax
+                    // alias name is between the ALIAS chars; strip outer wrapper
+                    int nameStart = 2;
+                    int nameLength = tokenText.Length - 3; // skip the starting "<escape><alias>" and trailing alias char
+                    string aliasName = tokenText.Substring(nameStart, nameLength);
+                    if (!aliasConverter.TryGetValue(aliasName, out resolvedChar))
+                        invalidName = true;
+                    else
+                        tokenText = tokenText[0] + resolvedChar.ToString(); // replace with short form e.g. &x
+                }
+                // else it's already a short alias like &x (leave tokenText as-is)
+
+                string outp = tokenText;
+
+                // If there are params group, convert any alias reference inside them
+                if (!invalidName && m.Groups["Params"].Success)
+                {
+                    outp += PARAM_OPEN.ToString();
+                    string paramStr = m.Groups["Params"].Value;
+                    string[] parts = paramStr.Split(DELIMITER);
+                    for (int i = 0; i < parts.Length; i++)
+                    {
+                        string param = parts[i];
+                        if (param.Length > 0 && param[0] == ALIAS)
+                        {
+                            string aliasName = param.Substring(1, param.Length - 2); // remove surrounding alias markers
+                            if (aliasConverter.TryGetValue(aliasName, out char paramResolved))
+                            {
+                                outp += paramResolved;
+                            }
+                            else
+                            {
+                                invalidName = true;
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            outp += param;
+                        }
+                        if (i + 1 < parts.Length) outp += DELIMITER;
+                    }
+                }
+
+                if (invalidName)
+                {
+                    // Build a helpful message listing available aliases
+                    var aliasList = aliasConverter.Keys.ToList();
+                    string available = string.Empty;
+                    for (int ii = 0; ii < aliasList.Count; ii++)
+                    {
+                        available += "\"" + aliasList[ii] + "\" as " + aliasConverter[aliasList[ii]];
+                        if (ii + 1 < aliasList.Count) available += "\n";
+                    }
+
+                    throw new FormatException(
+                        "Incorrect aliasing used. The alias name '" + (tokenText.Length > 2 ? tokenText : tokenText) + "' does not exist for " + counterName + " counter." +
+                        "\nCorrect Format: " + ESCAPE_CHAR + ALIAS + "<Alias Name>" + ALIAS + " OR " + GROUP_OPEN + ALIAS + "<Alias Name>" + ALIAS + " ... " + GROUP_CLOSE +
+                        "\nPossible alias names are listed below:\n" + available);
+                }
+
+                return outp;
+            }
+
+            return aliasRegex.Replace(format, new MatchEvaluator(Resolver));
         }
         public static bool FindAliasErrorsInFormat(string format, out string errorMessage) //true = IS errors, false = NO errors
         {
@@ -308,6 +508,17 @@ namespace BLPPCounter.Helpfuls
             errorMessage = "";
             return false;
         }
+        private static void Append(StringBuilder captureSb, StringBuilder formatSb, bool inCapture, char c)
+        {
+            if (inCapture) captureSb.Append(c); else formatSb.Append(c);
+        }
+
+        private static void Append(StringBuilder captureSb, StringBuilder formatSb, bool inCapture, string s)
+        {
+            if (inCapture) captureSb.Append(s); else formatSb.Append(s);
+        }
+
+        #endregion
         public static Func<Func<FormatWrapper, string>> GetBasicTokenParser(
             string format,
             Dictionary<string, char> aliasConverter,
@@ -356,6 +567,7 @@ namespace BLPPCounter.Helpfuls
                     foreach (var token in tokens)
                         Plugin.Log.Info($"{token.Key} || " + ToLiteral(token.Value));
                     Plugin.Log.Info("Formatted || " + formatted);//*/
+            FormatWrapper extraArgsWrapper = extraArgs.Keys.Count > 0 ? new FormatWrapper(extraArgs.Keys.Select(val => (typeof(string), val.Symbol)).ToArray()) : null;
             return () =>
             {
                 TokenParser thing = TokenParser.UnrapTokens(tokens, true, formatted);
@@ -384,8 +596,9 @@ namespace BLPPCounter.Helpfuls
                     Plugin.Log.Info("Formatted || " + formatted);//*/
                     Dictionary<TokenKey, string> tokensCopy2 = new Dictionary<TokenKey, string>(tokensCopy1);
                     varSettings.Invoke(tokensCopy1, tokensCopy2, priority, vals);
-                    foreach (var val in extraArgs.Keys)
-                        vals.SetValue(val.Symbol, implementArgs.Invoke(val.Symbol, extraArgs[val], vals, tokensCopy2));
+                    if (!(extraArgsWrapper is null)) 
+                        foreach (var val in extraArgs.Keys)
+                            extraArgsWrapper.SetValue(val.Symbol, implementArgs.Invoke(val.Symbol, extraArgs[val], vals, tokensCopy2));
                     foreach (TokenKey val in captureChars)
                     {
                         string newVal = "", toParse = tokensCopy2[val];
@@ -407,7 +620,15 @@ namespace BLPPCounter.Helpfuls
                     foreach (TokenKey val in first) firstArr[i++] = tokensCopy2[val];
                     object[] secondArr = new object[second.Count];
                     i = 0;
-                    foreach (TokenKey val in second) secondArr[i++] = vals[val.Symbol];
+                    foreach (TokenKey val in second)
+                    {
+                        object o = null;
+                        if (!vals.TryGetValue(val.Symbol, out o) && !(extraArgsWrapper is null)) 
+                            extraArgsWrapper.TryGetValue(val.Symbol, out o);
+                        if (o != null) secondArr[i++] = o;
+                    }
+                    //Plugin.Log.Info(HelpfulMisc.Print(firstArr) + '\n' + HelpfulMisc.Print(secondArr));
+                    //Plugin.Log.Info(string.Format(newFormatted, secondArr));
                     return string.Format(string.Format(newFormatted, firstArr), secondArr);
                 };
             };
@@ -579,145 +800,266 @@ namespace BLPPCounter.Helpfuls
             }
             return Regex.Replace(str, "(?<Special>" + RegexAllSpecialChars + ")|c(?<Color>[A-Z][a-z]+)|(?<Replace>\\d)", Converter);
         }
+
         public class TokenParser
         {
-            private readonly Dictionary<char, List<int>> topLevelTokens, bottomLevelTokens;
+            private readonly Dictionary<char, List<int>> topLevelTokens;
+            private readonly Dictionary<char, List<int>> bottomLevelTokens;
             private readonly Dictionary<TokenKey, List<TokenKey>> tokenRelations;
             private readonly Dictionary<TokenKey, string> tokenValues;
+
             public string Formatted { get; private set; }
 
-            private TokenParser(Dictionary<char, List<int>> topLevelTokens, Dictionary<char, List<int>> bottomLevelTokens,
-                Dictionary<TokenKey, List<TokenKey>> tokenRelations, Dictionary<TokenKey, string> tokenValues)
+            private TokenParser(
+                Dictionary<char, List<int>> topLevelTokens,
+                Dictionary<char, List<int>> bottomLevelTokens,
+                Dictionary<TokenKey, List<TokenKey>> tokenRelations,
+                Dictionary<TokenKey, string> tokenValues)
             {
                 this.topLevelTokens = topLevelTokens;
                 this.bottomLevelTokens = bottomLevelTokens;
                 this.tokenRelations = tokenRelations;
                 this.tokenValues = tokenValues;
-                Formatted = "";
+                this.Formatted = string.Empty;
             }
 
+            /// <summary>
+            /// Build a TokenParser from the flat token dictionary.
+            /// Preserves the original ordering logic: tokens with Priority  FORMAT_SPLIT are top-level,
+            /// tokens with Priority > FORMAT_SPLIT are bottom-level (child) tokens. Token relations are built
+            /// by grouping bottom-level tokens under the most recent top-level token in priority order.
+            /// </summary>
             public static TokenParser UnrapTokens(Dictionary<TokenKey, string> tokens, bool makeNewReference = true, string formatted = "")
             {
-                Dictionary<char, List<int>> topLevelTokens = new Dictionary<char, List<int>>(), bottomLevelTokens = new Dictionary<char, List<int>>();
-                Dictionary<TokenKey, List<TokenKey>> tokenRelations = new Dictionary<TokenKey, List<TokenKey>>();
-                List<TokenKey> sortedKeys = tokens.Keys.ToList();
-                sortedKeys.Sort((a, b) => a.Priority - b.Priority);
-                foreach (var key in sortedKeys)
-                    if (key.Priority <= FORMAT_SPLIT)
-                        if (!topLevelTokens.ContainsKey(key.Symbol))
-                            topLevelTokens.Add(key.Symbol, new List<int>() { key.Priority });
-                        else
-                            topLevelTokens[key.Symbol].Add(key.Priority);
-                    else
-                        if (!bottomLevelTokens.ContainsKey(key.Symbol))
-                        bottomLevelTokens.Add(key.Symbol, new List<int>() { key.Priority });
-                        else
-                            bottomLevelTokens[key.Symbol].Add(key.Priority);
-                sortedKeys.Sort((a, b) => (a.Priority > FORMAT_SPLIT ? a.Priority - FORMAT_SPLIT : a.Priority) - (b.Priority > FORMAT_SPLIT ? b.Priority - FORMAT_SPLIT : b.Priority));
-                TokenKey lastVal = default;
-                List<TokenKey> toAdd = new List<TokenKey>();
-                foreach (var key in sortedKeys)
-                    if (key.Priority <= FORMAT_SPLIT)
+                var top = new Dictionary<char, List<int>>();
+                var bot = new Dictionary<char, List<int>>();
+                var relations = new Dictionary<TokenKey, List<TokenKey>>();
+
+                // sort keys by raw priority
+                var keys = tokens.Keys.ToList();
+                keys.Sort((a, b) => a.Priority - b.Priority);
+
+                // populate top/bottom lists
+                foreach (var k in keys)
+                {
+                    if (k.Priority <= FORMAT_SPLIT)
                     {
-                        if (!lastVal.Equals(default)) tokenRelations.Add(lastVal, new List<TokenKey>(toAdd));
-                        lastVal = key;
-                        toAdd.Clear();
+                        if (!top.ContainsKey(k.Symbol)) top[k.Symbol] = new List<int>();
+                        top[k.Symbol].Add(k.Priority);
                     }
                     else
-                        toAdd.Add(key);
-                tokenRelations.Add(lastVal, new List<TokenKey>(toAdd));
-                return new TokenParser(topLevelTokens, bottomLevelTokens, tokenRelations,
-                    makeNewReference ? new Dictionary<TokenKey, string>(tokens) : tokens) { Formatted = formatted };
-            }
-            public Dictionary<TokenKey, string> RerapTokens() => new Dictionary<TokenKey, string>(tokenValues);
-            public Dictionary<TokenKey, string> GetReference() => tokenValues;
+                    {
+                        if (!bot.ContainsKey(k.Symbol)) bot[k.Symbol] = new List<int>();
+                        bot[k.Symbol].Add(k.Priority);
+                    }
+                }
 
+                // re-sort keys so that bottom priorities are considered relative to the last top-level token
+                keys.Sort((a, b) =>
+                {
+                    int aKey = (a.Priority > FORMAT_SPLIT) ? a.Priority - FORMAT_SPLIT : a.Priority;
+                    int bKey = (b.Priority > FORMAT_SPLIT) ? b.Priority - FORMAT_SPLIT : b.Priority;
+                    return aKey - bKey;
+                });
+
+                TokenKey lastTop = default;
+                var children = new List<TokenKey>();
+                bool hasLastTop = false;
+
+                foreach (var k in keys)
+                {
+                    if (k.Priority <= FORMAT_SPLIT)
+                    {
+                        if (hasLastTop)
+                        {
+                            // finalize the last top-level entry
+                            relations[lastTop] = new List<TokenKey>(children);
+                        }
+                        lastTop = k;
+                        children.Clear();
+                        hasLastTop = true;
+                    }
+                    else
+                    {
+                        children.Add(k);
+                    }
+                }
+
+                // add final relation for the last top-level token
+                if (hasLastTop)
+                    relations[lastTop] = new List<TokenKey>(children);
+
+                // create tokenValues dictionary (optionally copy)
+                var valuesCopy = makeNewReference ? new Dictionary<TokenKey, string>(tokens) : tokens;
+
+                return new TokenParser(top, bot, relations, valuesCopy) { Formatted = formatted ?? string.Empty };
+            }
+
+            public Dictionary<TokenKey, string> RerapTokens()
+            {
+                return new Dictionary<TokenKey, string>(tokenValues);
+            }
+
+            public Dictionary<TokenKey, string> GetReference()
+            {
+                return tokenValues;
+            }
+
+            /// <summary>
+            /// Convert a bottom-level token (child) into a constant string inside its parent, or inline it where necessary.
+            /// This function mirrors the original behavior but is split into clearer steps.
+            /// </summary>
             public bool MakeTokenConstant(char token, string value = "")
             {
+                // If Formatted has not been set, operation not valid (matches original guard)
                 if (Formatted == default) return false;
-                foreach (char key in topLevelTokens.Keys)
+
+                // iterate every top-level key symbol
+                foreach (var kv in topLevelTokens)
                 {
-                    int toRemove = -1;
-                    foreach (int priority in topLevelTokens[key])
+                    char topSymbol = kv.Key;
+                    var priorities = kv.Value;
+
+                    int removedPriority = -1;
+
+                    // for each top-level priority for this symbol, check its relations
+                    foreach (int topPriority in priorities)
                     {
-                        List<TokenKey> relations = tokenRelations[new TokenKey(key, priority)];
-                        int index = relations.FindIndex(a => a.Symbol == token);
-                        if (index == -1) continue;
-                        int tokenPriority = relations[index].Priority;
-                        if (char.IsDigit(key))
+                        var rootKey = new TokenKey(topSymbol, topPriority);
+                        if (!tokenRelations.ContainsKey(rootKey)) continue;
+
+                        var relationsList = tokenRelations[rootKey];
+                        // find child index whose symbol matches the requested token
+                        int idx = relationsList.FindIndex(tk => tk.Symbol == token);
+                        if (idx == -1) continue;
+
+                        int childPriority = relationsList[idx].Priority;
+
+                        // If the topSymbol is a digit (a capture), the logic differs slightly in how replacement occurs
+                        if (char.IsDigit(topSymbol))
                         {
-                            string newValue = Regex.Replace(tokenValues[new TokenKey(token, tokenPriority)], "\\{\\d+\\}", value);
-                            if (tokenValues[new TokenKey(key, priority)].Contains($"{ESCAPE_CHAR}{token}"))
-                                tokenValues[new TokenKey(key, priority)] = tokenValues[new TokenKey(key, priority)].Replace($"{ESCAPE_CHAR}{token}", newValue);
+                            // Replace numeric placeholders inside the child token value
+                            string newChildValue = Regex.Replace(tokenValues[new TokenKey(token, childPriority)], "\\{\\d+\\}", value);
+
+                            // If parent token contains an escaped instance of the token, replace that escaped segment with the new value
+                            var parentKey = new TokenKey(topSymbol, topPriority);
+                            string parentValue = tokenValues[parentKey];
+
+                            if (parentValue.Contains(string.Format("{0}{1}", ESCAPE_CHAR, token)))
+                            {
+                                tokenValues[parentKey] = parentValue.Replace(string.Format("{0}{1}", ESCAPE_CHAR, token), newChildValue);
+                            }
                             else
                             {
-                                string repStr = tokenValues[new TokenKey(token, tokenPriority)];
-                                index = relations.FindIndex(a => tokenValues[a].Equals(repStr));
-                                if (index == -1) throw new ArgumentException("The token given has been parsed incorrectly somehow. There is a bug in the code somewhere.");
-                                tokenValues[relations[index]] = Regex.Replace(tokenValues[relations[index]], "\\{\\d+\\}", value);
+                                // If not escaped, find the relation entry corresponding to the child string and replace that placeholder
+                                string repStr = tokenValues[new TokenKey(token, childPriority)];
+                                int relationIndex = relationsList.FindIndex(tk => tokenValues[tk] == repStr);
+                                if (relationIndex == -1)
+                                    throw new ArgumentException("The token given has been parsed incorrectly somehow. There is a bug in the code somewhere.");
+
+                                tokenValues[relationsList[relationIndex]] = Regex.Replace(tokenValues[relationsList[relationIndex]], "\\{\\d+\\}", value);
                             }
                         }
                         else
-                            tokenValues[new TokenKey(key, priority)] = Regex.Replace(tokenValues[new TokenKey(key, priority)], "\\{\\d+\\}", value);
-                        tokenValues.Remove(new TokenKey(token, tokenPriority));
-                        toRemove = tokenPriority;
+                        {
+                            // Non-capture parent: simply replace placeholder tokens in the parent value
+                            tokenValues[new TokenKey(topSymbol, topPriority)] =
+                                Regex.Replace(tokenValues[new TokenKey(topSymbol, topPriority)], "\\{\\d+\\}", value);
+                        }
+
+                        // Remove the child token value and remember which priority was removed
+                        tokenValues.Remove(new TokenKey(token, childPriority));
+                        removedPriority = childPriority;
                         break;
                     }
-                    if (toRemove != -1)
+
+                    // If we removed a child priority, we must adjust placeholders that relied on positional indexes
+                    if (removedPriority != -1)
                     {
-                        topLevelTokens[key].Remove(toRemove);
-                        int toCompare = toRemove > FORMAT_SPLIT ? toRemove - FORMAT_SPLIT : toRemove;
-                        List<(char, int, int)> toSubtract = new List<(char, int, int)>();
-                        foreach (var v in tokenValues)
+                        // Remove the priority from top-level tracking
+                        topLevelTokens[topSymbol].Remove(removedPriority);
+
+                        int comp = (removedPriority > FORMAT_SPLIT) ? removedPriority - FORMAT_SPLIT : removedPriority;
+
+                        // Find all tokenValues which contain placeholders and adjust their indices
+                        var toAdjust = new List<Tuple<TokenKey, int>>();
+                        foreach (var tv in tokenValues)
                         {
-                            var matches = Regex.Matches(v.Value, "\\{\\d+\\}");
+                            var matches = Regex.Matches(tv.Value, "\\{\\d+\\}");
                             if (matches.Count == 0) continue;
-                            var num = v.Key.Priority > FORMAT_SPLIT ? v.Key.Priority - FORMAT_SPLIT : v.Key.Priority;
-                            if (num > toCompare)
-                                toSubtract.Add((v.Key.Symbol, v.Key.Priority, int.Parse(matches[0].Value.Substring(1, matches[0].Length - 2))));
+                            int num = (tv.Key.Priority > FORMAT_SPLIT) ? tv.Key.Priority - FORMAT_SPLIT : tv.Key.Priority;
+                            if (num > comp)
+                            {
+                                int placeholderIndex = int.Parse(matches[0].Value.Substring(1, matches[0].Length - 2));
+                                toAdjust.Add(Tuple.Create(tv.Key, placeholderIndex));
+                            }
                         }
-                        foreach (var v in toSubtract)
+
+                        foreach (var adj in toAdjust)
                         {
-                            TokenKey val = new TokenKey(v.Item1, v.Item2);
-                            tokenValues[val] = Regex.Replace(tokenValues[val], "\\{\\d+\\}", $"{{{v.Item3 - 1}}}");
+                            var keyToAdj = adj.Item1;
+                            int oldPlaceholder = adj.Item2;
+                            tokenValues[keyToAdj] = Regex.Replace(tokenValues[keyToAdj], "\\{\\d+\\}", "{" + (oldPlaceholder - 1) + "}");
                         }
                     }
                 }
+
+                // finally remove bottom-level token mapping for the token char (if present)
                 bottomLevelTokens.Remove(token);
+
                 return true;
             }
+
             public void SetText(char c, string text = "")
             {
-                List<TokenKey> toModify = new List<TokenKey>();
-                foreach (var item in tokenValues.Keys) if (item.Symbol == c) toModify.Add(new TokenKey(c, item.Priority));
-                foreach (var item in toModify)
-                    if (item.Priority < FORMAT_SPLIT || text.IsEmpty())
-                        tokenValues[new TokenKey(item.Symbol, item.Priority)] = text;
+                var toModify = new List<TokenKey>();
+                foreach (var key in tokenValues.Keys)
+                    if (key.Symbol == c) toModify.Add(new TokenKey(c, key.Priority));
+
+                foreach (var key in toModify)
+                {
+                    if (key.Priority < FORMAT_SPLIT || string.IsNullOrEmpty(text))
+                        tokenValues[new TokenKey(key.Symbol, key.Priority)] = text;
                     else
-                        tokenValues[new TokenKey(item.Symbol, item.Priority)] = Regex.Replace(tokenValues[new TokenKey(item.Symbol, item.Priority)], "\\{\\d\\}", text);
+                        tokenValues[new TokenKey(key.Symbol, key.Priority)] =
+                            Regex.Replace(tokenValues[new TokenKey(key.Symbol, key.Priority)], "\\{\\d\\}", text);
+                }
             }
+
             public void SurroundText(char c, string preText, string postText)
             {
-                var toModify = new List<(char Symbol, int Priority, string Value)>();
-                foreach (var item in tokenValues.Keys) if (item.Symbol == c) toModify.Add((c, item.Priority, preText + tokenValues[item] + postText));
-                foreach (var item in toModify) tokenValues[new TokenKey(item.Symbol, item.Priority)] = item.Value;
+                var updates = new List<KeyValuePair<TokenKey, string>>();
+                foreach (var k in tokenValues.Keys)
+                {
+                    if (k.Symbol != c) continue;
+                    updates.Add(new KeyValuePair<TokenKey, string>(k, preText + tokenValues[k] + postText));
+                }
+                foreach (var u in updates) tokenValues[u.Key] = u.Value;
             }
+
             public override string ToString()
             {
-                string outp = "----------------------------\nTop level tokens: ";
-                foreach (var token in topLevelTokens)
-                    outp += $"\n{token.Key} || [{string.Join(", ", token.Value)}]";
-                outp += "\nBottom level tokens: ";
-                foreach (var token in bottomLevelTokens)
-                    outp += $"\n{token.Key} || [{string.Join(", ", token.Value)}]";
-                outp += "\nToken relations: ";
-                foreach (var token in tokenRelations)
-                    outp += $"\n{token.Key.Symbol} || [{string.Join(", ", token.Value)}]";
-                outp += "\nToken values: ";
-                foreach (var token in tokenValues)
-                    outp += $"\n{token.Key} || {ToLiteral(token.Value)}";
-                return outp + "\n----------------------------";
+                var sb = new StringBuilder();
+                sb.AppendLine("----------------------------");
+                sb.Append("Top level tokens: ");
+                foreach (var t in topLevelTokens)
+                    sb.AppendLine().AppendFormat("{0} || [{1}]", t.Key, string.Join(", ", t.Value));
+                sb.AppendLine();
+                sb.Append("Bottom level tokens: ");
+                foreach (var t in bottomLevelTokens)
+                    sb.AppendLine().AppendFormat("{0} || [{1}]", t.Key, string.Join(", ", t.Value));
+                sb.AppendLine();
+                sb.Append("Token relations: ");
+                foreach (var rel in tokenRelations)
+                    sb.AppendLine().AppendFormat("{0} || [{1}]", rel.Key.Symbol, string.Join(", ", rel.Value));
+                sb.AppendLine();
+                sb.Append("Token values: ");
+                foreach (var tv in tokenValues)
+                    sb.AppendLine().AppendFormat("{0} || {1}", tv.Key, ToLiteral(tv.Value));
+                sb.AppendLine("----------------------------");
+                return sb.ToString();
             }
         }
+
     }
 }

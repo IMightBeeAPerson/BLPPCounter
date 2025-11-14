@@ -30,7 +30,8 @@ namespace BLPPCounter.Counters
         /// fc, extraInfo, isNum1, pp, fcpp, rank, ppDiff, percentDiff, color, label
         /// </summary>
         private static Func<bool, bool, bool, float, float, int, float, float, string, string, string> displayRank;
-        private static Func<Func<Dictionary<char, object>, string>> rankIniter;
+        private static Func<Func<FormatWrapper, string>> rankIniter;
+        private static FormatWrapper rankWrapper;
 
         public static readonly Dictionary<string, char> MainAlias = new Dictionary<string, char>()
         {
@@ -54,7 +55,7 @@ namespace BLPPCounter.Counters
                 {'l', "The label (ex: PP, Tech PP, etc)" },
                 {'c', "The color of the rank (set in settings)" }
             }, str => { var hold = GetTheFormat(str, out string errorStr); return (hold, errorStr); },
-            new Dictionary<char, object>()
+            new FormatWrapper(new Dictionary<char, object>()
             {
                 {(char)1, true },
                 {(char)2, true },
@@ -67,7 +68,7 @@ namespace BLPPCounter.Counters
                 { 'p', 0.1f },
                 { 'l', "PP" },
                 { 'c', 3 }
-            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>()
+            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>()
             {
                 {'r', 0 },
                 {'c', 1 }
@@ -135,7 +136,7 @@ namespace BLPPCounter.Counters
         #endregion
         #region Helper Methods
         public static void FormatTheFormat(string format) => rankIniter = GetTheFormat(format, out _);
-        public static Func<Func<Dictionary<char, object>, string>> GetTheFormat(string format, out string errorStr)
+        public static Func<Func<FormatWrapper, string>> GetTheFormat(string format, out string errorStr)
         {
             return HelpfulFormatter.GetBasicTokenParser(format, MainAlias, DisplayName,
                 formattedTokens =>
@@ -154,14 +155,13 @@ namespace BLPPCounter.Counters
         public static void InitTheFormat()
         {
             var simple = rankIniter.Invoke();
+            rankWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(bool), (char)3), (typeof(bool), (char)4), (typeof(float), 'x'), (typeof(float), 'y'),
+                (typeof(int), 'r'), (typeof(float), 'd'), (typeof(float), 'p'), (typeof(string), 'c'), (typeof(string), 'l'));
             displayRank = (fc, extraInfo, isNum1, pp, fcpp, rank, ppDiff, percentDiff, color, label) =>
             {
-                Dictionary<char, object> vals = new Dictionary<char, object>()
-                {
-                    {(char)1, fc }, {(char)2, extraInfo }, {(char)3, !isNum1 && extraInfo }, {(char)4, isNum1 && extraInfo }, {'x', pp}, {'y', fcpp },
-                    {'r', rank}, {'d', ppDiff}, {'p', percentDiff }, {'c', color }, {'l',label}
-                };
-                return simple.Invoke(vals);
+                    rankWrapper.SetValues(((char)1, fc ), ((char)2, extraInfo ), ((char)3, !isNum1 && extraInfo ), ((char)4, isNum1 && extraInfo ), ('x', pp), ('y', fcpp ),
+                    ('r', rank), ('d', ppDiff), ('p', percentDiff ), ('c', color ), ('l',label));
+                return simple.Invoke(rankWrapper);
             };
         }
         public override void UpdateFormat() => InitTheFormat();

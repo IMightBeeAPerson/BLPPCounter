@@ -367,7 +367,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private void ParseValues()
         {
             List<ValueListInfo> outp = new List<ValueListInfo>();
-            Dictionary<char, object> testVals = CurrentFormatInfo.TestValues;
+            FormatWrapper testVals = CurrentFormatInfo.TestValues;
             IEnumerable<char> tokens = testVals.Keys;
             foreach (char token in tokens)
             {

@@ -79,6 +79,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         public bool ChangeTabSettings = false;
         #region Relative Counter
         private static Func<string> GetTarget, GetNoScoreTarget;
+        private static FormatWrapper NoScoreTargetWrapper;
         private float TargetPP = 0;
         private bool TargetHasScore = false;
         #endregion
@@ -508,7 +509,8 @@ namespace BLPPCounter.Settings.SettingHandlers
                 {
                     foreach (char key in vals.Keys) if (vals[key] is null || vals[key].ToString().Length == 0) HelpfulFormatter.SetText(tokensCopy, key);
                 }, out _, false).Invoke();
-            GetNoScoreTarget = () => simple.Invoke(new Dictionary<char, object>() { { 't', Targeter.TargetName } });
+            NoScoreTargetWrapper = new FormatWrapper((typeof(string), 't'));
+            GetNoScoreTarget = () => { NoScoreTargetWrapper.SetValue('t', Targeter.TargetName, typeof(string)); return simple.Invoke(NoScoreTargetWrapper); };
             GetTarget = () => TheCounter.TargetFormatter?.Invoke(Targeter.TargetName, "") ?? "Target formatter is null";
         }
         private float GetAccToBeatTarget()

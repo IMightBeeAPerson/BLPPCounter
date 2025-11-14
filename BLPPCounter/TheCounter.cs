@@ -69,7 +69,8 @@ namespace BLPPCounter
         private static Func<bool, bool, float, float, int, string, string> displayFormatter;
         internal static Func<string, string, string> TargetFormatter;
         internal static Func<Func<string>, float, float, float, float, float, string> PercentNeededFormatter;
-        private static Func<Func<Dictionary<char, object>, string>> displayIniter, targetIniter, percentNeededIniter;
+        private static Func<Func<FormatWrapper, string>> displayIniter, targetIniter, percentNeededIniter;
+        private static FormatWrapper displayWrapper, targetWrapper, percentNeededWrapper;
         private static readonly ReadOnlyCollection<string> Labels = new ReadOnlyCollection<string>(new string[] { " Acc PP", " Pass PP", " Tech PP", " PP" }); //Ain't Nobody appending a billion "BL"s to this now :)
         public static string[] CurrentLabels { get; private set; } = null;
 
@@ -108,7 +109,7 @@ namespace BLPPCounter
                 { 'e', "The amount of mistakes made in the map. This includes bomb and wall hits" },
                 { 'l', "The label (ex: PP, Tech PP, etc)" }
             }, str => { var hold = GetTheFormat(str, out string errorStr); return (hold, errorStr); },
-            new Dictionary<char, object>()
+            new FormatWrapper(new Dictionary<char, object>()
             {
                 {(char)1, true },
                 {(char)2, true },
@@ -116,7 +117,7 @@ namespace BLPPCounter
                 {'y', 654.32f },
                 {'e', 2 },
                 {'l', " PP" }
-            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT, null, null, new Dictionary<char, IEnumerable<(string, object)>>(2)
+            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, null, null, new Dictionary<char, IEnumerable<(string, object)>>(2)
             {
                 { 'x', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } },
                 { 'y', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } }
@@ -133,11 +134,11 @@ namespace BLPPCounter
                 { 't', "The name of the person being targeted" },
                 { 'm', "The mods used by the person you are targeting" }
             }, str => { var hold = GetFormatTarget(str, out string errorStr); return (hold, errorStr); },
-            new Dictionary<char, object>()
+            new FormatWrapper(new Dictionary<char, object>()
             {
                 {'t', "Person" },
                 {'m', "SF" }
-            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT, null, null, null);
+            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, null, null, null);
         internal static readonly FormatRelation PercentNeededFormatRelation = new FormatRelation("Percent Needed Format", DisplayName,
             pc.MessageSettings.PercentNeededMessage, str => pc.MessageSettings.PercentNeededMessage = str, PercentNeededAlias,
             new Dictionary<char, string>()
@@ -149,7 +150,7 @@ namespace BLPPCounter
                 { 'z', "The pass PP needed" },
                 { 'p', "The total PP number needed to capture the map" }
             }, str => { var hold = GetFormatPercentNeeded(str, out string errorStr); return (hold, errorStr); },
-            new Dictionary<char, object>()
+            new FormatWrapper(new Dictionary<char, object>()
             {
                 {'c', new Func<object>(() => "green") },
                 {'a', "95.85" },
@@ -158,7 +159,7 @@ namespace BLPPCounter
                 {'z', 69.42f },
                 {'p', 543.21f },
                 {'t', "Person" }
-            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(3)
+            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(3)
             {
                 {'c', 0 },
                 {'a', 1 },
@@ -636,7 +637,7 @@ namespace BLPPCounter
                     return mainMode ?? "Standard";
             }
         }
-        private static Func<Func<Dictionary<char, object>, string>> GetTheFormat(string format, out string errorStr, string counter = "") =>
+        private static Func<Func<FormatWrapper, string>> GetTheFormat(string format, out string errorStr, string counter = "") =>
             HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, counter, a => { },
                 (tokens, tokensCopy, priority, vals) => 
                 { 
@@ -649,14 +650,14 @@ namespace BLPPCounter
             displayIniter = GetTheFormat(format, out string _, counter);
             return displayIniter != null; 
         }
-        private static Func<Func<Dictionary<char, object>, string>> GetFormatTarget(string format, out string errorStr) =>
+        private static Func<Func<FormatWrapper, string>> GetFormatTarget(string format, out string errorStr) =>
             HelpfulFormatter.GetBasicTokenParser(format, TargetAlias, DisplayName, a => { }, (a, b, c, d) => { }, out errorStr);
         private static bool FormatTarget(string format)
         {
             targetIniter = GetFormatTarget(format, out string _);
             return targetIniter != null;
         }
-        private static Func<Func<Dictionary<char, object>, string>> GetFormatPercentNeeded(string format, out string errorStr) =>
+        private static Func<Func<FormatWrapper, string>> GetFormatPercentNeeded(string format, out string errorStr) =>
             HelpfulFormatter.GetBasicTokenParser(format, PercentNeededAlias, DisplayName, a => { },
                 (tokens, tokensCopy, priority, vals) =>
                 {
@@ -670,19 +671,34 @@ namespace BLPPCounter
         private static void InitDisplayFormat()
         {
             var simple = displayIniter.Invoke();
-            displayFormatter = (fc, totPp, pp, fcpp, mistakes, label) => simple.Invoke(new Dictionary<char, object>()
-            { { (char)1, fc }, {(char)2, totPp }, {'x', pp }, {'l', label }, { 'y', fcpp }, {'e', mistakes } });
+            displayWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(float), 'x'), (typeof(string), 'l'),
+                (typeof(float), 'y'), (typeof(int), 'e'));
+            displayFormatter = (fc, totPp, pp, fcpp, mistakes, label) =>
+            {
+                displayWrapper.SetValues(((char)1, fc ), ((char)2, totPp ), ('x', pp ), ('l', label ), ( 'y', fcpp ), ('e', mistakes ));
+                return simple.Invoke(displayWrapper);
+            };
         }
         private static void InitTarget()
         {
             var simple = targetIniter.Invoke();
-            TargetFormatter = (name, mods) => simple.Invoke(new Dictionary<char, object>() { { 't', name }, { 'm', mods } });
+            targetWrapper = new FormatWrapper((typeof(string), 't'), (typeof(string), 'm'));
+            TargetFormatter = (name, mods) =>
+            {
+                targetWrapper.SetValues(('t', name), ('m', mods));
+                return simple.Invoke(targetWrapper);
+            };
         }
         private static void InitPercentNeeded()
         {
             var simple = percentNeededIniter.Invoke();
-            PercentNeededFormatter = (color, acc, passpp, accpp, techpp, pp) => simple.Invoke(new Dictionary<char, object>()
-            { { 'c', color }, { 'a', acc }, { 'x', techpp }, { 'y', accpp }, { 'z', passpp }, { 'p', pp } });
+            percentNeededWrapper = new FormatWrapper((typeof(Func<string>), 'c'), (typeof(float), 'a'), (typeof(float), 'x'),
+                (typeof(float), 'y'), (typeof(float), 'z'), (typeof(float), 'p'));
+            PercentNeededFormatter = (color, acc, passpp, accpp, techpp, pp) =>
+            {
+                percentNeededWrapper.SetValues(('c', color), ('a', acc), ('x', techpp), ('y', accpp), ('z', passpp), ('p', pp));
+                return simple.Invoke(percentNeededWrapper);
+            };
         }
         private static Type[] GetValidCounters()
         {

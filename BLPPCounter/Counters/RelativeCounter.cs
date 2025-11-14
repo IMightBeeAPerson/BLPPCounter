@@ -24,7 +24,8 @@ namespace BLPPCounter.Counters
         public static string DisplayHandler => DisplayName;
         private static Func<bool, bool, int, string, string, string, string, float, string, string, float, float, string, string> displayFormatter;
         public static Type[] FormatterTypes => displayFormatter.GetType().GetGenericArguments();
-        private static Func<Func<Dictionary<char, object>, string>> displayIniter;
+        private static Func<Func<FormatWrapper, string>> displayIniter;
+        private static FormatWrapper displayWrapper;
         private static PluginConfig PC => PluginConfig.Instance;
         public static readonly Dictionary<string, char> FormatAlias = new Dictionary<string, char>()
                 {
@@ -58,7 +59,7 @@ namespace BLPPCounter.Counters
                 { 'e', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" },
                 { 'z', "Color for mistakes compared to your replay mistakes" }
             }, str => { var hold = GetTheFormat(str, out string errorStr, false); return (hold, errorStr); },
-            new Dictionary<char, object>(13)
+            new FormatWrapper(new Dictionary<char, object>(13)
             {
                 {(char)1, true },
                 {(char)2, true },
@@ -74,7 +75,7 @@ namespace BLPPCounter.Counters
                 {'l', "PP" },
                 {'t', "Person" },
                 {'z', "yellow" }
-            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(7)
+            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(7)
             {
                 {'c', 0 },
                 {'x', 1 },
@@ -291,7 +292,7 @@ namespace BLPPCounter.Counters
         }
         #endregion
         #region Helper Functions
-        public static Func<Func<Dictionary<char, object>, string>> GetTheFormat(string format, out string errorMessage, bool applySettings = true)
+        public static Func<Func<FormatWrapper, string>> GetTheFormat(string format, out string errorMessage, bool applySettings = true)
         {
             return HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, DisplayName,
                 formattedTokens =>
@@ -318,14 +319,15 @@ namespace BLPPCounter.Counters
         public static void InitDefaultFormat()
         {
             var simple = displayIniter.Invoke();
+            displayWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(int), 'e'), (typeof(string), 'z'),
+                (typeof(string), 'd'), (typeof(string), 'c'), (typeof(string), 'x'), (typeof(float), 'p'),
+                (typeof(string), 'f'), (typeof(string), 'y'), (typeof(float), 'o'), (typeof(float), 'a'),
+                (typeof(string), 'l'));
             displayFormatter = (fc, totPp, mistakes, missColor, accDiff, color, modPp, regPp, fcCol, fcModPp, fcRegPp, acc, label) =>
             {
-                Dictionary<char, object> vals = new Dictionary<char, object>()
-                {
-                    { (char)1, fc }, {(char)2, totPp }, {'e', mistakes }, {'d', accDiff }, { 'c', color }, {'x',  modPp }, {'p', regPp },
-                    { 'f', fcCol }, { 'y', fcModPp }, { 'o', fcRegPp }, {'a', acc }, {'l', label }, {'z', missColor }
-                };
-                return simple.Invoke(vals);
+                displayWrapper.SetValues(((char)1, fc), ((char)2, totPp), ('e', mistakes), ('d', accDiff), ('c', color), ('x', modPp), ('p', regPp),
+                ('f', fcCol), ('y', fcModPp), ('o', fcRegPp), ('a', acc), ('l', label), ('z', missColor));
+                return simple.Invoke(displayWrapper);
             };
         }
         #endregion
@@ -343,7 +345,7 @@ namespace BLPPCounter.Counters
                 caughtUp = true;
                 return;
             }
-            BeatLeader.Models.Replay.NoteEvent note;
+            NoteEvent note;
             int notes = 1;
             for (; notes <= catchUpNotes; notes++)
             {

@@ -14,6 +14,7 @@ using BLPPCounter.Utils.API_Handlers;
 using System.Threading.Tasks;
 using BLPPCounter.Utils.Misc_Classes;
 using System.Threading;
+using BLPPCounter.Helpfuls.FormatHelpers;
 
 namespace BLPPCounter.Counters
 {
@@ -26,7 +27,8 @@ namespace BLPPCounter.Counters
         private static Func<bool, bool, int, Func<string>, string, float, Func<string>, string, float, string, Func<string>, string> displayClan;
         private static Func<bool[], int, Func<string>, string, string, float, string, float, string, string, string> displayWeighted;
         private static Func<Func<string>, float, float, float, float, float, string> displayCustom;
-        private static Func<Func<Dictionary<char, object>, string>> clanIniter, weightedIniter, customIniter;
+        private static Func<Func<FormatWrapper, string>> clanIniter, weightedIniter, customIniter;
+        private static FormatWrapper clanWrapper, weightedWrapper, customWrapper;
         public static readonly Dictionary<string, char> FormatAlias = new Dictionary<string, char>()
         {
             { "PP", 'p' },
@@ -77,7 +79,7 @@ namespace BLPPCounter.Counters
                 { 't', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" },
                 { 'm', "This shows either the clan message or percent needed message depending on user settings. The idea of this message is to show what percent is needed to capture the map." }
             }, str => { var hold = GetFormatClan(str, out string errorStr, false); return (hold, errorStr); },
-            new Dictionary<char, object>()
+            new FormatWrapper(new Dictionary<char, object>()
             {
                 { (char)1, true },
                 { (char)2, true },
@@ -91,7 +93,7 @@ namespace BLPPCounter.Counters
                 { 'e', 1 },
                 { 't', "Person" },
                 { 'm', new Func<object>(() => 95.0f) }
-            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(6)
+            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(6)
             {
                 {'x', 0 },
                 {'y', 0 },
@@ -134,7 +136,7 @@ namespace BLPPCounter.Counters
                 { 'o', "The unmodified PP number if the map was FC'ed" },
                 { 'm', "This will show a message if the counter is used on a map that isn't perfectly ideal for the weighted counter or that the weighted counter can't be used on. The message will say the reason for why this isn't ideal" }
             }, str => { var hold = GetFormatWeighted(str, out string errorStr, false); return (hold, errorStr); },
-            new Dictionary<char, object>(12)
+            new FormatWrapper(new Dictionary<char, object>(12)
             {
                 {(char)1, true },
                 {(char)2, true },
@@ -148,7 +150,7 @@ namespace BLPPCounter.Counters
                 {'y', 42.69f },
                 {'o', 654.32f },
                 {'m', "<Insert a message here>" }
-            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(4)
+            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(4)
             {
                 { 'c', 0 },
                 { 'r', 1 },
@@ -189,7 +191,7 @@ namespace BLPPCounter.Counters
                 { 'p', "The total PP number needed to capture the map" },
                 { 't', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" }
             }, str => { var hold = GetFormatCustom(str, out string errorStr, false); return (hold, errorStr); },
-            new Dictionary<char, object>(7)
+            new FormatWrapper(new Dictionary<char, object>(7)
             {
                 {'c', new Func<object>(() => "#0F0") },
                 {'a', 95.85 },
@@ -198,7 +200,7 @@ namespace BLPPCounter.Counters
                 {'z', 69.42f },
                 {'p', 543.21f },
                 {'t', "Person" }
-            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(3)
+            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(3)
             {
                 {'c', 0 },
                 {'a', 1 },
@@ -402,7 +404,7 @@ namespace BLPPCounter.Counters
             InitCustom();
         }
         private static void FormatClan(string format) => clanIniter = GetFormatClan(format, out string _);
-        private static Func<Func<Dictionary<char, object>, string>> GetFormatClan(string format, out string errorMessage, bool applySettings = true)
+        private static Func<Func<FormatWrapper, string>> GetFormatClan(string format, out string errorMessage, bool applySettings = true)
         {
             return HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, DisplayName,
                 formattedTokens =>
@@ -427,7 +429,7 @@ namespace BLPPCounter.Counters
             
         }
         private static void FormatWeighted(string format) => weightedIniter = GetFormatWeighted(format, out string _);
-        private static Func<Func<Dictionary<char, object>, string>> GetFormatWeighted(string format, out string errorMessage, bool applySettings = true)
+        private static Func<Func<FormatWrapper, string>> GetFormatWeighted(string format, out string errorMessage, bool applySettings = true)
         {//settings values are: 0 = displayFC, 1 = totPP, 2 = showRank
             return HelpfulFormatter.GetBasicTokenParser(format, WeightedFormatAlias, DisplayName,
                 formattedTokens =>
@@ -442,7 +444,7 @@ namespace BLPPCounter.Counters
                 }, out errorMessage, applySettings);
         }
         private static void FormatCustom(string format) => customIniter = GetFormatCustom(format, out string _);
-        private static Func<Func<Dictionary<char, object>, string>> GetFormatCustom(string format, out string errorMessage, bool applySettings = true)
+        private static Func<Func<FormatWrapper, string>> GetFormatCustom(string format, out string errorMessage, bool applySettings = true)
         {
             return HelpfulFormatter.GetBasicTokenParser(format, MessageFormatAlias, DisplayName,
                 formattedTokens =>
@@ -459,28 +461,39 @@ namespace BLPPCounter.Counters
         private static void InitClan()
         {
             var simple = clanIniter.Invoke();
+            clanWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(int), 'e'), (typeof(Func<string>), 'c'), (typeof(string), 'x'), (typeof(float), 'p'),
+                (typeof(string), 'l'), (typeof(Func<string>), 'f'), (typeof(string), 'y'), (typeof(float), 'o'), (typeof(Func<string>), 'm'));
             displayClan = (fc, totPp, mistakes, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label, message) =>
             {
-                Dictionary<char, object> vals = new Dictionary<char, object>()
-                {
-                    { (char)1, fc }, {(char)2, totPp }, {'e', mistakes }, { 'c', color }, {'x',  modPp }, {'p', regPp }, {'l', label }, { 'f', fcCol }, { 'y', fcModPp }, { 'o', fcRegPp },
-                    {'m', message }
-                };
-                return simple.Invoke(vals);
+                clanWrapper.SetValues(
+                    ( (char)1, fc ), ((char)2, totPp ), ('e', mistakes ), ( 'c', color ), ('x',  modPp ), ('p', regPp ), ('l', label ), ( 'f', fcCol ), ( 'y', fcModPp ), ( 'o', fcRegPp ),
+                    ('m', message )
+                );
+                return simple.Invoke(clanWrapper);
             };
         }
         private static void InitWeighted()
         {
             var simple = weightedIniter.Invoke();
+            weightedWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(bool), (char)3), (typeof(int), 'e'), (typeof(Func<string>), 'c'),
+                (typeof(int), 'r'), (typeof(string), 'x'), (typeof(float), 'p'), (typeof(string), 'l'), (typeof(string), 'y'), (typeof(float), 'o'), (typeof(string), 'm'));
             displayWeighted = (settings, mistakes, rankColor, rank, modPp, regPp, fcModPp, fcRegPp, label, message) =>
-                simple.Invoke(new Dictionary<char, object>() {{'e', mistakes }, {'c', rankColor }, {'r', rank }, {'x',  modPp }, {'p', regPp },
-                    {'l', label }, { 'y', fcModPp }, { 'o', fcRegPp }, {'m', message }, { (char)1, settings[0] }, {(char)2, settings[1] }, {(char)3, settings[2] }});
+            {
+                weightedWrapper.SetValues(('e', mistakes), ('c', rankColor), ('r', rank), ('x', modPp), ('p', regPp),
+                    ('l', label), ('y', fcModPp), ('o', fcRegPp), ('m', message), ((char)1, settings[0]), ((char)2, settings[1]), ((char)3, settings[2]));
+                return simple.Invoke(weightedWrapper);
+            };
         }
         private static void InitCustom()
         {
             var simple = customIniter.Invoke();
-            displayCustom = (color, acc, passpp, accpp, techpp, pp) => simple.Invoke(new Dictionary<char, object>()
-            { { 'c', color }, { 'a', acc }, { 'x', techpp }, { 'y', accpp }, { 'z', passpp }, { 'p', pp } });
+            customWrapper = new FormatWrapper((typeof(Func<string>), 'c'), (typeof(float), 'a'), (typeof(float), 'x'), (typeof(float), 'y'),
+                (typeof(float), 'z'), (typeof(float), 'p'));
+            displayCustom = (color, acc, passpp, accpp, techpp, pp) =>
+            {
+                customWrapper.SetValues(('c', color), ('a', acc), ('x', techpp), ('y', accpp), ('z', passpp), ('p', pp));
+                return simple.Invoke(customWrapper);
+            };
         }
         public static void AddToCache(MapSelection map, float[] vals) => mapCache.Add((map, vals));      
         #endregion
