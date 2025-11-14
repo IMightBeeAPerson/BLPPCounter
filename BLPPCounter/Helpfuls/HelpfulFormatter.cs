@@ -491,6 +491,9 @@ namespace BLPPCounter.Helpfuls
             foreach (var e in GLOBAL_ALIASES)
                 aliasConverter.TryAdd(e.Key, e.Value);
 
+            //Apply custom aliases from config.
+            CustomAlias.ApplyAliases(PluginConfig.Instance.TokenSettings.TokenAliases, aliasConverter, counterName);
+
             // Use the regex pattern you built earlier (TestRegexAliasPattern).
             // That pattern expects named groups "Token" and optionally "Params"
             Regex aliasRegex = new Regex(TestRegexAliasPattern, RegexOptions.Singleline);

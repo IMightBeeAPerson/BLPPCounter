@@ -14,6 +14,8 @@ using BLPPCounter.Settings.Configs;
 using BLPPCounter.Helpfuls;
 using System.Reflection;
 using BLPPCounter.Settings.SettingHandlers.MenuViews;
+using static BLPPCounter.Utils.FormatListInfo;
+
 
 #if !NEW_VERSION
 using BLPPCounter.Utils.Special_Utils;
@@ -232,8 +234,11 @@ namespace BLPPCounter.Utils
             MatchCollection mc = CollectiveRegex.Matches(format);
             (Match, ChunkType)[] outp = new (Match, ChunkType)[mc.Count];
             for (int i = 0; i < outp.Length; i++)
-                //outp[i] = (mc[i], (ChunkType)Enum.Parse(typeof(ChunkType), mc[i].Groups.First(g => g.Success && g.Name.Contains("_")).Name)); // 1.37.0 and above
-                outp[i] = (mc[i], (ChunkType)Enum.Parse(typeof(ChunkType), mc[i].Groups.OfType<Group>().First(g => g.Success && g.Name.Contains("_")).Name)); // 1.34.2 and below
+#if NEW_VERSION
+                outp[i] = (mc[i], Enum.Parse<ChunkType>(mc[i].Groups.First(g => g.Success && g.Name.Contains("_")).Name));
+#else
+                outp[i] = (mc[i], (ChunkType)Enum.Parse(typeof(ChunkType), mc[i].Groups.OfType<Group>().First(g => g.Success && g.Name.Contains("_")).Name));
+#endif
             return outp;
         }
         private static Regex GetRegexForAllChunks()
@@ -328,8 +333,8 @@ namespace BLPPCounter.Utils
                 default: return Text;
             }
         }
-        #endregion
-        #endregion
+#endregion
+#endregion
         #region UI Functions
         [UIAction(nameof(Centerer))] private string Centerer(string strIn) => $"<align=\"center\">{strIn}";
         [UIAction(nameof(MoveChunkUp))] private void MoveChunkUp()
@@ -460,7 +465,7 @@ namespace BLPPCounter.Utils
         public bool Updatable()
         {
             FormatListInfo parent = AboveInfo;
-            if (Chunk == Escaped_Token) return TokenParams is null;
+            if (Chunk == Escaped_Token) return TokenParams is null || HasChild;
             if (((Capture_Open | Group_Open | Rich_Text_Open) & Chunk) != 0) return HasChild;
             if (((Capture_Close | Group_Close | Rich_Text_Close | Parameter) & Chunk) == 0) return true;
             ChunkType open = (ChunkType)((int)Chunk / 2);

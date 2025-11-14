@@ -153,6 +153,15 @@ public class FormatWrapper
 
         values[index] = value;
     }
+    public void SetValue(char c, object value, Type valType)
+    {
+        int index = GetIndex(c);
+        if (index < 0)
+            throw new ArgumentException($"Character '{c}' is not part of the token set.");
+        if (!givenTypes[index].IsAssignableFrom(valType))
+            throw new ArgumentException($"Expected {givenTypes[index].Name}, got {valType.Name}.");
+        values[index] = value;
+    }
     public bool TrySetValue<T>(char c, T value)
     {
         int index = GetIndex(c);
@@ -163,13 +172,20 @@ public class FormatWrapper
         values[index] = value;
         return true;
     }
-    public void SetValue(char c, object value, Type valType)
+    public void SetValueAndType(char c, object value, Type valType)
     {
         int index = GetIndex(c);
         if (index < 0)
             throw new ArgumentException($"Character '{c}' is not part of the token set.");
-        if (!givenTypes[index].IsAssignableFrom(valType))
-            throw new ArgumentException($"Expected {givenTypes[index].Name}, got {valType.Name}.");
+        givenTypes[index] = valType;
+        values[index] = value;
+    }
+    public void SetValueAndType<T>(char c, T value)
+    {
+        int index = GetIndex(c);
+        if (index < 0)
+            throw new ArgumentException($"Character '{c}' is not part of the token set.");
+        givenTypes[index] = typeof(T);
         values[index] = value;
     }
     public void SetValues(params (char c, object value)[] vals)
@@ -229,6 +245,6 @@ public class FormatWrapper
     public object this[char c] 
     {
         get => GetValue<object>(c);
-        set => SetValue(c, value);
+        set => SetValue(c, value, value.GetType());
     }
 }

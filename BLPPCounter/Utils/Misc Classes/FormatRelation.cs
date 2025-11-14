@@ -79,7 +79,7 @@ namespace BLPPCounter.Utils
             FormatWrapper outp = new FormatWrapper(TestValues);
             if (TestValueFormats == null) return outp;
             foreach (char token in TestValueFormatIndex.Keys)
-                outp[token] = TestValueFormats[TestValueFormatIndex[token]].Invoke(outp[token], toDisplay);
+                outp.SetValueAndType(token, TestValueFormats[TestValueFormatIndex[token]].Invoke(outp[token], toDisplay));
             return outp;
         }
         public IEnumerable<(string, object)> GetExtraTestParams(char token) =>

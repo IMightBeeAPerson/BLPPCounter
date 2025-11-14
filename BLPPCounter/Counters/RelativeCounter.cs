@@ -1,17 +1,18 @@
-﻿using System;
-using TMPro;
-using BeatLeader.Models.Replay;
-using BLPPCounter.Settings.Configs;
+﻿using BeatLeader.Models.Replay;
 using BLPPCounter.CalculatorStuffs;
-using BLPPCounter.Utils;
 using BLPPCounter.Helpfuls;
+using BLPPCounter.Settings.Configs;
+using BLPPCounter.Utils;
+using BLPPCounter.Utils.API_Handlers;
+using BLPPCounter.Utils.Misc_Classes;
 using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using BLPPCounter.Utils.API_Handlers;
-using System.Threading.Tasks;
 using System.Threading;
-using BLPPCounter.Utils.Misc_Classes;
+using System.Threading.Tasks;
+using TMPro;
+using UnityEngine.Profiling;
 
 namespace BLPPCounter.Counters
 {
@@ -22,8 +23,8 @@ namespace BLPPCounter.Counters
         public static string DisplayName => "Relative";
         public static Leaderboards ValidLeaderboards => Leaderboards.All;
         public static string DisplayHandler => DisplayName;
-        private static Func<bool, bool, int, string, string, string, string, float, string, string, float, float, string, string> displayFormatter;
-        public static Type[] FormatterTypes => displayFormatter.GetType().GetGenericArguments();
+        //private static Func<bool, bool, int, string, string, string, string, float, string, string, float, float, string, string> displayFormatter;
+        private static Func<FormatWrapper, string> displayFormatter;
         private static Func<Func<FormatWrapper, string>> displayIniter;
         private static FormatWrapper displayWrapper;
         private static PluginConfig PC => PluginConfig.Instance;
@@ -318,17 +319,18 @@ namespace BLPPCounter.Counters
         public static void FormatTheFormat(string format) => displayIniter = GetTheFormat(format, out string _);
         public static void InitDefaultFormat()
         {
-            var simple = displayIniter.Invoke();
+            displayFormatter = displayIniter.Invoke();
             displayWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(int), 'e'), (typeof(string), 'z'),
                 (typeof(string), 'd'), (typeof(string), 'c'), (typeof(string), 'x'), (typeof(float), 'p'),
                 (typeof(string), 'f'), (typeof(string), 'y'), (typeof(float), 'o'), (typeof(float), 'a'),
                 (typeof(string), 'l'));
-            displayFormatter = (fc, totPp, mistakes, missColor, accDiff, color, modPp, regPp, fcCol, fcModPp, fcRegPp, acc, label) =>
-            {
-                displayWrapper.SetValues(((char)1, fc), ((char)2, totPp), ('e', mistakes), ('d', accDiff), ('c', color), ('x', modPp), ('p', regPp),
+        }
+        private string DisplayFormatter(bool fc, bool totPp, int mistakes, string missColor, string accDiff, string color, string modPp, float regPp,
+            string fcCol, string fcModPp, float fcRegPp, float acc, string label)
+        {
+            displayWrapper.SetValues(((char)1, fc), ((char)2, totPp), ('e', mistakes), ('d', accDiff), ('c', color), ('x', modPp), ('p', regPp),
                 ('f', fcCol), ('y', fcModPp), ('o', fcRegPp), ('a', acc), ('l', label), ('z', missColor));
-                return simple.Invoke(displayWrapper);
-            };
+            return displayFormatter.Invoke(displayWrapper);
         }
         #endregion
         #region Updates
@@ -434,7 +436,7 @@ namespace BLPPCounter.Counters
             }
             if (!SetupTask.IsCompleted || !caughtUp) return;
             bool displayFc = PC.PPFC && mistakes > 0, showLbl = PC.ShowLbl;
-            
+
             float[] temp = calc.GetPpWithSummedPp(acc, ratings.SelectedRatings);
             for (int i = 0; i < temp.Length; i++)
             {
@@ -452,7 +454,6 @@ namespace BLPPCounter.Counters
             }
             for (int i = 0; i < ppVals.Length; i++)
                 ppVals[i] = (float)Math.Round(ppVals[i], PC.DecimalPrecision);
-            string target = PC.ShowEnemy ? PC.Target : Targeter.NO_TARGET;
             string color(float num) => PC.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
             string missColor(int miss, int replayMiss) => HelpfulFormatter.NumberToColor(miss == 0 && replayMiss == 0 ? 1 : replayMiss - miss);
             float accDiff = (float)Math.Round(acc * 100.0f, PC.DecimalPrecision) - accToBeat;
@@ -460,17 +461,27 @@ namespace BLPPCounter.Counters
             //else if (!useReplay) accDiff -= accToBeat;
             float replayAcc = PC.DynamicAcc && useReplay ? accToBeat : staticAccToBeat;
             if (float.IsNaN(replayAcc)) replayAcc = 0f;
-            if (PC.SplitPPVals && calc.RatingCount > 1)
+            try
             {
-                string text = "";
-                for (int i = 0; i < 4; i++)
-                    text += displayFormatter.Invoke(displayFc, PC.ExtraInfo && i == 3, mistakes, missColor(mistakes, replayMistakes), accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppVals[i + displayNum]), ppVals[i + displayNum].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
-                        color(ppVals[i + displayNum * 3]), ppVals[i + displayNum * 3].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + displayNum * 2], replayAcc, TheCounter.CurrentLabels[i]) + "\n";
-                display.text = text;
+                if (PC.SplitPPVals && calc.RatingCount > 1)
+                {
+                    string text = "";
+                    for (int i = 0; i < 4; i++)
+                        text += DisplayFormatter(displayFc, PC.ExtraInfo && i == 3, mistakes, missColor(mistakes, replayMistakes), accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppVals[i + displayNum]), ppVals[i + displayNum].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
+                            color(ppVals[i + displayNum * 3]), ppVals[i + displayNum * 3].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + displayNum * 2], replayAcc, TheCounter.CurrentLabels[i]) + "\n";
+                    display.text = text;
+                }
+                else
+                    display.text = DisplayFormatter(displayFc, PC.ExtraInfo, mistakes, missColor(mistakes, replayMistakes), accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppVals[displayNum * 2 - 1]), ppVals[displayNum * 2 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum - 1],
+                        color(ppVals[displayNum * 4 - 1]), ppVals[displayNum * 4 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum * 3 - 1], replayAcc, TheCounter.CurrentLabels.Last()) + "\n";
             }
-            else
-                display.text = displayFormatter.Invoke(displayFc, PC.ExtraInfo, mistakes, missColor(mistakes, replayMistakes), accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppVals[displayNum * 2 - 1]), ppVals[displayNum * 2 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum - 1],
-                    color(ppVals[displayNum * 4 - 1]), ppVals[displayNum * 4 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum * 3 - 1], replayAcc, TheCounter.CurrentLabels.Last()) + "\n";
+            catch (Exception e)
+            {
+                Plugin.Log.Warn("There was an error updating the relative counter display.");
+                Plugin.Log.Warn(e.Message);
+                Plugin.Log.Debug(e);
+                display.text = "Error!";
+            }
         }
         public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {

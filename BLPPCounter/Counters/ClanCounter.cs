@@ -134,7 +134,7 @@ namespace BLPPCounter.Counters
                 { 'l', "The label (ex: PP, Tech PP, etc)" },
                 { 'y', "The modified PP number if the map was FC'ed" },
                 { 'o', "The unmodified PP number if the map was FC'ed" },
-                { 'm', "This will show a message if the counter is used on a map that isn't perfectly ideal for the weighted counter or that the weighted counter can't be used on. The message will say the reason for why this isn't ideal" }
+                { 'm', "This will show a message if the counter is used on a map that isn't perfectly ideal for the weighted counter or that the weighted counter can't be used on." }
             }, str => { var hold = GetFormatWeighted(str, out string errorStr, false); return (hold, errorStr); },
             new FormatWrapper(new Dictionary<char, object>(12)
             {

@@ -3,14 +3,12 @@ using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.Misc_Classes;
 using ModestTree;
 using Newtonsoft.Json.Linq;
-using OnlineServices.API;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using UnityEngine.Windows.Speech;
 using static GameplayModifiers;
 
 namespace BLPPCounter.Utils.API_Handlers
