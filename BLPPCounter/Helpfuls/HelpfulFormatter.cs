@@ -13,6 +13,9 @@ using static BLPPCounter.Helpfuls.HelpfulMisc;
 
 namespace BLPPCounter.Helpfuls
 {
+    /// <summary>
+    /// Provides utilities for parsing and formatting strings with custom tokens and aliases.
+    /// </summary>
     public static class HelpfulFormatter
     {
         private static PluginConfig PC => PluginConfig.Instance;
@@ -30,18 +33,22 @@ namespace BLPPCounter.Helpfuls
         public static char PARAM_OPEN => PC.TokenSettings.EscapeCharParamBracketOpen;
         public static char PARAM_CLOSE => PC.TokenSettings.EscapeCharParamBracketClose;
         public static char ALIAS => PC.TokenSettings.NicknameIndicator;
-        public static readonly HashSet<char> SPECIAL_CHARS, ALL_SPECIAL_CHARS; 
+        public static readonly HashSet<char> SPECIAL_CHARS, ALL_SPECIAL_CHARS;
+
         //difference is SPECIAL_CHARS only contains characters that modifies the format by itself, unlike chars like OPEN_PARAM which are normal unless used after an escaped token.
         public static Dictionary<string, string> RICH_SHORTHANDS => PC.TokenSettings.RichShorthands;
+
         public static string NUMBER_TOSTRING_FORMAT { get; internal set; }
         public static readonly Dictionary<string, char> GLOBAL_ALIASES;
         public static readonly Func<char, int> GLOBAL_PARAM_AMOUNT = c => GetGlobalParamAmount(c);
 
         private static readonly string RegexAliasPattern = "({0}.|{0}{2}[^{2}]+{2}){3}(.+)(?={4})|([{0}{1}]{2}[^{2}]+?{2})";
         private static readonly string TestRegexAliasPattern = "(?<Token>[{0}{1}]{2}[^{2}]+{2})(?!{3})|(?<Token>{0}.|{0}{2}[^{2}]+{2}){3}(?<Params>[^{4}]+)";
+
         //(?<Token>[&[]'[^']+')(?!\()|(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)
         //(?<Token>[{0}{1}]{2}[^{2}]+{2})(?!{3})|(?<Token>{0}.|{0}{2}[^{2}]+{2}){3}(?<Params>[^{4}]+)
         private static readonly string RegexAliasErrorFinder = "[{0}{1}]{2}(?=[^{2}]+?(?:[{0}{1}]|(?!.)))";
+
         internal static readonly string RegexAllSpecialChars, RegexSpecialChars;
         //0 = ESCAPE_CHAR, 1 = GROUP_OPEN, 2 = ALIAS, 3 = PARAM_OPEN, 4 = PARAM_CLOSE (for both expressions above)
 
@@ -63,12 +70,22 @@ namespace BLPPCounter.Helpfuls
                 {"Hide", 'h' }
             };
         }
+
         #region Parser & Helpers
+
+        /// <summary>
+        /// Parses a counter format string into a structured format with tokens and priorities.
+        /// </summary>
+        /// <param name="format">The format string to parse.</param>
+        /// <param name="aliasConverter">A converter for aliases in the format string.</param>
+        /// <param name="counterName">The name of the counter (for error messaging).</param>
+        /// <returns>A tuple containing the formatted string, token dictionary, priority dictionary, and extra arguments dictionary.</returns>
+        /// <exception cref="FormatException">Thrown when the format string has errors.</exception>
         public static Tuple<string,
-                    Dictionary<TokenKey, string>,
-                    Dictionary<int, char>,
-                    Dictionary<TokenKey, string[]>>
-    ParseCounterFormat(string format, Dictionary<string, char> aliasConverter, string counterName)
+                        Dictionary<TokenKey, string>,
+                        Dictionary<int, char>,
+                        Dictionary<TokenKey, string[]>>
+        ParseCounterFormat(string format, Dictionary<string, char> aliasConverter, string counterName)
         {
             if (FindAliasErrorsInFormat(format, out string aliasError))
                 throw new FormatException(aliasError);
@@ -158,6 +175,14 @@ namespace BLPPCounter.Helpfuls
             return Tuple.Create(formatted.ToString(), tokens, priority, extraArgs);
         }
 
+        /// <summary>
+        /// Replaces shorthand tags in the format string with their expanded equivalents.
+        /// </summary>
+        /// <param name="format">The format string.</param>
+        /// <param name="i">The current index in the format string.</param>
+        /// <param name="pendingClose">A reference to a string that stores the pending close tag.</param>
+        /// <returns>The tag with shorthand replaced.</returns>
+        /// <exception cref="FormatException">Thrown when the shorthand tag is invalid.</exception>
         private static string ReplaceShorthand(string format, ref int i, ref string pendingClose)
         {
             // If a close tag is pending, return it and clear state
@@ -194,6 +219,19 @@ namespace BLPPCounter.Helpfuls
             pendingClose = "</" + keyword + ">";
             return "<" + keyword + "=" + value + ">";
         }
+
+        /// <summary>
+        /// Handles the parsing of capture blocks in the format string.
+        /// </summary>
+        /// <param name="format">The format string.</param>
+        /// <param name="i">The current index in the format string.</param>
+        /// <param name="inCapture">Indicates whether currently inside a capture block.</param>
+        /// <param name="captureId">The ID of the capture block.</param>
+        /// <param name="capturePriority">The priority of the capture block.</param>
+        /// <param name="captureSb">StringBuilder for building the capture block content.</param>
+        /// <param name="tokens">Dictionary of tokens.</param>
+        /// <param name="priority">Dictionary of priorities.</param>
+        /// <param name="sortIndex">Current sort index.</param>
         private static void HandleCapture(string format, ref int i, ref bool inCapture, ref char captureId, ref int capturePriority,
         StringBuilder captureSb, Dictionary<TokenKey, string> tokens, Dictionary<int, char> priority, ref int sortIndex)
         {
@@ -215,6 +253,20 @@ namespace BLPPCounter.Helpfuls
                 priority[capturePriority] = captureId;
             }
         }
+
+        /// <summary>
+        /// Handles the parsing of group blocks in the format string.
+        /// </summary>
+        /// <param name="format">The format string.</param>
+        /// <param name="i">The current index in the format string.</param>
+        /// <param name="repIndex">The current repetition index.</param>
+        /// <param name="sortIndex">The current sort index.</param>
+        /// <param name="tokens">The token dictionary.</param>
+        /// <param name="priority">The priority dictionary.</param>
+        /// <param name="extraArgs">The extra arguments dictionary.</param>
+        /// <param name="captureSb">The StringBuilder for capturing content.</param>
+        /// <param name="inCapture">Indicates if currently in a capture block.</param>
+        /// <param name="pendingClose">A reference to a string for the pending close tag.</param>
         private static void HandleGroup(
         string format,
         ref int i,
@@ -247,7 +299,7 @@ namespace BLPPCounter.Helpfuls
                     string tag = ReplaceShorthand(format, ref i, ref pendingClose);
                     groupContent.Append(tag);
                 }
-                else if (i + 1 < format.Length && char.IsLetter(format[i + 1])) 
+                else if (i + 1 < format.Length && char.IsLetter(format[i + 1]))
                 {
                     while (format[i] != '>' && i < format.Length)
                     {
@@ -335,6 +387,19 @@ namespace BLPPCounter.Helpfuls
             priority[groupStartPriority] = symbol;
             tokens[new TokenKey(symbol, groupStartPriority)] = groupContent.ToString();
         }
+
+        /// <summary>
+        /// Handles escaped tokens in the format string.
+        /// </summary>
+        /// <param name="format">The format string.</param>
+        /// <param name="i">The current index in the format string.</param>
+        /// <param name="repIndex">The current repetition index.</param>
+        /// <param name="sortIndex">The current sort index.</param>
+        /// <param name="tokens">The token dictionary.</param>
+        /// <param name="priority">The priority dictionary.</param>
+        /// <param name="extraArgs">The extra arguments dictionary.</param>
+        /// <param name="captureSb">The StringBuilder for capturing content.</param>
+        /// <param name="inCapture">Indicates if currently in a capture block.</param>
         private static void HandleEscaped(
         string format,
         ref int i,
@@ -369,6 +434,15 @@ namespace BLPPCounter.Helpfuls
                 extraArgs[new TokenKey(symbol, currentPriority)] = args;
             }
         }
+
+        /// <summary>
+        /// Parses extra parameters enclosed in parentheses in the format string.
+        /// </summary>
+        /// <param name="format">The format string.</param>
+        /// <param name="i">The current index in the format string.</param>
+        /// <param name="originChar">The original character indicating the start of parameters.</param>
+        /// <returns>An array of parsed parameter strings.</returns>
+        /// <exception cref="FormatException">Thrown when the parameters are not correctly closed.</exception>
         private static string[] ParseExtraParams(string format, ref int i, char originChar)
         {
             List<string> args = new List<string>();
@@ -398,6 +472,16 @@ namespace BLPPCounter.Helpfuls
 
             return args.ToArray();
         }
+
+        /// <summary>
+        /// Expands aliases in the format string using the provided alias converter.
+        /// </summary>
+        /// <param name="format">The format string with aliases.</param>
+        /// <param name="aliasConverter">The alias converter dictionary.</param>
+        /// <param name="counterName">The name of the counter (for error messaging).</param>
+        /// <returns>The format string with aliases expanded.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when no alias converter is provided.</exception>
+        /// <exception cref="FormatException">Thrown when an alias is incorrect or not found.</exception>
         private static string ExpandAliases(string format, Dictionary<string, char> aliasConverter, string counterName)
         {
             if (aliasConverter == null)
@@ -417,7 +501,7 @@ namespace BLPPCounter.Helpfuls
                 string tokenText = m.Groups["Token"].Value; // e.g. &'alias' or &x etc.
                 char resolvedChar = (char)0;
 
-                // If the token is in the long alias form (e.g. &'Name') the second character will be the ALIAS char
+                // If the token is in the long alias form (e.g. &'AliasName') the second character will be the ALIAS char
                 if (tokenText.Length >= 2 && tokenText[1] == ALIAS)
                 {
                     // long form: tokenText like "&'AliasName'" or "[ 'Alias' ]" depending on syntax
@@ -486,6 +570,13 @@ namespace BLPPCounter.Helpfuls
 
             return aliasRegex.Replace(format, new MatchEvaluator(Resolver));
         }
+
+        /// <summary>
+        /// Checks for alias errors in the format string.
+        /// </summary>
+        /// <param name="format">The format string to check.</param>
+        /// <param name="errorMessage">Output parameter for the error message if errors are found.</param>
+        /// <returns>True if errors are found, false otherwise.</returns>
         public static bool FindAliasErrorsInFormat(string format, out string errorMessage) //true = IS errors, false = NO errors
         {
             if (Regex.Matches(format, RegexAliasErrorFinder) is MatchCollection badMc && badMc.Count > 0)
@@ -507,18 +598,43 @@ namespace BLPPCounter.Helpfuls
             errorMessage = "";
             return false;
         }
+
+        /// <summary>
+        /// Appends a character to the appropriate StringBuilder based on the capture state.
+        /// </summary>
+        /// <param name="captureSb">The StringBuilder for capturing content.</param>
+        /// <param name="formatSb">The StringBuilder for formatted content.</param>
+        /// <param name="inCapture">Indicates if currently in a capture block.</param>
+        /// <param name="c">The character to append.</param>
         private static void Append(StringBuilder captureSb, StringBuilder formatSb, bool inCapture, char c)
         {
             if (inCapture) captureSb.Append(c); else formatSb.Append(c);
         }
 
+        /// <summary>
+        /// Appends a string to the appropriate StringBuilder based on the capture state.
+        /// </summary>
+        /// <param name="captureSb">The StringBuilder for capturing content.</param>
+        /// <param name="formatSb">The StringBuilder for formatted content.</param>
+        /// <param name="inCapture">Indicates if currently in a capture block.</param>
+        /// <param name="s">The string to append.</param>
         private static void Append(StringBuilder captureSb, StringBuilder formatSb, bool inCapture, string s)
         {
             if (inCapture) captureSb.Append(s); else formatSb.Append(s);
         }
 
-        #endregion
-        #region Basic Token Parser
+        /// <summary>
+        /// Creates a token parser factory for a format string.
+        /// </summary>
+        /// <param name="format">The format string.</param>
+        /// <param name="aliasConverter">The alias converter dictionary.</param>
+        /// <param name="counterName">The counter name (for error messaging).</param>
+        /// <param name="settings">Settings action for the token parser.</param>
+        /// <param name="varSettings">Variable settings action.</param>
+        /// <param name="errorStr">Output parameter for the error string in case of failure.</param>
+        /// <param name="applySettings">Indicates if settings should be applied.</param>
+        /// <returns>A function that produces the formatting delegate.</returns>
+        /// <exception cref="Exception">Thrown when formatting fails.</exception>
         public static Func<Func<FormatWrapper, string>> GetBasicTokenParser(
             string format,
             Dictionary<string, char> aliasConverter,
@@ -528,6 +644,21 @@ namespace BLPPCounter.Helpfuls
             out string errorStr,
             bool applySettings = true)
             => GetBasicTokenParser(format, aliasConverter, counterName, settings, varSettings, null, null, out errorStr, applySettings);
+
+        /// <summary>
+        /// Creates a token parser factory with custom callbacks for extra arguments.
+        /// </summary>
+        /// <param name="format">The format string.</param>
+        /// <param name="aliasConverter">The alias converter dictionary.</param>
+        /// <param name="counterName">The counter name (for error messaging).</param>
+        /// <param name="settings">Settings action for the token parser.</param>
+        /// <param name="varSettings">Variable settings action.</param>
+        /// <param name="confirmFormat">Custom confirmation format callback.</param>
+        /// <param name="implementArgs">Custom implement arguments callback.</param>
+        /// <param name="errorStr">Output parameter for the error string in case of failure.</param>
+        /// <param name="applySettings">Indicates if settings should be applied.</param>
+        /// <returns>A function that produces the formatting delegate.</returns>
+        /// <exception cref="Exception">Thrown when formatting fails.</exception>
         public static Func<Func<FormatWrapper, string>> GetBasicTokenParser(
         string format,
         Dictionary<string, char> aliasConverter,
@@ -614,10 +745,17 @@ namespace BLPPCounter.Helpfuls
         }
 
         /// <summary>
-        /// Builds the two arrays used by the two-stage formatting:
-        /// firstArr - the placeholders used for inner formatting (from first layer),
-        /// secondArr - the runtime variable objects (from second layer).
+        /// Builds arrays for the two-stage formatting process.
         /// </summary>
+        /// <param name="first">The first layer token keys.</param>
+        /// <param name="second">The second layer token keys.</param>
+        /// <param name="tokens">The dictionary of tokens.</param>
+        /// <param name="extraArgsWrapper">The wrapper for extra arguments.</param>
+        /// <param name="runtimeVars">The runtime variables.</param>
+        /// <param name="runtimeTokens">The runtime tokens.</param>
+        /// <param name="firstArr">Output parameter for the first array.</param>
+        /// <param name="secondArr">Output parameter for the second array.</param>
+        /// <exception cref="Exception">Thrown when an error occurs during array building.</exception>
         private static void BuildFormatArrays(
             List<TokenKey> first,
             List<TokenKey> second,
@@ -651,14 +789,25 @@ namespace BLPPCounter.Helpfuls
         }
 
         /// <summary>
-        /// Apply the two-stage formatting used historically.
+        /// Applies the two-stage formatting process to the template string.
         /// </summary>
+        /// <param name="template">The template string.</param>
+        /// <param name="first">The first array of objects for formatting.</param>
+        /// <param name="second">The second array of objects for formatting.</param>
+        /// <returns>The formatted string.</returns>
         private static string ApplyTwoStageFormat(string template, object[] first, object[] second)
         {
             // first replaces the group placeholders (firstArr) then outer placeholders (secondArr)
             return string.Format(string.Format(template, first), second);
         }
-#endregion
+
+        #endregion Parser & Helpers
+
+        /// <summary>
+        /// Gets the global parameter amount for a given parameter character.
+        /// </summary>
+        /// <param name="paramChar">The parameter character.</param>
+        /// <returns>The global parameter amount.</returns>
         public static int GetGlobalParamAmount(char paramChar)
         {
             switch (paramChar)
@@ -668,6 +817,12 @@ namespace BLPPCounter.Helpfuls
                 default: return 0;
             }
         }
+
+        /// <summary>
+        /// Wraps a child confirmation callback with parent default confirmations.
+        /// </summary>
+        /// <param name="child">The child confirmation callback.</param>
+        /// <returns>The wrapped confirmation callback.</returns>
         private static Func<char, string[], bool> GetParentConfirmFormat(Func<char, string[], bool> child)
         {
             return (paramChar, values) =>
@@ -677,18 +832,26 @@ namespace BLPPCounter.Helpfuls
                 {
                     case 's':
                         return values.Length == 1 && IsReferenceChar(values[0]);
+
                     case 'h':
                         return (values.Length == 1 && IsReferenceChar(values[0])) || (values.Length == 2 && IsReferenceChar(values[0]) && decimal.TryParse(values[1], out _));
+
                     default: return false;
                 }
             };
         }
-        private static Func<char, string[], FormatWrapper, Dictionary<TokenKey, string>, string> GetParentImplementArgs
-            (Func<char, string[], FormatWrapper, Dictionary<TokenKey, string>, string> child)
+
+        /// <summary>
+        /// Wraps a child implement-args callback with parent implementations.
+        /// </summary>
+        /// <param name="child">The child implement-args callback.</param>
+        /// <returns>The wrapped implement-args callback.</returns>
+        private static Func<char, string[], FormatWrapper, Dictionary<TokenKey, string>, string> GetParentImplementArgs(Func<char, string[], FormatWrapper, Dictionary<TokenKey, string>, string> child)
         {
             return (paramChar, values, vals, tokens) =>
             {
-                if (child != null) {
+                if (child != null)
+                {
                     string outp = child.Invoke(paramChar, values, vals, tokens);
                     if (outp.Length != 0) return outp;
                 }
@@ -696,6 +859,7 @@ namespace BLPPCounter.Helpfuls
                 {
                     case 's':
                         return decimal.Parse(vals[values[0][0]] + "") == 1 ? "" : "s";
+
                     case 'h':
                         decimal toCompare = values.Length == 2 ? decimal.Parse(values[1]) : 0;
                         if (decimal.Parse(vals[values[0][0]] + "") <= toCompare)
@@ -705,12 +869,20 @@ namespace BLPPCounter.Helpfuls
                                 tokens[item] = "";
                         }
                         return "";
+
                     default: return "";
                 }
             };
         }
-        public static void SetText(Dictionary<TokenKey, string> tokens, char c, string text = "") 
-        { 
+
+        /// <summary>
+        /// Sets the text for tokens matching the given character.
+        /// </summary>
+        /// <param name="tokens">The token dictionary.</param>
+        /// <param name="c">The character to match.</param>
+        /// <param name="text">The text to set.</param>
+        public static void SetText(Dictionary<TokenKey, string> tokens, char c, string text = "")
+        {
             List<TokenKey> toModify = new List<TokenKey>();
             foreach (var item in tokens.Keys) if (item.Symbol == c) toModify.Add(new TokenKey(c, item.Priority));
             foreach (var item in toModify)
@@ -718,18 +890,49 @@ namespace BLPPCounter.Helpfuls
                     tokens[new TokenKey(item.Symbol, item.Priority)] = text;
                 else
                     tokens[new TokenKey(item.Symbol, item.Priority)] = Regex.Replace(tokens[new TokenKey(item.Symbol, item.Priority)], "\\{\\d\\}", text);
-            
         }
-        public static void SurroundText(Dictionary<TokenKey, string> tokens, char c, string preText, string postText) 
+
+        /// <summary>
+        /// Surrounds the text for tokens matching the given character with pre and post text.
+        /// </summary>
+        /// <param name="tokens">The token dictionary.</param>
+        /// <param name="c">The character to match.</param>
+        /// <param name="preText">The text to place before the existing text.</param>
+        /// <param name="postText">The text to place after the existing text.</param>
+        public static void SurroundText(Dictionary<TokenKey, string> tokens, char c, string preText, string postText)
         {
-            IEnumerable<int> keys = new List<int>(tokens.Keys.Where(val => val.Symbol == c).Select(val => val.Priority)); 
+            IEnumerable<int> keys = new List<int>(tokens.Keys.Where(val => val.Symbol == c).Select(val => val.Priority));
             //The lengths I have to to avoid cocerrent modification exceptions :(
             foreach (var item in keys)
                 tokens[new TokenKey(c, item)] = preText + tokens[new TokenKey(c, item)] + postText;
         }
+
+        /// <summary>
+        /// Checks if a string represents a reference character.
+        /// </summary>
+        /// <param name="s">The string to check.</param>
+        /// <returns>True if the string is a reference character, false otherwise.</returns>
         public static bool IsReferenceChar(string s) => s.Length == 1 && char.IsLetter(s[0]) && !IsSpecialChar(s[0]);
+
+        /// <summary>
+        /// Checks if a character is a special formatting character.
+        /// </summary>
+        /// <param name="c">The character to check.</param>
+        /// <returns>True if the character is special, false otherwise.</returns>
         public static bool IsSpecialChar(char c) => SPECIAL_CHARS.Contains(c);
+
+        /// <summary>
+        /// Converts a number to a color string based on its value.
+        /// </summary>
+        /// <param name="num">The number to convert.</param>
+        /// <returns>A color string representing the number.</returns>
         public static string NumberToColor(float num) => num > 0 ? "<color=green>" : num == 0 ? "<color=yellow>" : "<color=red>";
+
+        /// <summary>
+        /// Escapes special characters in a string.
+        /// </summary>
+        /// <param name="str">The input string.</param>
+        /// <returns>The string with special characters escaped.</returns>
         public static string EscapeNeededChars(string str)
         {
             string outp = "";
@@ -740,11 +943,24 @@ namespace BLPPCounter.Helpfuls
             }
             return outp;
         }
+
+        /// <summary>
+        /// Converts a shorthand name to its rich text equivalent.
+        /// </summary>
+        /// <param name="shorthand">The shorthand name.</param>
+        /// <returns>The rich text equivalent of the shorthand.</returns>
         public static string ConvertRichShorthand(string shorthand)
         {
             if (RICH_SHORTHANDS.Keys.Contains(shorthand)) return RICH_SHORTHANDS[shorthand];
             return shorthand;
         }
+
+        /// <summary>
+        /// Converts a number to a gradient color string.
+        /// </summary>
+        /// <param name="variance">The variance for the gradient.</param>
+        /// <param name="num">The number to convert.</param>
+        /// <returns>A gradient color string representing the number.</returns>
         public static string NumberToGradient(float variance, float num)
         {
             if (num == 0)
@@ -765,7 +981,14 @@ namespace BLPPCounter.Helpfuls
             return neg ? ConvertColorToMarkup(Multiply(PC.ColorGradMin, toConvert)) :
                 ConvertColorToMarkup(Multiply(PC.ColorGradMax, toConvert));
         }
+
         public static string NumberToGradient(float num) => NumberToGradient(GRAD_VARIANCE, num);
+
+        /// <summary>
+        /// Returns a color string for a weighted rank value based on configuration.
+        /// </summary>
+        /// <param name="rank">The rank value to evaluate.</param>
+        /// <returns>Color markup string for the selected weighted rank color.</returns>
         public static string GetWeightedRankColor(int rank)
         {
             int c = -1;
@@ -773,7 +996,19 @@ namespace BLPPCounter.Helpfuls
             while (arr[++c].Rank < rank && c + 1 < arr.Length) ;
             return "<color=#" + arr[c].Color + ">";
         }
-        public static string DefaultToUsedChar(string str) => Regex.Replace(str, "[&*,[\\]$<>()']", m => ""+DefaultToUsedChar(m.Value[0]));
+
+        /// <summary>
+        /// Converts a string of default formatting characters to the currently configured used characters.
+        /// </summary>
+        /// <param name="str">Input string containing legacy default characters.</param>
+        /// <returns>String with default characters replaced by configured tokens.</returns>
+        public static string DefaultToUsedChar(string str) => Regex.Replace(str, "[&*,[\\]$<>()']", m => "" + DefaultToUsedChar(m.Value[0]));
+
+        /// <summary>
+        /// Converts a single default formatting character to the currently configured character token.
+        /// </summary>
+        /// <param name="c">The default character to convert.</param>
+        /// <returns>The configured token character equivalent.</returns>
         public static char DefaultToUsedChar(char c)
         {
             switch (c)
@@ -792,6 +1027,13 @@ namespace BLPPCounter.Helpfuls
                 default: return c;
             }
         }
+
+        /// <summary>
+        /// Returns a colorized representation of a special formatting character using configured colors.
+        /// </summary>
+        /// <param name="c">Special character to colorize.</param>
+        /// <returns>A string containing color markup and the character.</returns>
+        /// <exception cref="ArgumentException">Thrown if the provided character is not recognized as special.</exception>
         public static string ColorSpecialChar(char c)
         {
             switch (c)
@@ -807,10 +1049,23 @@ namespace BLPPCounter.Helpfuls
                 default: throw new ArgumentException("Character given is not special");
             }
         }
+
+        /// <summary>
+        /// Converts a default-format string into a colorized format string using configured token characters.
+        /// </summary>
+        /// <param name="str">Input format string using default characters.</param>
+        /// <returns>Colorized format string with configured tokens replaced by colored tokens where applicable.</returns>
         public static string ColorDefaultFormatToColor(string str) => ColorFormatToColor(DefaultToUsedChar(str));
+
+        /// <summary>
+        /// Converts a format string with tokens into a colorized representation using configured colors and color names.
+        /// </summary>
+        /// <param name="str">Input format string already mapped to configured tokens.</param>
+        /// <returns>Colorized string representation.</returns>
         public static string ColorFormatToColor(string str)
         {
-            string Converter(Match m) {
+            string Converter(Match m)
+            {
 #if NEW_VERSION
                 string name = m.Groups.First(g => g.Success && !char.IsDigit(g.Name[0])).Name; // 1.37.0 and above
 #else
@@ -827,7 +1082,9 @@ namespace BLPPCounter.Helpfuls
             return Regex.Replace(str, "(?<Special>" + RegexAllSpecialChars + ")|c(?<Color>[A-Z][a-z]+)|(?<Replace>\\d)", Converter);
         }
 
-        // simple container used by TokenParser -> GetBasicTokenParser
+        /// <summary>
+        /// simple container used by TokenParser and GetBasicTokenParser
+        /// </summary>
         public struct TokenOrdering
         {
             public List<TokenKey> FirstLayer;
@@ -864,6 +1121,13 @@ namespace BLPPCounter.Helpfuls
                 this.Formatted = string.Empty;
             }
 
+            /// <summary>
+            /// Unwraps and sorts tokens for parsing.
+            /// </summary>
+            /// <param name="tokens">The tokens to unwrap.</param>
+            /// <param name="makeNewReference">Whether to create a new reference for the token values.</param>
+            /// <param name="formatted">The formatted string.</param>
+            /// <returns>A TokenParser instance with unwrapped tokens.</returns>
             public static TokenParser UnrapTokens(Dictionary<TokenKey, string> tokens, bool makeNewReference = true, string formatted = "")
             {
                 var top = new Dictionary<char, List<int>>();
@@ -924,20 +1188,26 @@ namespace BLPPCounter.Helpfuls
                 return new TokenParser(top, bot, relations, valuesCopy) { Formatted = formatted ?? string.Empty };
             }
 
+            /// <summary>
+            /// Returns a copy of the token values currently stored in the parser.
+            /// </summary>
             public Dictionary<TokenKey, string> RerapTokens()
             {
                 return new Dictionary<TokenKey, string>(tokenValues);
             }
 
+            /// <summary>
+            /// Gets the internal reference to the token value map used by the parser.
+            /// </summary>
             public Dictionary<TokenKey, string> GetReference()
             {
                 return tokenValues;
             }
 
-            // ---------------------- NEW: token-analysis helper ----------------------
             /// <summary>
-            /// Produces the ordering lists (first layer, second layer, capture tokens) and sorts them.
+            /// Produces the ordering lists (first layer, second layer, capture tokens) and sorts them for formatting.
             /// </summary>
+            /// <returns>TokenOrdering struct containing ordered lists for formatting.</returns>
             public TokenOrdering AnalyzeTokens()
             {
                 var first = new List<TokenKey>();
@@ -972,9 +1242,12 @@ namespace BLPPCounter.Helpfuls
             }
 
 #pragma warning disable IDE0018
+
             /// <summary>
-            /// Reconstructs capture tokens by resolving escaped child tokens using tokenValues map.
+            /// Rebuilds capture tokens by resolving escaped child tokens using the tokenValues map.
             /// </summary>
+            /// <param name="runtimeTokenValues">Dictionary of token values at runtime.</param>
+            /// <param name="captureChars">List of capture token keys to rebuild.</param>
             public void RebuildCaptures(Dictionary<TokenKey, string> runtimeTokenValues, List<TokenKey> captureChars)
             {
                 foreach (TokenKey captureKey in captureChars)
@@ -1017,7 +1290,15 @@ namespace BLPPCounter.Helpfuls
                     runtimeTokenValues[captureKey] = newVal;
                 }
             }
+
 #pragma warning restore IDE0018
+
+            /// <summary>
+            /// Makes a child token constant by inlining a provided value into parent tokens and removing the child.
+            /// </summary>
+            /// <param name="token">Child token character to inline.</param>
+            /// <param name="value">Replacement text to inline into parents where placeholders exist.</param>
+            /// <returns>True if the operation succeeded, otherwise false.</returns>
             public bool MakeTokenConstant(char token, string value = "")
             {
                 if (Formatted == default) return false;
@@ -1105,6 +1386,11 @@ namespace BLPPCounter.Helpfuls
                 return true;
             }
 
+            /// <summary>
+            /// Sets the text for all tokens matching the given character in the parser's token map.
+            /// </summary>
+            /// <param name="c">Token character to modify.</param>
+            /// <param name="text">Replacement text; leaving empty clears for top-level entries.</param>
             public void SetText(char c, string text = "")
             {
                 var toModify = new List<TokenKey>();
@@ -1121,6 +1407,12 @@ namespace BLPPCounter.Helpfuls
                 }
             }
 
+            /// <summary>
+            /// Surrounds the token values for all tokens matching the given character with the provided pre/post text.
+            /// </summary>
+            /// <param name="c">Character token to update.</param>
+            /// <param name="preText">Text to prepend to each matching token value.</param>
+            /// <param name="postText">Text to append to each matching token value.</param>
             public void SurroundText(char c, string preText, string postText)
             {
                 var updates = new List<KeyValuePair<TokenKey, string>>();
@@ -1132,6 +1424,10 @@ namespace BLPPCounter.Helpfuls
                 foreach (var u in updates) tokenValues[u.Key] = u.Value;
             }
 
+            /// <summary>
+            /// Produces a diagnostic string representation of the internal parser state for debugging.
+            /// </summary>
+            /// <returns>String containing detailed parser diagnostics.</returns>
             public override string ToString()
             {
                 var sb = new StringBuilder();
