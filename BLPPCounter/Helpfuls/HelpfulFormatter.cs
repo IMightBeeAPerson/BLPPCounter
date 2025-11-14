@@ -70,8 +70,7 @@ namespace BLPPCounter.Helpfuls
                     Dictionary<TokenKey, string[]>>
     ParseCounterFormat(string format, Dictionary<string, char> aliasConverter, string counterName)
         {
-            string aliasError;
-            if (FindAliasErrorsInFormat(format, out aliasError))
+            if (FindAliasErrorsInFormat(format, out string aliasError))
                 throw new FormatException(aliasError);
 
             if (format.Contains(ESCAPE_CHAR.ToString() + ALIAS) ||
@@ -519,6 +518,7 @@ namespace BLPPCounter.Helpfuls
         }
 
         #endregion
+        #region Basic Token Parser
         public static Func<Func<FormatWrapper, string>> GetBasicTokenParser(
             string format,
             Dictionary<string, char> aliasConverter,
@@ -529,29 +529,31 @@ namespace BLPPCounter.Helpfuls
             bool applySettings = true)
             => GetBasicTokenParser(format, aliasConverter, counterName, settings, varSettings, null, null, out errorStr, applySettings);
         public static Func<Func<FormatWrapper, string>> GetBasicTokenParser(
-            string format,
-            Dictionary<string, char> aliasConverter,
-            string counterName,
-            Action<TokenParser> settings,
-            Action<Dictionary<TokenKey, string>, Dictionary<TokenKey, string>, Dictionary<int, char>, FormatWrapper> varSettings,
-            Func<char, string[], bool> confirmFormat,
-            Func<char, string[], FormatWrapper, Dictionary<TokenKey, string>, string> implementArgs,
-            out string errorStr,
-            bool applySettings = true)
+        string format,
+        Dictionary<string, char> aliasConverter,
+        string counterName,
+        Action<TokenParser> settings,
+        Action<Dictionary<TokenKey, string>, Dictionary<TokenKey, string>, Dictionary<int, char>, FormatWrapper> varSettings,
+        Func<char, string[], bool> confirmFormat,
+        Func<char, string[], FormatWrapper, Dictionary<TokenKey, string>, string> implementArgs,
+        out string errorStr,
+        bool applySettings = true)
         {
             Dictionary<TokenKey, string> tokens;
             Dictionary<TokenKey, string[]> extraArgs;
             Dictionary<int, char> priority;
             string formatted;
+
             confirmFormat = GetParentConfirmFormat(confirmFormat);
             implementArgs = GetParentImplementArgs(implementArgs);
+
             try
             {
                 (formatted, tokens, priority, extraArgs) = ParseCounterFormat(format, new Dictionary<string, char>(aliasConverter), counterName);
                 foreach (var val in extraArgs.Keys)
                 {
                     if (!confirmFormat.Invoke(val.Symbol, extraArgs[val]))
-                        throw new FormatException($"Invalid extra parameter format, one of three things happened, too many arguments, too few arguments, or a non reference where a reference should be.\nThis is for the char '{val.Symbol}'");
+                        throw new FormatException($"Invalid extra parameter format ... This is for the char '{val.Symbol}'");
                 }
             }
             catch (Exception e)
@@ -559,80 +561,104 @@ namespace BLPPCounter.Helpfuls
                 errorStr = "Formatting failed! " + e.Message;
                 errorStr += "\nFormatting: " + ToLiteral(format).Replace("\\'", "'");
                 Plugin.Log.Error(errorStr);
-                //throw new FormatException(errorStr);
                 return null;
             }
+
             errorStr = "";
-            /*Plugin.Log.Info("---------------");
-                    foreach (var token in tokens)
-                        Plugin.Log.Info($"{token.Key} || " + ToLiteral(token.Value));
-                    Plugin.Log.Info("Formatted || " + formatted);//*/
-            FormatWrapper extraArgsWrapper = extraArgs.Keys.Count > 0 ? new FormatWrapper(extraArgs.Keys.Select(val => (typeof(string), val.Symbol)).ToArray()) : null;
+
+            // prepare an optional wrapper for extraArgs so implementArgs can set values later
+            FormatWrapper extraArgsWrapper = extraArgs.Keys.Count > 0 ? new FormatWrapper(extraArgs.Keys.Select(k => (typeof(string), k.Symbol)).ToArray()) : null;
+
+            // BUILD the factory that will create a formatter instance
             return () =>
             {
-                TokenParser thing = TokenParser.UnrapTokens(tokens, true, formatted);
-                if (applySettings) settings.Invoke(thing);
-                string newFormatted = thing.Formatted;
-                Dictionary<TokenKey, string> tokensCopy1 = thing.GetReference();
-                //Plugin.Log.Info(thing.ToString());
-                List <TokenKey> first = new List<TokenKey>();
-                List<TokenKey> second = new List<TokenKey>();
-                List<TokenKey> captureChars = new List<TokenKey>();
-                foreach (TokenKey val in tokensCopy1.Keys)
+                // Build token parser and apply compile-time settings
+                TokenParser parser = TokenParser.UnrapTokens(tokens, true, formatted);
+                if (applySettings && settings != null) settings.Invoke(parser);
+
+                // Keep a reference-to-template tokens (this is the "compiled" token map)
+                Dictionary<TokenKey, string> compiledTokens = parser.GetReference();
+
+                // analyze tokens once and reuse ordering lists
+                TokenOrdering ordering = parser.AnalyzeTokens();
+
+                // Return the runtime formatting delegate
+                return (FormatWrapper runtimeVars) =>
                 {
-                    if (char.IsDigit(val.Symbol)) { captureChars.Add(val); first.Add(val); continue; }
-                    if (val.Priority < FORMAT_SPLIT) { first.Add(val); second.Add(val); }
-                    else second.Add(new TokenKey(val.Symbol, val.Priority - FORMAT_SPLIT));
-                }
-                second.Sort((a, b) => a.Priority - b.Priority);
-                first.Sort((a, b) => a.Priority - b.Priority);
-                /*Plugin.Log.Info(string.Join(",", first));
-                Plugin.Log.Info(string.Join(",", second));//*/
-                return (vals) =>
-                {
-                    /*Plugin.Log.Info("---------------");
-                    foreach (var token in tokensCopy1)
-                        Plugin.Log.Info($"{token.Key} || " + ToLiteral(token.Value));
-                    Plugin.Log.Info("Formatted || " + formatted);//*/
-                    Dictionary<TokenKey, string> tokensCopy2 = new Dictionary<TokenKey, string>(tokensCopy1);
-                    varSettings.Invoke(tokensCopy1, tokensCopy2, priority, vals);
-                    if (!(extraArgsWrapper is null)) 
-                        foreach (var val in extraArgs.Keys)
-                            extraArgsWrapper.SetValue(val.Symbol, implementArgs.Invoke(val.Symbol, extraArgs[val], vals, tokensCopy2));
-                    foreach (TokenKey val in captureChars)
+                    // Duplicate the compiled token values for this run (so we can mutate safely)
+                    Dictionary<TokenKey, string> runtimeTokens = new Dictionary<TokenKey, string>(compiledTokens);
+
+                    // apply var-level settings (mutate runtimeTokens as needed)
+                    varSettings?.Invoke(compiledTokens, runtimeTokens, priority, runtimeVars);
+
+                    // apply extra args via implementArgs -> populate extraArgsWrapper if present
+                    if (extraArgsWrapper != null)
                     {
-                        string newVal = "", toParse = tokensCopy2[val];
-                        int priorityCount = val.Priority;
-                        if (toParse.Length == 0) continue;
-                        for (int j = 0; j < toParse.Length; j++)
-                            if (toParse[j] == ESCAPE_CHAR)
-                            {
-                                string toTry = null;
-                                char temp = toParse[++j];
-                                while (!tokensCopy2.TryGetValue(new TokenKey(temp, ++priorityCount + FORMAT_SPLIT), out toTry));
-                                newVal += toTry;
-                            }
-                            else newVal += toParse[j];
-                        tokensCopy2[val] = newVal;
+                        foreach (var key in extraArgs.Keys)
+                        {
+                            string result = implementArgs.Invoke(key.Symbol, extraArgs[key], runtimeVars, runtimeTokens);
+                            extraArgsWrapper.SetValue(key.Symbol, result);
+                        }
                     }
-                    object[] firstArr = new object[first.Count];
-                    int i = 0;
-                    foreach (TokenKey val in first) firstArr[i++] = tokensCopy2[val];
-                    object[] secondArr = new object[second.Count];
-                    i = 0;
-                    foreach (TokenKey val in second)
-                    {
-                        object o = null;
-                        if (!vals.TryGetValue(val.Symbol, out o) && !(extraArgsWrapper is null)) 
-                            extraArgsWrapper.TryGetValue(val.Symbol, out o);
-                        if (o != null) secondArr[i++] = o;
-                    }
-                    //Plugin.Log.Info(HelpfulMisc.Print(firstArr) + '\n' + HelpfulMisc.Print(secondArr));
-                    //Plugin.Log.Info(string.Format(newFormatted, secondArr));
-                    return string.Format(string.Format(newFormatted, firstArr), secondArr);
+
+                    // rebuild captures (resolve escaped child tokens into captures)
+                    parser.RebuildCaptures(runtimeTokens, ordering.Captures);
+
+                    // Build arrays for formatting
+                    BuildFormatArrays(ordering.FirstLayer, ordering.SecondLayer, runtimeTokens, extraArgsWrapper, runtimeVars, runtimeTokens, out object[] firstArr, out object[] secondArr);
+
+                    // perform the two-stage format and return
+                    return ApplyTwoStageFormat(parser.Formatted, firstArr, secondArr);
                 };
             };
         }
+
+        /// <summary>
+        /// Builds the two arrays used by the two-stage formatting:
+        /// firstArr - the placeholders used for inner formatting (from first layer),
+        /// secondArr - the runtime variable objects (from second layer).
+        /// </summary>
+        private static void BuildFormatArrays(
+            List<TokenKey> first,
+            List<TokenKey> second,
+            Dictionary<TokenKey, string> tokens,
+            FormatWrapper extraArgsWrapper,
+            FormatWrapper runtimeVars,
+            Dictionary<TokenKey, string> runtimeTokens,
+            out object[] firstArr,
+            out object[] secondArr)
+        {
+            firstArr = new object[first.Count];
+            int i = 0;
+            foreach (TokenKey val in first)
+            {
+                // tokens should contain the prepared string fragments for first layer
+                firstArr[i++] = runtimeTokens[val];
+            }
+
+            secondArr = new object[second.Count];
+            i = 0;
+            foreach (TokenKey val in second)
+            {
+                object o = null;
+                // primary place: runtimeVars (these are the dynamic values provided by the caller)
+                runtimeVars?.TryGetValue(val.Symbol, out o);
+
+                // fallback: if runtimeVars had nothing, try the extra args wrapper (these are the processed extra args)
+                if (o != null || (o == null && extraArgsWrapper.TryGetValue(val.Symbol, out o)))
+                    secondArr[i++] = o;
+            }
+        }
+
+        /// <summary>
+        /// Apply the two-stage formatting used historically.
+        /// </summary>
+        private static string ApplyTwoStageFormat(string template, object[] first, object[] second)
+        {
+            // first replaces the group placeholders (firstArr) then outer placeholders (secondArr)
+            return string.Format(string.Format(template, first), second);
+        }
+#endregion
         public static int GetGlobalParamAmount(char paramChar)
         {
             switch (paramChar)
@@ -801,6 +827,21 @@ namespace BLPPCounter.Helpfuls
             return Regex.Replace(str, "(?<Special>" + RegexAllSpecialChars + ")|c(?<Color>[A-Z][a-z]+)|(?<Replace>\\d)", Converter);
         }
 
+        // simple container used by TokenParser -> GetBasicTokenParser
+        public struct TokenOrdering
+        {
+            public List<TokenKey> FirstLayer;
+            public List<TokenKey> SecondLayer;
+            public List<TokenKey> Captures;
+
+            public TokenOrdering(List<TokenKey> first, List<TokenKey> second, List<TokenKey> captures)
+            {
+                FirstLayer = first;
+                SecondLayer = second;
+                Captures = captures;
+            }
+        }
+
         public class TokenParser
         {
             private readonly Dictionary<char, List<int>> topLevelTokens;
@@ -823,23 +864,15 @@ namespace BLPPCounter.Helpfuls
                 this.Formatted = string.Empty;
             }
 
-            /// <summary>
-            /// Build a TokenParser from the flat token dictionary.
-            /// Preserves the original ordering logic: tokens with Priority  FORMAT_SPLIT are top-level,
-            /// tokens with Priority > FORMAT_SPLIT are bottom-level (child) tokens. Token relations are built
-            /// by grouping bottom-level tokens under the most recent top-level token in priority order.
-            /// </summary>
             public static TokenParser UnrapTokens(Dictionary<TokenKey, string> tokens, bool makeNewReference = true, string formatted = "")
             {
                 var top = new Dictionary<char, List<int>>();
                 var bot = new Dictionary<char, List<int>>();
                 var relations = new Dictionary<TokenKey, List<TokenKey>>();
 
-                // sort keys by raw priority
                 var keys = tokens.Keys.ToList();
                 keys.Sort((a, b) => a.Priority - b.Priority);
 
-                // populate top/bottom lists
                 foreach (var k in keys)
                 {
                     if (k.Priority <= FORMAT_SPLIT)
@@ -854,7 +887,6 @@ namespace BLPPCounter.Helpfuls
                     }
                 }
 
-                // re-sort keys so that bottom priorities are considered relative to the last top-level token
                 keys.Sort((a, b) =>
                 {
                     int aKey = (a.Priority > FORMAT_SPLIT) ? a.Priority - FORMAT_SPLIT : a.Priority;
@@ -872,7 +904,6 @@ namespace BLPPCounter.Helpfuls
                     {
                         if (hasLastTop)
                         {
-                            // finalize the last top-level entry
                             relations[lastTop] = new List<TokenKey>(children);
                         }
                         lastTop = k;
@@ -885,11 +916,9 @@ namespace BLPPCounter.Helpfuls
                     }
                 }
 
-                // add final relation for the last top-level token
                 if (hasLastTop)
                     relations[lastTop] = new List<TokenKey>(children);
 
-                // create tokenValues dictionary (optionally copy)
                 var valuesCopy = makeNewReference ? new Dictionary<TokenKey, string>(tokens) : tokens;
 
                 return new TokenParser(top, bot, relations, valuesCopy) { Formatted = formatted ?? string.Empty };
@@ -905,16 +934,94 @@ namespace BLPPCounter.Helpfuls
                 return tokenValues;
             }
 
+            // ---------------------- NEW: token-analysis helper ----------------------
             /// <summary>
-            /// Convert a bottom-level token (child) into a constant string inside its parent, or inline it where necessary.
-            /// This function mirrors the original behavior but is split into clearer steps.
+            /// Produces the ordering lists (first layer, second layer, capture tokens) and sorts them.
             /// </summary>
+            public TokenOrdering AnalyzeTokens()
+            {
+                var first = new List<TokenKey>();
+                var second = new List<TokenKey>();
+                var captures = new List<TokenKey>();
+
+                foreach (var val in tokenValues.Keys)
+                {
+                    if (char.IsDigit(val.Symbol))
+                    {
+                        captures.Add(val);
+                        first.Add(val);
+                        continue;
+                    }
+
+                    if (val.Priority < FORMAT_SPLIT)
+                    {
+                        first.Add(val);
+                        second.Add(val);
+                    }
+                    else
+                    {
+                        second.Add(new TokenKey(val.Symbol, val.Priority - FORMAT_SPLIT));
+                    }
+                }
+
+                // sort same as before
+                second.Sort((a, b) => a.Priority - b.Priority);
+                first.Sort((a, b) => a.Priority - b.Priority);
+
+                return new TokenOrdering(first, second, captures);
+            }
+
+#pragma warning disable IDE0018
+            /// <summary>
+            /// Reconstructs capture tokens by resolving escaped child tokens using tokenValues map.
+            /// </summary>
+            public void RebuildCaptures(Dictionary<TokenKey, string> runtimeTokenValues, List<TokenKey> captureChars)
+            {
+                foreach (TokenKey captureKey in captureChars)
+                {
+                    string newVal = "";
+                    if (!runtimeTokenValues.TryGetValue(captureKey, out string toParse)) continue;
+                    int priorityCount = captureKey.Priority;
+                    if (string.IsNullOrEmpty(toParse)) { runtimeTokenValues[captureKey] = ""; continue; }
+
+                    for (int j = 0; j < toParse.Length; j++)
+                    {
+                        if (toParse[j] == ESCAPE_CHAR)
+                        {
+                            // next char is the child token's symbol
+                            j++;
+                            if (j >= toParse.Length) break;
+                            char temp = toParse[j];
+                            string toTry;
+                            // search for the child by incrementing priorityCount and adding FORMAT_SPLIT
+                            // this matches original behaviour where child priorities are sequential after the capture's priority
+                            int searchPriority = priorityCount;
+                            while (true)
+                            {
+                                searchPriority++;
+                                var searchKey = new TokenKey(temp, searchPriority + FORMAT_SPLIT);
+                                if (runtimeTokenValues.TryGetValue(searchKey, out toTry))
+                                {
+                                    newVal += toTry;
+                                    break;
+                                }
+                                // safety: avoid infinite loop - if not found and searchPriority leaps too far, bail
+                                if (searchPriority - priorityCount > 300) // arbitrary large guard
+                                    break;
+                            }
+                        }
+                        else
+                            newVal += toParse[j];
+                    }
+
+                    runtimeTokenValues[captureKey] = newVal;
+                }
+            }
+#pragma warning restore IDE0018
             public bool MakeTokenConstant(char token, string value = "")
             {
-                // If Formatted has not been set, operation not valid (matches original guard)
                 if (Formatted == default) return false;
 
-                // iterate every top-level key symbol
                 foreach (var kv in topLevelTokens)
                 {
                     char topSymbol = kv.Key;
@@ -922,26 +1029,21 @@ namespace BLPPCounter.Helpfuls
 
                     int removedPriority = -1;
 
-                    // for each top-level priority for this symbol, check its relations
                     foreach (int topPriority in priorities)
                     {
                         var rootKey = new TokenKey(topSymbol, topPriority);
                         if (!tokenRelations.ContainsKey(rootKey)) continue;
 
                         var relationsList = tokenRelations[rootKey];
-                        // find child index whose symbol matches the requested token
                         int idx = relationsList.FindIndex(tk => tk.Symbol == token);
                         if (idx == -1) continue;
 
                         int childPriority = relationsList[idx].Priority;
 
-                        // If the topSymbol is a digit (a capture), the logic differs slightly in how replacement occurs
                         if (char.IsDigit(topSymbol))
                         {
-                            // Replace numeric placeholders inside the child token value
                             string newChildValue = Regex.Replace(tokenValues[new TokenKey(token, childPriority)], "\\{\\d+\\}", value);
 
-                            // If parent token contains an escaped instance of the token, replace that escaped segment with the new value
                             var parentKey = new TokenKey(topSymbol, topPriority);
                             string parentValue = tokenValues[parentKey];
 
@@ -951,7 +1053,6 @@ namespace BLPPCounter.Helpfuls
                             }
                             else
                             {
-                                // If not escaped, find the relation entry corresponding to the child string and replace that placeholder
                                 string repStr = tokenValues[new TokenKey(token, childPriority)];
                                 int relationIndex = relationsList.FindIndex(tk => tokenValues[tk] == repStr);
                                 if (relationIndex == -1)
@@ -962,26 +1063,21 @@ namespace BLPPCounter.Helpfuls
                         }
                         else
                         {
-                            // Non-capture parent: simply replace placeholder tokens in the parent value
                             tokenValues[new TokenKey(topSymbol, topPriority)] =
                                 Regex.Replace(tokenValues[new TokenKey(topSymbol, topPriority)], "\\{\\d+\\}", value);
                         }
 
-                        // Remove the child token value and remember which priority was removed
                         tokenValues.Remove(new TokenKey(token, childPriority));
                         removedPriority = childPriority;
                         break;
                     }
 
-                    // If we removed a child priority, we must adjust placeholders that relied on positional indexes
                     if (removedPriority != -1)
                     {
-                        // Remove the priority from top-level tracking
                         topLevelTokens[topSymbol].Remove(removedPriority);
 
                         int comp = (removedPriority > FORMAT_SPLIT) ? removedPriority - FORMAT_SPLIT : removedPriority;
 
-                        // Find all tokenValues which contain placeholders and adjust their indices
                         var toAdjust = new List<Tuple<TokenKey, int>>();
                         foreach (var tv in tokenValues)
                         {
@@ -1004,7 +1100,6 @@ namespace BLPPCounter.Helpfuls
                     }
                 }
 
-                // finally remove bottom-level token mapping for the token char (if present)
                 bottomLevelTokens.Remove(token);
 
                 return true;
@@ -1060,6 +1155,5 @@ namespace BLPPCounter.Helpfuls
                 return sb.ToString();
             }
         }
-
     }
 }
