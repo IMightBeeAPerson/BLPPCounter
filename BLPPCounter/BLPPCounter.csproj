@@ -32,8 +32,7 @@
     <OutputPath>bin\Release\</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <DefineConstants>
-    </DefineConstants>
+    <DefineConstants>NEW_VERSION</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="$(DefineConstants.Contains('CIBuild')) OR '$(NCrunch)' == '1'">
     <DisableCopyToPlugins>True</DisableCopyToPlugins>
@@ -194,6 +193,7 @@
     <Compile Include="Settings\Configs\PluginConfig.cs" />
     <Compile Include="Settings\Configs\TextFormatSettings.cs" />
     <Compile Include="Settings\Configs\TokenFormatSettings.cs" />
+    <Compile Include="Settings\SettingHandlers\MenuSettingHandlers\CounterSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuSettingHandlers\LeaderboardSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\PpInfoTabHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\ColorSettingsHandler.cs" />

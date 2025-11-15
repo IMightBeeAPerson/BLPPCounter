@@ -3,6 +3,7 @@ using BeatSaberMarkupLanguage.Attributes;
 using BeatSaberMarkupLanguage.Components;
 using BeatSaberMarkupLanguage.ViewControllers;
 using BLPPCounter.Settings.Configs;
+using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.Special_Utils;
 using System;

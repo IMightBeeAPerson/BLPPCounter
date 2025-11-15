@@ -17,6 +17,7 @@ using static BLPPCounter.Helpfuls.HelpfulFormatter;
 using System.Collections;
 using UnityEngine;
 using BLPPCounter.Utils.Misc_Classes;
+using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 #if !NEW_VERSION
 using BLPPCounter.Utils.Special_Utils;
 #endif

@@ -4,12 +4,10 @@ using BeatSaberMarkupLanguage.Components.Settings;
 using BLPPCounter.Counters;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.List_Settings;
 using BLPPCounter.Utils.Misc_Classes;
-using CountersPlus.ConfigModels;
 using HMUI;
 using System;
 using System.Collections;
@@ -22,14 +20,14 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace BLPPCounter.Settings.SettingHandlers
+namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
 {
     /*<checkbox-setting text='Local Replays' apply-on-change='true' value='LocalReplay' hover-hint='Check for any local replays before loading from website' active='false'/>
      <dropdown-list-setting text='Playlists' apply-on-change='true' value='ChosenPlaylist' options='PlNames' hover-hint='A playlist to load' active='false'/>
     <button text='Load Playlist' on-click='LoadPlaylist' hover-hint='Loads the selected playlist into cache to prevent lag' active='false'/>*/
     //(?<att1>\[[^"\]]+)"[^"\]]+"(?<att2>\)]).*(?<bre>[\n\r]\s*)(?<words>(?:\w+ )+)(?!;)(?<name>\w+)
     //${att1}nameof(${name})${att2}${bre}${words}${name}
-    public class SettingsHandler: ConfigModel, INotifyPropertyChanged
+    public class SettingsHandler: INotifyPropertyChanged
     {
 #pragma warning disable CS0649, IDE0044
         #region Variables

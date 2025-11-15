@@ -2,6 +2,7 @@
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers;
+using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using System;
 using System.Collections.Generic;
 using System.Linq;

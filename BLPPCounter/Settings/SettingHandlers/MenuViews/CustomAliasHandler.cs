@@ -10,6 +10,7 @@ using BLPPCounter.Utils;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
+using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 #if !NEW_VERSION
 using BLPPCounter.Utils.Special_Utils;
 #endif

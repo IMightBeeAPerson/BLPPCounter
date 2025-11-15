@@ -5,6 +5,7 @@ using BeatSaberMarkupLanguage.GameplaySetup;
 using BeatSaberMarkupLanguage.Parser;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
+using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Settings.SettingHandlers.MenuViews;
 using BLPPCounter.Utils;
 using System;

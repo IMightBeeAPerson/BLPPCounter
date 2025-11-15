@@ -7,6 +7,7 @@ using BLPPCounter.Counters;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Patches;
 using BLPPCounter.Settings.Configs;
+using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Enums;
