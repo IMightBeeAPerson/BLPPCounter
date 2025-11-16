@@ -25,11 +25,21 @@ namespace BLPPCounter.Counters
         public static void ResetFormat() { }
         #endregion
         #region Updates
+        public override void UpdatePP(float acc)
+        {
+            calc.SetPp(acc, ppVals, 0, PluginConfig.Instance.DecimalPrecision, ratings.SelectedRatings);
+        }
+        public override void UpdateFCPP(float fcPercent)
+        {
+            calc.SetPp(fcPercent, ppVals, ppVals.Length / 2, PluginConfig.Instance.DecimalPrecision, ratings.SelectedRatings);
+        }
         public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
             bool displayFC = PluginConfig.Instance.PPFC && mistakes > 0;
-            calc.SetPp(acc, ppVals, 0, PluginConfig.Instance.DecimalPrecision, ratings.SelectedRatings);
-            if (displayFC) calc.SetPp(fcPercent, ppVals, ppVals.Length / 2, PluginConfig.Instance.DecimalPrecision, ratings.SelectedRatings);
+
+            UpdatePP(acc);
+            if (displayFC) UpdateFCPP(fcPercent);
+
             TheCounter.UpdateText(displayFC, display, ppVals, mistakes);
         }
         public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }

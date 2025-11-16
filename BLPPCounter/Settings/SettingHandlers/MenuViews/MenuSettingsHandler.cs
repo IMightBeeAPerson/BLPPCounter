@@ -3,6 +3,7 @@ using BeatSaberMarkupLanguage.Parser;
 using BeatSaberMarkupLanguage.ViewControllers;
 using BLPPCounter.Counters;
 using BLPPCounter.Helpfuls;
+using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
 using System.Collections.Generic;

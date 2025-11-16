@@ -5,6 +5,7 @@ using BeatSaberMarkupLanguage.Parser;
 using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Counters;
 using BLPPCounter.Helpfuls;
+using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Patches;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;

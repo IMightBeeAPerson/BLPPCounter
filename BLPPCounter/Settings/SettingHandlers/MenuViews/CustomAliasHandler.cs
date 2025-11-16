@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using TMPro;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
+using BLPPCounter.Helpfuls.FormatHelpers;
 #if !NEW_VERSION
 using BLPPCounter.Utils.Special_Utils;
 #endif

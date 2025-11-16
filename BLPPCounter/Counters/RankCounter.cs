@@ -14,6 +14,7 @@ using UnityEngine;
 using static GameplayModifiers;
 using BLPPCounter.Utils.Misc_Classes;
 using System.Threading;
+using BLPPCounter.Helpfuls.FormatHelpers;
 
 namespace BLPPCounter.Counters
 {
@@ -89,7 +90,7 @@ namespace BLPPCounter.Counters
         #endregion
         #region Variables
         public override string Name => DisplayName;
-        private float[] rankArr;
+        private float[] rankArr, ppVals;
         private (float acc, float pp, SongSpeed speed, float modMult)[] mapData;
         private int ratingLen;
         #endregion
@@ -120,6 +121,7 @@ namespace BLPPCounter.Counters
             }
             Array.Sort(mapData, (a,b) => (b.pp - a.pp) < 0 ? -1 : 1);
             rankArr = mapData.Select(t => t.pp).ToArray();
+            ppVals = new float[(ratingLen + 1) * 2];
             //Plugin.Log.Debug($"[{string.Join(", ", mapData.Select(t => (t.acc, t.pp)))}]");
         }
         public override void ReinitCounter(TMP_Text display, RatingContainer ratingVals)
@@ -183,20 +185,26 @@ namespace BLPPCounter.Counters
         }
         #endregion
         #region Updates
-        public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
+        public override void UpdatePP(float acc)
         {
-            bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0;
-            float[] ppVals = new float[(ratingLen + 1) * 2], temp;
-            temp = calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision, ratings.SelectedRatings);
+            float[] temp = calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision, ratings.SelectedRatings);
             //Plugin.Log.Info($"ratings: {HelpfulMisc.Print(temp)}\ttemp: {HelpfulMisc.Print(temp)}");
             for (int i = 0; i < temp.Length; i++)
                 ppVals[i] = temp[i];
-            if (displayFc)
-            {
-                temp = calc.GetPpWithSummedPp(fcPercent, PluginConfig.Instance.DecimalPrecision, ratings.SelectedRatings);
-                for (int i = 0; i < temp.Length; i++)
-                    ppVals[i + temp.Length] = temp[i];
-            }
+        }
+        public override void UpdateFCPP(float fcPercent)
+        {
+            float[] temp = calc.GetPpWithSummedPp(fcPercent, PluginConfig.Instance.DecimalPrecision, ratings.SelectedRatings);
+            for (int i = 0; i < temp.Length; i++)
+                ppVals[i + temp.Length] = temp[i];
+        }
+        public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
+        {
+            bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0;
+
+            UpdatePP(acc);
+            if (displayFc) UpdateFCPP(fcPercent);
+
             int rank = GetRank(ppVals[ratingLen]);
             float ppDiff = (float)Math.Abs(Math.Round(mapData[Math.Max(rank - 2, 0)].pp - ppVals[ratingLen], PluginConfig.Instance.DecimalPrecision));
             float accDiff = (float)Math.Abs(Math.Round((mapData[Math.Max(rank - 2, 0)].acc - acc) * 100f, PluginConfig.Instance.DecimalPrecision));

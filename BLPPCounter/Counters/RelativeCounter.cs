@@ -427,7 +427,7 @@ namespace BLPPCounter.Counters
             replayPPVals = calc.GetPpWithSummedPp(replayScore / maxReplayScore, replayRatings.SelectedRatings);
             accToBeat = usingModdedAcc ? BLCalc.Instance.GetAccDeflatedUnsafe(replayPPVals[0] + replayPPVals[1] + replayPPVals[2], PC.DecimalPrecision, ratings.SelectedRatings, accToBeat / 100.0f) : (float)Math.Round(replayScore / maxReplayScore * 100.0f, PC.DecimalPrecision);
         }
-        private void CalcPP(float acc)
+        public override void UpdatePP(float acc)
         {
             float[] temp = calc.GetPpWithSummedPp(acc, PC.DecimalPrecision, ratings.SelectedRatings);
             for (int i = 0; i < temp.Length; i++)
@@ -436,7 +436,7 @@ namespace BLPPCounter.Counters
                 ppVals[i + temp.Length] = (float)Math.Round(temp[i] - replayPPVals[i], PC.DecimalPrecision);
             }
         }
-        private void CalcFCPP(float fcPercent)
+        public override void UpdateFCPP(float fcPercent)
         {
             float[] temp = calc.GetPpWithSummedPp(fcPercent, ratings.SelectedRatings);
             for (int i = temp.Length * 2; i < temp.Length * 3; i++)
@@ -455,8 +455,8 @@ namespace BLPPCounter.Counters
             if (!SetupTask.IsCompleted || !caughtUp) return;
             bool displayFc = PC.PPFC && mistakes > 0, showLbl = PC.ShowLbl;
 
-            CalcPP(acc);
-            if (displayFc) CalcFCPP(fcPercent);
+            UpdatePP(acc);
+            if (displayFc) UpdateFCPP(fcPercent);
 
             string color(float num) => PC.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
             string missColor(int miss, int replayMiss) => HelpfulFormatter.NumberToColor(miss == 0 && replayMiss == 0 ? 1 : replayMiss - miss);

@@ -1,20 +1,21 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using BeatmapSaveDataVersion4;
 using BLPPCounter.CalculatorStuffs;
+using BLPPCounter.Helpfuls;
+using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
-using BLPPCounter.Helpfuls;
+using BLPPCounter.Utils.API_Handlers;
+using BLPPCounter.Utils.List_Settings;
+using BLPPCounter.Utils.Misc_Classes;
+using Newtonsoft.Json.Linq;
+using SiraUtil.Affinity;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using TMPro;
-using SiraUtil.Affinity;
-using BLPPCounter.Utils.List_Settings;
-using BLPPCounter.Utils.API_Handlers;
-using System.Threading.Tasks;
-using BLPPCounter.Utils.Misc_Classes;
 using System.Threading;
-using BLPPCounter.Helpfuls.FormatHelpers;
+using System.Threading.Tasks;
+using TMPro;
 
 namespace BLPPCounter.Counters
 {
@@ -229,7 +230,8 @@ namespace BLPPCounter.Counters
         public string Mods { get; private set; }
         private RatingContainer nmRatings;
         private float[] neededPPs, clanPPs;
-        private int setupStatus;
+        private float[] ppVals; //default pass, acc, tech, total pp for 0-3, modified for 4-7. Same thing but for fc with 8-15.
+        private int setupStatus, ratingLen;
         private string message;
         private bool showRank;
         #endregion
@@ -238,6 +240,7 @@ namespace BLPPCounter.Counters
         public override void SetupData(MapSelection map, CancellationToken ct) //setupStatus key: 0 = success, 1 = Map not ranked, 2 = Map already captured, 3 = load failed, 4 = map too hard to capture
         {
             setupStatus = 0;
+            ratingLen = map.Ratings.SelectedRatings.Length;
             JToken mapData = map.MapData.diffData;
             if (int.Parse(mapData["status"].ToString()) != 3) { setupStatus = 1; goto theEnd; }
             string songId = map.MapData.songId;
@@ -280,6 +283,7 @@ namespace BLPPCounter.Counters
                 case 4: message = PC.MessageSettings.MapUncapturableMessage; break;
             }
             showRank = PC.ShowRank && setupStatus != 1 && setupStatus != 3;
+            ppVals = new float[ratingLen * 4];
         }
         public static async Task<(float[] clanPP, bool mapCaptured, string owningClan, int playerClanId)> LoadNeededPp(string mapId, int playerClanId, CancellationToken ct = default)
         {
@@ -495,9 +499,21 @@ namespace BLPPCounter.Counters
                 return simple.Invoke(customWrapper);
             };
         }
-        public static void AddToCache(MapSelection map, float[] vals) => mapCache.Add((map, vals));      
+        public static void AddToCache(MapSelection map, float[] vals) => mapCache.Add((map, vals));
         #endregion
         #region Updates
+        public override void UpdatePP(float acc)
+        {
+            calc.SetPp(acc, ppVals, 0, PC.DecimalPrecision, ratings.SelectedRatings);
+            for (int i = 0; i < ratingLen; i++)
+                ppVals[i + ratingLen] = (float)Math.Round(ppVals[i] - neededPPs[i], PC.DecimalPrecision);
+        }
+        public override void UpdateFCPP(float fcPercent)
+        {
+            calc.SetPp(fcPercent, ppVals, ratingLen * 2, PC.DecimalPrecision, ratings.SelectedRatings);
+            for (int i = 0; i < ratingLen; i++)
+                ppVals[i + ratingLen * 3] = (float)Math.Round(ppVals[i + ratingLen * 2] - neededPPs[i], PC.DecimalPrecision);
+        }
         public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
             if (setupStatus > 0)
@@ -506,24 +522,10 @@ namespace BLPPCounter.Counters
                 return;
             }
             bool displayFc = PC.PPFC && mistakes > 0;
-            float[] ppVals = new float[16]; //default pass, acc, tech, total pp for 0-3, modified for 4-7. Same thing but for fc with 8-15.
-            float[] temp = calc.GetPp(acc, ratings.SelectedRatings);
-            for (int i = 0; i < temp.Length; i++) 
-                ppVals[i] = temp[i];
-            ppVals[3] = calc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
-            for (int i = 0; i < 4; i++)
-                ppVals[i + 4] = ppVals[i] - neededPPs[i];
-            if (displayFc)
-            {
-                temp = calc.GetPp(acc, ratings.SelectedRatings);
-                for (int i = 0; i < temp.Length; i++)
-                    ppVals[i + 8] = temp[i];
-                ppVals[11] = calc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
-                for (int i = 8; i < 12; i++)
-                    ppVals[i + 4] = ppVals[i] - neededPPs[i - 8];
-            }
-            for (int i = 0; i < ppVals.Length; i++)
-                ppVals[i] = (float)Math.Round(ppVals[i], PC.DecimalPrecision);
+
+            UpdatePP(acc);
+            if (displayFc) UpdateFCPP(fcPercent);
+
             string color(float num) => PC.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
             string message()
             {

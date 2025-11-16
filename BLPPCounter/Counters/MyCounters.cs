@@ -47,6 +47,8 @@ namespace BLPPCounter.Counters
         }
         public abstract void SetupData(MapSelection map, CancellationToken ct);
         public abstract void UpdateFormat();
+        public abstract void UpdatePP(float acc);
+        public abstract void UpdateFCPP(float fcPercent);
         public abstract void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote);
         public abstract void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote);
         public abstract string Name { get; }

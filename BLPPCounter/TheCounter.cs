@@ -30,6 +30,7 @@ using Zenject;
 using static GameplayModifiers;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Utils.Misc_Classes;
+using BLPPCounter.Helpfuls.FormatHelpers;
 namespace BLPPCounter
 {
 
