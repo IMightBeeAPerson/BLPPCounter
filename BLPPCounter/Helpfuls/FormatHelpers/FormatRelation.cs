@@ -1,13 +1,9 @@
 ﻿using BLPPCounter.Utils.List_Settings;
-using IPA.Utilities;
-using JetBrains.Annotations;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace BLPPCounter.Utils
+namespace BLPPCounter.Helpfuls.FormatHelpers
 {
     internal class FormatRelation
     {

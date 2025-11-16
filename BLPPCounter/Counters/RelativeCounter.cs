@@ -1,6 +1,7 @@
 ﻿using BeatLeader.Models.Replay;
 using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
+using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
@@ -12,7 +13,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
-using UnityEngine.Profiling;
 
 namespace BLPPCounter.Counters
 {
@@ -427,6 +427,24 @@ namespace BLPPCounter.Counters
             replayPPVals = calc.GetPpWithSummedPp(replayScore / maxReplayScore, replayRatings.SelectedRatings);
             accToBeat = usingModdedAcc ? BLCalc.Instance.GetAccDeflatedUnsafe(replayPPVals[0] + replayPPVals[1] + replayPPVals[2], PC.DecimalPrecision, ratings.SelectedRatings, accToBeat / 100.0f) : (float)Math.Round(replayScore / maxReplayScore * 100.0f, PC.DecimalPrecision);
         }
+        private void CalcPP(float acc)
+        {
+            float[] temp = calc.GetPpWithSummedPp(acc, PC.DecimalPrecision, ratings.SelectedRatings);
+            for (int i = 0; i < temp.Length; i++)
+            {
+                ppVals[i] = temp[i];
+                ppVals[i + temp.Length] = (float)Math.Round(temp[i] - replayPPVals[i], PC.DecimalPrecision);
+            }
+        }
+        private void CalcFCPP(float fcPercent)
+        {
+            float[] temp = calc.GetPpWithSummedPp(fcPercent, ratings.SelectedRatings);
+            for (int i = temp.Length * 2; i < temp.Length * 3; i++)
+            {
+                ppVals[i] = (float)Math.Round(temp[i - temp.Length * 2], PC.DecimalPrecision);
+                ppVals[i + temp.Length] = (float)Math.Round(ppVals[i] - replayPPVals[i - temp.Length * 2]);
+            }
+        }
         public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
             if (failed)
@@ -437,23 +455,9 @@ namespace BLPPCounter.Counters
             if (!SetupTask.IsCompleted || !caughtUp) return;
             bool displayFc = PC.PPFC && mistakes > 0, showLbl = PC.ShowLbl;
 
-            float[] temp = calc.GetPpWithSummedPp(acc, ratings.SelectedRatings);
-            for (int i = 0; i < temp.Length; i++)
-            {
-                ppVals[i] = temp[i];
-                ppVals[i + temp.Length] = temp[i] - replayPPVals[i];
-            }
-            if (displayFc)
-            {
-                temp = calc.GetPpWithSummedPp(fcPercent, ratings.SelectedRatings);
-                for (int i = temp.Length * 2; i < temp.Length * 3; i++)
-                {
-                    ppVals[i] = temp[i - temp.Length * 2];
-                    ppVals[i + temp.Length] = ppVals[i] - replayPPVals[i - temp.Length * 2];
-                }
-            }
-            for (int i = 0; i < ppVals.Length; i++)
-                ppVals[i] = (float)Math.Round(ppVals[i], PC.DecimalPrecision);
+            CalcPP(acc);
+            if (displayFc) CalcFCPP(fcPercent);
+
             string color(float num) => PC.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
             string missColor(int miss, int replayMiss) => HelpfulFormatter.NumberToColor(miss == 0 && replayMiss == 0 ? 1 : replayMiss - miss);
             float accDiff = (float)Math.Round(acc * 100.0f, PC.DecimalPrecision) - accToBeat;
@@ -461,27 +465,17 @@ namespace BLPPCounter.Counters
             //else if (!useReplay) accDiff -= accToBeat;
             float replayAcc = PC.DynamicAcc && useReplay ? accToBeat : staticAccToBeat;
             if (float.IsNaN(replayAcc)) replayAcc = 0f;
-            try
+            if (PC.SplitPPVals && calc.RatingCount > 1)
             {
-                if (PC.SplitPPVals && calc.RatingCount > 1)
-                {
-                    string text = "";
-                    for (int i = 0; i < 4; i++)
-                        text += DisplayFormatter(displayFc, PC.ExtraInfo && i == 3, mistakes, missColor(mistakes, replayMistakes), accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppVals[i + displayNum]), ppVals[i + displayNum].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
-                            color(ppVals[i + displayNum * 3]), ppVals[i + displayNum * 3].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + displayNum * 2], replayAcc, TheCounter.CurrentLabels[i]) + "\n";
-                    display.text = text;
-                }
-                else
-                    display.text = DisplayFormatter(displayFc, PC.ExtraInfo, mistakes, missColor(mistakes, replayMistakes), accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppVals[displayNum * 2 - 1]), ppVals[displayNum * 2 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum - 1],
-                        color(ppVals[displayNum * 4 - 1]), ppVals[displayNum * 4 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum * 3 - 1], replayAcc, TheCounter.CurrentLabels.Last()) + "\n";
+                string text = "";
+                for (int i = 0; i < 4; i++)
+                    text += DisplayFormatter(displayFc, PC.ExtraInfo && i == 3, mistakes, missColor(mistakes, replayMistakes), accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppVals[i + displayNum]), ppVals[i + displayNum].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
+                        color(ppVals[i + displayNum * 3]), ppVals[i + displayNum * 3].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + displayNum * 2], replayAcc, TheCounter.CurrentLabels[i]) + "\n";
+                display.text = text;
             }
-            catch (Exception e)
-            {
-                Plugin.Log.Warn("There was an error updating the relative counter display.");
-                Plugin.Log.Warn(e.Message);
-                Plugin.Log.Debug(e);
-                display.text = "Error!";
-            }
+            else
+                display.text = DisplayFormatter(displayFc, PC.ExtraInfo, mistakes, missColor(mistakes, replayMistakes), accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppVals[displayNum * 2 - 1]), ppVals[displayNum * 2 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum - 1],
+                    color(ppVals[displayNum * 4 - 1]), ppVals[displayNum * 4 - 1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[displayNum * 3 - 1], replayAcc, TheCounter.CurrentLabels.Last()) + "\n";
         }
         public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {

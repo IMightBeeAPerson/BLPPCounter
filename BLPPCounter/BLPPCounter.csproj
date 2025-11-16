@@ -222,13 +222,14 @@
     <Compile Include="Utils\List Settings\SettingToggleInfo.cs" />
     <Compile Include="Utils\List Settings\ValueListInfo.cs" />
     <Compile Include="Utils\Misc Classes\AsyncLock.cs" />
+    <Compile Include="Utils\Misc Classes\CharDictionary.cs" />
     <Compile Include="Utils\Misc Classes\CoroutineHost.cs" />
     <Compile Include="Utils\Misc Classes\ExtraBypasses.cs" />
-    <Compile Include="Utils\Misc Classes\FormatWrapper.cs" />
+    <Compile Include="Helpfuls\FormatHelpers\FormatWrapper.cs" />
     <Compile Include="Utils\Misc Classes\Play.cs" />
     <Compile Include="Utils\Misc Classes\RatingContainer.cs" />
     <Compile Include="Utils\Misc Classes\Session.cs" />
-    <Compile Include="Utils\Misc Classes\FormatRelation.cs" />
+    <Compile Include="Helpfuls\FormatHelpers\FormatRelation.cs" />
     <Compile Include="Utils\Misc Classes\Map.cs" />
     <Compile Include="Utils\Misc Classes\MapSelection.cs" />
     <None Include="Utils\Misc Classes\PlaylistLoader.cs" />
