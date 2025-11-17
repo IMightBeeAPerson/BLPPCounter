@@ -221,6 +221,7 @@ namespace BLPPCounter.Counters
                     accToBeat = calc.GetAccDeflated(ppToBeat, PC.DecimalPrecision, ratings.SelectedRatings);
                 }
                 staticAccToBeat = accToBeat;
+                Calculator.Ratings = ratings;
                 if (!failed) ResetVars();
                 return;
             }
@@ -343,7 +344,7 @@ namespace BLPPCounter.Counters
             }
             if (!useReplay)
             {
-                replayPPVals = calc.GetPpWithSummedPp(accToBeat / 100.0f, ratings.SelectedRatings);
+                replayPPVals = calc.GetPpWithSummedPp(accToBeat / 100.0f);
                 caughtUp = true;
                 return;
             }
@@ -373,7 +374,7 @@ namespace BLPPCounter.Counters
 
                 }
             }
-            replayPPVals = calc.GetPpWithSummedPp(replayScore / maxReplayScore, replayRatings.SelectedRatings);
+            replayPPVals = calc.GetPpWithSummedPp(replayScore / maxReplayScore, replayRatings);
             if (catchUpNotes > notes)
             {
                 Plugin.Log.Info($"Catch up too slow, trying again (notes = {notes}, catchUpNotes = {catchUpNotes}");
@@ -386,7 +387,7 @@ namespace BLPPCounter.Counters
             if (!useReplay)
             {
                 if (notes <= 1) //this value is constant, no need to update every note hit.
-                    replayPPVals = calc.GetPpWithSummedPp(accToBeat / 100.0f, ratings.SelectedRatings);
+                    replayPPVals = calc.GetPpWithSummedPp(accToBeat / 100.0f);
                 return;
             } //Past here will be treating it as if the leaderboard selected is beatleader, as that is the source of the replay.
             if (notes < 1 || notes + bombs - 1 >= noteArray.Length) return;
@@ -424,12 +425,12 @@ namespace BLPPCounter.Counters
             }
             //Plugin.Log.Info($"Note #{notes} ({scoringType}): {BLCalc.GetCutScore(note)} / {ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore}");
             //Plugin.Log.Info($"Note #{notes}: {replayScore} / {maxReplayScore} ({Math.Round(replayScore / maxReplayScore * 100f, PC.DecimalPrecision)}%)");
-            replayPPVals = calc.GetPpWithSummedPp(replayScore / maxReplayScore, replayRatings.SelectedRatings);
+            replayPPVals = calc.GetPpWithSummedPp(replayScore / maxReplayScore, replayRatings);
             accToBeat = usingModdedAcc ? BLCalc.Instance.GetAccDeflatedUnsafe(replayPPVals[0] + replayPPVals[1] + replayPPVals[2], PC.DecimalPrecision, ratings.SelectedRatings, accToBeat / 100.0f) : (float)Math.Round(replayScore / maxReplayScore * 100.0f, PC.DecimalPrecision);
         }
         public override void UpdatePP(float acc)
         {
-            float[] temp = calc.GetPpWithSummedPp(acc, PC.DecimalPrecision, ratings.SelectedRatings);
+            float[] temp = calc.GetPpWithSummedPp(acc, PC.DecimalPrecision);
             for (int i = 0; i < temp.Length; i++)
             {
                 ppVals[i] = temp[i];
@@ -438,7 +439,7 @@ namespace BLPPCounter.Counters
         }
         public override void UpdateFCPP(float fcPercent)
         {
-            float[] temp = calc.GetPpWithSummedPp(fcPercent, ratings.SelectedRatings);
+            float[] temp = calc.GetPpWithSummedPp(fcPercent);
             for (int i = temp.Length * 2; i < temp.Length * 3; i++)
             {
                 ppVals[i] = (float)Math.Round(temp[i - temp.Length * 2], PC.DecimalPrecision);

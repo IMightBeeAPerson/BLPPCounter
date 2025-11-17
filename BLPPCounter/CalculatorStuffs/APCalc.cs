@@ -1,11 +1,9 @@
-﻿using BLPPCounter.Utils.API_Handlers;
+﻿using BLPPCounter.Utils;
+using BLPPCounter.Utils.API_Handlers;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BLPPCounter.CalculatorStuffs
 {
@@ -66,6 +64,7 @@ namespace BLPPCounter.CalculatorStuffs
             ( 0.9997988680153226, 1 ),
             ( 1, 1 )
         };
+        public override Leaderboards Leaderboard => Leaderboards.Accsaber;
         public override int RatingCount => 1;
         public override bool UsesModifiers => false;
         public override string Label => "AP";

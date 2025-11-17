@@ -1,4 +1,5 @@
-﻿using BLPPCounter.Settings.Configs;
+﻿using BLPPCounter.CalculatorStuffs;
+using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
 using System.Threading;
 using TMPro;
@@ -19,7 +20,7 @@ namespace BLPPCounter.Counters
         {
             ppVals = new float[calc.DisplayRatingCount * 2];
         }
-        public override void SetupData(MapSelection map, CancellationToken ct) { }
+        public override void SetupData(MapSelection map, CancellationToken ct) { Calculator.Ratings = ratings; }
         public override void UpdateFormat() { }
         public static bool InitFormat() => TheCounter.FormatUsable;
         public static void ResetFormat() { }
@@ -27,11 +28,11 @@ namespace BLPPCounter.Counters
         #region Updates
         public override void UpdatePP(float acc)
         {
-            calc.SetPp(acc, ppVals, 0, PluginConfig.Instance.DecimalPrecision, ratings.SelectedRatings);
+            calc.SetPp(acc, ppVals, 0, PluginConfig.Instance.DecimalPrecision);
         }
         public override void UpdateFCPP(float fcPercent)
         {
-            calc.SetPp(fcPercent, ppVals, ppVals.Length / 2, PluginConfig.Instance.DecimalPrecision, ratings.SelectedRatings);
+            calc.SetPp(fcPercent, ppVals, ppVals.Length / 2, PluginConfig.Instance.DecimalPrecision);
         }
         public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {

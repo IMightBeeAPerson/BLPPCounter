@@ -1,18 +1,14 @@
-﻿using BeatmapSaveDataVersion4;
-using BLPPCounter.CalculatorStuffs;
+﻿using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
-using BLPPCounter.Utils.List_Settings;
 using BLPPCounter.Utils.Misc_Classes;
 using Newtonsoft.Json.Linq;
-using SiraUtil.Affinity;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
@@ -284,6 +280,7 @@ namespace BLPPCounter.Counters
             }
             showRank = PC.ShowRank && setupStatus != 1 && setupStatus != 3;
             ppVals = new float[ratingLen * 4];
+            Calculator.Ratings = ratings;
         }
         public static async Task<(float[] clanPP, bool mapCaptured, string owningClan, int playerClanId)> LoadNeededPp(string mapId, int playerClanId, CancellationToken ct = default)
         {
@@ -504,13 +501,13 @@ namespace BLPPCounter.Counters
         #region Updates
         public override void UpdatePP(float acc)
         {
-            calc.SetPp(acc, ppVals, 0, PC.DecimalPrecision, ratings.SelectedRatings);
+            calc.SetPp(acc, ppVals, 0, PC.DecimalPrecision);
             for (int i = 0; i < ratingLen; i++)
                 ppVals[i + ratingLen] = (float)Math.Round(ppVals[i] - neededPPs[i], PC.DecimalPrecision);
         }
         public override void UpdateFCPP(float fcPercent)
         {
-            calc.SetPp(fcPercent, ppVals, ratingLen * 2, PC.DecimalPrecision, ratings.SelectedRatings);
+            calc.SetPp(fcPercent, ppVals, ratingLen * 2, PC.DecimalPrecision);
             for (int i = 0; i < ratingLen; i++)
                 ppVals[i + ratingLen * 3] = (float)Math.Round(ppVals[i + ratingLen * 2] - neededPPs[i], PC.DecimalPrecision);
         }
@@ -550,7 +547,7 @@ namespace BLPPCounter.Counters
         {
             bool displayFc = PC.PPFC && mistakes > 0;
             float[] ppVals = new float[16]; //default pass, acc, tech, total pp for 0-3, modified for 4-7. Same thing but for fc with 8-15.
-            float[] temp = calc.GetPp(acc, ratings.SelectedRatings);
+            float[] temp = calc.GetPp(acc);
             for (int i = 0; i < temp.Length; i++)
                 ppVals[i] = temp[i];
             ppVals[3] = calc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
@@ -559,7 +556,7 @@ namespace BLPPCounter.Counters
                 ppVals[i + 4] = ppVals[i] * weight;
             if (displayFc)
             {
-                temp = calc.GetPp(acc, ratings.SelectedRatings);
+                temp = calc.GetPp(acc);
                 for (int i = 0; i < temp.Length; i++)
                     ppVals[i + 8] = temp[i];
                 ppVals[11] = calc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);

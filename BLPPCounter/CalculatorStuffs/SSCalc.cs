@@ -1,4 +1,5 @@
 ﻿using BLPPCounter.Helpfuls;
+using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
 using Newtonsoft.Json.Linq;
 using System;
@@ -51,6 +52,7 @@ namespace BLPPCounter.CalculatorStuffs
             (1, 5.36739445)
         };
         public static readonly SSCalc Instance = new SSCalc();
+        public override Leaderboards Leaderboard => Leaderboards.Scoresaber;
         public override int RatingCount => 1;
         public override string Label => "SS";
         public override string[] StarLabels { get; } = new string[1] { "<color=yellow>Stars</color>" };

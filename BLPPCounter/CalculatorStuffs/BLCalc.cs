@@ -1,4 +1,4 @@
-﻿using BLPPCounter.Helpfuls;
+﻿using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
 using Newtonsoft.Json.Linq;
 using System;
@@ -52,6 +52,7 @@ namespace BLPPCounter.CalculatorStuffs
         public static BLCalc Instance { get; private set; } = new BLCalc();
         private BLCalc() { }
         #region PP Math
+        public override Leaderboards Leaderboard => Leaderboards.Beatleader;
         public override int RatingCount => 3;
         public override string Label => "BL";
         public override string[] StarLabels { get; } = new string[4] 

@@ -123,6 +123,7 @@ namespace BLPPCounter.Counters
             rankArr = mapData.Select(t => t.pp).ToArray();
             ppVals = new float[(ratingLen + 1) * 2];
             //Plugin.Log.Debug($"[{string.Join(", ", mapData.Select(t => (t.acc, t.pp)))}]");
+            Calculator.Ratings = ratings;
         }
         public override void ReinitCounter(TMP_Text display, RatingContainer ratingVals)
         {
@@ -187,14 +188,14 @@ namespace BLPPCounter.Counters
         #region Updates
         public override void UpdatePP(float acc)
         {
-            float[] temp = calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision, ratings.SelectedRatings);
+            float[] temp = calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision);
             //Plugin.Log.Info($"ratings: {HelpfulMisc.Print(temp)}\ttemp: {HelpfulMisc.Print(temp)}");
             for (int i = 0; i < temp.Length; i++)
                 ppVals[i] = temp[i];
         }
         public override void UpdateFCPP(float fcPercent)
         {
-            float[] temp = calc.GetPpWithSummedPp(fcPercent, PluginConfig.Instance.DecimalPrecision, ratings.SelectedRatings);
+            float[] temp = calc.GetPpWithSummedPp(fcPercent, PluginConfig.Instance.DecimalPrecision);
             for (int i = 0; i < temp.Length; i++)
                 ppVals[i + temp.Length] = temp[i];
         }

@@ -35,6 +35,7 @@ namespace BLPPCounter.Counters
         public override void SetupData(MapSelection map, CancellationToken ct)
         {
             totalNotes = HelpfulMath.NotesForMaxScore(APIHandler.GetSelectedAPI().GetMaxScore(map.MapData.diffData));
+            Calculator.Ratings = ratings;
         }
         public override void UpdateFormat() { }
         public static bool InitFormat() => TheCounter.FormatUsable;
@@ -43,13 +44,13 @@ namespace BLPPCounter.Counters
         #region Updates
         public override void UpdatePP(float acc)
         {
-            float[] temp = calc.GetPpWithSummedPp(acc, ratings.SelectedRatings);
+            float[] temp = calc.GetPpWithSummedPp(acc);
             for (int i = 0; i < temp.Length; i++)
                 ppVals[i] = (float)Math.Round(temp[i] * mult);
         }
         public override void UpdateFCPP(float fcPercent)
         {
-            float[] temp = calc.GetPpWithSummedPp(fcPercent, ratings.SelectedRatings);
+            float[] temp = calc.GetPpWithSummedPp(fcPercent);
             for (int i = 0; i < temp.Length; i++)
                 ppVals[i + temp.Length] = (float)Math.Round(temp[i] * mult);
         }

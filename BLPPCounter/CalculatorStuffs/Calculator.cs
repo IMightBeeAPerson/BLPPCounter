@@ -1,6 +1,7 @@
 ﻿using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
+using BLPPCounter.Utils.Misc_Classes;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -12,11 +13,37 @@ namespace BLPPCounter.CalculatorStuffs
 {
     public abstract class Calculator
     {
+        #region Static Variables
+        private static RatingContainer _ratings = default;
+        /// <summary>
+        /// Global ratings container used for calculations when no specific ratings are given.
+        /// </summary>
+        public static RatingContainer Ratings
+        {
+            get => _ratings;
+            set {                 
+                if (value.Equals(default) || value.SelectedRatings is null)
+                    throw new ArgumentException("Given rating container is not valid.");
+                _ratings = value;
+            }
+        }
+        #endregion
+        #region Variables
+        /// <summary>
+        /// The leaderboard a calculator is made for.
+        /// </summary>
+        public abstract Leaderboards Leaderboard { get; }
         /// <summary>
         /// How many ratings a leaderboard has. Beatleader would have 3 because of pass, tech, and acc ratings, while Scoresaber would only have 1.
         /// </summary>
         public abstract int RatingCount { get; }
+        /// <summary>
+        /// Whether or not this calculator uses modifiers in its calculations.
+        /// </summary>
         public abstract bool UsesModifiers { get; }
+        /// <summary>
+        /// The label of the calculator/leaderboard.
+        /// </summary>
         public abstract string Label { get; }
         public abstract string[] StarLabels { get; }
         /// <summary>
@@ -27,48 +54,88 @@ namespace BLPPCounter.CalculatorStuffs
         /// The acc curve for a given leaderboard. Set to internal so that no outside programs modifies the curve.
         /// </summary>
         internal abstract List<(double, double)> PointList { get; }
+        #endregion
+
         /// <summary>
         /// Calculates the pp for given ratings and accuracy.
         /// </summary>
         /// <param name="acc">The accuracy, which should be between 0 and 1, inclusive.</param>
-        /// <param name="ratings">The rating values. This should match with the leaderboards index (for BL it should be 3, for SS it should 1, etc).</param>
+        /// <param name="ratings">The rating values used to calculate the PP. This is specific to which leaderboard is being used.</param>
         /// <returns>Returns all pp for each type of rating. Combining the numbers should result in the (deflated) pp value.</returns>
         public abstract float[] GetPp(float acc, params float[] ratings);
+        /// <summary>Calculates the pp for given ratings and accuracy.</summary>
+        /// <param name="acc">The accuracy, which should be between 0 and 1, inclusive.</param>
+        /// <param name="ratings">The rating values used to calculate the PP. Global container is used of no rating is given.</param>
+        /// <returns>Returns all pp for each type of rating. Combining the numbers should result in the (deflated) pp value.</returns>
+        public float[] GetPp(float acc, RatingContainer ratings) => GetPp(acc, ratings.GetRatings(Leaderboard));
         /// <summary>
-        /// Calculates the pp for given ratings and accuracy, then rounds them to the number of decimals given.
+        /// Calculates the pp for given accuracy using the global ratings container.
         /// </summary>
         /// <param name="acc">The accuracy, which should be between 0 and 1, inclusive.</param>
-        /// <param name="ratings">The rating values. This should match with the leaderboards index (for BL it should be 3, for SS it should 1, etc).</param>
+        /// <returns>Returns all pp for each type of rating. Combining the numbers should result in the (deflated) pp value.</returns>
+        public float[] GetPp(float acc) => GetPp(acc, Ratings);
+        /// <summary>Calculates the pp for given ratings and accuracy, then rounds them to the number of decimals given.</summary>
+        /// <param name="acc">The accuracy, which should be between 0 and 1, inclusive.</param>
         /// <param name="precision">This the number of decimals to round the numbers to.</param>
+        /// <param name="ratings">The rating values used to calculate the PP.</param>
+        /// <returns>Returns all pp for each type of rating. Combining the numbers should result in the (deflated) pp value.</returns>
+        public float[] GetPp(float acc, int precision, RatingContainer ratings)
+        {
+            float[] outp = GetPp(acc, ratings);
+            for (int i = 0; i < outp.Length; i++)
+                outp[i] = (float)Math.Round(outp[i], precision);
+            return outp;
+        }
+        /// <summary>Calculates the pp for given ratings and accuracy, then rounds them to the number of decimals given.</summary>
+        /// <param name="acc">The accuracy, which should be between 0 and 1, inclusive.</param>
+        /// <param name="precision">This the number of decimals to round the numbers to.</param>
+        /// <param name="ratings">The rating values used to calculate the PP, these are <see cref="Calculator"/> dependent.</param>
         /// <returns>Returns all pp for each type of rating. Combining the numbers should result in the (deflated) pp value.</returns>
         public float[] GetPp(float acc, int precision, params float[] ratings)
         {
-            float[] outp = new float[ratings.Length], pps = GetPp(acc, ratings);
-            for (int i = 0; i < ratings.Length; i++)
-                outp[i] = (float)Math.Round(pps[i], precision);
+            float[] outp = GetPp(acc, ratings);
+            for (int i = 0; i < outp.Length; i++)
+                outp[i] = (float)Math.Round(outp[i], precision);
             return outp;
         }
-        public void SetPp(float acc, float[] ppVals, int offset, params float[] ratings)
+        public float[] GetPp(float acc, int precision) => GetPp(acc, precision, Ratings);
+        /// <summary>
+        /// Sets the PP values in the specified array starting at the given offset.
+        /// </summary>
+        /// <param name="acc">The accuracy value used to calculate the performance points.</param>
+        /// <param name="ppVals">The array where the calculated performance points will be stored. The array must have sufficient space to
+        /// accommodate the values starting at the specified offset.</param>
+        /// <param name="offset">The starting index in the <paramref name="ppVals"/> array where the performance points will be written. Must
+        /// be within bounds of the array.</param>
+        /// <param name="ratings">An optional <see cref="RatingContainer"/> object used to influence the performance point calculation.
+        /// Defaults to <see cref="Ratings"/> if not provided.</param>
+        /// <exception cref="IndexOutOfRangeException">Thrown if the <paramref name="offset"/> and <see cref="DisplayRatingCount"/> exceed the bounds of the
+        /// <paramref name="ppVals"/> array.</exception>
+        public void SetPp(float acc, float[] ppVals, int offset, RatingContainer ratings)
         {
             if (ppVals.Length < offset + DisplayRatingCount) throw new IndexOutOfRangeException("Given offset is too far out and goes out of bounds.");
             float[] pps = GetPpWithSummedPp(acc, ratings);
             for (int i = offset; i < offset + DisplayRatingCount; i++)
                 ppVals[i] = pps[i - offset];
         }
-        public void SetPp(float acc, float[] ppVals, int offset, int precision, params float[] ratings)
+        public void SetPp(float acc, float[] ppVals, int offset) => SetPp(acc, ppVals, offset, Ratings);
+        public void SetPp(float acc, float[] ppVals, int offset, int precision, RatingContainer ratings)
         {
             if (ppVals.Length < offset + DisplayRatingCount) throw new IndexOutOfRangeException("Given offset is too far out and goes out of bounds.");
             float[] pps = GetPpWithSummedPp(acc, precision, ratings);
             for (int i = offset; i < offset + DisplayRatingCount; i++)
                 ppVals[i] = pps[i - offset];
         }
+        public void SetPp(float acc, float[] ppVals, int offset, int precision) => SetPp(acc, ppVals, offset, precision, Ratings);
         /// <summary>
         /// In the order of star, acc, pass, tech
         /// </summary>
         public abstract float[] SelectRatings(params float[] ratings);
         public float[] SelectRatings(MapSelection mapDiff) => 
             SelectRatings(mapDiff.Ratings.GetAllRatings());
+        public float GetSummedPp(float acc, RatingContainer ratings) => GetPp(acc, ratings).Aggregate(0.0f, (total, current) => total + current);
         public float GetSummedPp(float acc, params float[] ratings) => GetPp(acc, ratings).Aggregate(0.0f, (total, current) => total + current);
+        public float GetSummedPp(float acc) => GetSummedPp(acc, Ratings);
         /// <summary>
         /// Calculates the pp for given ratings and accuracy, then sums the number and rounds it to the number of decimals given.
         /// </summary>
@@ -76,15 +143,20 @@ namespace BLPPCounter.CalculatorStuffs
         /// <param name="ratings">The rating values. This should match with the leaderboards index (for BL it should be 3, for SS it should 1, etc).</param>
         /// <param name="precision">This the number of decimals to round the numbers to.</param>
         /// <returns>Returns the summed pp for each type of rating. This should be the deflated pp value.</returns>
+        public float GetSummedPp(float acc, int precision, RatingContainer ratings) => (float)Math.Round(GetSummedPp(acc, ratings), precision);
         public float GetSummedPp(float acc, int precision, params float[] ratings) => (float)Math.Round(GetSummedPp(acc, ratings), precision);
+        public float GetSummedPp(float acc, int precision) => GetSummedPp(acc, precision, Ratings);
         /// <summary>
         /// Calculates the pp for given ratings and accuracy.
         /// </summary>
         /// <param name="acc">The accuracy, which should be between 0 and 1, inclusive.</param>
         /// <param name="ratings">The rating values. This should match with the leaderboards index (for BL it should be 3, for SS it should 1, etc).</param>
         /// <returns>Returns all pp for each type of rating. There is also the summed and inflated pp as the last element in <paramref name="ratings"/>.</returns>
+        public float[] GetPpWithSummedPp(float acc, RatingContainer ratings) =>
+            RatingCount == 1 ? GetPp(acc, ratings) : GetPp(acc, ratings).Append(Inflate(GetSummedPp(acc, ratings))).ToArray();
         public float[] GetPpWithSummedPp(float acc, params float[] ratings) =>
             RatingCount == 1 ? GetPp(acc, ratings) : GetPp(acc, ratings).Append(Inflate(GetSummedPp(acc, ratings))).ToArray();
+        public float[] GetPpWithSummedPp(float acc) => GetPpWithSummedPp(acc, Ratings);
         /// <summary>
         /// Calculates the pp for given ratings and accuracy, then rounds them to the number of decimals given.
         /// </summary>
@@ -92,12 +164,20 @@ namespace BLPPCounter.CalculatorStuffs
         /// <param name="ratings">The rating values. This should match with the leaderboards index (for BL it should be 3, for SS it should 1, etc).</param>
         /// <param name="precision">This the number of decimals to round the numbers to.</param>
         /// <returns>Returns all pp for each type of rating. There is also the summed and inflated pp as the last element in the array.</returns>
+        public float[] GetPpWithSummedPp(float acc, int precision, RatingContainer ratings) =>
+            RatingCount == 1 ? GetPp(acc, precision, ratings) : GetPp(acc, precision, ratings).Append((float)Math.Round(Inflate(GetSummedPp(acc, ratings)), precision)).ToArray();
         public float[] GetPpWithSummedPp(float acc, int precision, params float[] ratings) =>
             RatingCount == 1 ? GetPp(acc, precision, ratings) : GetPp(acc, precision, ratings).Append((float)Math.Round(Inflate(GetSummedPp(acc, ratings)), precision)).ToArray();
+        public float[] GetPpWithSummedPp(float acc, int precision) => GetPpWithSummedPp(acc, precision, Ratings);
         public abstract float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings);
+        public float GetAccDeflated(float deflatedPp, RatingContainer ratings, int precision = -1) => GetAccDeflated(deflatedPp, precision, ratings.SelectedRatings);
+        public float GetAccDeflated(float deflatedPp, int precision = -1) => GetAccDeflated(deflatedPp, Ratings, precision);
         public abstract float GetAccDeflated(float deflatedPp, JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1.0f, int precision = -1);
+        public float GetAcc(float inflatedPp, RatingContainer ratings, int precision = -1) =>
+            GetAccDeflated(Deflate(inflatedPp), ratings, precision);
         public float GetAcc(float inflatedPp, int precision = -1, params float[] ratings) =>
             GetAccDeflated(Deflate(inflatedPp), precision, ratings);
+        public float GetAcc(float inflatedPp, int precision = -1) => GetAcc(Deflate(inflatedPp), Ratings, precision);
         public float GetAcc(float inflatedPp, JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1.0f, int precision = -1) =>
             GetAccDeflated(Deflate(inflatedPp), diffData, speed, modMult, precision);
         public abstract float Inflate(float deflatedPp);
