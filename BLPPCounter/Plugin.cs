@@ -85,6 +85,7 @@ namespace BLPPCounter
             Harmony = new Harmony("Person.BLPPCounter");
             Harmony.PatchAll(Assembly.GetExecutingAssembly());
             Profile.LoadAllProfiles();
+            if (PluginConfig.Instance.LocalReplays) LocalReplayHandler.LoadReplays();
 
             //new PlaylistLoader();
             /*ClanCounter.FormatTheFormat();

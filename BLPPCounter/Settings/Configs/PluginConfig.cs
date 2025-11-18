@@ -8,7 +8,6 @@ using System.Drawing;
 using System.Reflection;
 using System.Linq;
 using BLPPCounter.Utils.Special_Utils;
-using Newtonsoft.Json;
 using BLPPCounter.Utils.Converters;
 
 [assembly: InternalsVisibleTo(GeneratedStore.AssemblyVisibilityTarget)]
@@ -60,6 +59,7 @@ namespace BLPPCounter.Settings.Configs
         public virtual bool ReplayMods { get; set; } = true;
         public virtual bool DynamicAcc { get; set; } = true;
         public virtual bool ShowRank { get; set; } = true;
+        public virtual bool LocalReplays { get; set; } = false;
         public virtual string RelativeDefault { get; set; } = "Normal";
         #endregion
         #region Rank Counter Settings

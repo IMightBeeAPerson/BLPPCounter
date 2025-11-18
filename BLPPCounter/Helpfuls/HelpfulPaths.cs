@@ -6,13 +6,11 @@ using static GameplayModifiers;
 using System.Text.RegularExpressions;
 using System.Linq;
 using System.Net.Http;
-using IPA.Utilities;
 using System.Text;
 using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Settings.SettingHandlers;
 using System.Collections.Generic;
-using System.Collections;
 
 namespace BLPPCounter.Helpfuls
 {
@@ -24,6 +22,8 @@ namespace BLPPCounter.Helpfuls
         public static readonly string THE_FOLDER = Path.Combine(Environment.CurrentDirectory, "UserData", "PP Counter");
         public static readonly string BL_CACHE_FILE = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "LeaderboardsCache");
         public static readonly string BL_REPLAY_FOLDER = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "Replays");
+        public static readonly string BL_REPLAY_CACHE_FOLDER = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "ReplayerCache");
+        public static readonly string BL_REPLAY_HEADERS = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "ReplayHeadersCache");
         public static readonly string TAOHABLE_DATA = Path.Combine(THE_FOLDER, "TaohableData.json");
         public static readonly string HEADERS = Path.Combine(THE_FOLDER, "Headers.json");
         public static readonly string PROFILE_DATA = Path.Combine(THE_FOLDER, "Profiles.json");

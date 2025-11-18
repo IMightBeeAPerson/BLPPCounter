@@ -32,8 +32,7 @@
     <OutputPath>bin\Release\</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <DefineConstants>
-    </DefineConstants>
+    <DefineConstants>NEW_VERSION</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="$(DefineConstants.Contains('CIBuild')) OR '$(NCrunch)' == '1'">
     <DisableCopyToPlugins>True</DisableCopyToPlugins>
@@ -227,6 +226,7 @@
     <Compile Include="Utils\Misc Classes\CoroutineHost.cs" />
     <Compile Include="Utils\Misc Classes\ExtraBypasses.cs" />
     <Compile Include="Helpfuls\FormatHelpers\FormatWrapper.cs" />
+    <Compile Include="Utils\Misc Classes\LocalReplayHandler.cs" />
     <Compile Include="Utils\Misc Classes\Play.cs" />
     <Compile Include="Utils\Misc Classes\RatingContainer.cs" />
     <Compile Include="Utils\Misc Classes\Session.cs" />

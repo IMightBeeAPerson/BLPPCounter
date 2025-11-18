@@ -79,6 +79,9 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
                     case nameof(APITimeout):
                         APIHandler.ClientTimeout = TimeSpan.FromSeconds(PC.APITimeout);
                         break;
+                    case nameof(LocalReplays):
+                        if (PC.LocalReplays) LocalReplayHandler.LoadReplays();
+                        break;
 
                 }
             };
@@ -320,6 +323,12 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         {
             get => PC.ShowRank;
             set {PC.ShowRank = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ShowRank))); }
+        }
+        [UIValue(nameof(LocalReplays))]
+        public bool LocalReplays
+        {
+            get => PC.LocalReplays;
+            set { PC.LocalReplays = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(LocalReplays))); }
         }
         [UIValue(nameof(RelativeDefault))]
         public string RelativeDefault

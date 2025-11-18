@@ -20,7 +20,7 @@ namespace BLPPCounter.Counters
         {
             ppVals = new float[calc.DisplayRatingCount * 2];
         }
-        public override void SetupData(MapSelection map, CancellationToken ct) { Calculator.Ratings = ratings; }
+        public override void SetupData(MapSelection map, CancellationToken ct) { }
         public override void UpdateFormat() { }
         public static bool InitFormat() => TheCounter.FormatUsable;
         public static void ResetFormat() { }

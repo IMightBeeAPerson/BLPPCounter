@@ -35,7 +35,6 @@ namespace BLPPCounter.Counters
         public override void SetupData(MapSelection map, CancellationToken ct)
         {
             totalNotes = HelpfulMath.NotesForMaxScore(APIHandler.GetSelectedAPI().GetMaxScore(map.MapData.diffData));
-            Calculator.Ratings = ratings;
         }
         public override void UpdateFormat() { }
         public static bool InitFormat() => TheCounter.FormatUsable;

@@ -70,6 +70,7 @@
         <checkbox-setting text='Replay Uses Mods' value='ReplayMods' apply-on-change='true' hover-hint='If the replay has different mods than the player, calculate the percent to beat correctly. This could be slow.'/>
         <checkbox-setting text='Dynamic Acc' value='DynamicAcc' apply-on-change='true' hover-hint='Adjust the accuracy based off of what the replay is at'/>
         <checkbox-setting text='Show Rank' value='ShowRank' apply-on-change='true' hover-hint='Show what place in your clan you are with your current score'/>
+        <checkbox-setting text='Use Local Replays' value='LocalReplays' apply-on-change='true' hover-hint='Check the replays in Beatleaders folder before loading from the web'/>
         <list-setting id='DefaultCounterList' text='Default Counter' value='RelativeDefault' options='RelativeDefaultList' apply-on-change='true' hover-hint='What counter to go to when relative counter cannot be used' />
       </vertical>
       <text text='Target Settings' align='Center'/>

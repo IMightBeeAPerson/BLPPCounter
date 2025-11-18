@@ -18,6 +18,7 @@ namespace BLPPCounter.Counters
             calc = Calculator.GetSelectedCalc();
             ratings = map.Ratings;
             ratings.SetSelectedRatings();
+            Calculator.Ratings = ratings;
             SetupData(map, ct);
         }
         public virtual void ReinitCounter(TMP_Text display)
@@ -30,6 +31,7 @@ namespace BLPPCounter.Counters
             calc = Calculator.GetSelectedCalc();
             ratings = ratingVals;
             ratings.SetSelectedRatings();
+            Calculator.Ratings = ratings;
         } 
         public virtual void ReinitCounter(TMP_Text display, MapSelection map)
         {//same map, different difficulty/mode
@@ -37,6 +39,7 @@ namespace BLPPCounter.Counters
             calc = Calculator.GetSelectedCalc();
             ratings = map.Ratings;
             ratings.SetSelectedRatings();
+            Calculator.Ratings = ratings;
             // Provide a default CancellationToken for callers that don't have one
             SetupData(map, CancellationToken.None);
         }

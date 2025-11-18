@@ -280,7 +280,6 @@ namespace BLPPCounter.Counters
             }
             showRank = PC.ShowRank && setupStatus != 1 && setupStatus != 3;
             ppVals = new float[ratingLen * 4];
-            Calculator.Ratings = ratings;
         }
         public static async Task<(float[] clanPP, bool mapCaptured, string owningClan, int playerClanId)> LoadNeededPp(string mapId, int playerClanId, CancellationToken ct = default)
         {

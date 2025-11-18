@@ -9,6 +9,7 @@ using BLPPCounter.Utils.Misc_Classes;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -143,9 +144,10 @@ namespace BLPPCounter.Counters
         }
         private void SetupReplayData(MapSelection map, JToken data, CancellationToken ct = default)
         {
+            string mode = leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard";
             if (data is null)
             {
-                data = BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true, ct).GetAwaiter().GetResult();
+                data = BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), mode, true, ct).GetAwaiter().GetResult();
                 if (data is null)
                 {
                     useReplay = false;
@@ -153,7 +155,25 @@ namespace BLPPCounter.Counters
                 }
             }
             string replay = (string)data["replay"];
-            byte[] replayData = BLAPI.Instance.CallAPI_Bytes(replay, true, ct: ct).GetAwaiter().GetResult() ?? throw new Exception("The replay link from the API is bad! (replay link failed to return data)");
+            byte[] replayData = null;
+            if (PC.LocalReplays) {
+                string replayName = LocalReplayHandler.GetReplayName(Targeter.TargetID, map.Map.Hash, mode, map.Difficulty.ToString());
+                if (replayName != null)
+                {
+                    string path = Path.Combine(HelpfulPaths.BL_REPLAY_FOLDER, replayName);
+                    try
+                    {
+                        replayData = File.Exists(path) ? File.ReadAllBytes(path) : File.ReadAllBytes(Path.Combine(HelpfulPaths.BL_REPLAY_CACHE_FOLDER, replayName));
+                    } catch (Exception e)
+                    {
+                        Plugin.Log.Warn($"There was an error loading the local replay at path: {path}");
+                        Plugin.Log.Warn(e.Message);
+                        Plugin.Log.Debug(e);
+                    }
+                }
+            }
+            if (replayData is null)
+                replayData = BLAPI.Instance.CallAPI_Bytes(replay, true, ct: ct).GetAwaiter().GetResult() ?? throw new Exception("The replay link from the API is bad! (replay link failed to return data)");
             ReplayDecoder.TryDecodeReplay(replayData, out bestReplay);
             noteArray = bestReplay.notes.ToArray();
             wallArray = new Queue<WallEvent>(bestReplay.walls);
@@ -221,7 +241,6 @@ namespace BLPPCounter.Counters
                     accToBeat = calc.GetAccDeflated(ppToBeat, PC.DecimalPrecision, ratings.SelectedRatings);
                 }
                 staticAccToBeat = accToBeat;
-                Calculator.Ratings = ratings;
                 if (!failed) ResetVars();
                 return;
             }

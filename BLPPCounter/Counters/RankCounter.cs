@@ -123,7 +123,6 @@ namespace BLPPCounter.Counters
             rankArr = mapData.Select(t => t.pp).ToArray();
             ppVals = new float[(ratingLen + 1) * 2];
             //Plugin.Log.Debug($"[{string.Join(", ", mapData.Select(t => (t.acc, t.pp)))}]");
-            Calculator.Ratings = ratings;
         }
         public override void ReinitCounter(TMP_Text display, RatingContainer ratingVals)
         {
