@@ -34,6 +34,13 @@ namespace BLPPCounter.Utils.Misc_Classes
         }
         public void SetSelectedRatings(Leaderboards leaderboard) => SelectedRatings = GetRatings(leaderboard);
         public void SetSelectedRatings() => SelectedRatings = GetRatings(TheCounter.Leaderboard);
+        public void MultiplyRatings(float multiplier)
+        {
+            StarRating *= multiplier;
+            AccRating *= multiplier;
+            PassRating *= multiplier;
+            TechRating *= multiplier;
+        }
         public float[] GetAllRatings() => new float[4] { StarRating, AccRating, PassRating, TechRating };
         /// <summary>
         /// Changes the ratings values of this container.
@@ -149,7 +156,7 @@ namespace BLPPCounter.Utils.Misc_Classes
         ///     </description>
         ///     </item>
         /// </list>
-        /// If a bad leaderboard is given, then it will always throw an <see cref="ArgumentException"/>.
+        /// If a bad leaderboard is given, then it will only allow it if there are 4 ratings given. Otherwise, it will throw an <see cref="ArgumentException"/>.
         /// </param>
         /// <returns>A <see cref="RatingContainer"/> that stores the ratings.</returns>
         /// <exception cref="ArgumentException">Thrown if the ratings given do not match the requirements for a given <paramref name="leaderboard"/>.</exception>
@@ -171,8 +178,6 @@ namespace BLPPCounter.Utils.Misc_Classes
                     if (ratings.Length == 1)
                         return new RatingContainer(leaderboard, ratings[0], 0, 0, 0);
                     break;
-                default:
-                    throw new ArgumentException($"The leaderboard \"{leaderboard}\" is not valid for this function.");
             }
             if (ratings.Length < 4)
                 throw new ArgumentException($"Invalid rating length given. Expected >= 4, instead given {ratings.Length}.");

@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
@@ -142,28 +143,32 @@ namespace BLPPCounter.Counters
             ppVals = new float[displayNum * 4]; //16 for bl (displayRatingCount bc gotta store total pp as well)
             ResetVars();
         }
-        private void SetupReplayData(MapSelection map, JToken data, CancellationToken ct = default)
+        private async Task<JToken> SetupReplayData(MapSelection map, CancellationToken ct = default)
         {
             string mode = leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard";
-            if (data is null)
-            {
-                data = BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), mode, true, ct).GetAwaiter().GetResult();
-                if (data is null)
-                {
-                    useReplay = false;
-                    return;
-                }
-            }
-            string replay = (string)data["replay"];
             byte[] replayData = null;
+            JToken data = null;
+
             if (PC.LocalReplays) {
-                string replayName = LocalReplayHandler.GetReplayName(Targeter.TargetID, map.Map.Hash, mode, map.Difficulty.ToString());
+                string replayName = LocalReplayHandler.GetReplayName(Targeter.TargetID, map.Map.Hash, mode, map.Difficulty.ToString());//, data["song"]["name"].ToString());
                 if (replayName != null)
                 {
+                    //Plugin.Log.Info($"Loading local replay for player {Targeter.TargetName} at path: {replayName}");
                     string path = Path.Combine(HelpfulPaths.BL_REPLAY_FOLDER, replayName);
                     try
                     {
                         replayData = File.Exists(path) ? File.ReadAllBytes(path) : File.ReadAllBytes(Path.Combine(HelpfulPaths.BL_REPLAY_CACHE_FOLDER, replayName));
+                        ReplayDecoder.TryDecodeReplay(replayData, out bestReplay);
+                        if (!HelpfulMisc.HasNonSpeedMods(bestReplay.info.modifiers))
+                        {
+                            float acc = (float)bestReplay.info.score / HelpfulMath.GetMaxScoreFromNotes(bestReplay.notes);
+                            data = new JObject
+                            {
+                                { "accuracy", acc },
+                                { "pp", calc.Inflate(calc.GetSummedPp(acc)) },
+                                { "modifiers", bestReplay.info.modifiers }
+                            };
+                        } 
                     } catch (Exception e)
                     {
                         Plugin.Log.Warn($"There was an error loading the local replay at path: {path}");
@@ -172,24 +177,37 @@ namespace BLPPCounter.Counters
                     }
                 }
             }
+
+            if (data is null)
+                data = await BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), mode, true, ct);
             if (replayData is null)
-                replayData = BLAPI.Instance.CallAPI_Bytes(replay, true, ct: ct).GetAwaiter().GetResult() ?? throw new Exception("The replay link from the API is bad! (replay link failed to return data)");
-            ReplayDecoder.TryDecodeReplay(replayData, out bestReplay);
+            {
+                if (data is null)
+                {
+                    useReplay = false;
+                    return null;
+                }
+                replayData = await BLAPI.Instance.CallAPI_Bytes(data["replay"].ToString(), true, ct: ct) ?? throw new Exception("The replay link from the API is bad! (replay link failed to return data)");
+                ReplayDecoder.TryDecodeReplay(replayData, out bestReplay);
+            }
+
             noteArray = bestReplay.notes.ToArray();
             wallArray = new Queue<WallEvent>(bestReplay.walls);
             ReplayMods = bestReplay.info.modifiers.ToUpper();
             usingModdedAcc = false;
             if (leaderboard == Leaderboards.Beatleader)
             {
-                data = data["difficulty"];
-                var (mod, replayMult) = HelpfulMisc.ParseModifiers(ReplayMods, data);
-                replayRatings = RatingContainer.GetContainer(leaderboard, HelpfulPaths.GetAllRatingsOfSpeed(data, calc, mod).Select(num => num * replayMult).ToArray());
-                replayRatings.SetSelectedRatings(leaderboard);
+                var (mod, replayMult) = HelpfulMisc.ParseModifiers(ReplayMods, map.MapData.diffData);
+                //replayRatings = RatingContainer.GetContainer(leaderboard, HelpfulPaths.GetAllRatingsOfSpeed(data, calc, mod).Select(num => num * replayMult).ToArray());
+                replayRatings = HelpfulPaths.GetAllRatingsOfSpeed(map.MapData.diffData, calc, mod);
+                replayRatings.MultiplyRatings(replayMult);
                 usingModdedAcc = PC.ReplayMods && !ratings.Equals(replayRatings);
             }
             else
                 replayRatings = ratings;
-            replayPPVals = new float[replayRatings.SelectedRatings.Length + 1];
+            //Plugin.Log.Info($"Replay Ratings: \n{replayRatings}");
+            replayPPVals = new float[calc.DisplayRatingCount];
+            return data;
         }
         #endregion
         #region Overrides
@@ -211,34 +229,23 @@ namespace BLPPCounter.Counters
             try
             {
                 //Plugin.Log.Info($"Data: {HelpfulMisc.Print(new object[] { Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true })}");
-                JToken playerData = await APIHandler.GetSelectedAPI().GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true, ct).ConfigureAwait(false);
+                JToken playerData = null;
+                if (PC.UseReplay) playerData = await SetupReplayData(map, ct);
+                if (playerData is null)
+                    playerData = await APIHandler.GetSelectedAPI().GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true).ConfigureAwait(false);
                 if (playerData is null)
                 {
                     Plugin.Log.Warn("Relative counter cannot be loaded due to the player never having played this map before! (API didn't return the corrent status)");
                     goto Failed;
                 }
-                //Only BL has useable replays, so only send data if this is a BL replay.
-                if (PC.UseReplay) SetupReplayData(map, leaderboard == Leaderboards.Beatleader ? playerData : null, ct);
                 if ((float)playerData["pp"] is float thePP && thePP > 0)
-                    accToBeat = calc.GetAcc(thePP, PC.DecimalPrecision, ratings.SelectedRatings);
+                    accToBeat = calc.GetAcc(thePP, ratings, PC.DecimalPrecision);
                 else
                 {
-                    string[] hold = ((string)playerData["modifiers"]).ToUpper().Split(',');
-                    float acc = (float)playerData["accuracy"];
-                    float ppToBeat;
-                    //Ignore how janky this line is below, i'll fix later if I feel like it.
-                    if (leaderboard == Leaderboards.Beatleader)
-                    {
-                        string modName = hold.Length == 0 ? "" : hold.FirstOrDefault(a => a.Equals("SF") || a.Equals("FS") || a.Equals("SS")) ?? "";
-                        playerData = playerData["difficulty"];
-                        modName = modName.ToLower();
-                        float passStar = HelpfulPaths.GetRating(playerData, PPType.Pass, modName);
-                        float techStar = HelpfulPaths.GetRating(playerData, PPType.Tech, modName);
-                        float accStar = HelpfulPaths.GetRating(playerData, PPType.Acc, modName);
-                        ppToBeat = calc.GetSummedPp(acc, accStar, passStar, techStar);
-                    }
-                    else ppToBeat = calc.GetSummedPp(acc, ratings.SelectedRatings);
-                    accToBeat = calc.GetAccDeflated(ppToBeat, PC.DecimalPrecision, ratings.SelectedRatings);
+                    accToBeat = calc.GetAccDeflated(calc.GetSummedPp((float)playerData["accuracy"],
+                        leaderboard == Leaderboards.Beatleader ?
+                        HelpfulPaths.GetAllRatingsOfSpeed(map.MapData.diffData, HelpfulMisc.GetSongSpeed(playerData["modifiers"].ToString())) : ratings),
+                        ratings, PC.DecimalPrecision);
                 }
                 staticAccToBeat = accToBeat;
                 if (!failed) ResetVars();
@@ -375,9 +382,9 @@ namespace BLPPCounter.Counters
                 switch (note.eventType)
                 {
                     case NoteEventType.good:
-                        maxReplayScore += notes < 14 ? BLCalc.GetMaxCutScore(note) * HelpfulMath.ClampedMultiplierForNote(notes) : BLCalc.GetMaxCutScore(note);
+                        maxReplayScore += notes < 14 ? Calculator.GetMaxCutScore(note) * HelpfulMath.ClampedMultiplierForNote(notes) : Calculator.GetMaxCutScore(note);
                         replayCombo++;
-                        replayScore += BLCalc.GetCutScore(note) * HelpfulMath.ClampedMultiplierForNote(replayCombo);
+                        replayScore += Calculator.GetCutScore(note) * HelpfulMath.ClampedMultiplierForNote(replayCombo);
                         break;
                     case NoteEventType.bomb:
                         replayCombo = HelpfulMath.DecreaseMultiplier(replayCombo);
@@ -386,7 +393,7 @@ namespace BLPPCounter.Counters
                         notes--;
                         continue;
                     default:
-                        maxReplayScore += notes < 14 ? BLCalc.GetMaxCutScore(note) * HelpfulMath.ClampedMultiplierForNote(notes) : BLCalc.GetMaxCutScore(note); 
+                        maxReplayScore += notes < 14 ? Calculator.GetMaxCutScore(note) * HelpfulMath.ClampedMultiplierForNote(notes) : Calculator.GetMaxCutScore(note); 
                         replayCombo = HelpfulMath.DecreaseMultiplier(replayCombo);
                         replayMistakes++;
                         break;
@@ -410,7 +417,7 @@ namespace BLPPCounter.Counters
                 return;
             } //Past here will be treating it as if the leaderboard selected is beatleader, as that is the source of the replay.
             if (notes < 1 || notes + bombs - 1 >= noteArray.Length) return;
-            BeatLeader.Models.Replay.NoteEvent note = noteArray[notes + bombs - 1];
+            NoteEvent note = noteArray[notes + bombs - 1];
             while (wallArray.Count() > 0 && wallArray.Peek().spawnTime < note.spawnTime)
                 if (wallArray.Dequeue().energy < 1.0f)
                 {
@@ -425,9 +432,9 @@ namespace BLPPCounter.Counters
             switch (note.eventType)
             {
                 case NoteEventType.good:
-                    maxReplayScore += notes < 14 ? BLCalc.GetNoteScoreDefinition(scoringType).maxCutScore * HelpfulMath.ClampedMultiplierForNote(notes) : BLCalc.GetNoteScoreDefinition(scoringType).maxCutScore;
+                    maxReplayScore += notes < 14 ? Calculator.GetNoteScoreDefinition(scoringType).maxCutScore * HelpfulMath.ClampedMultiplierForNote(notes) : Calculator.GetNoteScoreDefinition(scoringType).maxCutScore;
                     replayCombo++;
-                    replayScore += BLCalc.GetCutScore(note) * HelpfulMath.ClampedMultiplierForNote(replayCombo);
+                    replayScore += Calculator.GetCutScore(note) * HelpfulMath.ClampedMultiplierForNote(replayCombo);
                     break;
                 case NoteEventType.bomb:
                     replayCombo = HelpfulMath.DecreaseMultiplier(replayCombo);
@@ -436,7 +443,7 @@ namespace BLPPCounter.Counters
                     UpdateBest(notes, noteData);
                     return;
                 default:
-                    maxReplayScore += notes < 14 ? BLCalc.GetNoteScoreDefinition(scoringType).maxCutScore * HelpfulMath.ClampedMultiplierForNote(notes) : BLCalc.GetNoteScoreDefinition(scoringType).maxCutScore;
+                    maxReplayScore += notes < 14 ? Calculator.GetNoteScoreDefinition(scoringType).maxCutScore * HelpfulMath.ClampedMultiplierForNote(notes) : Calculator.GetNoteScoreDefinition(scoringType).maxCutScore;
                     replayCombo = HelpfulMath.DecreaseMultiplier(replayCombo);
                     replayMistakes++;
                     break;

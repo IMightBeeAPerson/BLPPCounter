@@ -22,8 +22,16 @@ namespace BLPPCounter.Utils.Misc_Classes
                 Plugin.Log.Debug(e);
             }
         }
-        public static string GetReplayName(string userId, string hash, string mode, string diff)
+        public static string GetReplayName(string userId, string hash, string mode, string diff)//, string mapName = null)
         {
+            /*if (mapName != null)
+            {
+                string potentialPath = $"{userId}-{mapName}-{diff}-{mode}-{hash}.bsor";
+                //Plugin.Log.Info("Checking for replay at " + Path.Combine(HelpfulPaths.BL_REPLAY_FOLDER, potentialPath));
+                if (File.Exists(Path.Combine(HelpfulPaths.BL_REPLAY_FOLDER, potentialPath)))
+                    return potentialPath;
+            }*/
+            //Plugin.Log.Info("Searching replay headers for matching replay...");
             if (replayHeaders is null)
                 LoadReplays();
             string filename = null;

@@ -3,6 +3,7 @@ using BLPPCounter.Helpfuls;
 using BLPPCounter.Utils.Misc_Classes;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Linq;
 using UnityEngine;
 using static GameplayModifiers;
 
@@ -37,7 +38,7 @@ namespace BLPPCounter.Utils
         public void FixRates(Leaderboards currentLeaderboard, params float[] ratings) => Ratings.SetRatings(currentLeaderboard, ratings);
         private void GetSongSpeed()
         {
-            float[] arr = HelpfulPaths.GetAllRatings(MapData.diffData, Calculator.GetSelectedCalc()), ratings = Ratings.Ratings;
+            float[] arr = HelpfulPaths.GetAllRatings(MapData.diffData, Calculator.GetSelectedCalc()).SelectMany(rating => rating.Ratings).ToArray(), ratings = Ratings.Ratings;
             for (int i = 0; i < arr.Length; i += ratings.Length)
             {
                 bool success = true;

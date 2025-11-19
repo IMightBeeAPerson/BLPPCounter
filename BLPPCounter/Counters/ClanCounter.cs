@@ -241,7 +241,7 @@ namespace BLPPCounter.Counters
             if (int.Parse(mapData["status"].ToString()) != 3) { setupStatus = 1; goto theEnd; }
             string songId = map.MapData.songId;
             Mods = "";
-            nmRatings = RatingContainer.GetContainer(TheCounter.Leaderboard, HelpfulPaths.GetAllRatingsOfSpeed(mapData));
+            nmRatings = HelpfulPaths.GetAllRatingsOfSpeed(mapData, calc);
             neededPPs = new float[6];
             neededPPs[3] = GetCachedPP(map);
             if (neededPPs[3] <= 0)

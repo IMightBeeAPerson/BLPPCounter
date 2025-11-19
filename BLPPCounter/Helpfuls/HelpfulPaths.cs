@@ -11,6 +11,7 @@ using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Settings.SettingHandlers;
 using System.Collections.Generic;
+using BLPPCounter.Utils.Misc_Classes;
 
 namespace BLPPCounter.Helpfuls
 {
@@ -144,22 +145,20 @@ namespace BLPPCounter.Helpfuls
             string path = HelpfulMisc.AddModifier(HelpfulMisc.PPTypeToRating(type), modName);
             return (float)(data?[path] ?? 0);
         }
-        public static float[] GetAllRatingsOfSpeed(JToken data, Calculator calc, SongSpeed mod = SongSpeed.Normal)
+        public static RatingContainer GetAllRatingsOfSpeed(JToken data, Calculator calc, SongSpeed mod = SongSpeed.Normal)
         { //star, acc, pass, tech
             float[] outp = Enum.GetValues(typeof(PPType)).Cast<PPType>().Select(type => GetRating(data, type, mod)).ToArray();
-            if (!(calc is null)) outp = calc.SelectRatings(outp);
-            outp = outp.FilledWithDefaults() ? new float[0] : outp;
-            return outp;
+            return RatingContainer.GetContainer(calc?.Leaderboard ?? Leaderboards.None, outp);
         }
-        public static float[] GetAllRatingsOfSpeed(JToken data, SongSpeed mod = SongSpeed.Normal) => GetAllRatingsOfSpeed(data, null, mod);
-        public static float[] GetAllRatings(JToken data, Calculator calc)
+        public static RatingContainer GetAllRatingsOfSpeed(JToken data, SongSpeed mod = SongSpeed.Normal) => GetAllRatingsOfSpeed(data, null, mod);
+        public static RatingContainer[] GetAllRatings(JToken data, Calculator calc)
         {
-            List<float> outp = new List<float>(4 * 4); //length of PPType Enum times the length of the SongSpeed Enum.
+            List<RatingContainer> outp = new List<RatingContainer>(4); //length of the SongSpeed Enum.
             foreach (SongSpeed s in HelpfulMisc.OrderedSpeeds)
-                outp.AddRange(GetAllRatingsOfSpeed(data, calc, s));
+                outp.Add(GetAllRatingsOfSpeed(data, calc, s));
             return outp.ToArray();
         }
-        public static float[] GetAllRatings(JToken data) => GetAllRatings(data, null);
+        public static RatingContainer[] GetAllRatings(JToken data) => GetAllRatings(data, null);
         public static float GetMultiAmount(JToken data, string name)
         {
             if (!Calculator.GetSelectedCalc().UsesModifiers) return 1.0f;

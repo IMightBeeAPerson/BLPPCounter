@@ -1,4 +1,4 @@
-﻿using BeatLeader.Models;
+﻿using BeatLeader.Models.Replay;
 using BeatSaberMarkupLanguage;
 using BeatSaberMarkupLanguage.Components.Settings;
 using BeatSaberMarkupLanguage.Parser;
@@ -6,14 +6,12 @@ using BeatSaberMarkupLanguage.ViewControllers;
 using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
-using IPA.Config.Data;
 using Newtonsoft.Json.Linq;
 using System;
 using System.CodeDom;
 using System.CodeDom.Compiler;
 using System.Collections;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -1078,16 +1076,18 @@ namespace BLPPCounter.Helpfuls
         {
             mods = mods.ToLower();
             Match regexSpeed = Regex.Match(mods, "fs|sf|ss");
-            string[] modArr = Regex.Replace(mods, allowNoFail ? "(?:fs|sf|ss),?" : "(?:fs|sf|ss|nf),?", "").Split(delimiter);
+            string[] modArr = Regex.Replace(mods, allowNoFail ? $"(?:fs|sf|ss){delimiter}?" : $"(?:fs|sf|ss|nf){delimiter}?", "").Split(delimiter);
             SongSpeed speed = regexSpeed.Success ? GetModifierFromShortname(regexSpeed.Value) : SongSpeed.Normal;
-            return (speed, HelpfulPaths.GetMultiAmounts(modifierData, modArr));
+            //Plugin.Log.Info("Mod Array Length: " + modArr.Length + ", value[0].Length = " + modArr[0].Length);
+            return (speed, modArr.Length > 1 || modArr.Length == 1 && modArr[0].Length > 0 ? HelpfulPaths.GetMultiAmounts(modifierData, modArr) : 1.0f);
         }
-            /*float[] ConvertArr(double[] arr)
-            {
-                float[] outp = new float[arr.Length];
-                for (int i = 0; i < arr.Length; i++)
-                    outp[i] = (float)arr[i];
-                return outp;
-            }*/
+        public static bool HasNonSpeedMods(string mods, char delimiter = ',') => Regex.Replace(mods, $"(?:fs|sf|ss|nf){delimiter}?", "", RegexOptions.IgnoreCase).Length > 0;
+        /*float[] ConvertArr(double[] arr)
+        {
+            float[] outp = new float[arr.Length];
+            for (int i = 0; i < arr.Length; i++)
+                outp[i] = (float)arr[i];
+            return outp;
+        }*/
     }
 }

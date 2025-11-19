@@ -589,7 +589,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             Calculator calc = CurrentCalculator;
             string[][] arr = new string[] { "<color=red>Slower</color>", "<color=#aaa>Normal</color>", "<color=#0F0>Faster</color>", "<color=#FFD700>Super Fast</color>" }.RowToColumn(3);
-            float[] ratings = HelpfulPaths.GetAllRatings(IsBL && !(CurrentDiff.Diffdata["difficulty"] is null) ? CurrentDiff.Diffdata["difficulty"] : CurrentDiff.Diffdata, calc); //ss-sf, [star, acc, pass, tech] (selects by leaderboard)
+            //ss-sf, [star, acc, pass, tech] (selects by leaderboard)
+            float[] ratings = HelpfulPaths.GetAllRatings(CurrentDiff.Diffdata.TryEnter("difficulty"), calc).SelectMany(rating => rating.SelectedRatings).ToArray(); 
             if (!UsesMods)
             {
                 float[] newArr = new float[ratings.Length * 4];
