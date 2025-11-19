@@ -112,6 +112,7 @@ namespace BLPPCounter.Helpfuls
             for (int i = 0; i < format.Length; i++)
             {
                 char c = format[i];
+                //Plugin.Log.Info($"i = {i}, format left = {format.Substring(i)}");
 
                 // Skip escaped specials
                 if (c == ESCAPE_CHAR && i + 1 < format.Length &&
@@ -134,6 +135,17 @@ namespace BLPPCounter.Helpfuls
                     string tag = ReplaceShorthand(format, ref i, ref pendingClose);
                     Append(captureSb, formatted, inCapture, tag);
                     continue;
+                }
+
+                // Rich tag insertion
+                if (c == '<')
+                {
+                    string tag = ReplaceRichTags(format, ref i);
+                    if (tag != null)
+                    {
+                        Append(captureSb, formatted, inCapture, tag);
+                        continue;
+                    }
                 }
 
                 // All other cases from here on will be replaced during the first layer, and thus need a placeholder
@@ -173,6 +185,23 @@ namespace BLPPCounter.Helpfuls
                 throw new FormatException("Unclosed capture block starting with " + CAPTURE_OPEN + captureId);
 
             return Tuple.Create(formatted.ToString(), tokens, priority, extraArgs);
+        }
+        /// <summary>
+        /// Replaces rich text tags in the format string.
+        /// </summary>
+        /// <param name="format">The format string.</param>
+        /// <param name="i">The current index in the format string.</param>
+        /// <returns>The tag to add to the output format. If tag is not valid, returns null.</returns>
+        private static string ReplaceRichTags(string format, ref int i)
+        {
+            Match richTag = Regex.Match(format.Substring(i), @"^<(?:(?<tag>[a-zA-Z]+)(?:=(?<value>(?:"".*?"")|(?:'[^']*')|(?:[^<>]*?)))?|/[a-zA-Z]+)>");
+            if (richTag.Success)
+            {
+                i += richTag.Length - 1; // move index to end of tag
+                return richTag.Value;
+            }
+            else 
+                return null;
         }
 
         /// <summary>

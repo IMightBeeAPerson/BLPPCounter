@@ -67,7 +67,7 @@ namespace BLPPCounter
         public static ReadOnlyDictionary<Leaderboards, string[]> ValidDisplayNames;
         public static string[] DisplayNames => fullDisable ? new string[1] { "There are none" } : ValidDisplayNames[Leaderboard];
         public static Dictionary<string, string> DisplayNameToCounter { get; private set; }
-        private static Func<bool, bool, float, float, int, string, string> displayFormatter;
+        private static Func<FormatWrapper, string> displayFormatter;
         internal static Func<string, string, string> TargetFormatter;
         internal static Func<Func<string>, float, float, float, float, float, string> PercentNeededFormatter;
         private static Func<Func<FormatWrapper, string>> displayIniter, targetIniter, percentNeededIniter;
@@ -84,6 +84,7 @@ namespace BLPPCounter
         {
             { "PP", 'x' },
             { "FCPP", 'y' },
+            { "Mistake Color", 'z' },
             { "Mistakes", 'e' },
             { "Label", 'l' }
         };
@@ -107,6 +108,7 @@ namespace BLPPCounter
             {
                 { 'x', "The unmodified PP number" },
                 { 'y', "The unmodified PP number if the map was FC'ed" },
+                { 'z', "The color used for the mistake count. It is gray if 0, red otherwise" },
                 { 'e', "The amount of mistakes made in the map. This includes bomb and wall hits" },
                 { 'l', "The label (ex: PP, Tech PP, etc)" }
             }, str => { var hold = GetTheFormat(str, out string errorStr); return (hold, errorStr); },
@@ -116,9 +118,16 @@ namespace BLPPCounter
                 {(char)2, true },
                 {'x', 543.21f },
                 {'y', 654.32f },
+                {'z', "red" },
                 {'e', 2 },
                 {'l', " PP" }
-            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, null, null, new Dictionary<char, IEnumerable<(string, object)>>(2)
+            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(1)
+            {
+                { 'z', 0 }
+            }, new Func<object, bool, object>[1]
+            {
+                FormatRelation.CreateFunc("<color={0}>{0}", "<color={0}>")
+            }, new Dictionary<char, IEnumerable<(string, object)>>(2)
             {
                 { 'x', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } },
                 { 'y', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } }
@@ -641,7 +650,8 @@ namespace BLPPCounter
         private static Func<Func<FormatWrapper, string>> GetTheFormat(string format, out string errorStr, string counter = "") =>
             HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, counter, a => { },
                 (tokens, tokensCopy, priority, vals) => 
-                { 
+                {
+                    HelpfulFormatter.SurroundText(tokensCopy, 'z', $"{vals['z']}", "</color>");
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1'); 
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2'); 
                 }, out errorStr);
@@ -671,14 +681,14 @@ namespace BLPPCounter
         }
         private static void InitDisplayFormat()
         {
-            var simple = displayIniter.Invoke();
-            displayWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(float), 'x'), (typeof(string), 'l'),
+            displayFormatter = displayIniter.Invoke();
+            displayWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(float), 'x'), (typeof(string), 'z'), (typeof(string), 'l'),
                 (typeof(float), 'y'), (typeof(int), 'e'));
-            displayFormatter = (fc, totPp, pp, fcpp, mistakes, label) =>
-            {
-                displayWrapper.SetValues(((char)1, fc ), ((char)2, totPp ), ('x', pp ), ('l', label ), ( 'y', fcpp ), ('e', mistakes ));
-                return simple.Invoke(displayWrapper);
-            };
+        }
+        private static string DisplayFormatter(bool fc, bool totPp, float pp, float fcpp, string mistakeColor, int mistakes, string label)
+        {
+            displayWrapper.SetValues(((char)1, fc), ((char)2, totPp), ('x', pp), ('z', mistakeColor), ('l', label), ('y', fcpp), ('e', mistakes));
+            return displayFormatter.Invoke(displayWrapper);
         }
         private static void InitTarget()
         {
@@ -1043,26 +1053,28 @@ namespace BLPPCounter
         public static void UpdateText(bool displayFc, TMP_Text display, float[] ppVals, int mistakes)
         {
             int num = Calculator.GetCalc(Leaderboard).DisplayRatingCount;
+            string mistakeColor = $"<color=\"{(mistakes == 0 ? "gray" : "red")}\">";
             if (pc.SplitPPVals && num > 1) {
                 string outp = "";
                 for (int i = 0; i < 4; i++) 
-                    outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakes, CurrentLabels[i]) + "\n";
+                    outp += DisplayFormatter(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakeColor, mistakes, CurrentLabels[i]) + "\n";
                 display.text = outp;
             } else
-                display.text = displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakes, CurrentLabels.Last());
+                display.text = DisplayFormatter(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakeColor, mistakes, CurrentLabels.Last());
         }
         public static string GetUpdateText(bool displayFc, float[] ppVals, int mistakes, string[] labels = null)
         {
             if (labels is null) labels = Labels.ToArray();
-            int num = Calculator.GetCalc(Leaderboard).DisplayRatingCount; //4 comes from the maximum amount of ratings of currently supported leaderboards
+            int num = Calculator.GetCalc(Leaderboard).DisplayRatingCount;
+            string mistakeColor = $"<color=\"{(mistakes == 0 ? "gray" : "red")}\">";
             if (pc.SplitPPVals && num > 1)
             {
                 string outp = "";
-                for (int i = 0; i < 4; i++)
-                    outp += displayFormatter.Invoke(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakes, CurrentLabels[i]) + "\n";
+                for (int i = 0; i < 4; i++) //4 comes from the maximum amount of ratings of currently supported leaderboards
+                    outp += DisplayFormatter(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakeColor, mistakes, CurrentLabels[i]) + "\n";
                 return outp;
             }
-            return displayFormatter.Invoke(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakes, CurrentLabels.Last());
+            return DisplayFormatter(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakeColor, mistakes, CurrentLabels.Last());
         }
         #endregion
     }
