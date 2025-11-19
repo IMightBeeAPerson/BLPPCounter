@@ -1053,7 +1053,7 @@ namespace BLPPCounter
         public static void UpdateText(bool displayFc, TMP_Text display, float[] ppVals, int mistakes)
         {
             int num = Calculator.GetCalc(Leaderboard).DisplayRatingCount;
-            string mistakeColor = $"<color=\"{(mistakes == 0 ? "gray" : "red")}\">";
+            string mistakeColor = $"<color={(mistakes == 0 ? "#999" : "red")}>";
             if (pc.SplitPPVals && num > 1) {
                 string outp = "";
                 for (int i = 0; i < 4; i++) 
@@ -1062,11 +1062,10 @@ namespace BLPPCounter
             } else
                 display.text = DisplayFormatter(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakeColor, mistakes, CurrentLabels.Last());
         }
-        public static string GetUpdateText(bool displayFc, float[] ppVals, int mistakes, string[] labels = null)
+        public static string GetUpdateText(bool displayFc, float[] ppVals, int mistakes)
         {
-            if (labels is null) labels = Labels.ToArray();
             int num = Calculator.GetCalc(Leaderboard).DisplayRatingCount;
-            string mistakeColor = $"<color=\"{(mistakes == 0 ? "gray" : "red")}\">";
+            string mistakeColor = $"<color={(mistakes == 0 ? "#999" : "red")}>";
             if (pc.SplitPPVals && num > 1)
             {
                 string outp = "";
