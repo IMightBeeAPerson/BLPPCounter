@@ -26,6 +26,7 @@
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>TRACE;DEBUG</DefineConstants>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <Optimize>true</Optimize>
@@ -34,6 +35,7 @@
     <WarningLevel>4</WarningLevel>
     <DefineConstants>
     </DefineConstants>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition="$(DefineConstants.Contains('CIBuild')) OR '$(NCrunch)' == '1'">
     <DisableCopyToPlugins>True</DisableCopyToPlugins>
@@ -229,6 +231,8 @@
     <Compile Include="Helpfuls\FormatHelpers\FormatWrapper.cs" />
     <Compile Include="Utils\Misc Classes\LocalReplayHandler.cs" />
     <Compile Include="Utils\Misc Classes\Play.cs" />
+    <Compile Include="Utils\Misc Classes\PPContainer.cs" />
+    <Compile Include="Utils\Misc Classes\PPHandler.cs" />
     <Compile Include="Utils\Misc Classes\RatingContainer.cs" />
     <Compile Include="Utils\Misc Classes\Session.cs" />
     <Compile Include="Helpfuls\FormatHelpers\FormatRelation.cs" />

@@ -6,8 +6,6 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using static GameplayModifiers;
-using static NoteData;
-using static ScoreModel;
 
 namespace BLPPCounter.CalculatorStuffs
 {
@@ -68,7 +66,7 @@ namespace BLPPCounter.CalculatorStuffs
             var (accRating, passRating, techRating) = (ratings[0], ratings[1], ratings[2]);
             float passPP = GetPassPp(passRating);
             if (float.IsInfinity(passPP) || float.IsNaN(passPP) || passPP < 0) passPP = 0;
-            return new float[] { GetAccPp(acc, accRating), passPP, GetTechPp(acc, techRating) };
+            return [GetAccPp(acc, accRating), passPP, GetTechPp(acc, techRating)];
             //Plugin.Log.Info($"acc = {acc}, ratings = {HelpfulMisc.Print(ratings)}, pp = {HelpfulMisc.Print(outp)}, total pp = {Inflate(outp[0] + outp[1] + outp[2])}");
             //return outp;
         }

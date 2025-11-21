@@ -3,6 +3,7 @@ using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
+using BLPPCounter.Utils.Misc_Classes;
 using System;
 using System.Threading;
 using TMPro;
@@ -18,12 +19,19 @@ namespace BLPPCounter.Counters
         public static Leaderboards ValidLeaderboards => Leaderboards.All;
 
         private int totalNotes;
-        private float[] ppVals;
         private float mult;
         #region Init
         public ProgressCounter(TMP_Text display, MapSelection map, CancellationToken ct) : base(display, map, ct)
         {
-            ppVals = new float[calc.DisplayRatingCount * 2];
+            ppHandler = new PPHandler(ratings, calc, PluginConfig.Instance.DecimalPrecision, 2, (rating, acc, in main, ref toChange) => PPContainer.MultiplyFast(ref toChange, mult))
+            {
+                UpdateFCEnabled = PluginConfig.Instance.PPFC
+            };
+            ppHandler.UpdateFC += (acc, extraVals, extraCalls) =>
+            {
+                extraVals[2].SetValues(calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision, ratings));
+                extraCalls(0, acc, in extraVals[2], ref extraVals[3]);
+            };
         }
         #endregion
         #region Overrides
@@ -41,27 +49,14 @@ namespace BLPPCounter.Counters
         public static void ResetFormat() { }
         #endregion
         #region Updates
-        public override void UpdatePP(float acc)
-        {
-            float[] temp = calc.GetPpWithSummedPp(acc);
-            for (int i = 0; i < temp.Length; i++)
-                ppVals[i] = (float)Math.Round(temp[i] * mult);
-        }
-        public override void UpdateFCPP(float fcPercent)
-        {
-            float[] temp = calc.GetPpWithSummedPp(fcPercent);
-            for (int i = 0; i < temp.Length; i++)
-                ppVals[i + temp.Length] = (float)Math.Round(temp[i] * mult);
-        }
         public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
             bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0;
             mult = Math.Min(1, notes / (float)totalNotes);
 
-            UpdatePP(acc);
-            if (displayFc) UpdateFCPP(fcPercent);
+            ppHandler.Update(acc, mistakes, fcPercent);
 
-            TheCounter.UpdateText(displayFc, display, ppVals, mistakes);
+            TheCounter.UpdateText(displayFc, display, ppHandler, mistakes);
         }
         public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
         #endregion

@@ -16,11 +16,11 @@ namespace BLPPCounter.CalculatorStuffs
     public abstract class Calculator
     {
         #region Static Variables
-        private static RatingContainer _ratings = default;
+        private RatingContainer _ratings = default;
         /// <summary>
-        /// Global ratings container used for calculations when no specific ratings are given.
+        /// Ratings container used for calculations when no specific ratings are given.
         /// </summary>
-        public static RatingContainer Ratings
+        public RatingContainer Ratings
         {
             get => _ratings;
             set {                 

@@ -1,6 +1,6 @@
-﻿using BLPPCounter.CalculatorStuffs;
-using BLPPCounter.Settings.Configs;
+﻿using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
+using BLPPCounter.Utils.Misc_Classes;
 using System.Threading;
 using TMPro;
 
@@ -13,12 +13,15 @@ namespace BLPPCounter.Counters
         public static int OrderNumber => 0;
         public static Leaderboards ValidLeaderboards => Leaderboards.All;
         public override string Name => DisplayName;
-        private float[] ppVals;
 
         #region Init
         public NormalCounter(TMP_Text display, MapSelection map, CancellationToken ct) : base(display, map, ct)
         {
-            ppVals = new float[calc.DisplayRatingCount * 2];
+            ppHandler = new PPHandler(ratings, calc, PluginConfig.Instance.DecimalPrecision, 1)
+            {
+                UpdateFCEnabled = PluginConfig.Instance.PPFC
+            };
+            ppHandler.UpdateFC += (acc, extraVals, extraCalls) => extraVals[1].SetValues(calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision, ratings));
         }
         public override void SetupData(MapSelection map, CancellationToken ct) { }
         public override void UpdateFormat() { }
@@ -26,22 +29,10 @@ namespace BLPPCounter.Counters
         public static void ResetFormat() { }
         #endregion
         #region Updates
-        public override void UpdatePP(float acc)
-        {
-            calc.SetPp(acc, ppVals, 0, PluginConfig.Instance.DecimalPrecision);
-        }
-        public override void UpdateFCPP(float fcPercent)
-        {
-            calc.SetPp(fcPercent, ppVals, ppVals.Length / 2, PluginConfig.Instance.DecimalPrecision);
-        }
         public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
-            bool displayFC = PluginConfig.Instance.PPFC && mistakes > 0;
-
-            UpdatePP(acc);
-            if (displayFC) UpdateFCPP(fcPercent);
-
-            TheCounter.UpdateText(displayFC, display, ppVals, mistakes);
+            ppHandler.Update(acc, mistakes, fcPercent);
+            TheCounter.UpdateText(ppHandler.DisplayFC, display, ppHandler, mistakes);
         }
         public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
         #endregion

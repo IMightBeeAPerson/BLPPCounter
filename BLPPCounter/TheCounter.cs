@@ -31,6 +31,8 @@ using static GameplayModifiers;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Utils.Misc_Classes;
 using BLPPCounter.Helpfuls.FormatHelpers;
+using System.Drawing;
+using UnityEngine.Profiling;
 namespace BLPPCounter
 {
 
@@ -65,11 +67,11 @@ namespace BLPPCounter
         public static ReadOnlyDictionary<string, Type> StaticProperties { get; private set; }
         public static Type[] ValidCounters { get; private set; }
         public static ReadOnlyDictionary<Leaderboards, string[]> ValidDisplayNames;
-        public static string[] DisplayNames => fullDisable ? new string[1] { "There are none" } : ValidDisplayNames[Leaderboard];
+        public static string[] DisplayNames => fullDisable ? ["There are none"] : ValidDisplayNames[Leaderboard];
         public static Dictionary<string, string> DisplayNameToCounter { get; private set; }
         private static Func<FormatWrapper, string> displayFormatter;
         internal static Func<string, string, string> TargetFormatter;
-        internal static Func<Func<string>, float, float, float, float, float, string> PercentNeededFormatter;
+        private static Func<FormatWrapper, string> percentNeededFormatter;
         private static Func<Func<FormatWrapper, string>> displayIniter, targetIniter, percentNeededIniter;
         private static FormatWrapper displayWrapper, targetWrapper, percentNeededWrapper;
         private static readonly ReadOnlyCollection<string> Labels = new ReadOnlyCollection<string>(new string[] { " Acc PP", " Pass PP", " Tech PP", " PP" }); //Ain't Nobody appending a billion "BL"s to this now :)
@@ -124,18 +126,18 @@ namespace BLPPCounter
             }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(1)
             {
                 { 'z', 0 }
-            }, new Func<object, bool, object>[1]
-            {
+            },
+            [
                 FormatRelation.CreateFunc("<color={0}>{0}", "<color={0}>")
-            }, new Dictionary<char, IEnumerable<(string, object)>>(2)
+            ], new Dictionary<char, IEnumerable<(string, object)>>(2)
             {
                 { 'x', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } },
                 { 'y', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } }
-            }, new (char, string)[2]
-            {
+            },
+            [
                 ((char)1, "Has a miss"),
                 ((char)2, "Is bottom of text")
-            }
+            ]
             );
         internal static readonly FormatRelation TargetFormatRelation = new FormatRelation("Target Format", DisplayName,
             pc.MessageSettings.TargetingMessage, str => pc.MessageSettings.TargetingMessage = str, TargetAlias,
@@ -205,7 +207,8 @@ namespace BLPPCounter
         private bool enabled, checkedLastIndex;
         private RatingContainer ratings;
         private int notes, comboNotes, mistakes;
-        private float totalHitscore, maxHitscore, fcTotalHitscore;
+        private int totalHitscore, maxHitscore, fcTotalHitscore;
+        private float acc, fcAcc;
         private string mode, hash;
         private NoteData currentNote;
         #endregion
@@ -246,9 +249,9 @@ namespace BLPPCounter
                         ValidCounters[ValidCounters.IndexOf(ValidCounters.First(a => a.Name.Equals(propertyOutp[toCheck.Key] as string)))] = null;
                         propertyOutp.Remove(toCheck.Key);
                     }
-                ValidCounters = ValidCounters.Where(a => a != null).ToArray();
+                ValidCounters = [.. ValidCounters.Where(a => a != null)];
                 DisplayNameToCounter = new Dictionary<string, string>();
-                Dictionary<string, string> counterToDisplayName = new Dictionary<string, string>();
+                Dictionary<string, string> counterToDisplayName = [];
                 foreach (var val in propertyOutp)
                     if (val.Value is string name) 
                     {
@@ -267,7 +270,7 @@ namespace BLPPCounter
                 IEnumerable<Leaderboards> keys = Enum.GetValues(typeof(Leaderboards)).Cast<Leaderboards>();
                 foreach (Leaderboards l in keys)
                 {
-                    HashSet<string> ls = new HashSet<string>(DNames[l].Select(n => counterToDisplayName[n]));
+                    HashSet<string> ls = [.. DNames[l].Select(n => counterToDisplayName[n])];
                     DNames[l] = displayNames.Where(str => ls.Contains(str)).ToArray();
                 }
                 ValidDisplayNames = new ReadOnlyDictionary<Leaderboards, string[]>(DNames);
@@ -317,7 +320,7 @@ namespace BLPPCounter
             targetIniter = null;
             TargetFormatter = null;
             percentNeededIniter = null;
-            PercentNeededFormatter = null;
+            percentNeededFormatter = null;
         }
         public override void CounterDestroy() {
             ChangeNotifiers(false);
@@ -348,9 +351,10 @@ namespace BLPPCounter
             ForceOff = () => ForceTurnOff();
             if (fullDisable || Leaderboard == default) return;
             notes = comboNotes = mistakes = 0;
-            totalHitscore = maxHitscore = fcTotalHitscore = 0.0f;
+            totalHitscore = maxHitscore = fcTotalHitscore = 0;
+            acc = fcAcc = 0f;
 #if !NEW_VERSION
-            sliderMap = new HashSet<SliderKey>();
+            sliderMap = [];
 #endif
             ChangeNotifiers(true);
             display = CanvasUtility.CreateTextFromSettings(Settings);
@@ -364,7 +368,7 @@ namespace BLPPCounter
         {
             if (!dataLoaded)
             {
-                Data = new Dictionary<string, Map>();
+                Data = [];
                 InitData();
             }
             if (leaderboardIndex == lastLeaderboardIndex && checkedLastIndex)
@@ -432,6 +436,7 @@ namespace BLPPCounter
                     if (updateFormat) { theCounter.UpdateFormat(); updateFormat = false; }
                     if (pc.UpdateAfterTime) SetTimeLooper();
                     SetLabels();
+                    display.SetText("Loaded!");
                     if (notes < 1) theCounter.UpdateCounter(1, 0, 0, 1, null);
                     return;
                 } else
@@ -495,19 +500,21 @@ namespace BLPPCounter
                 maxCutScore += offset;
             }
 
-            maxHitscore += notes < 14 ? maxCutScore * HelpfulMath.ClampedMultiplierForNote(notes) : maxCutScore;
+            maxHitscore += maxCutScore * HelpfulMath.MultiplierForNote(notes);
             if (cutScore > 0)
             {
-                totalHitscore += cutScore * HelpfulMath.ClampedMultiplierForNote(comboNotes);
-                fcTotalHitscore += notes < 14 ? cutScore * HelpfulMath.ClampedMultiplierForNote(notes) : cutScore;
+                totalHitscore += cutScore * HelpfulMath.MultiplierForNote(comboNotes);
+                fcTotalHitscore += cutScore * HelpfulMath.MultiplierForNote(notes);
             }
             else OnMiss();
-            //Plugin.Log.Info($"Note #{notes} ({st}): {cutScore} / {maxCutScore}" + (offset != 0 ? $" (shifted max from {scoringElement.maxPossibleCutScore})" : ""));
-            Finish:
+            acc = (float)totalHitscore / maxHitscore;
+            fcAcc = (float)fcTotalHitscore / maxHitscore;
+        //Plugin.Log.Info($"Note #{notes} ({st}): {cutScore} / {maxCutScore}" + (offset != 0 ? $" (shifted max from {scoringElement.maxPossibleCutScore})" : ""));
+        Finish:
             if (enteredLock) Monitor.Exit(TimeLooper.Locker);
             if (!InitTask.IsCompleted) return;
-            theCounter.SoftUpdate(totalHitscore / maxHitscore, notes, mistakes, fcTotalHitscore / maxHitscore, currentNote);
-            if (!pc.UpdateAfterTime) theCounter.UpdateCounter(totalHitscore / maxHitscore, notes, mistakes, fcTotalHitscore / maxHitscore, currentNote);
+            theCounter.SoftUpdate(acc, notes, mistakes, fcAcc, currentNote);
+            if (!pc.UpdateAfterTime) theCounter.UpdateCounter(acc, notes, mistakes, fcAcc, currentNote);
             else TimeLooper.SetStatus(false);
         }
 #if !NEW_VERSION
@@ -539,7 +546,7 @@ namespace BLPPCounter
             TimeLooper.GenerateTask(() =>
             {
                 if (currentNotes == notes) return true;
-                theCounter.UpdateCounter((float)(totalHitscore / maxHitscore), notes, mistakes, fcTotalHitscore / maxHitscore, currentNote);
+                theCounter.UpdateCounter(acc, notes, mistakes, fcAcc, currentNote);
                 currentNotes = notes;
                 return false;
             });
@@ -666,7 +673,7 @@ namespace BLPPCounter
         private static bool FormatTarget(string format)
         {
             targetIniter = GetFormatTarget(format, out string _);
-            return targetIniter != null;
+            return targetIniter is not null;
         }
         private static Func<Func<FormatWrapper, string>> GetFormatPercentNeeded(string format, out string errorStr) =>
             HelpfulFormatter.GetBasicTokenParser(format, PercentNeededAlias, DisplayName, a => { },
@@ -702,14 +709,14 @@ namespace BLPPCounter
         }
         private static void InitPercentNeeded()
         {
-            var simple = percentNeededIniter.Invoke();
+            percentNeededFormatter = percentNeededIniter.Invoke();
             percentNeededWrapper = new FormatWrapper((typeof(Func<string>), 'c'), (typeof(float), 'a'), (typeof(float), 'x'),
                 (typeof(float), 'y'), (typeof(float), 'z'), (typeof(float), 'p'));
-            PercentNeededFormatter = (color, acc, passpp, accpp, techpp, pp) =>
-            {
-                percentNeededWrapper.SetValues(('c', color), ('a', acc), ('x', techpp), ('y', accpp), ('z', passpp), ('p', pp));
-                return simple.Invoke(percentNeededWrapper);
-            };
+        }
+        public static string PercentNeededFormatter(Func<string> colorFunc, float acc, float passPP, float accPP, float techPP, float pp)
+        {
+            percentNeededWrapper.SetValues(('c', colorFunc), ('a', acc), ('x', techPP), ('y', accPP), ('z', passPP), ('p', pp));
+            return percentNeededFormatter.Invoke(percentNeededWrapper);
         }
         private static Type[] GetValidCounters()
         {
@@ -1050,31 +1057,31 @@ namespace BLPPCounter
         }
 #endregion
         #region Updates
-        public static void UpdateText(bool displayFc, TMP_Text display, float[] ppVals, int mistakes)
+        public static void UpdateText(bool displayFc, TMP_Text display, PPHandler ppVals, int mistakes)
         {
             int num = Calculator.GetCalc(Leaderboard).DisplayRatingCount;
             string mistakeColor = $"<color={(mistakes == 0 ? "#999" : "red")}>";
             if (pc.SplitPPVals && num > 1) {
                 string outp = "";
                 for (int i = 0; i < 4; i++) 
-                    outp += DisplayFormatter(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakeColor, mistakes, CurrentLabels[i]) + "\n";
+                    outp += DisplayFormatter(displayFc, pc.ExtraInfo && i == 3, ppVals[0, i], ppVals[1, i], mistakeColor, mistakes, CurrentLabels[i]) + "\n";
                 display.text = outp;
             } else
-                display.text = DisplayFormatter(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakeColor, mistakes, CurrentLabels.Last());
+                display.text = DisplayFormatter(displayFc, pc.ExtraInfo, ppVals[0, num - 1], ppVals[0, num - 1], mistakeColor, mistakes, CurrentLabels.Last());
         }
-        public static string GetUpdateText(bool displayFc, float[] ppVals, int mistakes)
-        {
-            int num = Calculator.GetCalc(Leaderboard).DisplayRatingCount;
-            string mistakeColor = $"<color={(mistakes == 0 ? "#999" : "red")}>";
-            if (pc.SplitPPVals && num > 1)
-            {
-                string outp = "";
-                for (int i = 0; i < 4; i++) //4 comes from the maximum amount of ratings of currently supported leaderboards
-                    outp += DisplayFormatter(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakeColor, mistakes, CurrentLabels[i]) + "\n";
-                return outp;
-            }
-            return DisplayFormatter(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakeColor, mistakes, CurrentLabels.Last());
-        }
+        //public static string GetUpdateText(bool displayFc, float[] ppVals, int mistakes)
+        //{
+        //    int num = Calculator.GetCalc(Leaderboard).DisplayRatingCount;
+        //    string mistakeColor = $"<color={(mistakes == 0 ? "#999" : "red")}>";
+        //    if (pc.SplitPPVals && num > 1)
+        //    {
+        //        string outp = "";
+        //        for (int i = 0; i < 4; i++) //4 comes from the maximum amount of ratings of currently supported leaderboards
+        //            outp += DisplayFormatter(displayFc, pc.ExtraInfo && i == 3, ppVals[i], ppVals[i + num], mistakeColor, mistakes, CurrentLabels[i]) + "\n";
+        //        return outp;
+        //    }
+        //    return DisplayFormatter(displayFc, pc.ExtraInfo, ppVals[num - 1], ppVals[num * 2 - 1], mistakeColor, mistakes, CurrentLabels.Last());
+        //}
         #endregion
     }
 }

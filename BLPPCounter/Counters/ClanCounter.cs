@@ -15,15 +15,13 @@ using TMPro;
 
 namespace BLPPCounter.Counters
 {
-    public class ClanCounter: MyCounters
+    public class ClanCounter(TMP_Text display, MapSelection map, CancellationToken ct) : MyCounters(display, map, ct)
     {
         #region Static Variables
         private static int playerClanId = -1;
-        private static readonly List<(MapSelection, float[])> mapCache = new List<(MapSelection, float[])>(); //Map, clan pp vals, acc vals
+        private static readonly List<(MapSelection, float[])> mapCache = []; //Map, clan pp vals, acc vals
         private static PluginConfig PC => PluginConfig.Instance;
-        private static Func<bool, bool, int, Func<string>, string, float, Func<string>, string, float, string, Func<string>, string> displayClan;
-        private static Func<bool[], int, Func<string>, string, string, float, string, float, string, string, string> displayWeighted;
-        private static Func<Func<string>, float, float, float, float, float, string> displayCustom;
+        private static Func<FormatWrapper, string> displayClan, displayWeighted, displayCustom;
         private static Func<Func<FormatWrapper, string>> clanIniter, weightedIniter, customIniter;
         private static FormatWrapper clanWrapper, weightedWrapper, customWrapper;
         public static readonly Dictionary<string, char> FormatAlias = new Dictionary<string, char>()
@@ -225,31 +223,28 @@ namespace BLPPCounter.Counters
         public override string Name => DisplayName;
         public string Mods { get; private set; }
         private RatingContainer nmRatings;
-        private float[] neededPPs, clanPPs;
-        private float[] ppVals; //default pass, acc, tech, total pp for 0-3, modified for 4-7. Same thing but for fc with 8-15.
-        private int setupStatus, ratingLen;
+        private float[] clanPPs;
+        private PPContainer neededPPs;
+        private float neededAcc;
+        private int setupStatus;
         private string message;
         private bool showRank;
         #endregion
         #region Init & Overrides
-        public ClanCounter(TMP_Text display, MapSelection map, CancellationToken ct) : base(display, map, ct) { }
         public override void SetupData(MapSelection map, CancellationToken ct) //setupStatus key: 0 = success, 1 = Map not ranked, 2 = Map already captured, 3 = load failed, 4 = map too hard to capture
         {
             setupStatus = 0;
-            ratingLen = map.Ratings.SelectedRatings.Length;
             JToken mapData = map.MapData.diffData;
             if (int.Parse(mapData["status"].ToString()) != 3) { setupStatus = 1; goto theEnd; }
             string songId = map.MapData.songId;
             Mods = "";
             nmRatings = HelpfulPaths.GetAllRatingsOfSpeed(mapData, calc);
-            neededPPs = new float[6];
-            neededPPs[3] = GetCachedPP(map);
-            if (neededPPs[3] <= 0)
+            neededPPs = new PPContainer(calc.DisplayRatingCount, GetCachedPP(map), precision: PC.DecimalPrecision);
+            if (neededPPs.TotalPP <= 0)
             {
                 float[] ppVals = LoadNeededPp(songId, out bool mapCaptured, out _, ref playerClanId);
-                neededPPs = new float[6];
-                neededPPs[3] = ppVals[0];
-                clanPPs = ppVals.Skip(1).ToArray();
+                neededPPs.TotalPP = ppVals[0];
+                clanPPs = [.. ppVals.Skip(1)];
                 if (mapCaptured)
                 {
                     Plugin.Log.Debug("Map already captured! No need to do anything else.");
@@ -259,17 +254,17 @@ namespace BLPPCounter.Counters
                 if (ppVals == null) { setupStatus = 3; goto theEnd; }
                 if (PC.MapCache > 0) mapCache.Add((map, ppVals));
             }
-            neededPPs[5] = calc.GetAcc(neededPPs[3], PC.DecimalPrecision, ratings.Ratings);
-            neededPPs[4] = neededPPs[5] / 100.0f;
-            float[] temp = calc.GetPp(neededPPs[4], nmRatings.Ratings);
-            for (int i=0;i<temp.Length;i++) //temp length should be less than or equal to 3
-                neededPPs[i] = temp[i];
+            neededAcc = calc.GetAcc(neededPPs.TotalPP, PC.DecimalPrecision, ratings.Ratings);
+            float[] temp = calc.GetPp(neededAcc / 100f, nmRatings.Ratings);
+            neededPPs.AccPP = temp[0];
+            neededPPs.PassPP = temp[1];
+            neededPPs.TechPP = temp[2];
             if (mapCache.Count > PC.MapCache)
             {
                 Plugin.Log.Debug("Cache full! Making room...");
                 do mapCache.RemoveAt(0); while (mapCache.Count > PC.MapCache);
             }
-            if (PC.CeilEnabled && neededPPs[5] >= PC.ClanPercentCeil) setupStatus = 4;
+            if (PC.CeilEnabled && neededAcc >= PC.ClanPercentCeil) setupStatus = 4;
         theEnd:
             switch (setupStatus)
             {
@@ -279,7 +274,15 @@ namespace BLPPCounter.Counters
                 case 4: message = PC.MessageSettings.MapUncapturableMessage; break;
             }
             showRank = PC.ShowRank && setupStatus != 1 && setupStatus != 3;
-            ppVals = new float[ratingLen * 4];
+            ppHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 2, (rating, acc, in main, ref toChange) => PPContainer.SubtractFast(in main, in neededPPs, ref toChange))
+            {
+                UpdateFCEnabled = PC.PPFC
+            };
+            ppHandler.UpdateFC += (fcAcc, vals, actions) =>
+            {
+                vals[2].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
+                actions(0, fcAcc, in vals[2], ref vals[3]);
+            };
         }
         public static async Task<(float[] clanPP, bool mapCaptured, string owningClan, int playerClanId)> LoadNeededPp(string mapId, int playerClanId, CancellationToken ct = default)
         {
@@ -301,7 +304,7 @@ namespace BLPPCounter.Counters
             check = await RequestClanLeaderboard(id, mapId, playerClanId, ct);
             if (check.Length == 0) return (new float[1] { pp }, mapCaptured, owningClan, playerClanId); //No scores are set, so player must capture it by themselves.
             JEnumerable<JToken> scores = JToken.Parse(check)["associatedScores"].Children();
-            List<float> actualPpVals = new List<float>();
+            List<float> actualPpVals = [];
             float playerScore = 0.0f;
             foreach (JToken score in scores)
             {
@@ -309,7 +312,7 @@ namespace BLPPCounter.Counters
                     playerScore = (float)score["pp"];
                 actualPpVals.Add((float)score["pp"]);
             }
-            List<float> clone = new List<float>(actualPpVals);
+            List<float> clone = [.. actualPpVals];
             clone.Remove(playerScore);
             float[] clanPPs = clone.ToArray();
             Array.Sort(clanPPs, (a, b) => (int)Math.Round(b - a));
@@ -330,12 +333,12 @@ namespace BLPPCounter.Counters
         }
         public override void ReinitCounter(TMP_Text display, RatingContainer ratingVals) {
             base.ReinitCounter(display, ratingVals);
-            neededPPs[5] = calc.GetAcc(neededPPs[3], PC.DecimalPrecision, ratings.Ratings);
-            neededPPs[4] = neededPPs[5] / 100.0f;
-            Plugin.Log.Info($"Read Percent: {neededPPs[5]}, Calc Percent: {neededPPs[4]}");
-            float[] temp = calc.GetPp(neededPPs[4], nmRatings.Ratings);
-            for (int i = 0; i < temp.Length; i++) //temp length should be less than or equal to 3
-                neededPPs[i] = temp[i];
+            neededAcc = calc.GetAcc(neededPPs.TotalPP, PC.DecimalPrecision, ratings.Ratings);
+            //Plugin.Log.Info($"Read Percent: {neededAcc}, Calc Percent: {neededAcc / 100f}");
+            float[] temp = calc.GetPp(neededAcc / 100f, nmRatings.Ratings);
+            neededPPs.AccPP = temp[0];
+            neededPPs.PassPP = temp[1];
+            neededPPs.TechPP = temp[2];
         }
         public override void UpdateFormat() => UpdateFormats();
         public static bool InitFormat()
@@ -460,56 +463,58 @@ namespace BLPPCounter.Counters
         }
         private static void InitClan()
         {
-            var simple = clanIniter.Invoke();
+            displayClan = clanIniter.Invoke();
             clanWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(int), 'e'), (typeof(Func<string>), 'c'), (typeof(string), 'x'), (typeof(float), 'p'),
                 (typeof(string), 'l'), (typeof(Func<string>), 'f'), (typeof(string), 'y'), (typeof(float), 'o'), (typeof(Func<string>), 'm'));
-            displayClan = (fc, totPp, mistakes, color, modPp, regPp, fcCol, fcModPp, fcRegPp, label, message) =>
-            {
-                clanWrapper.SetValues(
-                    ( (char)1, fc ), ((char)2, totPp ), ('e', mistakes ), ( 'c', color ), ('x',  modPp ), ('p', regPp ), ('l', label ), ( 'f', fcCol ), ( 'y', fcModPp ), ( 'o', fcRegPp ),
-                    ('m', message )
-                );
-                return simple.Invoke(clanWrapper);
-            };
+        }
+        private static string DisplayClan(bool fc, bool totPp, int mistakes, Func<string> color, string modPp, float regPp,
+            Func<string> fcColor, string fcModPp, float fcRegPp, string label, Func<string> message)
+        {
+            clanWrapper.SetValues(
+                ((char)1, fc), ((char)2, totPp), ('e', mistakes), ('c', color), ('x', modPp), ('p', regPp), ('l', label), ('f', fcColor), ('y', fcModPp), ('o', fcRegPp),
+                ('m', message)
+            );
+            return displayClan.Invoke(clanWrapper);
         }
         private static void InitWeighted()
         {
-            var simple = weightedIniter.Invoke();
+            displayWeighted = weightedIniter.Invoke();
             weightedWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(bool), (char)3), (typeof(int), 'e'), (typeof(Func<string>), 'c'),
-                (typeof(int), 'r'), (typeof(string), 'x'), (typeof(float), 'p'), (typeof(string), 'l'), (typeof(string), 'y'), (typeof(float), 'o'), (typeof(string), 'm'));
-            displayWeighted = (settings, mistakes, rankColor, rank, modPp, regPp, fcModPp, fcRegPp, label, message) =>
-            {
-                weightedWrapper.SetValues(('e', mistakes), ('c', rankColor), ('r', rank), ('x', modPp), ('p', regPp),
+                (typeof(string), 'r'), (typeof(string), 'x'), (typeof(float), 'p'), (typeof(string), 'l'), (typeof(string), 'y'), (typeof(float), 'o'), (typeof(string), 'm'));
+        }
+        private static string DisplayWeighted(bool[] settings, int mistakes, Func<string> rankColor, string rank, string modPp, float regPp,
+            string fcModPp, float fcRegPp, string label, string message)
+        {
+            weightedWrapper.SetValues(('e', mistakes), ('c', rankColor), ('r', rank), ('x', modPp), ('p', regPp),
                     ('l', label), ('y', fcModPp), ('o', fcRegPp), ('m', message), ((char)1, settings[0]), ((char)2, settings[1]), ((char)3, settings[2]));
-                return simple.Invoke(weightedWrapper);
-            };
+            return displayWeighted.Invoke(weightedWrapper);
         }
         private static void InitCustom()
         {
-            var simple = customIniter.Invoke();
+            displayCustom = customIniter.Invoke();
             customWrapper = new FormatWrapper((typeof(Func<string>), 'c'), (typeof(float), 'a'), (typeof(float), 'x'), (typeof(float), 'y'),
                 (typeof(float), 'z'), (typeof(float), 'p'));
-            displayCustom = (color, acc, passpp, accpp, techpp, pp) =>
-            {
-                customWrapper.SetValues(('c', color), ('a', acc), ('x', techpp), ('y', accpp), ('z', passpp), ('p', pp));
-                return simple.Invoke(customWrapper);
-            };
+        }
+        private static string DisplayCustom(Func<string> color, float acc, float accPP, float passPP, float techPP, float pp)
+        {
+            customWrapper.SetValues(('c', color), ('a', acc), ('y', accPP), ('z', passPP), ('x', techPP), ('p', pp));
+            return displayCustom.Invoke(customWrapper);
         }
         public static void AddToCache(MapSelection map, float[] vals) => mapCache.Add((map, vals));
         #endregion
         #region Updates
-        public override void UpdatePP(float acc)
-        {
-            calc.SetPp(acc, ppVals, 0, PC.DecimalPrecision);
-            for (int i = 0; i < ratingLen; i++)
-                ppVals[i + ratingLen] = (float)Math.Round(ppVals[i] - neededPPs[i], PC.DecimalPrecision);
-        }
-        public override void UpdateFCPP(float fcPercent)
-        {
-            calc.SetPp(fcPercent, ppVals, ratingLen * 2, PC.DecimalPrecision);
-            for (int i = 0; i < ratingLen; i++)
-                ppVals[i + ratingLen * 3] = (float)Math.Round(ppVals[i + ratingLen * 2] - neededPPs[i], PC.DecimalPrecision);
-        }
+        //public override void UpdatePP(float acc)
+        //{
+        //    calc.SetPp(acc, ppVals, 0, PC.DecimalPrecision);
+        //    for (int i = 0; i < ratingLen; i++)
+        //        ppVals[i + ratingLen] = (float)Math.Round(ppVals[i] - neededPPs[i], PC.DecimalPrecision);
+        //}
+        //public override void UpdateFCPP(float fcPercent)
+        //{
+        //    calc.SetPp(fcPercent, ppVals, ratingLen * 2, PC.DecimalPrecision);
+        //    for (int i = 0; i < ratingLen; i++)
+        //        ppVals[i + ratingLen * 3] = (float)Math.Round(ppVals[i + ratingLen * 2] - neededPPs[i], PC.DecimalPrecision);
+        //}
         public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
             if (setupStatus > 0)
@@ -517,29 +522,28 @@ namespace BLPPCounter.Counters
                 UpdateWeightedCounter(acc, mistakes, fcPercent);
                 return;
             }
-            bool displayFc = PC.PPFC && mistakes > 0;
-
-            UpdatePP(acc);
-            if (displayFc) UpdateFCPP(fcPercent);
+            
+            ppHandler.Update(acc, mistakes, fcPercent);
+            //Plugin.Log.Info("ppVals: " + HelpfulMisc.Print(ppHandler));
 
             string color(float num) => PC.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
             string message()
             {
-                var func = PC.ShowClanMessage ? displayCustom : TheCounter.PercentNeededFormatter;
-                return func.Invoke(() => color(ppVals[3] - neededPPs[3]),
-                neededPPs[5], neededPPs[0], neededPPs[1], neededPPs[2], (float)Math.Round(neededPPs[3], PC.DecimalPrecision));
+                Func<Func<string>, float, float, float, float, float, string> func = PC.ShowClanMessage ? DisplayCustom : TheCounter.PercentNeededFormatter;
+                return func.Invoke(() => color(ppHandler.GetPPGroup(0).TotalPP - neededPPs.TotalPP),
+                neededAcc, neededPPs.AccPP, neededPPs.PassPP, neededPPs.TechPP, neededPPs.TotalPP);
             }
             if (PC.SplitPPVals && calc.RatingCount > 1)
             {
                 string text = "";
                 for (int i = 0; i < 4; i++)
-                    text += displayClan.Invoke(displayFc, PC.ExtraInfo && i == 3, mistakes, () => color(ppVals[i + 4]), ppVals[i + 4].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i],
-                        () => color(ppVals[i + 12]), ppVals[i + 12].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[i + 8], TheCounter.CurrentLabels[i], message) + "\n";
+                    text += DisplayClan(ppHandler.DisplayFC, PC.ExtraInfo && i == 3, mistakes, () => color(ppHandler[1, i]), ppHandler[1, i].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[0, i],
+                        () => color(ppHandler[3, i]), ppHandler[3, i].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[2, i], TheCounter.CurrentLabels[i], message) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayClan.Invoke(displayFc, PC.ExtraInfo, mistakes, () => color(ppVals[7]), ppVals[7].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[3],
-                    () => color(ppVals[15]), ppVals[15].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppVals[11], TheCounter.CurrentLabels.Last(), message) + "\n";
+                display.text = DisplayClan(ppHandler.DisplayFC, PC.ExtraInfo, mistakes, () => color(ppHandler[1, 3]), ppHandler[1, 3].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[0, 3],
+                    () => color(ppHandler[3, 3]), ppHandler[3, 3].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[2, 3], TheCounter.CurrentLabels.Last(), message) + "\n";
         }
         public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
         private void UpdateWeightedCounter(float acc, int mistakes, float fcPercent)
@@ -569,12 +573,12 @@ namespace BLPPCounter.Counters
             {
                 string text = "", color = HelpfulFormatter.GetWeightedRankColor(rank);
                 for (int i = 0; i < 4; i++)
-                    text += displayWeighted.Invoke(new bool[] { displayFc, PC.ExtraInfo && i == 3, showRank && i == 3 }, 
+                    text += DisplayWeighted([displayFc, PC.ExtraInfo && i == 3, showRank && i == 3], 
                         mistakes, () => color, $"{rank}", $"{ppVals[i + 4]}", ppVals[i], $"{ppVals[i + 12]}", ppVals[i + 8], i == 3 ? ppLabel : TheCounter.CurrentLabels[i], message) + "\n";
                 display.text = text;
             }
             else
-                display.text = displayWeighted.Invoke(new bool[] { displayFc, PC.ExtraInfo, showRank }, 
+                display.text = DisplayWeighted([displayFc, PC.ExtraInfo, showRank], 
                     mistakes, () => HelpfulFormatter.GetWeightedRankColor(rank), $"{rank}", $"{ppVals[7]}", ppVals[3], $"{ppVals[15]}", ppVals[11], ppLabel, message) + "\n";
         }
     }

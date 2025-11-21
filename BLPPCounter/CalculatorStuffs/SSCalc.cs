@@ -11,8 +11,8 @@ namespace BLPPCounter.CalculatorStuffs
     public class SSCalc: Calculator
     {
         private static readonly float SecretMultiplier = 42.117208413f;
-        internal override List<(double, double)> PointList { get; } = new List<(double, double)>()
-        {
+        internal override List<(double, double)> PointList { get; } =
+        [
             (0, 0),
             (0.6, 0.182232335),
             (0.65, 0.586601),
@@ -50,20 +50,20 @@ namespace BLPPCounter.CalculatorStuffs
             (0.999, 4.715471),
             (0.9995, 5.01954365),
             (1, 5.36739445)
-        };
+        ];
         public static readonly SSCalc Instance = new SSCalc();
         public override Leaderboards Leaderboard => Leaderboards.Scoresaber;
         public override int RatingCount => 1;
         public override string Label => "SS";
-        public override string[] StarLabels { get; } = new string[1] { "<color=yellow>Stars</color>" };
+        public override string[] StarLabels { get; } = ["<color=yellow>Stars</color>"];
         public override bool UsesModifiers => false;
         private SSCalc() 
         {
             PointList.Reverse();
         }
 
-        public override float[] GetPp(float acc, params float[] ratings) => new float[1] { SecretMultiplier * GetCurve(acc) * ratings[0] };
-        public override float[] SelectRatings(float[] ratings) => ratings.Take(1).ToArray();
+        public override float[] GetPp(float acc, params float[] ratings) => [SecretMultiplier * GetCurve(acc) * ratings[0]];
+        public override float[] SelectRatings(float[] ratings) => [.. ratings.Take(1)];
         public override float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings)
         {
             if (deflatedPp > GetSummedPp(1.0f, ratings)) return precision < 0 ? 1.0f : 100.0f;

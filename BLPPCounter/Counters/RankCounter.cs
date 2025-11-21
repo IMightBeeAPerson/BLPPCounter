@@ -18,7 +18,7 @@ using BLPPCounter.Helpfuls.FormatHelpers;
 
 namespace BLPPCounter.Counters
 {
-    public class RankCounter : MyCounters
+    public class RankCounter(TMP_Text display, MapSelection map, CancellationToken ct) : MyCounters(display, map, ct)
     {
         #region Static Variables
         public static int OrderNumber => 4;
@@ -90,15 +90,11 @@ namespace BLPPCounter.Counters
         #endregion
         #region Variables
         public override string Name => DisplayName;
-        private float[] rankArr, ppVals;
+        private float[] rankArr;
         private (float acc, float pp, SongSpeed speed, float modMult)[] mapData;
-        private int ratingLen;
+
         #endregion
         #region Inits
-        public RankCounter(TMP_Text display, MapSelection map, CancellationToken ct) : base(display, map, ct)
-        {
-            ratingLen = ratings.SelectedRatings.Length == 1 ? 0 : ratings.SelectedRatings.Length;
-        }
         public override void SetupData(MapSelection map, CancellationToken ct)
         {
             string songId = map.MapData.songId;
@@ -120,19 +116,23 @@ namespace BLPPCounter.Counters
                 else mapData[i] = (mapData[i].acc, (float)Math.Round(calc.Inflate(calc.GetSummedPp(mapData[i].acc, ratings.SelectedRatings)), PC.DecimalPrecision), mapData[i].speed, mapData[i].modMult);
             }
             Array.Sort(mapData, (a,b) => (b.pp - a.pp) < 0 ? -1 : 1);
-            rankArr = mapData.Select(t => t.pp).ToArray();
-            ppVals = new float[(ratingLen + 1) * 2];
+            rankArr = [.. mapData.Select(t => t.pp)];
             //Plugin.Log.Debug($"[{string.Join(", ", mapData.Select(t => (t.acc, t.pp)))}]");
+            ppHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 1)
+            {
+                UpdateFCEnabled = PC.PPFC
+            };
+            ppHandler.UpdateFC += (fcAcc, vals, actions) =>
+            {
+                vals[2].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
+            };
         }
         public override void ReinitCounter(TMP_Text display, RatingContainer ratingVals)
         {
             base.ReinitCounter(display, ratingVals);
-            ratingLen = ratings.SelectedRatings.Length == 1 ? 0 : ratings.SelectedRatings.Length;
         }
         public override void ReinitCounter(TMP_Text display, MapSelection map) 
         {
-            ratingLen = Calculator.GetSelectedCalc().SelectRatings(map).Length;
-            if (ratingLen == 1) ratingLen = 0;
             base.ReinitCounter(display, map);
         }
         #endregion
@@ -185,37 +185,21 @@ namespace BLPPCounter.Counters
         }
         #endregion
         #region Updates
-        public override void UpdatePP(float acc)
-        {
-            float[] temp = calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision);
-            //Plugin.Log.Info($"ratings: {HelpfulMisc.Print(temp)}\ttemp: {HelpfulMisc.Print(temp)}");
-            for (int i = 0; i < temp.Length; i++)
-                ppVals[i] = temp[i];
-        }
-        public override void UpdateFCPP(float fcPercent)
-        {
-            float[] temp = calc.GetPpWithSummedPp(fcPercent, PluginConfig.Instance.DecimalPrecision);
-            for (int i = 0; i < temp.Length; i++)
-                ppVals[i + temp.Length] = temp[i];
-        }
         public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
-            bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0;
+            ppHandler.Update(acc, mistakes, fcPercent);
 
-            UpdatePP(acc);
-            if (displayFc) UpdateFCPP(fcPercent);
-
-            int rank = GetRank(ppVals[ratingLen]);
-            float ppDiff = (float)Math.Abs(Math.Round(mapData[Math.Max(rank - 2, 0)].pp - ppVals[ratingLen], PluginConfig.Instance.DecimalPrecision));
+            int rank = GetRank(ppHandler.GetPPGroup(0).TotalPP);
+            float ppDiff = (float)Math.Abs(Math.Round(mapData[Math.Max(rank - 2, 0)].pp - ppHandler.GetPPGroup(0).TotalPP, PluginConfig.Instance.DecimalPrecision));
             float accDiff = (float)Math.Abs(Math.Round((mapData[Math.Max(rank - 2, 0)].acc - acc) * 100f, PluginConfig.Instance.DecimalPrecision));
             string color = HelpfulFormatter.GetWeightedRankColor(rank);
             string text = "";
             //Plugin.Log.Info("PPVals: " + HelpfulMisc.Print(ppVals));
             if (PC.SplitPPVals && calc.RatingCount > 1)
-                for (int i = 0; i < ratingLen; i++)
-                    text += displayRank(displayFc, false, false, ppVals[i], ppVals[i + ratingLen],
+                for (int i = 0; i < calc.RatingCount; i++)
+                    text += displayRank(ppHandler.DisplayFC, false, false, ppHandler[0, i], ppHandler[0, i],
                         rank, ppDiff, accDiff, color, TheCounter.CurrentLabels[i]) + "\n";
-            text += displayRank(displayFc, PC.ExtraInfo, rank == 1, ppVals[ratingLen], ppVals[ratingLen * 2 + 1], rank, ppDiff, accDiff, color, TheCounter.CurrentLabels.Last());
+            text += displayRank(ppHandler.DisplayFC, PC.ExtraInfo, rank == 1, ppHandler[0, calc.DisplayRatingCount - 1], ppHandler[1, calc.DisplayRatingCount - 1], rank, ppDiff, accDiff, color, TheCounter.CurrentLabels.Last());
             display.text = text;
         }
         public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }

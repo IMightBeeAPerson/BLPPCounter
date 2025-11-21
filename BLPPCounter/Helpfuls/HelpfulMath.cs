@@ -76,5 +76,22 @@ namespace BLPPCounter.Helpfuls
             }
             return score;
         }
+        public static int GetTotalScoreFromNotes(IEnumerable<NoteEvent> notes)
+        {
+            int score = 0, mult = 1, multCount = 1, multMax = 2;
+            foreach (NoteEvent note in notes)
+            {
+                score += Calculator.GetCutScore(note) * mult;
+                if (mult < 8 && ++multCount >= multMax)
+                {
+                    mult *= 2;
+                    multCount = 0;
+                    multMax *= 2;
+                }
+            }
+            return score;
+        }
+        public static float GetAccuracyFromNotes(IEnumerable<NoteEvent> notes) =>
+            (float)GetTotalScoreFromNotes(notes) / GetMaxScoreFromNotes(notes);
     }
 }
