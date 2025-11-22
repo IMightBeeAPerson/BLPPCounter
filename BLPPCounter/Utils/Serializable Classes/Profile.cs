@@ -1,13 +1,9 @@
-﻿using BeatLeader.Models;
-using BLPPCounter.CalculatorStuffs;
+﻿using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Settings.SettingHandlers;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.Misc_Classes;
-using IPA.Config.Data;
-using ModestTree;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -15,20 +11,19 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
+using static AlphabetScrollInfo;
 
 namespace BLPPCounter.Utils
 {
     internal class Profile
     {
-#pragma warning disable IDE0051
         #region Static Variables
         public static readonly string DEFAULT_MODE = "Standard";
         private static readonly float[] AccsaberConsts;
-        private static readonly Dictionary<string, Profile> LoadedProfiles = new Dictionary<string, Profile>();
+        private static readonly Dictionary<string, Profile> LoadedProfiles = [];
         internal static TextMeshProUGUI TextContainer 
         {
             private get => textContainer;
@@ -64,8 +59,6 @@ namespace BLPPCounter.Utils
         [JsonProperty(nameof(UnusualModes), Required = Required.DisallowNull)] private List<(int Index, string Mode)> UnusualModes; //Defaults to "Standard" if not in this list.
         [JsonProperty(nameof(TotalPP), Required = Required.DisallowNull)] private float TotalPP = -1.0f;
         [JsonProperty(nameof(UserID), Required = Required.DisallowNull)] private readonly string UserID;
-        [JsonProperty(nameof(Level), Required = Required.DisallowNull)] public int Level;
-        [JsonProperty(nameof(Experience), Required = Required.DisallowNull)] public int Experience;
         [JsonProperty(nameof(PlusOne), Required = Required.DisallowNull)] public float PlusOne { get; private set; } = -1.0f;
 
         [JsonIgnore] public Table PlayTable { get; private set; }
@@ -99,20 +92,20 @@ namespace BLPPCounter.Utils
             if (TotalPP < 0)
             {
                 APIHandler api = APIHandler.GetAPI(Leaderboard);
-                ReloadLevels();
                 bool usingAP = Leaderboard == Leaderboards.Accsaber && AccSaberType != APCategory.All;
                 Play[] scoreData = (usingAP ?
                     (api as APAPI).GetScores(UserID, GetPlusOneCount(), AccSaberType) : api.GetScores(UserID, GetPlusOneCount()))?
                     .GetAwaiter().GetResult();
-                UnusualModeIndexes = new HashSet<int>();
-                UnusualModes = new List<(int Index, string Mode)>();
+                UnusualModeIndexes = [];
+                UnusualModes = [];
                 if (scoreData is null)
                 {
-                    Scores = new float[1] { 0.0f };
-                    ScoreNames = new string[1] { "No Scores" };
-                    ActualScoreDiffs = new BeatmapDifficulty[1] { BeatmapDifficulty.Normal };
-                    ScoreDiffs = new ulong[1] { 1UL };
-                    ScoreIDs = new string[1] { "12345" };
+                    float[] value = [0.0f];
+                    Scores = value;
+                    ScoreNames = ["No Scores"];
+                    ActualScoreDiffs = [BeatmapDifficulty.Normal];
+                    ScoreDiffs = [1UL];
+                    ScoreIDs = ["12345"];
                     ActualAPCategories = null;
                 }
                 else
@@ -140,7 +133,7 @@ namespace BLPPCounter.Utils
                     if (IsAP) APCategories = HelpfulMisc.CompressEnums(ActualAPCategories);
                 }
                 TotalPP = (usingAP ? (api as APAPI).GetProfilePP(UserID, AccSaberType) : api.GetProfilePP(UserID)).GetAwaiter().GetResult();
-                if (CurrentSession is null) CurrentSession = new Session(Leaderboard, UserID, TotalPP);
+                CurrentSession ??= new Session(Leaderboard, UserID, TotalPP);
                 InitTable();
             }
             WeightScores();
@@ -157,10 +150,10 @@ namespace BLPPCounter.Utils
                 UnusualModeIndexes = new HashSet<int>(UnusualModes.Count);
                 foreach ((int i, _) in UnusualModes)
                     UnusualModeIndexes.Add(i);
-                if (!(APCategories is null) && APCategories.Length != 0)
+                if (APCategories is not null && APCategories.Length != 0)
                     ActualAPCategories = HelpfulMisc.UncompressEnums<APCategory>(APCategories);
                 WeightScores();
-                if (CurrentSession is null) CurrentSession = new Session(Leaderboard, UserID, TotalPP);
+                CurrentSession ??= new Session(Leaderboard, UserID, TotalPP);
                 //CurrentSession.AddPlay(ScoreNames[0], ScoreIDs[0], ActualScoreDiffs[0], "Standard", Scores[0], 20f); //For debugging
             }
             catch (Exception e)
@@ -175,17 +168,17 @@ namespace BLPPCounter.Utils
         private void InitTable()
         {
             //Null check
-            if (TextContainer is null || !(PlayTable is null)) return;
+            if (TextContainer is null || PlayTable is not null) return;
 
             //Label setup
-            string[] names = new string[] { 
+            string[] names = [ 
                 "<color=#FA0>Score #</color>",
                 "Beatmap Name",
                 "<color=#0F0>D</color><color=#FF0>i</color><color=#F70>f</color><color=#C16>f</color>",
                 $"<color=purple>{(IsAP ? "AP" : "PP")}</color>",
                 "<color=#4AF>Key</color>" 
-            };
-            if (IsAP) names = names.Append("<color=#777>Catagory</color>").ToArray();
+            ];
+            if (IsAP) names = [.. names, "<color=#777>Catagory</color>"];
 
             //Value setup
             string[][] values = GetTableValues();
@@ -199,17 +192,6 @@ namespace BLPPCounter.Utils
 
         #endregion
         #region Reload Functions
-        public void ReloadLevels()
-        {
-            string playerDataStr = APIHandler.CallAPI_Static($"{HelpfulPaths.BLAPI}player/{Targeter.PlayerID}", BLAPI.Throttle).GetAwaiter().GetResult().Content
-                    .ReadAsStringAsync().GetAwaiter().GetResult();
-            if (playerDataStr != null && playerDataStr.Length > 0)
-            {
-                JToken playerData = JToken.Parse(playerDataStr);
-                Level = (int)playerData["level"];
-                Experience = (int)playerData["experience"];
-            }
-        }
         public void ReloadScores()
         {
             TotalPP = -1;
@@ -233,49 +215,34 @@ namespace BLPPCounter.Utils
             string[][] values = new string[Math.Min(PlaysToShow, Scores.Length - (PageNumber - 1) * PlaysToShow)][];
             for (int i = 0, j = (PageNumber - 1) * PlaysToShow; i < values.Length; i++, j++)
             {
-                values[i] = new string[] {
+                values[i] = [
                 $"<color=#FA0>#{j + 1}</color>",
                 ScoreNames[j].ClampString(40),
                 ColorizeDiff(ActualScoreDiffs[j]),
                 $"<color=purple>{Math.Round(Scores[j], PluginConfig.Instance.DecimalPrecision)}</color> {(IsAP ? "AP" : "PP")}",
                 $"<color=#4AF>{ScoreIDs[j]}</color>"
-                };
-                if (IsAP) values[i] = values[i].Append($"<color=#CCC>{ActualAPCategories[j]}</color>").ToArray();
+                ];
+                if (IsAP) values[i] = [.. values[i], $"<color=#CCC>{ActualAPCategories[j]}</color>"];
             }
             return values;
         }
         #endregion
         #region Static Functions
-        private static string ColorizeDiff(BeatmapDifficulty diff)
-        {
-            switch (diff)
+        private static string ColorizeDiff(BeatmapDifficulty diff) => diff switch
             {
-                case BeatmapDifficulty.Easy:
-                    return "<color=#0F0>Easy</color>";
-                case BeatmapDifficulty.Normal:
-                    return "<color=#FF0>Normal</color>";
-                case BeatmapDifficulty.Hard:
-                    return "<color=#F70>Hard</color>";
-                case BeatmapDifficulty.Expert:
-                    return "<color=#C16>Expert</color>";
-                case BeatmapDifficulty.ExpertPlus:
-                    return "<color=#F0F>Expert+</color>";
-                default:
-                    return null;
-            }
-        }
-        internal static int GetPlusOneCount(Leaderboards leaderboard)
-        {
-            switch (leaderboard)
+                BeatmapDifficulty.Easy => "<color=#0F0>Easy</color>",
+                BeatmapDifficulty.Normal => "<color=#FF0>Normal</color>",
+                BeatmapDifficulty.Hard => "<color=#F70>Hard</color>",
+                BeatmapDifficulty.Expert => "<color=#C16>Expert</color>",
+                BeatmapDifficulty.ExpertPlus => "<color=#F0F>Expert+</color>",
+                _ => null,
+            };
+        internal static int GetPlusOneCount(Leaderboards leaderboard) => leaderboard switch
             {
-                case Leaderboards.Beatleader:
-                case Leaderboards.Scoresaber:
-                case Leaderboards.Accsaber:
-                    return 100;
-                default:
-                    return 0;
-            }
-        }
+                Leaderboards.Beatleader or Leaderboards.Scoresaber or Leaderboards.Accsaber => 100,
+                _ => 0,
+            };
+
         /// <summary>
         /// Saves the given <paramref name="profile"/> to the <see cref="LoadedProfiles"/> dictionary.
         /// </summary>
@@ -294,11 +261,9 @@ namespace BLPPCounter.Utils
         {
             if (LoadedProfiles.Count == 0) return;
             IEnumerable<JToken> data = LoadedProfiles.Select(p => JToken.FromObject(p.Value));
-            using (StreamWriter sw = new StreamWriter(HelpfulPaths.PROFILE_DATA))
-            {
-                JsonSerializer serializer = new JsonSerializer();
-                serializer.Serialize(sw, data, typeof(Profile));
-            }
+            using StreamWriter sw = new(HelpfulPaths.PROFILE_DATA);
+            JsonSerializer serializer = new();
+            serializer.Serialize(sw, data, typeof(Profile));
         }
         /// <summary>
         /// Loads all profiles from the file at the path <see cref="HelpfulPaths.PROFILE_DATA"/> and saves it to the dictionary <see cref="LoadedProfiles"/>.
@@ -311,7 +276,7 @@ namespace BLPPCounter.Utils
                 try
                 {
                     Deserializing = true;
-                    JsonSerializer serializer = new JsonSerializer();
+                    JsonSerializer serializer = new();
                     IEnumerable<Profile> profiles;
                     using (StreamReader reader = File.OpenText(HelpfulPaths.PROFILE_DATA))
                         profiles = serializer.Deserialize(reader, typeof(IEnumerable<Profile>)) as IEnumerable<Profile>;
@@ -391,7 +356,6 @@ namespace BLPPCounter.Utils
             int currentNum = 1;
             Leaderboards current;
             (Leaderboards allowed, string mapKey) = await APIHandler.GetRankedLeaderboardsAndMapKey(hash, mapDiff, mode);
-            GetProfile(Leaderboards.Beatleader, userID).ReloadLevels();
             if (allowed == Leaderboards.None) return false;
             int leaderCount = (int)Math.Log((int)Leaderboards.All + 1, 2);
             string currentMode;
@@ -403,27 +367,26 @@ namespace BLPPCounter.Utils
                 //Plugin.Log.Info($"Allowed: {allowed} || Current: {current}");
                 if ((allowed & current) != Leaderboards.None)
                 {
-                    currentMode = TheCounter.SelectMode(mode, current);
-                    Calculator calc = Calculator.GetCalc(current);
-                    float[] ratings = calc.SelectRatings(TheCounter.GetDifficulty(await TheCounter.GetMap(hash, currentMode, current), mapDiff, current, currentMode, mods, true));
-                    float pp = calc.Inflate(calc.GetSummedPp(acc, ratings));
-                    if (current != Leaderboards.Accsaber)
-                        goodScore |= GetProfile(current, userID).AddPlay(pp, mapName, mapKey, mapDiff, mode);
-                    else
+                    try
                     {
-                        (_, HttpContent data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(mapDiff)), SSAPI.Throttle);
-                        (_, data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, JToken.Parse(await data.ReadAsStringAsync())["id"].ToString()));
-                        APCategory accSaberCategory = (APCategory)Enum.Parse(typeof(APCategory), JToken.Parse(await data.ReadAsStringAsync())["categoryDisplayName"].ToString().Split(' ')[0]);
-                        goodScore |= GetProfile(current, userID, accSaberCategory).AddPlay(pp, mapName, mapKey, mapDiff, mode);
-                    }
-                    /*try
-                    {
-                        goodScore |= GetProfile(current, userID, accSaberType).AddPlay(calc.Inflate(calc.GetSummedPp(acc, ratings)), mapName, mapKey, mapDiff, mode);
+                        currentMode = TheCounter.SelectMode(mode, current);
+                        Calculator calc = Calculator.GetCalc(current);
+                        float[] ratings = calc.SelectRatings(TheCounter.GetDifficulty(await TheCounter.GetMap(hash, currentMode, current), mapDiff, current, currentMode, mods, true));
+                        float pp = calc.Inflate(calc.GetSummedPp(acc, ratings));
+                        if (current != Leaderboards.Accsaber)
+                            goodScore |= GetProfile(current, userID).AddPlay(pp, mapName, mapKey, mapDiff, mode);
+                        else
+                        {
+                            (_, HttpContent data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(mapDiff)), SSAPI.Throttle);
+                            (_, data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, JToken.Parse(await data.ReadAsStringAsync())["id"].ToString()));
+                            APCategory accSaberCategory = (APCategory)Enum.Parse(typeof(APCategory), JToken.Parse(await data.ReadAsStringAsync())["categoryDisplayName"].ToString().Split(' ')[0]);
+                            goodScore |= GetProfile(current, userID, accSaberCategory).AddPlay(pp, mapName, mapKey, mapDiff, mode);
+                        }
                     }
                     catch (Exception e)
                     {
                         Plugin.Log.Error($"There was an issue adding play for leaderboard {current}!\n{e}");
-                    }*/
+                    }
                 }
                 currentNum <<= 1;
             }
@@ -516,7 +479,7 @@ namespace BLPPCounter.Utils
         /// </summary>
         private void WeightScores()
         {
-            WeightedScores = new float[Scores.Length];
+            if (WeightedScores is null || WeightedScores.Length != Scores.Length) WeightedScores = new float[Scores.Length];
             float weight = GetWeight(1);
             for (int i = 0; i < WeightedScores.Length; i++)
             {
@@ -630,31 +593,36 @@ namespace BLPPCounter.Utils
             Plugin.Log.Info($"{Leaderboard}{(Leaderboard == Leaderboards.Accsaber ? $" ({AccSaberType})" : "")}: {HelpfulMisc.Print(new object[] { rawPP, mapName, diff })}");
             if (float.IsNaN(rawPP) || Scores[Scores.Length - 1] > rawPP) return false;
             //Plugin.Log.Debug($"Recieved score: " + rawPP);
-            int index = HelpfulMisc.ReverseBinarySearch(Scores, rawPP);
             //Plugin.Log.Debug("AddPlay Index: " +  index);
             (bool isDupe, bool isBetter) = CheckForDupePlay(rawPP, mapKey, diff, mode, out int dupeIndex);
-            if (index >= Scores.Length || (isDupe && !isBetter)) return false;
+            if (isDupe && !isBetter) return false;
+
+            if (isDupe)
+            {
+                float current = WeightedScores.Aggregate(0.0f, (total, current) => total + current);
+                HelpfulMisc.SiftUp(Scores, dupeIndex);
+                HelpfulMisc.SiftUp(ScoreNames, dupeIndex);
+                HelpfulMisc.SiftUp(ActualScoreDiffs, dupeIndex);
+                HelpfulMisc.SiftUp(ScoreIDs, dupeIndex);
+                HelpfulMisc.SiftUp(WeightedScores, dupeIndex);
+                WeightScores();
+                TotalPP -= current - WeightedScores.Aggregate(0.0f, (total, current) => total + current);
+            }
+
+            int index = HelpfulMisc.ReverseBinarySearch(Scores, rawPP);
+            if (index >= Scores.Length) return false;
             float profilePP = GetProfilePP(GetWeightedPP(rawPP), index + 1);
             float oldScore = ScoreIDs.IndexOf(mapKey);
             oldScore = oldScore >= 0 ? Scores[(int)oldScore] : 0;
             if (!ignoreSession) CurrentSession.AddPlay(mapName, mapKey, diff, mode, rawPP, profilePP, oldScore);
             if (profilePP > 0) TotalPP += profilePP;
-            if (isDupe)
-            {
-                HelpfulMisc.SiftDown(Scores, index, dupeIndex, rawPP);
-                HelpfulMisc.SiftDown(ScoreNames, index, dupeIndex, mapName);
-                HelpfulMisc.SiftDown(ActualScoreDiffs, index, dupeIndex, diff);
-                HelpfulMisc.SiftDown(ScoreIDs, index, dupeIndex, mapKey);
-                HelpfulMisc.SiftDown(WeightedScores, index, dupeIndex, GetWeight(index + 1) * rawPP, GetWeight(2));
-            }
-            else
-            {
-                HelpfulMisc.SiftDown(Scores, index, rawPP);
-                HelpfulMisc.SiftDown(ScoreNames, index, mapName);
-                HelpfulMisc.SiftDown(ActualScoreDiffs, index, diff);
-                HelpfulMisc.SiftDown(ScoreIDs, index, mapKey);
-                HelpfulMisc.SiftDown(WeightedScores, index, GetWeight(index + 1) * rawPP, GetWeight(2));
-            }
+
+            HelpfulMisc.SiftDown(Scores, index, rawPP);
+            HelpfulMisc.SiftDown(ScoreNames, index, mapName);
+            HelpfulMisc.SiftDown(ActualScoreDiffs, index, diff);
+            HelpfulMisc.SiftDown(ScoreIDs, index, mapKey);
+            WeightScores();
+
             PlusOne = CalculatePlusOne();
             if (index != dupeIndex)
                 ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);

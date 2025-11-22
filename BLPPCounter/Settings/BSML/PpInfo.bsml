@@ -154,8 +154,6 @@
           <vertical spacing='0' align='Right' pref-width='30' pref-height='30'>
             <text id='SessionWindow_PlaysSet' text='Plays Set: ' align='Center'/>
             <text id='SessionWindow_PpGained' text='Profile PP Gained: ' align='Center'/>
-            <text id='LevelText' text='Level:' align='Center'/>
-            <text id='ExperienceText' text='Experience:' align='Center'/>
           </vertical>
         </horizontal>
       </modal>

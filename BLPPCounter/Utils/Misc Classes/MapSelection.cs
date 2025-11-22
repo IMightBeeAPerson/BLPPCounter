@@ -18,8 +18,8 @@ namespace BLPPCounter.Utils
         public SongSpeed MapSpeed { get; private set; }
         public RatingContainer Ratings { get; private set; }
         public (string songId, JToken diffData) MapData => Map.Get(Mode, Difficulty);
-        public bool IsUsable => HelpfulMisc.StatusIsUsable(this);
-        public string Hash => Map.Hash;
+        public readonly bool IsUsable => HelpfulMisc.StatusIsUsable(this);
+        public readonly string Hash => Map.Hash;
 
         public MapSelection(Map map, BeatmapDifficulty diff, string mode, RatingContainer ratings, SongSpeed mapSpeed = SongSpeed.Slower)
         {
@@ -35,22 +35,20 @@ namespace BLPPCounter.Utils
         public MapSelection(Map map, BeatmapDifficulty diff, string mode, SongSpeed mapSpeed = SongSpeed.Slower, Leaderboards currentLeaderboard = Leaderboards.None, params float[] ratings) :
         this(map, diff, mode, RatingContainer.GetContainer(currentLeaderboard == Leaderboards.None ? TheCounter.Leaderboard : currentLeaderboard, ratings), mapSpeed) { }
 
-        public void FixRates(Leaderboards currentLeaderboard, params float[] ratings) => Ratings.SetRatings(currentLeaderboard, ratings);
+        public readonly void FixRates(Leaderboards currentLeaderboard, params float[] ratings) => Ratings.SetRatings(currentLeaderboard, ratings);
         private void GetSongSpeed()
         {
-            float[] arr = HelpfulPaths.GetAllRatings(MapData.diffData, Calculator.GetSelectedCalc()).SelectMany(rating => rating.Ratings).ToArray(), ratings = Ratings.Ratings;
-            for (int i = 0; i < arr.Length; i += ratings.Length)
+            if (!Calculator.GetSelectedCalc().UsesModifiers) //No modifiers, so no speed changes.
             {
-                bool success = true;
-                for (int j = 0; j < ratings.Length; j++) 
-                    if (!Mathf.Approximately(arr[i + j], ratings[j]))
-                    {
-                        success = false;
-                        break;
-                    }
-                if (success)
+                MapSpeed = SongSpeed.Normal;
+                return;
+            }
+            RatingContainer[] arr = HelpfulPaths.GetAllRatings(MapData.diffData, Calculator.GetSelectedCalc());
+            for (int i = 0; i < arr.Length; i++)
+            {
+                if (arr[i] == Ratings)
                 {
-                    MapSpeed = HelpfulMisc.OrderedSpeeds[i / HelpfulMisc.OrderedSpeeds.Length];
+                    MapSpeed = HelpfulMisc.OrderedSpeeds[i];
                     return;
                 }
             }

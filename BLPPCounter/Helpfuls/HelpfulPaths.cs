@@ -133,7 +133,7 @@ namespace BLPPCounter.Helpfuls
         public static float GetRating(JToken data, PPType type, SongSpeed mod = SongSpeed.Normal)
         {
             if (data is null) return 0;
-            if (mod != SongSpeed.Normal && !(data["modifiersRating"] is null)) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
+            if (mod != SongSpeed.Normal && data["modifiersRating"] is not null) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
             string path = HelpfulMisc.AddModifier(HelpfulMisc.PPTypeToRating(type), mod);
             //Below is a workaround for how Taoh formats his data.
             if (mod == SongSpeed.Normal && type == PPType.Star && data[path] is null) return (float)(data["star" + HelpfulMisc.ToCapName(PpInfoTabHandler.Instance.CurrentLeaderboard)] ?? 0);
@@ -141,22 +141,22 @@ namespace BLPPCounter.Helpfuls
         }
         public static float GetRating(JToken data, PPType type, string modName)
         {
-            if (!modName.Equals("") && !(data?["modifiersRating"] is null)) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
+            if (!modName.Equals("") && data?["modifiersRating"] is not null) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
             string path = HelpfulMisc.AddModifier(HelpfulMisc.PPTypeToRating(type), modName);
             return (float)(data?[path] ?? 0);
         }
         public static RatingContainer GetAllRatingsOfSpeed(JToken data, Calculator calc, SongSpeed mod = SongSpeed.Normal)
         { //star, acc, pass, tech
-            float[] outp = Enum.GetValues(typeof(PPType)).Cast<PPType>().Select(type => GetRating(data, type, mod)).ToArray();
+            float[] outp = [.. Enum.GetValues(typeof(PPType)).Cast<PPType>().Select(type => GetRating(data, type, mod))];
             return RatingContainer.GetContainer(calc?.Leaderboard ?? Leaderboards.None, outp);
         }
         public static RatingContainer GetAllRatingsOfSpeed(JToken data, SongSpeed mod = SongSpeed.Normal) => GetAllRatingsOfSpeed(data, null, mod);
         public static RatingContainer[] GetAllRatings(JToken data, Calculator calc)
         {
-            List<RatingContainer> outp = new List<RatingContainer>(4); //length of the SongSpeed Enum.
+            List<RatingContainer> outp = new(4); //length of the SongSpeed Enum.
             foreach (SongSpeed s in HelpfulMisc.OrderedSpeeds)
                 outp.Add(GetAllRatingsOfSpeed(data, calc, s));
-            return outp.ToArray();
+            return [.. outp];
         }
         public static RatingContainer[] GetAllRatings(JToken data) => GetAllRatings(data, null);
         public static float GetMultiAmount(JToken data, string name)

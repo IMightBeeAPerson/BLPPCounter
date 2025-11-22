@@ -591,6 +591,18 @@ namespace BLPPCounter.Helpfuls
         /// <returns>Either the child <see cref="JToken">JToken</see> or if it is null the parent <see cref="JToken">JToken</see>.</returns>
         public static JToken TryEnter(this JToken data, string name) => data[name] ?? data;
         /// <summary>
+        /// Removes the value at <paramref name="removeIndex"/>, sifting all values above <paramref name="removeIndex"/> up.
+        /// </summary>
+        /// <typeparam name="T">The array type.</typeparam>
+        /// <param name="arr">The array to perform the action on.</param>
+        /// <param name="removeIndex">The index of the value to override.</param>
+        public static void SiftUp<T>(T[] arr, int removeIndex)
+        {
+            if (arr.Length <= removeIndex || removeIndex < 0) return;
+            for (int i = removeIndex; i < arr.Length - 1; i++)
+                arr[i] = arr[i + 1];
+        }
+        /// <summary>
         /// Inserts a value at <paramref name="insertIndex"/>, sifting all values at and below <paramref name="insertIndex"/> down.
         /// This will remove the value at the last index and return it. This action does not change the size of <paramref name="arr"/>.
         /// </summary>

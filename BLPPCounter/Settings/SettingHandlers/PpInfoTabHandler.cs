@@ -12,7 +12,6 @@ using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Enums;
-using BLPPCounter.Utils.List_Settings;
 using BLPPCounter.Utils.Misc_Classes;
 using BS_Utils.Utilities;
 using HMUI;
@@ -21,8 +20,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
@@ -207,8 +204,6 @@ namespace BLPPCounter.Settings.SettingHandlers
 
         [UIComponent(nameof(PlusOneLabel))] private TextMeshProUGUI PlusOneLabel;
         [UIComponent(nameof(PlusOneText))] private TextMeshProUGUI PlusOneText;
-        [UIComponent(nameof(LevelText))] private TextMeshProUGUI LevelText;
-        [UIComponent(nameof(ExperienceText))] private TextMeshProUGUI ExperienceText;
         [UIComponent(nameof(ReloadDataButton))] private Button ReloadDataButton;
         [UIComponent(nameof(AccSaberSetting))] private DropDownListSetting AccSaberSetting;
         [UIComponent(nameof(ProfilePPSlider))] private SliderSetting ProfilePPSlider;
@@ -356,14 +351,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void DoTestThing()
         {
             //CurrentProfile.AddPlay(ProfilePPSlider.Value);
-            //UpdateProfilePP();
-            //UpdateProfile();
-            CompletedMap(0.995f, Sldvc.selectedDifficultyBeatmap);
+            UpdateProfilePP();
+            UpdateProfile();
+            CompletedMap(0.990f, Sldvc.selectedDifficultyBeatmap);
         }*/
-        [UIAction(nameof(RefreshProfilePP))] private void RefreshProfilePP()
-        {
-            Task.Run(async () => await RefreshProfileScores());
-        }
+        [UIAction(nameof(RefreshProfilePP))]
+        private void RefreshProfilePP() => Task.Run(RefreshProfileScores);
         private async Task RefreshProfileScores()
         {
             AsyncLock.Releaser? theLock = await ProfileLock.TryLockAsync();
@@ -948,8 +941,6 @@ namespace BLPPCounter.Settings.SettingHandlers
             CurrentProfile.ReloadTableValues();
             PlusOneLabel.SetText("+1 " + GetPPLabel());
             PlusOneText.SetText($"<color=#0F0>{CurrentProfile.PlusOne}</color> {GetPPLabel()}");
-            LevelText.SetText($"Level: <color=#0F0>{CurrentProfile.Level}</color>");
-            ExperienceText.SetText($"Experience: <color=#0F0>{CurrentProfile.Experience}</color>");
             UpdateProfilePP();
         }
         public Task Refresh(bool forceRefresh = false) => DoRefresh(forceRefresh);

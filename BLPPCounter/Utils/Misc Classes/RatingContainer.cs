@@ -184,15 +184,11 @@ namespace BLPPCounter.Utils.Misc_Classes
             return new RatingContainer(leaderboard, ratings[0], ratings[1], ratings[2], ratings[3]);
         }
 
-        public override bool Equals(object obj)
-        {
-            return obj is RatingContainer rc && Equals(rc);
-        }
-        public bool Equals(RatingContainer other)
-        {
-            return Mathf.Approximately(StarRating, other.StarRating) && Mathf.Approximately(AccRating, other.AccRating) && Mathf.Approximately(PassRating, other.PassRating) && Mathf.Approximately(TechRating, other.TechRating);
-        }
-        public override string ToString()
+        public override readonly bool Equals(object obj) => obj is RatingContainer rc && Equals(rc);
+        public readonly bool Equals(RatingContainer other) => Mathf.Approximately(StarRating, other.StarRating) && Mathf.Approximately(AccRating, other.AccRating) && Mathf.Approximately(PassRating, other.PassRating) && Mathf.Approximately(TechRating, other.TechRating);
+        public static bool operator ==(RatingContainer left, RatingContainer right) => left.Equals(right);
+        public static bool operator !=(RatingContainer left, RatingContainer right) => !(left == right);
+        public override readonly string ToString()
         {
             return $"StarRating: {StarRating}\nAccRating: {AccRating}\nPassRating: {PassRating}\nTechRating {TechRating}";
         }

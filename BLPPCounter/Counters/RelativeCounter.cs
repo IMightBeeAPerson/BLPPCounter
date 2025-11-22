@@ -192,8 +192,8 @@ namespace BLPPCounter.Counters
 
             noteArray = [.. bestReplay.notes];
 
-            Plugin.Log.Info($"Replay Score: {bestReplay.info.score}, Max Score: {HelpfulMath.MaxScoreForNotes(bestReplay.notes.Count)}, Accuracy: {(float)bestReplay.info.score / HelpfulMath.MaxScoreForNotes(bestReplay.notes.Count) * 100f}%\n{new string('-', 30)}");
-            Plugin.Log.Info($"Calculated Replay Score: {HelpfulMath.GetTotalScoreFromNotes(noteArray)}, Calculated Max Score: {HelpfulMath.GetMaxScoreFromNotes(noteArray)}, Calculated Accuracy: {HelpfulMath.GetAccuracyFromNotes(noteArray)}");
+            //Plugin.Log.Info($"Replay Score: {bestReplay.info.score}, Max Score: {HelpfulMath.MaxScoreForNotes(bestReplay.notes.Count)}, Accuracy: {(float)bestReplay.info.score / HelpfulMath.MaxScoreForNotes(bestReplay.notes.Count) * 100f}%\n{new string('-', 30)}");
+            //Plugin.Log.Info($"Calculated Replay Score: {HelpfulMath.GetTotalScoreFromNotes(noteArray)}, Calculated Max Score: {HelpfulMath.GetMaxScoreFromNotes(noteArray)}, Calculated Accuracy: {HelpfulMath.GetAccuracyFromNotes(noteArray)}");
 
             wallArray = new Queue<WallEvent>(bestReplay.walls);
             ReplayMods = bestReplay.info.modifiers.ToUpper();
