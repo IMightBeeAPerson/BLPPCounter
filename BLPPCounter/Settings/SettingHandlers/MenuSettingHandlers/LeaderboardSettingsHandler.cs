@@ -15,15 +15,15 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
 {
     internal class LeaderboardSettingsHandler
     {
-        internal static LeaderboardSettingsHandler Instance = new LeaderboardSettingsHandler();
+        internal static LeaderboardSettingsHandler Instance = new();
         private static PluginConfig PC => PluginConfig.Instance;
 
         public event Action LeaderboardUpdated;
         public IReadOnlyList<Leaderboards> UsableLeaderboards => _usableLeaderboards;
-        internal List<object> LeaderboardOptions => PC.LeaderboardsInUse.Select(token => (object)new LeaderboardListInfo(token)).ToList();
+        internal List<object> LeaderboardOptions => [.. PC.LeaderboardsInUse.Select(token => (object)new LeaderboardListInfo(token))];
         internal List<object> LeaderboardList => PC.LeaderboardsInUse.Count == _usableLeaderboards.Count ?
-            new List<object>(1) { Leaderboards.None.ToString() } :
-            _usableLeaderboards.Where(token => !PC.LeaderboardsInUse.Contains(token)).Select(token => (object)token.ToString()).ToList();
+            [Leaderboards.None.ToString()] :
+            [.. _usableLeaderboards.Where(token => !PC.LeaderboardsInUse.Contains(token)).Select(token => (object)token.ToString())];
 
         private readonly List<Leaderboards> _usableLeaderboards;
         public Leaderboards NextLeaderboardToAdd;

@@ -47,15 +47,15 @@ namespace BLPPCounter.Settings.SettingHandlers
         private IDifficultyBeatmap CurrentMap; // 1.34.2 and below
 #endif
         private (JToken Diffdata, JToken Scoredata) CurrentDiff;
-        private AsyncLock RefreshLock = new AsyncLock(), ProfileLock = new AsyncLock();
+        private AsyncLock RefreshLock = new(), ProfileLock = new();
         private bool SelectButtonsOn = false;
-        internal Leaderboards CurrentLeaderboard { get; private set; } = PC.LeaderboardsInUse.First();
+        internal Leaderboards CurrentLeaderboard { get; private set; } = PC.CalcLeaderboard;
         private Calculator CurrentCalculator => Calculator.GetCalc(CurrentLeaderboard);
         private APIHandler CurrentAPI => APIHandler.GetAPI(CurrentLeaderboard);
 #if NEW_VERSION
         private readonly Dictionary<string, BeatmapKey> TabMapInfo = new Dictionary<string, BeatmapKey>() // 1.37.0 and above
 #else
-        private readonly Dictionary<string, IDifficultyBeatmap> TabMapInfo = new Dictionary<string, IDifficultyBeatmap>() // 1.34.2 and below
+        private readonly Dictionary<string, IDifficultyBeatmap> TabMapInfo = new() // 1.34.2 and below
 #endif
         {
             { "Info", default },
@@ -65,7 +65,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             { "Profile", default },
             { "Settings", default } //This one is only here to provide a list of names
         };
-        private readonly Dictionary<string, Action<PpInfoTabHandler>> Updates = new Dictionary<string, Action<PpInfoTabHandler>>()
+        private readonly Dictionary<string, Action<PpInfoTabHandler>> Updates = new()
         {
             {"Info", new Action<PpInfoTabHandler>(pith => pith.UpdateInfo()) },
             {"Capture", new Action<PpInfoTabHandler>(pith => pith.UpdateCaptureValues()) },
@@ -73,7 +73,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             {"Custom", new Action<PpInfoTabHandler>(pith => pith.UpdateCustomAccuracy()) },
             {"Profile", new Action<PpInfoTabHandler>(pith => pith.UpdateProfile()) }
         };
-        private static readonly string[] SelectionButtonTags = new string[4] { "SSButton", "NMButton", "FSButton", "SFButton" };
+        private static readonly string[] SelectionButtonTags = ["SSButton", "NMButton", "FSButton", "SFButton"];
         private Table ClanTableTable, RelativeTableTable, PPTableTable, PercentTableTable;
         public bool ChangeTabSettings = false;
         #region Relative Counter
@@ -100,6 +100,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         private bool ShowProfileTab => true;// CurrentLeaderboard != Leaderboards.Accsaber;
 
         [UIComponent(nameof(MainTabSelector))] internal TabSelector MainTabSelector;
+        [UIComponent(nameof(SaveLeaderboardButton))] private Button SaveLeaderboardButton;
+        [UIComponent(nameof(CalcSelector))] internal ListSetting CalcSelector;
 
         [UIValue(nameof(ShowTrueID))] private bool ShowTrueID
         {
@@ -110,6 +112,20 @@ namespace BLPPCounter.Settings.SettingHandlers
                 MapID.gameObject.SetActive(!value);
                 TrueMapID.gameObject.SetActive(value);
             }
+        }
+        [UIValue(nameof(CalcLeaderboard))] private string CalcLeaderboard
+        {
+            get => PC.CalcLeaderboard.ToString();
+            set => PC.CalcLeaderboard = (Leaderboards)Enum.Parse(typeof(Leaderboards), value);
+        }
+        [UIValue(nameof(CalcLeaderboards))] private List<object> CalcLeaderboards => [.. LeaderboardSettingsHandler.Instance.UsableLeaderboards.Select(a => a.ToString())];
+        [UIAction(nameof(SaveLeaderboard))] private void SaveLeaderboard()
+        {
+            SaveLeaderboardButton.interactable = false;
+            ChangeTabSettings = true;
+            SettingsHandler.Instance.CalcSelector.ReceiveValue();
+            ResetTabs();
+            Task.Run(async () => { await Refresh(true); SaveLeaderboardButton.interactable = true; });
         }
         [UIValue(nameof(PercentSliderMin))] private float PercentSliderMin
         {
@@ -187,7 +203,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 Task.Run(() => UpdateProfile());
             }
         }
-        [UIValue(nameof(APCategorySettings))] private List<object> APCategorySettings = Enum.GetNames(typeof(APCategory)).Skip(1).Cast<object>().ToList();
+        [UIValue(nameof(APCategorySettings))] private List<object> APCategorySettings = [.. Enum.GetNames(typeof(APCategory)).Skip(1).Cast<object>()];
         private APCategory _APSetting = APCategory.All;
 
         [UIComponent(nameof(ProfileTab))] private Tab ProfileTab;
@@ -200,7 +216,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(SessionWindow_PlaysSet))] private TextMeshProUGUI SessionWindow_PlaysSet;
         [UIComponent(nameof(SessionWindow_PpGained))] private TextMeshProUGUI SessionWindow_PpGained;
         [UIComponent(nameof(SessionTable))] private CustomCellListTableData SessionTable;
-        [UIValue(nameof(SessionTable_Infos))] private List<object> SessionTable_Infos => CurrentProfile?.CurrentSession.Info ?? new List<object>(0);
+        [UIValue(nameof(SessionTable_Infos))] private List<object> SessionTable_Infos => CurrentProfile?.CurrentSession.Info ?? [];
 
         [UIComponent(nameof(PlusOneLabel))] private TextMeshProUGUI PlusOneLabel;
         [UIComponent(nameof(PlusOneText))] private TextMeshProUGUI PlusOneText;
@@ -540,7 +556,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 mode,
                 true //Debug option, just prevents prints when the API was called.
                 ).ConfigureAwait(false);
-            TargetHasScore = !(scoreData is null);
+            TargetHasScore = scoreData is not null;
             if (!TargetHasScore) { await UpdateDiff().ConfigureAwait(false); return 0.0f; } //target doesn't have a score on this diff.
             JToken diffData = null;
             try
@@ -583,7 +599,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             Calculator calc = CurrentCalculator;
             string[][] arr = new string[] { "<color=red>Slower</color>", "<color=#aaa>Normal</color>", "<color=#0F0>Faster</color>", "<color=#FFD700>Super Fast</color>" }.RowToColumn(3);
             //ss-sf, [star, acc, pass, tech] (selects by leaderboard)
-            float[] ratings = HelpfulPaths.GetAllRatings(CurrentDiff.Diffdata.TryEnter("difficulty"), calc).SelectMany(rating => rating.SelectedRatings).ToArray(); 
+            float[] ratings = [.. HelpfulPaths.GetAllRatings(CurrentDiff.Diffdata.TryEnter("difficulty"), calc).SelectMany(rating => rating.SelectedRatings)];
             if (!UsesMods)
             {
                 float[] newArr = new float[ratings.Length * 4];
@@ -599,9 +615,9 @@ namespace BLPPCounter.Settings.SettingHandlers
             int len = ratings.Length / 4; //divide by 4 because 3 speed mods + 1 no mod
             //Plugin.Log.Info($"rating len: {ratings.Length}, len: {len}");
             for (int i = 0; i < arr.Length; i++)
-                arr[i][1] = "<color=#0c0>" + valueCalc.Invoke(ratings.Skip(i * len).Take(len).ToArray()) + "</color>" + suffix;
+                arr[i][1] = "<color=#0c0>" + valueCalc.Invoke([.. ratings.Skip(i * len).Take(len)]) + "</color>" + suffix;
             if (!Mathf.Approximately(CurrentModMultiplier, 1.0f)) for (int i = 0; i < arr.Length; i++)
-                    arr[i][2] = "<color=green>" + valueCalc(ratings.Skip(i * len).Take(len).Select(current => current * CurrentModMultiplier).ToArray()) + "</color>" + suffix;
+                    arr[i][2] = "<color=green>" + valueCalc([.. ratings.Skip(i * len).Take(len).Select(current => current * CurrentModMultiplier)]) + "</color>" + suffix;
             else for (int i = 0; i < arr.Length; i++) arr[i][2] = "N/A";
             if (tableTable is null)
                 tableTable = new Table(table, arr, speedLbl, accLbl, gnLbl) { HasEndColumn = true };
@@ -962,7 +978,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             {
                 try
                 {
-                    CurrentLeaderboard = PC.LeaderboardsInUse.First();
+                    CurrentLeaderboard = PC.CalcLeaderboard;
                     UpdateMods();
                     TargetPP = await UpdateTargetPP();
                     await UpdateTabDisplay(forceRefresh, false);
@@ -994,7 +1010,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         public void ResetTabs()
         {
-            string[] tabNames = TabMapInfo.Keys.ToArray();
+            if (CurrentMap.Equals(default) && CurrentDiff.Equals(default)) return;
+            string[] tabNames = [.. TabMapInfo.Keys];
             foreach (string s in tabNames)
                 TabMapInfo[s] = default;
             PPTableTable?.ClearTable();

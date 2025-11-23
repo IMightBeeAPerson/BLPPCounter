@@ -35,7 +35,8 @@ namespace BLPPCounter.Settings.Configs
         #endregion
         #region Leaderboard Settings
         [UseConverter(typeof(ListConverter<Leaderboards>))]
-        public virtual List<Leaderboards> LeaderboardsInUse { get; set; } = new List<Leaderboards>(1) { Leaderboards.Beatleader };
+        public virtual List<Leaderboards> LeaderboardsInUse { get; set; } = [Leaderboards.Beatleader];
+        public virtual Leaderboards CalcLeaderboard { get; set; } = Leaderboards.Beatleader;
         public virtual bool UseUnranked { get; set; } = true;
         public virtual bool LeaderInLabel { get; set; } = true;
         public virtual bool HuntLoads { get; set; } = true;

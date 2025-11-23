@@ -54,8 +54,6 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
                 else if (!TypesOfPP.Any(obj => ((string)obj).Equals(PPType))) PPType = (string)TypesOfPP[0];
                 if (DefaultCounterList != null) DefaultCounterList.UpdateListSetting(RelativeDefaultList);
                 else if (!RelativeDefaultList.Any(obj => ((string)obj).Equals(RelativeDefault))) RelativeDefault = (string)RelativeDefaultList[0];
-                PpInfoTabHandler.Instance.ChangeTabSettings = true;
-                PpInfoTabHandler.Instance.ResetTabs();
                 TheCounter.SettingChanged = true;
             };
             PropertyChanged += (obj, args) =>
@@ -64,6 +62,11 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
                 {
                     case nameof(Leaderboard):
                         TypesOfPPChanged?.Invoke();
+                        break;
+                    case nameof(CalcLeaderboard):
+                        PpInfoTabHandler.Instance.ChangeTabSettings = true;
+                        PpInfoTabHandler.Instance.CalcSelector.ReceiveValue();
+                        PpInfoTabHandler.Instance.ResetTabs();
                         break;
                     case nameof(UseUnranked):
                         TheCounter.SettingChanged = true;
@@ -167,6 +170,8 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         internal CustomCellListTableData LeaderboardTable;
         [UIComponent(nameof(LeaderboardSelector))]
         internal ListSetting LeaderboardSelector;
+        [UIComponent(nameof(CalcSelector))]
+        internal ListSetting CalcSelector;
         [UIValue(nameof(Leaderboard))]
         private string Leaderboard
         {
@@ -180,6 +185,14 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         private List<object> LeaderboardOptions => LeaderboardSettings.LeaderboardOptions;
         [UIAction(nameof(AddLeaderboard))]
         private void AddLeaderboard() => LeaderboardSettings.AddCell();
+        [UIValue(nameof(CalcLeaderboard))]
+        private string CalcLeaderboard
+        {
+            get => PC.CalcLeaderboard.ToString();
+            set { PC.CalcLeaderboard = (Leaderboards)Enum.Parse(typeof(Leaderboards), value); PropertyChanged(this, new PropertyChangedEventArgs(nameof(CalcLeaderboard))); }
+        }
+        [UIValue(nameof(CalcLeaderboards))]
+        private List<object> CalcLeaderboards => [.. LeaderboardSettings.UsableLeaderboards.Select(a => a.ToString())];
         [UIValue(nameof(UseUnranked))]
         public bool UseUnranked
         {

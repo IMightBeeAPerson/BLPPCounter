@@ -39,6 +39,7 @@
             </vertical>
           </vertical>
         </modal>
+        <list-setting id='CalcSelector' text='Calculator Leaderboard' apply-on-change='true' value='CalcLeaderboard' options='CalcLeaderboards' hover-hint='Choose which leaderboard is used for the calculator'/>
         <checkbox-setting text='Show On Unranked Maps' apply-on-change='true' value='UseUnranked' hover-hint='Patreons of BL can see ratings for unranked maps'/>
         <checkbox-setting text='Show Leaderboard in Label' apply-on-change='true' value='LeaderInLabel' hover-hint='Shows the leaderboard inside of the label aspect of the counter'/>
         <checkbox-setting text='Try to hunt loads' apply-on-change='true' value='HuntLoads' hover-hint='When loading a map, whether or not to load outside of the cache if not found in the cache'/>

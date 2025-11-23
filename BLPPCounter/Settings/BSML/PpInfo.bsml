@@ -175,6 +175,8 @@
     <tab tags='SettingsTab' tab-name='Info Settings'>
       <vertical spacing='2' child-expand-height='true' horizontal-fit='PreferredSize' pref-width='100' vertical-fit='PreferredSize'>
         <checkbox-setting text='Show true ID' apply-on-change='true' value='ShowTrueID' hover-hint='Whether or not to show the leaderboard ID or actual beatsaber id'/>
+        <list-setting id='CalcSelector' text='Calculator Leaderboard' apply-on-change='true' value='CalcLeaderboard' options='CalcLeaderboards' hover-hint='Choose which leaderboard is used for the calculator'/>
+        <button id='SaveLeaderboardButton' text='Set Leaderboard' on-click='SaveLeaderboard' align='Center'/>
       </vertical>
     </tab>
     
