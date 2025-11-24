@@ -60,6 +60,11 @@ namespace BLPPCounter.Utils.Misc_Classes
             for (int i = 0; i < calcOtherPPs.Length; i++)
                 calcOtherPPs[i](ratings, acc, in ppVals[0], ref ppVals[i + 1]);
         }
+        public void Reset()
+        {
+            mistakes = 0;
+            isFcing = true;
+        }
         public void SetRatings(RatingContainer ratings) => this.ratings = ratings;
         public ref PPContainer GetPPGroup(int group) => ref ppVals[group];
 

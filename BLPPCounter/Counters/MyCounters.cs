@@ -28,6 +28,7 @@ namespace BLPPCounter.Counters
         public virtual void ReinitCounter(TMP_Text display)
         {//same difficulty, modifier, and map
             this.display = display;
+            ppHandler.Reset();
         }
         public virtual void ReinitCounter(TMP_Text display, RatingContainer ratingVals)
         {//same map, different modifiers
@@ -37,6 +38,7 @@ namespace BLPPCounter.Counters
             ratings.SetSelectedRatings();
             calc.Ratings = ratings;
             ppHandler?.SetRatings(ratings);
+            ppHandler.Reset();
         } 
         public virtual void ReinitCounter(TMP_Text display, MapSelection map)
         {//same map, different difficulty/mode
