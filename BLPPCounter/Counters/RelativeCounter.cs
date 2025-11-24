@@ -149,15 +149,28 @@ namespace BLPPCounter.Counters
             JToken data = null;
 
             if (PC.LocalReplays) {
-                string replayName = LocalReplayHandler.GetReplayName(Targeter.TargetID, map.Map.Hash, mode, map.Difficulty.ToString());//, data["song"]["name"].ToString());
-                if (replayName != null)
+                try
                 {
-                    //Plugin.Log.Info($"Loading local replay for player {Targeter.TargetName} at path: {replayName}");
-                    string path = Path.Combine(HelpfulPaths.BL_REPLAY_FOLDER, replayName);
-                    try
+                    string replayName = LocalReplayHandler.GetReplayName(Targeter.TargetID, map.Map.Hash, mode, map.Difficulty.ToString());
+                    if (replayName is not null)
                     {
-                        replayData = File.Exists(path) ? File.ReadAllBytes(path) : File.ReadAllBytes(Path.Combine(HelpfulPaths.BL_REPLAY_CACHE_FOLDER, replayName));
+                        //Plugin.Log.Info($"Loading local replay for player {Targeter.TargetName} at path: {replayName}");
+                        string path = LocalReplayHandler.GetReplayPath(replayName);
+                        replayData = File.ReadAllBytes(path);
+                        if (!PC.LocalReplaysOnly)
+                        {
+                            //check if the replay is outdated
+                            if (int.TryParse(await BLAPI.Instance.CallAPI_String(string.Format(HelpfulPaths.BLAPI_SCOREVALUE, Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), mode), ct: ct), out int score) &&
+                                ReplayDecoder.TryDecodeReplayInfo(replayData, out ReplayInfo info) &&
+                                info.score < score)
+                            {
+                                Plugin.Log.Warn("Local replay is outdated compared to online score, using online replay instead.");
+                                replayData = null;
+                                goto skip; //outdated replay, use online one instead
+                            }
+                        }
                         ReplayDecoder.TryDecodeReplay(replayData, out bestReplay);
+                        //Plugin.Log.Info("Non speed mods: " + HelpfulMisc.HasNonSpeedMods(bestReplay.info.modifiers));
                         if (!HelpfulMisc.HasNonSpeedMods(bestReplay.info.modifiers))
                         {
                             float acc = (float)bestReplay.info.score / HelpfulMath.GetMaxScoreFromNotes(bestReplay.notes);
@@ -168,15 +181,16 @@ namespace BLPPCounter.Counters
                                 { "modifiers", bestReplay.info.modifiers }
                             };
                         } 
-                    } catch (Exception e)
-                    {
-                        Plugin.Log.Warn($"There was an error loading the local replay at path: {path}");
-                        Plugin.Log.Warn(e.Message);
-                        Plugin.Log.Debug(e);
                     }
                 }
+                catch (Exception e)
+                {
+                    Plugin.Log.Warn("There was an error loading the local replay.");
+                    Plugin.Log.Warn(e.Message);
+                    Plugin.Log.Debug(e);
+                }
             }
-
+        skip:
             if (PC.LocalReplaysOnly && (data is null || replayData is null))
             {
                 useReplay = false;

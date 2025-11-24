@@ -204,13 +204,13 @@ namespace BLPPCounter.Helpfuls
         public static bool IsNumber(object o) => IsNumber(o?.GetType());
         public static string SplitByUppercase(string s) => Regex.Replace(s, "(?!^)[A-Z][^A-Z]*", " $&");
         public static string ConvertColorToHex(System.Drawing.Color c) => $"#{ToRgba(c):X8}";
-        public static string ConvertColorToHex(UnityEngine.Color c) => $"#{ToRgba(c):X8}";
+        public static string ConvertColorToHex(Color c) => $"#{ToRgba(c):X8}";
         public static string ConvertColorToMarkup(System.Drawing.Color c) => $"<color={ConvertColorToHex(c)}>";
         public static int ArgbToRgba(int argb) => (argb << 8) + (int)((uint)argb >> 24); //can't use triple shift syntax, so best I can do is casting :(
         public static int RgbaToArgb(int rgba) => (int)((uint)rgba >> 8) + (rgba << 24);
         public static int ToRgba(System.Drawing.Color c) => ArgbToRgba(c.ToArgb());
-        public static int ToRgba(UnityEngine.Color c) => ((int)Math.Round(c.r * 0xFF) << 24) + ((int)Math.Round(c.g * 0xFF) << 16) + ((int)Math.Round(c.b * 0xFF) << 8) + (int)Math.Round(c.a * 0xFF);
-        public static UnityEngine.Color TextToColor(string text)
+        public static int ToRgba(Color c) => ((int)Math.Round(c.r * 0xFF) << 24) + ((int)Math.Round(c.g * 0xFF) << 16) + ((int)Math.Round(c.b * 0xFF) << 8) + (int)Math.Round(c.a * 0xFF);
+        public static Color TextToColor(string text)
         {
             if (text[0] == '#')
             {
@@ -225,29 +225,28 @@ namespace BLPPCounter.Helpfuls
                 return ConvertColor(System.Drawing.Color.FromArgb(RgbaToArgb(int.Parse(text, System.Globalization.NumberStyles.HexNumber))));
             }
             if (text.Contains('"')) text = text.Replace("\"", "");
-            return (UnityEngine.Color)(typeof(UnityEngine.Color).GetProperties(BindingFlags.Public | BindingFlags.Static)
-                .Where(pi => pi.PropertyType == typeof(UnityEngine.Color))
-                .FirstOrDefault(pi => pi.Name.Equals(text))?.GetValue(null, null) ?? default(UnityEngine.Color));
+            return (Color)(typeof(Color).GetProperties(BindingFlags.Public | BindingFlags.Static)
+                .Where(pi => pi.PropertyType == typeof(Color))
+                .FirstOrDefault(pi => pi.Name.Equals(text))?.GetValue(null, null) ?? default(Color));
         }
-        public static UnityEngine.Color ConvertColor(System.Drawing.Color color) =>
-            new UnityEngine.Color(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f);
-        public static System.Drawing.Color ConvertColor(UnityEngine.Color color) =>
+        public static Color ConvertColor(System.Drawing.Color color) =>
+            new(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f);
+        public static System.Drawing.Color ConvertColor(Color color) =>
             System.Drawing.Color.FromArgb((int)Math.Round(color.a * 0xFF), (int)Math.Round(color.r * 0xFF), (int)Math.Round(color.g * 0xFF), (int)Math.Round(color.b * 0xFF));
         public static System.Drawing.Color Multiply(System.Drawing.Color a, float b) =>
             System.Drawing.Color.FromArgb((int)Math.Round(a.A * b), (int)Math.Round(a.R * b), (int)Math.Round(a.G * b), (int)Math.Round(a.B * b));
-        public static System.Drawing.Color Blend(System.Drawing.Color a, System.Drawing.Color b, float aWeight = 0.5f, float bWeight = 0.5f)
+        public static System.Drawing.Color Blend(System.Drawing.Color a, System.Drawing.Color b, float t)
         {
-            aWeight *= 2f;
-            bWeight *= 2f;
-            float newA = a.A * aWeight + b.A * bWeight,
-                newR = a.R * aWeight + b.R * bWeight,
-                newG = a.G * aWeight + b.G * bWeight,
-                newB = a.B * aWeight + b.B * bWeight;
-            float maxMult = Math.Min(255f / Math.Max(Math.Max(newA, Math.Max(newR, Math.Max(newG, newB))), 0.1f), 1f);
-            return System.Drawing.Color.FromArgb((int)Math.Round(newA * maxMult), (int)Math.Round(newR * maxMult), (int)Math.Round(newG * maxMult), (int)Math.Round(newB * maxMult));
+            t = Mathf.Clamp(t, 0f, 1f);
+            float invT = 1f - t;
+
+            int A = (int)Math.Round(a.A * t + b.A * invT);
+            int R = (int)Math.Round(a.R * t + b.R * invT);
+            int G = (int)Math.Round(a.G * t + b.G * invT);
+            int B = (int)Math.Round(a.B * t + b.B * invT);
+
+            return System.Drawing.Color.FromArgb(A, R, G, B);
         }
-        public static System.Drawing.Color Blend(System.Drawing.Color a, System.Drawing.Color b, float aWeight) =>
-            Blend(a, b, aWeight, 1f - aWeight);
         public static BSMLParserParams AddToComponent(BSMLResourceViewController brvc, GameObject container) =>
 #if NEW_VERSION
             BSMLParser.Instance.Parse(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName), container, brvc); // 1.37.0 and above
@@ -256,7 +255,7 @@ namespace BLPPCounter.Helpfuls
 #endif
         public static IEnumerable<T> GetDuplicates<T, V>(this IEnumerable<T> arr, Func<T, V> valToCompare)
         {
-            Dictionary<V, (T, bool)> firstItems = new Dictionary<V, (T, bool)>();
+            Dictionary<V, (T, bool)> firstItems = [];
             return arr.Where(item => 
             {
                 V val = valToCompare(item);

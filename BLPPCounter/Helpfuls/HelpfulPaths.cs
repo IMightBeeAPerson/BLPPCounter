@@ -49,6 +49,7 @@ namespace BLPPCounter.Helpfuls
         public static readonly string BLAPI_FOLLOWERS = "https://api.beatleader.com/player/{0}/followers?page={1}&count={2}&type=following"; //user_id, page, count
         //public static readonly string BLAPI_FOLLOWERS = "https://api.beatleader.com/players?page={0}&count={1}&leaderboardContext=general&friends=true"; //page, count
         public static readonly string BLAPI_PLAYER_FILTER = "https://api.beatleader.com/players?page={0}&count={1}&leaderboardContext=general"; //page, count
+        public static readonly string BLAPI_SCOREVALUE = "https://api.beatleader.com/player/{0}/scorevalue/{1}/{2}/{3}"; //user_id, hash, diff, mode
 
         public static readonly string SSAPI = "https://scoresaber.com/api/";
         //UNRANKED: https://scoresaber.com/api/leaderboard/by-hash/bdacecbf446f0f066f4189c7fe1a81c6d3664b90/info?difficulty=5

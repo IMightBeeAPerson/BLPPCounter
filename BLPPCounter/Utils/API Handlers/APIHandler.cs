@@ -21,11 +21,11 @@ namespace BLPPCounter.Utils.API_Handlers
             get => clientTimeout;
             set { clientTimeout = value; client.Timeout = value; }
         }
-        protected static readonly HttpClient client = new HttpClient
+        protected static readonly HttpClient client = new()
         {
             Timeout = ClientTimeout
         };
-        private static readonly Throttler BSThrottler = new Throttler(50, 10);
+        private static readonly Throttler BSThrottler = new(50, 10);
 
         public abstract string API_HASH { get; }
         public abstract Task<(bool Success, HttpContent Content)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3, CancellationToken ct = default);
@@ -50,7 +50,7 @@ namespace BLPPCounter.Utils.API_Handlers
                     HttpResponseMessage response;
                     if (closeRequest)
                     {
-                        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, new Uri(path));
+                        HttpRequestMessage request = new(HttpMethod.Get, new Uri(path));
                         request.Headers.ConnectionClose = true;
                         response = await client.SendAsync(request, ct).ConfigureAwait(false);
                         closeRequest = false;

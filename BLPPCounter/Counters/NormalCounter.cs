@@ -6,7 +6,7 @@ using TMPro;
 
 namespace BLPPCounter.Counters
 {
-    public class NormalCounter: MyCounters
+    public class NormalCounter(TMP_Text display, MapSelection map, CancellationToken ct) : MyCounters(display, map, ct)
     {
         public static string DisplayName => "Normal";
         public static string DisplayHandler => TheCounter.DisplayName;
@@ -15,7 +15,7 @@ namespace BLPPCounter.Counters
         public override string Name => DisplayName;
 
         #region Init
-        public NormalCounter(TMP_Text display, MapSelection map, CancellationToken ct) : base(display, map, ct)
+        public override void SetupData(MapSelection map, CancellationToken ct) 
         {
             ppHandler = new PPHandler(ratings, calc, PluginConfig.Instance.DecimalPrecision, 1)
             {
@@ -23,7 +23,6 @@ namespace BLPPCounter.Counters
             };
             ppHandler.UpdateFC += (acc, extraVals, extraCalls) => extraVals[1].SetValues(calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision, ratings));
         }
-        public override void SetupData(MapSelection map, CancellationToken ct) { }
         public override void UpdateFormat() { }
         public static bool InitFormat() => TheCounter.FormatUsable;
         public static void ResetFormat() { }
