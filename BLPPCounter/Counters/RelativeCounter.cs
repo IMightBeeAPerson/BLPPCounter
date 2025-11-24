@@ -177,8 +177,13 @@ namespace BLPPCounter.Counters
                 }
             }
 
-            if (data is null)
-                data = await BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), mode, true, ct);
+            if (PC.LocalReplaysOnly && (data is null || replayData is null))
+            {
+                useReplay = false;
+                return null;
+            }
+
+            data ??= await BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), mode, true, ct);
             if (replayData is null)
             {
                 if (data is null)
@@ -246,13 +251,12 @@ namespace BLPPCounter.Counters
             try
             {
                 //Plugin.Log.Info($"Data: {HelpfulMisc.Print(new object[] { Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true })}");
-                JToken playerData = null;
-                if (PC.UseReplay) playerData = await SetupReplayData(map, ct);
-                if (playerData is null)
-                    playerData = await APIHandler.GetSelectedAPI().GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true).ConfigureAwait(false);
+                JToken playerData = PC.UseReplay ? 
+                    await SetupReplayData(map, ct) :
+                    await APIHandler.GetSelectedAPI().GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true).ConfigureAwait(false);
                 if (playerData is null)
                 {
-                    Plugin.Log.Warn("Relative counter cannot be loaded due to the player never having played this map before! (API didn't return the corrent status)");
+                    Plugin.Log.Warn("Relative counter cannot be loaded due to the player never having played this map before! (API didn't return the corrent status and/or local replay doesn't exist)");
                     goto Failed;
                 }
                 if ((float)playerData["pp"] is float thePP && thePP > 0)

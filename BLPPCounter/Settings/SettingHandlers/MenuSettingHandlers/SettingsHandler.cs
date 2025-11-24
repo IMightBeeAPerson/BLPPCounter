@@ -343,6 +343,12 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
             get => PC.LocalReplays;
             set { PC.LocalReplays = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(LocalReplays))); }
         }
+        [UIValue(nameof(LocalReplaysOnly))]
+        public bool LocalReplaysOnly
+        {
+            get => PC.LocalReplaysOnly;
+            set { PC.LocalReplaysOnly = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(LocalReplaysOnly))); }
+        }
         [UIValue(nameof(RelativeDefault))]
         public string RelativeDefault
         {
