@@ -30,7 +30,7 @@ namespace BLPPCounter.Counters
         private static Func<Func<FormatWrapper, string>> displayIniter;
         private static FormatWrapper displayWrapper;
         private static PluginConfig PC => PluginConfig.Instance;
-        public static readonly Dictionary<string, char> FormatAlias = new Dictionary<string, char>()
+        public static readonly Dictionary<string, char> FormatAlias = new()
                 {
                     { "Acc Difference", 'd' },
                     { "Color", 'c' },
@@ -45,7 +45,7 @@ namespace BLPPCounter.Counters
                     { "Mistakes", 'e' },
                     { "Mistake Color", 'z' }
                 };
-        internal static readonly FormatRelation DefaultFormatRelation = new FormatRelation("Main Format", DisplayName,
+        internal static readonly FormatRelation DefaultFormatRelation = new("Main Format", DisplayName,
             PC.FormatSettings.RelativeTextFormat, str => PC.FormatSettings.RelativeTextFormat = str, FormatAlias,
             new Dictionary<char, string>()
             {
@@ -110,6 +110,7 @@ namespace BLPPCounter.Counters
             }
             );
         private static Task SetupTask = Task.CompletedTask;
+        private static bool displayPP;
 
         #endregion
         #region Variables
@@ -239,7 +240,8 @@ namespace BLPPCounter.Counters
             catchUpNotes = 0;
             ppHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 2, (rating, acc, in main, ref toChange) => PPContainer.SubtractFast(in main, in replayPPVals, ref toChange))
             {
-                UpdateFCEnabled = PC.PPFC
+                UpdateFCEnabled = PC.PPFC,
+                UpdatePPEnabled = displayPP
             };
             ppHandler.UpdateFC += (fcAcc, vals, actions) =>
             {
@@ -356,7 +358,7 @@ namespace BLPPCounter.Counters
         #region Helper Functions
         public static Func<Func<FormatWrapper, string>> GetTheFormat(string format, out string errorMessage, bool applySettings = true)
         {
-            return HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, DisplayName,
+            var outp = HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, DisplayName,
                 formattedTokens =>
                 {
                     if (!PC.ShowLbl) formattedTokens.SetText('l');
@@ -375,7 +377,12 @@ namespace BLPPCounter.Counters
                     HelpfulFormatter.SurroundText(tokensCopy, 'z', $"{vals['z']}", "</color>");
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1');
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
-                }, out errorMessage, applySettings);//this is one line of code lol
+                }, out errorMessage, out HelpfulFormatter.TokenInfo[] arr, applySettings);//this is one line of code lol
+
+            HashSet<char> ppSymbols = ['x', 'p'];
+            displayPP = arr.Any(token => token.Usage > HelpfulFormatter.TokenUsage.Never && ppSymbols.Contains(token.Token));
+
+            return outp;
         }
         public static void FormatTheFormat(string format) => displayIniter = GetTheFormat(format, out string _);
         public static void InitDefaultFormat()

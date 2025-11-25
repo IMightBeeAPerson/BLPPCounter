@@ -1,20 +1,21 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using BeatLeader.Replayer;
 using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
+using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
+using BLPPCounter.Utils.API_Handlers;
+using BLPPCounter.Utils.List_Settings;
+using BLPPCounter.Utils.Misc_Classes;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using TMPro;
-using BLPPCounter.Utils.List_Settings;
-using BeatLeader.Replayer;
-using BLPPCounter.Utils.API_Handlers;
-using UnityEngine;
-using static GameplayModifiers;
-using BLPPCounter.Utils.Misc_Classes;
 using System.Threading;
-using BLPPCounter.Helpfuls.FormatHelpers;
+using TMPro;
+using UnityEngine;
+using UnityEngine.Profiling;
+using static GameplayModifiers;
 
 namespace BLPPCounter.Counters
 {
@@ -30,11 +31,12 @@ namespace BLPPCounter.Counters
         /// <summary>
         /// fc, extraInfo, isNum1, pp, fcpp, rank, ppDiff, percentDiff, color, label
         /// </summary>
-        private static Func<bool, bool, bool, float, float, int, float, float, string, string, string> displayRank;
+        private static Func<FormatWrapper, string> displayRank;
         private static Func<Func<FormatWrapper, string>> rankIniter;
         private static FormatWrapper rankWrapper;
+        private static bool displayPP;
 
-        public static readonly Dictionary<string, char> MainAlias = new Dictionary<string, char>()
+        public static readonly Dictionary<string, char> MainAlias = new()
         {
             {"PP", 'x' },
             {"FCPP", 'y' },
@@ -44,7 +46,7 @@ namespace BLPPCounter.Counters
             {"Label", 'l' },
             {"Rank Color", 'c' }
         };
-        internal static readonly FormatRelation MainRelation = new FormatRelation("Main Format", DisplayName,
+        internal static readonly FormatRelation MainRelation = new("Main Format", DisplayName,
             PC.FormatSettings.RankTextFormat, str => PC.FormatSettings.RankTextFormat = str, MainAlias, 
             new Dictionary<char, string>()
             {
@@ -73,11 +75,11 @@ namespace BLPPCounter.Counters
             {
                 {'r', 0 },
                 {'c', 1 }
-            }, new Func<object, bool, object>[]
-            {
+            },
+            [
                 FormatRelation.CreateFunc("#{0}", "{0}"),
                 FormatRelation.CreateFunc<int>(num => HelpfulFormatter.GetWeightedRankColor(num) + '#' + num, num => HelpfulFormatter.GetWeightedRankColor(num))
-            }, new Dictionary<char, IEnumerable<(string, object)>>()
+            ], new Dictionary<char, IEnumerable<(string, object)>>()
             {
                 { 'x', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
                 { 'y', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
@@ -120,7 +122,8 @@ namespace BLPPCounter.Counters
             //Plugin.Log.Debug($"[{string.Join(", ", mapData.Select(t => (t.acc, t.pp)))}]");
             ppHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 1)
             {
-                UpdateFCEnabled = PC.PPFC
+                UpdateFCEnabled = PC.PPFC,
+                UpdatePPEnabled = displayPP
             };
             ppHandler.UpdateFC += (fcAcc, vals, actions) =>
             {
@@ -140,7 +143,7 @@ namespace BLPPCounter.Counters
         public static void FormatTheFormat(string format) => rankIniter = GetTheFormat(format, out _);
         public static Func<Func<FormatWrapper, string>> GetTheFormat(string format, out string errorStr)
         {
-            return HelpfulFormatter.GetBasicTokenParser(format, MainAlias, DisplayName,
+            var outp = HelpfulFormatter.GetBasicTokenParser(format, MainAlias, DisplayName,
                 formattedTokens =>
                 {
                     if (!PC.ShowLbl) formattedTokens.SetText('l');
@@ -152,19 +155,24 @@ namespace BLPPCounter.Counters
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
                     if (!(bool)vals[(char)3]) HelpfulFormatter.SetText(tokensCopy, '3');
                     if (!(bool)vals[(char)4]) HelpfulFormatter.SetText(tokensCopy, '4');
-                }, out errorStr);
+                }, out errorStr, out HelpfulFormatter.TokenInfo[] arr);
+
+            HashSet<char> ppSymbols = ['x', 'd'];
+            displayPP = arr.Any(token => token.Usage > HelpfulFormatter.TokenUsage.Never && ppSymbols.Contains(token.Token));
+
+            return outp;
         }
         public static void InitTheFormat()
         {
-            var simple = rankIniter.Invoke();
+            displayRank = rankIniter.Invoke();
             rankWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(bool), (char)3), (typeof(bool), (char)4), (typeof(float), 'x'), (typeof(float), 'y'),
                 (typeof(int), 'r'), (typeof(float), 'd'), (typeof(float), 'p'), (typeof(string), 'c'), (typeof(string), 'l'));
-            displayRank = (fc, extraInfo, isNum1, pp, fcpp, rank, ppDiff, percentDiff, color, label) =>
-            {
-                    rankWrapper.SetValues(((char)1, fc ), ((char)2, extraInfo ), ((char)3, !isNum1 && extraInfo ), ((char)4, isNum1 && extraInfo ), ('x', pp), ('y', fcpp ),
-                    ('r', rank), ('d', ppDiff), ('p', percentDiff ), ('c', color ), ('l',label));
-                return simple.Invoke(rankWrapper);
-            };
+        }
+        private static string DisplayRank(bool fc, bool extraInfo, bool isNum1, float pp, float fcpp, int rank, float ppDiff, float percentDiff, string color, string label)
+        {
+            rankWrapper.SetValues(((char)1, fc), ((char)2, extraInfo), ((char)3, !isNum1 && extraInfo), ((char)4, isNum1 && extraInfo), ('x', pp), ('y', fcpp),
+                    ('r', rank), ('d', ppDiff), ('p', percentDiff), ('c', color), ('l', label));
+            return displayRank.Invoke(rankWrapper);
         }
         public override void UpdateFormat() => InitTheFormat();
         public static bool InitFormat()
@@ -197,9 +205,9 @@ namespace BLPPCounter.Counters
             //Plugin.Log.Info("PPVals: " + HelpfulMisc.Print(ppVals));
             if (PC.SplitPPVals && calc.RatingCount > 1)
                 for (int i = 0; i < calc.RatingCount; i++)
-                    text += displayRank(ppHandler.DisplayFC, false, false, ppHandler[0, i], ppHandler[0, i],
+                    text += DisplayRank(ppHandler.DisplayFC, false, false, ppHandler[0, i], ppHandler[0, i],
                         rank, ppDiff, accDiff, color, TheCounter.CurrentLabels[i]) + "\n";
-            text += displayRank(ppHandler.DisplayFC, PC.ExtraInfo, rank == 1, ppHandler[0, calc.DisplayRatingCount - 1], ppHandler[1, calc.DisplayRatingCount - 1], rank, ppDiff, accDiff, color, TheCounter.CurrentLabels.Last());
+            text += DisplayRank(ppHandler.DisplayFC, PC.ExtraInfo, rank == 1, ppHandler[0], ppHandler[1], rank, ppDiff, accDiff, color, TheCounter.CurrentLabels.Last());
             display.text = text;
         }
         public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }

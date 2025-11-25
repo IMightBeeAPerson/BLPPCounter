@@ -24,7 +24,7 @@ namespace BLPPCounter.Counters
         private static Func<FormatWrapper, string> displayClan, displayWeighted, displayCustom;
         private static Func<Func<FormatWrapper, string>> clanIniter, weightedIniter, customIniter;
         private static FormatWrapper clanWrapper, weightedWrapper, customWrapper;
-        public static readonly Dictionary<string, char> FormatAlias = new Dictionary<string, char>()
+        public static readonly Dictionary<string, char> FormatAlias = new()
         {
             { "PP", 'p' },
             { "PP Difference", 'x' },
@@ -37,7 +37,7 @@ namespace BLPPCounter.Counters
             { "Target", 't' },
             { "Message", 'm' }
         };
-        public static readonly Dictionary<string, char> WeightedFormatAlias = new Dictionary<string, char>()
+        public static readonly Dictionary<string, char> WeightedFormatAlias = new()
         {
             { "Mistakes", 'e' },
             { "Rank Color", 'c' },
@@ -49,7 +49,7 @@ namespace BLPPCounter.Counters
             { "FCPP", 'o' },
             { "Message", 'm' }
         };
-        public static readonly Dictionary<string, char> MessageFormatAlias = new Dictionary<string, char>()
+        public static readonly Dictionary<string, char> MessageFormatAlias = new()
         {
             {"Color", 'c' },
             {"Accuracy", 'a' },
@@ -59,7 +59,7 @@ namespace BLPPCounter.Counters
             {"PP", 'p' },
             { "Target", 't' }
         };
-        internal static readonly FormatRelation ClanFormatRelation = new FormatRelation("Main Format", DisplayName,
+        internal static readonly FormatRelation ClanFormatRelation = new("Main Format", DisplayName,
             PC.FormatSettings.ClanTextFormat, str => PC.FormatSettings.ClanTextFormat = str, FormatAlias,
             new Dictionary<char, string>()
             {
@@ -117,7 +117,7 @@ namespace BLPPCounter.Counters
                 ((char)2, "Is bottom of text")
             }
             );
-        internal static readonly FormatRelation WeightedFormatRelation = new FormatRelation("Weighted Format", DisplayName,
+        internal static readonly FormatRelation WeightedFormatRelation = new("Weighted Format", DisplayName,
             PC.FormatSettings.WeightedTextFormat, str => PC.FormatSettings.WeightedTextFormat = str, WeightedFormatAlias,
             new Dictionary<char, string>()
             {
@@ -174,7 +174,7 @@ namespace BLPPCounter.Counters
                 ((char)3, "Show Rank Info")
             }
             );
-        internal static readonly FormatRelation MessageFormatRelation = new FormatRelation("Custom Message Format", DisplayName,
+        internal static readonly FormatRelation MessageFormatRelation = new("Custom Message Format", DisplayName,
             PC.MessageSettings.ClanMessage, str => PC.MessageSettings.ClanMessage = str, MessageFormatAlias,
             new Dictionary<char, string>()
             {
@@ -214,6 +214,7 @@ namespace BLPPCounter.Counters
                 { 'p', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } }
             }
             );
+        private static bool displayPP;
         #endregion
         #region Variables
         public static string DisplayName => "Clan";
@@ -409,7 +410,7 @@ namespace BLPPCounter.Counters
         private static void FormatClan(string format) => clanIniter = GetFormatClan(format, out string _);
         private static Func<Func<FormatWrapper, string>> GetFormatClan(string format, out string errorMessage, bool applySettings = true)
         {
-            return HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, DisplayName,
+            var outp = HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, DisplayName,
                 formattedTokens =>
                 {
                     if (!PC.ShowLbl) formattedTokens.SetText('l');
@@ -428,8 +429,12 @@ namespace BLPPCounter.Counters
                     if (vals.ContainsKey('m')) HelpfulFormatter.SetText(tokensCopy, 'm', ((Func<object>)vals['m']).Invoke().ToString());
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1');
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
-                }, out errorMessage, applySettings);
-            
+                }, out errorMessage, out HelpfulFormatter.TokenInfo[] arr, applySettings);
+
+            HashSet<char> ppSymbols = ['x', 'p', 'c'];
+            displayPP = arr.Any(token => token.Usage > HelpfulFormatter.TokenUsage.Never && ppSymbols.Contains(token.Token));
+
+            return outp;
         }
         private static void FormatWeighted(string format) => weightedIniter = GetFormatWeighted(format, out string _);
         private static Func<Func<FormatWrapper, string>> GetFormatWeighted(string format, out string errorMessage, bool applySettings = true)
@@ -444,7 +449,7 @@ namespace BLPPCounter.Counters
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1'); 
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2'); 
                     if (!(bool)vals[(char)3]) HelpfulFormatter.SetText(tokensCopy, '3'); 
-                }, out errorMessage, applySettings);
+                }, out errorMessage, out _, applySettings);
         }
         private static void FormatCustom(string format) => customIniter = GetFormatCustom(format, out string _);
         private static Func<Func<FormatWrapper, string>> GetFormatCustom(string format, out string errorMessage, bool applySettings = true)
@@ -459,7 +464,7 @@ namespace BLPPCounter.Counters
                 (tokens, tokensCopy, priority, vals) =>
                 {
                     if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<object>)vals['c']).Invoke()}", "</color>");
-                }, out errorMessage, applySettings);
+                }, out errorMessage, out _, applySettings);
         }
         private static void InitClan()
         {

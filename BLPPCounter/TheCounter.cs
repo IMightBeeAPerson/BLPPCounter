@@ -661,7 +661,7 @@ namespace BLPPCounter
                     HelpfulFormatter.SurroundText(tokensCopy, 'z', $"{vals['z']}", "</color>");
                     if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1'); 
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2'); 
-                }, out errorStr);
+                }, out errorStr, out _);
        
         private static bool FormatTheFormat(string format, string counter = "") 
         { 
@@ -669,7 +669,7 @@ namespace BLPPCounter
             return displayIniter != null; 
         }
         private static Func<Func<FormatWrapper, string>> GetFormatTarget(string format, out string errorStr) =>
-            HelpfulFormatter.GetBasicTokenParser(format, TargetAlias, DisplayName, a => { }, (a, b, c, d) => { }, out errorStr);
+            HelpfulFormatter.GetBasicTokenParser(format, TargetAlias, DisplayName, a => { }, (a, b, c, d) => { }, out errorStr, out _);
         private static bool FormatTarget(string format)
         {
             targetIniter = GetFormatTarget(format, out string _);
@@ -680,7 +680,7 @@ namespace BLPPCounter
                 (tokens, tokensCopy, priority, vals) =>
                 {
                     if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<object>)vals['c']).Invoke()}", "</color>");
-                }, out errorStr);
+                }, out errorStr, out _);
         private static bool FormatPercentNeeded(string format)
         {
             percentNeededIniter = GetFormatPercentNeeded(format, out string _);

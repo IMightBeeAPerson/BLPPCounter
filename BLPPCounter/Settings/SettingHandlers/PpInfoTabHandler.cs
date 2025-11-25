@@ -519,7 +519,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 new Dictionary<string, char>() { { "Target", 't' } }, "TargetNoScoreMessage", null, (tokens, tokensCopy, priority, vals) =>
                 {
                     foreach (char key in vals.Keys) if (vals[key] is null || vals[key].ToString().Length == 0) HelpfulFormatter.SetText(tokensCopy, key);
-                }, out _, false).Invoke();
+                }, out _, out _, false).Invoke();
             NoScoreTargetWrapper = new FormatWrapper((typeof(string), 't'));
             GetNoScoreTarget = () => { NoScoreTargetWrapper.SetValue('t', Targeter.TargetName, typeof(string)); return simple.Invoke(NoScoreTargetWrapper); };
             GetTarget = () => TheCounter.TargetFormatter?.Invoke(Targeter.TargetName, "") ?? "Target formatter is null";

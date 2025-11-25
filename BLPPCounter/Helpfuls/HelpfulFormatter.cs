@@ -94,12 +94,12 @@ namespace BLPPCounter.Helpfuls
                 format.Contains(GROUP_OPEN.ToString() + ALIAS))
                 format = ExpandAliases(format, aliasConverter, counterName);
 
-            StringBuilder formatted = new StringBuilder();
-            StringBuilder captureSb = new StringBuilder();
+            StringBuilder formatted = new();
+            StringBuilder captureSb = new();
 
-            Dictionary<TokenKey, string> tokens = new Dictionary<TokenKey, string>();
-            Dictionary<TokenKey, string[]> extraArgs = new Dictionary<TokenKey, string[]>();
-            Dictionary<int, char> priority = new Dictionary<int, char>();
+            Dictionary<TokenKey, string> tokens = [];
+            Dictionary<TokenKey, string[]> extraArgs = [];
+            Dictionary<int, char> priority = [];
 
             int repIndex = 0;
             int forRepIndex = 0;
@@ -499,7 +499,7 @@ namespace BLPPCounter.Helpfuls
                 throw new FormatException(
                     "Missing closing '" + PARAM_CLOSE + "' for parameters of " + originChar + ".");
 
-            return args.ToArray();
+            return [.. args];
         }
 
         /// <summary>
@@ -673,9 +673,9 @@ namespace BLPPCounter.Helpfuls
             string counterName,
             Action<TokenParser> settings,
             Action<Dictionary<TokenKey, string>, Dictionary<TokenKey, string>, Dictionary<int, char>, FormatWrapper> varSettings,
-            out string errorStr,
+            out string errorStr, out TokenInfo[] tokenInfos,
             bool applySettings = true)
-            => GetBasicTokenParser(format, aliasConverter, counterName, settings, varSettings, null, null, out errorStr, applySettings);
+            => GetBasicTokenParser(format, aliasConverter, counterName, settings, varSettings, null, null, out errorStr, out tokenInfos, applySettings);
 
         /// <summary>
         /// Creates a token parser factory with custom callbacks for extra arguments.
@@ -699,7 +699,7 @@ namespace BLPPCounter.Helpfuls
         Action<Dictionary<TokenKey, string>, Dictionary<TokenKey, string>, Dictionary<int, char>, FormatWrapper> varSettings,
         Func<char, string[], bool> confirmFormat,
         Func<char, string[], FormatWrapper, Dictionary<TokenKey, string>, string> implementArgs,
-        out string errorStr,
+        out string errorStr, out TokenInfo[] tokenInfos,
         bool applySettings = true)
         {
             Dictionary<TokenKey, string> tokens;
@@ -713,17 +713,70 @@ namespace BLPPCounter.Helpfuls
             try
             {
                 (formatted, tokens, priority, extraArgs) = ParseCounterFormat(format, new Dictionary<string, char>(aliasConverter), counterName);
-                foreach (var val in extraArgs.Keys)
+                foreach (TokenKey val in extraArgs.Keys)
                 {
                     if (!confirmFormat.Invoke(val.Symbol, extraArgs[val]))
                         throw new FormatException($"Invalid extra parameter format ... This is for the char '{val.Symbol}'");
                 }
+                Dictionary<char, TokenInfo> temp = [];
+                List<(char capture, IEnumerable<char> symbols)> buffer = [];
+                foreach (TokenKey val in tokens.Keys)
+                {
+                    if (char.IsDigit(val.Symbol))
+                    {
+                        MatchCollection mc = Regex.Matches(tokens[val], $"(?<={ESCAPE_CHAR}).");
+                        List<char> toAdd = [];
+                        foreach (Match item in mc)
+                        {
+                            char c = item.Value[0];
+                            if (temp.ContainsKey(c))
+                            {
+                                TokenInfo ti = temp[c];
+                                ti.AssignedCapture.Add(val.Symbol);
+                                if (ti.Usage < TokenUsage.Dependent)
+                                    ti.Usage = TokenUsage.Dependent;
+                                temp[c] = ti;
+                            }
+                            else
+                                toAdd.Add(c);
+                        }
+                        buffer.Add((val.Symbol, toAdd));
+                        continue;
+                    }
+                    if (!temp.TryAdd(val.Symbol, new TokenInfo(val.Symbol, val.Priority > FORMAT_SPLIT ? TokenUsage.Dependent : TokenUsage.Always)))
+                    {
+                        TokenInfo s = temp[val.Symbol];
+
+                        if (val.Priority < FORMAT_SPLIT)
+                            s.Usage = TokenUsage.Always;
+                        else
+                        {
+                            string rep = '{' + (val.Priority - FORMAT_SPLIT - 1).ToString() + '}';
+                            foreach (KeyValuePair<TokenKey, string> kvp in tokens)
+                                if (kvp.Value.Contains(rep))
+                                    s.AssignedGroup.Add(kvp.Key.Symbol);
+                        }
+
+                        temp[val.Symbol] = s;
+                    }
+                }
+                foreach (var (capture, symbols) in buffer)
+                    foreach (char c in symbols)
+                    {
+                        TokenInfo s = temp[c];
+                        s.AssignedCapture.Add(capture);
+                        if (s.Usage < TokenUsage.Dependent)
+                            s.Usage = TokenUsage.Dependent;
+                        temp[c] = s;
+                    }
+                tokenInfos = [.. temp.Values];
             }
             catch (Exception e)
             {
                 errorStr = "Formatting failed! " + e.Message;
                 errorStr += "\nFormatting: " + ToLiteral(format).Replace("\\'", "'");
                 Plugin.Log.Error(errorStr);
+                tokenInfos = null;
                 return null;
             }
 
@@ -1117,18 +1170,23 @@ namespace BLPPCounter.Helpfuls
         /// <summary>
         /// simple container used by TokenParser and GetBasicTokenParser
         /// </summary>
-        public struct TokenOrdering
+        public struct TokenOrdering(List<TokenKey> first, List<TokenKey> second, List<TokenKey> captures)
         {
-            public List<TokenKey> FirstLayer;
-            public List<TokenKey> SecondLayer;
-            public List<TokenKey> Captures;
+            public List<TokenKey> FirstLayer = first;
+            public List<TokenKey> SecondLayer = second;
+            public List<TokenKey> Captures = captures;
+        }
 
-            public TokenOrdering(List<TokenKey> first, List<TokenKey> second, List<TokenKey> captures)
-            {
-                FirstLayer = first;
-                SecondLayer = second;
-                Captures = captures;
-            }
+        public enum TokenUsage
+        {
+            Never, Dependent, Always
+        }
+        public struct TokenInfo(char token, TokenUsage usage)
+        {
+            public char Token = token;
+            public TokenUsage Usage = usage;
+            public List<char> AssignedCapture = [];
+            public List<char> AssignedGroup = [];
         }
 
         public class TokenParser

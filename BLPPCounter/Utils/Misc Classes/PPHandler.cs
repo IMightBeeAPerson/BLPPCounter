@@ -22,7 +22,8 @@ namespace BLPPCounter.Utils.Misc_Classes
         private bool isFcing;
         private PPContainer[] ppVals;
 
-        public bool UpdateFCEnabled = true;
+        public bool UpdateFCEnabled;
+        public bool UpdatePPEnabled;
         public bool DisplayFC => !isFcing;
 
         public event Action<int> UpdateMistakes;
@@ -31,12 +32,17 @@ namespace BLPPCounter.Utils.Misc_Classes
         public PPHandler(RatingContainer ratings, Calculator calc, int precision = -1, int extraPPVals = 0, params FCUpdateDelegate[] calcOtherPPs)
         {
             if (calcOtherPPs is null) throw new ArgumentNullException(nameof(calcOtherPPs));
+
             this.ratings = ratings;
             this.calc = calc;
             this.precision = precision;
             this.calcOtherPPs = calcOtherPPs;
+
             mistakes = 0;
             isFcing = true;
+            UpdateFCEnabled = true;
+            UpdatePPEnabled = true;
+
             ppVals = new PPContainer[calcOtherPPs.Length + 1 + extraPPVals];
             for (int i = 0; i < ppVals.Length; i++)
                 ppVals[i] = new PPContainer(calc.DisplayRatingCount, 0f, precision: precision);
@@ -54,11 +60,17 @@ namespace BLPPCounter.Utils.Misc_Classes
                 if (isFcing && UpdateFCEnabled) isFcing = false;
                 UpdateMistakes?.Invoke(mistakes);
             }
+
             if (!isFcing) 
                 UpdateFC?.Invoke(fcAcc, ppVals, UseAction);
-            ppVals[0].SetValues(calc.GetPpWithSummedPp(acc, precision, ratings));
-            for (int i = 0; i < calcOtherPPs.Length; i++)
-                calcOtherPPs[i](ratings, acc, in ppVals[0], ref ppVals[i + 1]);
+
+            if (UpdatePPEnabled)
+            {
+                ppVals[0].SetValues(calc.GetPpWithSummedPp(acc, precision, ratings));
+
+                for (int i = 0; i < calcOtherPPs.Length; i++)
+                    calcOtherPPs[i](ratings, acc, in ppVals[0], ref ppVals[i + 1]);
+            }
         }
         public void Reset()
         {
@@ -75,6 +87,6 @@ namespace BLPPCounter.Utils.Misc_Classes
         }
 
         public float this[int group, int index] => ppVals[group][index];
-        public float this[int index] => this[index % calc.DisplayRatingCount, index / calc.DisplayRatingCount];
+        public float this[int group] => ppVals[group].TotalPP;
     }
 }
