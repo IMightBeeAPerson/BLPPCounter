@@ -19,6 +19,8 @@ namespace BLPPCounter.Utils.Misc_Classes
             try
             {
                 cachedHeaders = [];
+                if (!File.Exists(HelpfulPaths.BL_REPLAY_HEADERS)) 
+                    throw new Exception("The BL Header file does not exist. No local replays will be loaded.");
                 JObject replayHeaders = JObject.Parse(File.ReadAllText(HelpfulPaths.BL_REPLAY_HEADERS));
                 Dictionary<string, int> cachedScores = [];
                 foreach (KeyValuePair<string, JToken> token in replayHeaders)
@@ -64,8 +66,10 @@ namespace BLPPCounter.Utils.Misc_Classes
         public static string GetReplayPath(string replayName)
         {
             string path = Path.Combine(HelpfulPaths.BL_REPLAY_FOLDER, replayName);
+            //Plugin.Log.Debug(path);
             if (File.Exists(path)) return path;
             path = Path.Combine(HelpfulPaths.BL_REPLAY_CACHE_FOLDER, replayName);
+            //Plugin.Log.Debug(path);
             return File.Exists(path) ? path : null;
         }
     }

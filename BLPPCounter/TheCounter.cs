@@ -70,19 +70,19 @@ namespace BLPPCounter
         public static string[] DisplayNames => fullDisable ? ["There are none"] : ValidDisplayNames[Leaderboard];
         public static Dictionary<string, string> DisplayNameToCounter { get; private set; }
         private static Func<FormatWrapper, string> displayFormatter;
-        internal static Func<string, string, string> TargetFormatter;
+        private static Func<FormatWrapper, string> targetFormatter;
         private static Func<FormatWrapper, string> percentNeededFormatter;
         private static Func<Func<FormatWrapper, string>> displayIniter, targetIniter, percentNeededIniter;
         private static FormatWrapper displayWrapper, targetWrapper, percentNeededWrapper;
-        private static readonly ReadOnlyCollection<string> Labels = new ReadOnlyCollection<string>(new string[] { " Acc PP", " Pass PP", " Tech PP", " PP" }); //Ain't Nobody appending a billion "BL"s to this now :)
+        private static readonly ReadOnlyCollection<string> Labels = new([" Acc PP", " Pass PP", " Tech PP", " PP"]); //Ain't Nobody appending a billion "BL"s to this now :)
         public static string[] CurrentLabels { get; private set; } = null;
 
         private static bool updateFormat;
         public static bool SettingChanged = false;
         public static bool FormatUsable => displayFormatter != null && displayIniter != null;
-        public static bool TargetUsable => TargetFormatter != null && targetIniter != null;
-        public static bool PercentNeededUsable => PercentNeededFormatter != null && percentNeededIniter != null;
-        public static readonly Dictionary<string, char> FormatAlias = new Dictionary<string, char>()
+        public static bool TargetUsable => targetFormatter != null && targetIniter != null;
+        public static bool PercentNeededUsable => percentNeededFormatter != null && percentNeededIniter != null;
+        public static readonly Dictionary<string, char> FormatAlias = new()
         {
             { "PP", 'x' },
             { "FCPP", 'y' },
@@ -90,12 +90,12 @@ namespace BLPPCounter
             { "Mistakes", 'e' },
             { "Label", 'l' }
         };
-        public static readonly Dictionary<string, char> TargetAlias = new Dictionary<string, char>()
+        public static readonly Dictionary<string, char> TargetAlias = new()
         {
             {"Target", 't' },
             {"Mods", 'm' }
         };
-        public static readonly Dictionary<string, char> PercentNeededAlias = new Dictionary<string, char>()
+        public static readonly Dictionary<string, char> PercentNeededAlias = new()
         {
             {"Color", 'c' },
             {"Accuracy", 'a' },
@@ -104,7 +104,7 @@ namespace BLPPCounter
             {"Pass PP", 'z' },
             {"PP", 'p' }
         };
-        internal static readonly FormatRelation DefaultFormatRelation = new FormatRelation("Main Format", DisplayName, 
+        internal static readonly FormatRelation DefaultFormatRelation = new("Main Format", DisplayName, 
             pc.FormatSettings.DefaultTextFormat, str => pc.FormatSettings.DefaultTextFormat = str, FormatAlias, 
             new Dictionary<char, string>()
             {
@@ -139,7 +139,7 @@ namespace BLPPCounter
                 ((char)2, "Is bottom of text")
             ]
             );
-        internal static readonly FormatRelation TargetFormatRelation = new FormatRelation("Target Format", DisplayName,
+        internal static readonly FormatRelation TargetFormatRelation = new("Target Format", DisplayName,
             pc.MessageSettings.TargetingMessage, str => pc.MessageSettings.TargetingMessage = str, TargetAlias,
             new Dictionary<char, string>()
             {
@@ -151,7 +151,7 @@ namespace BLPPCounter
                 {'t', "Person" },
                 {'m', "SF" }
             }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, null, null, null);
-        internal static readonly FormatRelation PercentNeededFormatRelation = new FormatRelation("Percent Needed Format", DisplayName,
+        internal static readonly FormatRelation PercentNeededFormatRelation = new("Percent Needed Format", DisplayName,
             pc.MessageSettings.PercentNeededMessage, str => pc.MessageSettings.PercentNeededMessage = str, PercentNeededAlias,
             new Dictionary<char, string>()
             {
@@ -192,7 +192,7 @@ namespace BLPPCounter
             {
                 ('c', ValueListInfo.ValueType.Color)
             });
-        private static readonly TimeLooper TimeLooper = new TimeLooper();
+        private static readonly TimeLooper TimeLooper = new();
         private static string lastTarget = Targeter.NO_TARGET;
         private static Task InitTask = Task.CompletedTask;
         private static CancellationTokenSource InitTaskCanceller;
@@ -217,7 +217,7 @@ namespace BLPPCounter
         internal static void InitCounterStatic() 
         {
             updateFormat = false;
-            void PropChanged(object o, PropertyChangedEventArgs args)
+            static void PropChanged(object o, PropertyChangedEventArgs args)
             {
                 updateFormat = true;
             }
@@ -250,7 +250,7 @@ namespace BLPPCounter
                         propertyOutp.Remove(toCheck.Key);
                     }
                 ValidCounters = [.. ValidCounters.Where(a => a != null)];
-                DisplayNameToCounter = new Dictionary<string, string>();
+                DisplayNameToCounter = [];
                 Dictionary<string, string> counterToDisplayName = [];
                 foreach (var val in propertyOutp)
                     if (val.Value is string name) 
@@ -259,7 +259,7 @@ namespace BLPPCounter
                         counterToDisplayName.Add(val.Key, name);
                     }
                 Dictionary<int, string> propertyOrder = GetPropertyFromTypes("OrderNumber", ValidCounters).ToDictionary(x => (int)x.Value, x => x.Key);
-                List<string> displayNames = new List<string>();
+                List<string> displayNames = [];
                 var sortedOrderNumbers = propertyOrder.Keys.OrderBy(x => x);
                 foreach (int i in sortedOrderNumbers)
                         displayNames.Add(propertyOutp[propertyOrder[i]] as string);
@@ -318,11 +318,12 @@ namespace BLPPCounter
             displayIniter = null;
             displayFormatter = null;
             targetIniter = null;
-            TargetFormatter = null;
+            targetFormatter = null;
             percentNeededIniter = null;
             percentNeededFormatter = null;
         }
         public override void CounterDestroy() {
+            Plugin.Log.Debug($"There were {notes} note(s) handled.");
             ChangeNotifiers(false);
             if (enabled)
             {
@@ -412,7 +413,7 @@ namespace BLPPCounter
                         if (ct.IsCancellationRequested)
                             return;
 #if NEW_VERSION
-                        MapSelection ms = new MapSelection(m, beatmapDiff.difficulty, mode, ratings, mods.songSpeed); // 1.37.0 and above
+                        MapSelection ms = new(m, beatmapDiff.difficulty, mode, ratings, mods.songSpeed); // 1.37.0 and above
 #else
                         MapSelection ms = new MapSelection(m, beatmap.difficulty, mode, ratings, mods.songSpeed); // 1.34.2 and below
 #endif
@@ -699,13 +700,14 @@ namespace BLPPCounter
         }
         private static void InitTarget()
         {
-            var simple = targetIniter.Invoke();
+            targetFormatter = targetIniter.Invoke();
             targetWrapper = new FormatWrapper((typeof(string), 't'), (typeof(string), 'm'));
-            TargetFormatter = (name, mods) =>
-            {
-                targetWrapper.SetValues(('t', name), ('m', mods));
-                return simple.Invoke(targetWrapper);
-            };
+        }
+        public static string TargetFormatter(string name, string mods)
+        {
+            if (targetWrapper is null || targetFormatter is null) return null;
+            targetWrapper.SetValues(('t', name), ('m', mods));
+            return targetFormatter.Invoke(targetWrapper);
         }
         private static void InitPercentNeeded()
         {
@@ -720,7 +722,7 @@ namespace BLPPCounter
         }
         private static Type[] GetValidCounters()
         {
-            List<Type> counters = new List<Type>();
+            List<Type> counters = [];
             //The line below adapted from: https://stackoverflow.com/questions/26733/getting-all-types-that-implement-an-interface
             var types = Assembly.GetExecutingAssembly().GetTypes().Where(mytype => mytype.BaseType?.Equals(typeof(MyCounters)) ?? false);
             foreach (Type t in types)

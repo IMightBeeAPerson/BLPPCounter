@@ -1,9 +1,7 @@
-﻿using BeatLeader.Models.Replay;
-using BeatSaberMarkupLanguage;
+﻿using BeatSaberMarkupLanguage;
 using BeatSaberMarkupLanguage.Components.Settings;
 using BeatSaberMarkupLanguage.Parser;
 using BeatSaberMarkupLanguage.ViewControllers;
-using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
 using Newtonsoft.Json.Linq;
@@ -270,7 +268,7 @@ namespace BLPPCounter.Helpfuls
         }
         public static IEnumerable<T> GetDuplicates<T>(this IEnumerable<T> arr)
         {
-            Dictionary<T, bool> set = new Dictionary<T, bool>();
+            Dictionary<T, bool> set = [];
             foreach (T item in arr)
                 if (set.ContainsKey(item) && !set[item]) set[item] = true;
                 else set.Add(item, false);
@@ -278,7 +276,7 @@ namespace BLPPCounter.Helpfuls
         }
         public static IEnumerable<T> RemoveDuplicates<T, V>(this IEnumerable<T> arr, Func<T, V> valToCompare)
         {
-            Dictionary<V, T> singleItems = new Dictionary<V, T>();
+            Dictionary<V, T> singleItems = [];
             foreach (T item in arr) 
             {
                 V val = valToCompare(item);
@@ -288,12 +286,12 @@ namespace BLPPCounter.Helpfuls
         }
         public static IEnumerable<T> RemoveDuplicates<T>(this IEnumerable<T> arr)
         {
-            HashSet<T> set = new HashSet<T>();
+            HashSet<T> set = [];
             return arr.Where(item => { if (set.Contains(item)) return false; else set.Add(item); return true; });
         }
         public static IEnumerable<T> RemoveAll<T>(this IEnumerable<T> arr, IEnumerable<T> other)
         {
-            HashSet<T> hash = new HashSet<T>(other);
+            HashSet<T> hash = [.. other];
             return arr.Where(item => hash.Contains(item));
         }
         public static Dictionary<V, K> Swap<K, V>(this Dictionary<K, V> dict) =>
@@ -314,12 +312,12 @@ namespace BLPPCounter.Helpfuls
         public static T[][] RowToColumn<T>(this IEnumerable<T> arr, int rowLengths = 0)
         {
             int len = arr.Count();
-            return arr.Select(s =>
+            return [.. arr.Select(s =>
             {
                 T[] newArr = new T[rowLengths > 0 ? rowLengths : len];
                 newArr[0] = s;
                 return newArr;
-            }).ToArray();
+            })];
         }
         public static string Print<T>(this T[][] matrix)
         {
@@ -804,13 +802,13 @@ namespace BLPPCounter.Helpfuls
             const int LongBits = 64;
 
             if (arr is null || arr.Length == 0)
-                return Array.Empty<ulong>();
+                return [];
 
             // Determine bits per enum
             ulong max = 0;
             foreach (T item in Enum.GetValues(typeof(T)))
                 max = Math.Max(Convert.ToUInt64(item), max);
-            if (max == 0) return new ulong[] { 0 }; // Single-value enum
+            if (max == 0) return [0]; // Single-value enum
 
             int bitsPerEnum = (int)Math.Ceiling(Math.Log(max + 1, 2));
 
@@ -940,10 +938,10 @@ namespace BLPPCounter.Helpfuls
         public static T[] InsertElement<T>(this T[] arr, int index, T value)
         {
             if (index >= arr.Length)
-                return arr.Append(value).ToArray();
-            List<T> hold = arr.ToList();
+                return [.. arr, value];
+            List<T> hold = [.. arr];
             hold.Insert(index, value);
-            return hold.ToArray();
+            return [.. hold];
         }
         public static string ClampString(this string str, int maxLength)
         {

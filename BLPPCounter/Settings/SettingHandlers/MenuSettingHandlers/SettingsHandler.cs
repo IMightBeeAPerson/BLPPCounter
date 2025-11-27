@@ -69,6 +69,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
                         PpInfoTabHandler.Instance.ResetTabs();
                         break;
                     case nameof(UseUnranked):
+                    case nameof(LocalReplaysOnly):
                         TheCounter.SettingChanged = true;
                         break;
                     case nameof(DecimalPrecision):
@@ -84,6 +85,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
                         break;
                     case nameof(LocalReplays):
                         if (PC.LocalReplays) LocalReplayHandler.LoadReplays();
+                        TheCounter.SettingChanged = true;
                         break;
 
                 }
@@ -141,7 +143,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         [UIComponent(nameof(CounterList))]
         private ListSetting CounterList;
         [UIValue(nameof(TypesOfPP))]
-        public List<object> TypesOfPP => new List<object>(TheCounter.DisplayNames);
+        public List<object> TypesOfPP => [.. TheCounter.DisplayNames];
 
         [UIValue(nameof(UpdateAfterTime))]
         public bool UpdateAfterTime
@@ -365,7 +367,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         [UIComponent(nameof(DefaultCounterList))]
         private ListSetting DefaultCounterList;
         [UIValue(nameof(RelativeDefaultList))]
-        public List<object> RelativeDefaultList => TypesOfPP.Where(a => a is string b && !RelativeCounter.DisplayName.Equals(b)).Prepend(Targeter.NO_TARGET).ToList();
+        public List<object> RelativeDefaultList => [.. TypesOfPP.Where(a => a is string b && !RelativeCounter.DisplayName.Equals(b)).Prepend(Targeter.NO_TARGET)];
         #endregion
         #region Rank Counter Settings
         [UIValue(nameof(MinRank))]
@@ -428,7 +430,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         [UIObject(nameof(TargetModal))]
         private GameObject TargetModal;
 #endif
-        private AsyncLock CustomInputLock = new AsyncLock();
+        private AsyncLock CustomInputLock = new();
 
         [UIValue(nameof(CustomTarget))]
         public string CustomTarget
@@ -468,7 +470,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
                                 SelectedTarget = ti;
                                 UpdateSelectedTarget();
                             }
-                            CustomTargetText.SetText("<color=\"green\">Success!</color>");
+                            CustomTargetText.SetText("<color=\"green\">Success" + (AutoSelectAddedTarget ? ", player set as target." : "!") + "</color>");
                             CustomTargetInput.Text = "";
                             IEnumerator WaitThenUpdate()
                             {
@@ -575,11 +577,11 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         [UIValue(nameof(CustomTargetInfos))]
         private List<object> CustomTargetInfos => GetTargetList(Targeter.CustomTargets);
         [UIValue(nameof(SelectedTargetInfo))]
-        private List<object> SelectedTargetInfo => SelectedTarget is null ? new List<object>(0) : new List<object>(1) { SelectedTarget };
+        private List<object> SelectedTargetInfo => SelectedTarget is null ? [] : [SelectedTarget];
         private object SelectedTarget = null;
         private SelectableCell LastCellSelected;
         private bool TargetMenuIsOpen = false;
-        private readonly Dictionary<long, TargetInfo> IdToTarget = new Dictionary<long, TargetInfo>();
+        private readonly Dictionary<long, TargetInfo> IdToTarget = [];
 
         [UIAction(nameof(ResetTarget))]
         private void ResetTarget()
@@ -672,7 +674,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         }
         private void UpdateSelectedTarget()
         {
-            if (SelectedTarget is TargetInfo ti && !(ti is null))
+            if (SelectedTarget is TargetInfo ti && ti is not null)
             {
                 ti.SetAsTarget();
                 DeleteTarget.interactable = Targeter.CustomTargets.Any(token => token.ID.Equals(ti.RealID));
@@ -700,8 +702,8 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         }
         private List<object> GetTargetList(IEnumerable<(string ID, int Rank)> ids)
         {
-            if (ids is null) return new List<object>(0);
-            List<object> outp = new List<object>(ids.Count());
+            if (ids is null) return [];
+            List<object> outp = new(ids.Count());
             foreach (var (id, rank) in ids)
             {
                 if (!Targeter.IDtoNames.TryGetValue(id, out string name))

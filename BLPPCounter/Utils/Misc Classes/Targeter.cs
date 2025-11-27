@@ -1,6 +1,5 @@
 ﻿using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Settings.SettingHandlers;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Misc_Classes;
@@ -12,12 +11,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
-using static AlphabetScrollInfo;
-using static UnityEngine.GraphicsBuffer;
 
 namespace BLPPCounter.Utils
 {
@@ -26,10 +22,10 @@ namespace BLPPCounter.Utils
         public static readonly string NO_TARGET = "None";
         public static readonly int MAX_LIST_LENGTH = 100;
         private static PluginConfig PC => PluginConfig.Instance;
-        private static readonly object CustomRefreshLock = new object();
+        private static readonly object CustomRefreshLock = new();
         //These store the ids, not the names.
         private static List<(string ID, int Rank)> _clanTargets = null, _followerTargets = null, _customTargets = null;
-        internal static readonly HashSet<long> UsedIDs = new HashSet<long>();
+        internal static readonly HashSet<long> UsedIDs = [];
         public static IReadOnlyList<(string ID, int Rank)> ClanTargets => _clanTargets;
         public static IReadOnlyList<(string ID, int Rank)> FollowerTargets => _followerTargets;
         public static IReadOnlyList<(string ID, int Rank)> CustomTargets => _customTargets;
@@ -54,12 +50,12 @@ namespace BLPPCounter.Utils
             }
             if (clanInfo.Length == 0)
             {
-                _clanTargets = new List<(string ID, int Rank)>(0);
+                _clanTargets = [];
                 goto _followerTargets;
             }
             JEnumerable<JToken> clanStuffs = JToken.Parse(clanInfo)["data"].Children();
             _clanTargets = new List<(string ID, int Rank)>(clanStuffs.Count());
-            IDtoNames = new Dictionary<string, string>();
+            IDtoNames = [];
             foreach (JToken person in clanStuffs) {
                 long id = (long)person["id"];
                 if (UsedIDs.Contains(id))
@@ -82,7 +78,7 @@ namespace BLPPCounter.Utils
                     await LoadFollowers();
                     goto _customTargets;
                 }
-                JsonSerializer serializer = new JsonSerializer();
+                JsonSerializer serializer = new();
                 IEnumerable<CustomTarget> followerData;
                 using (StreamReader reader = File.OpenText(HelpfulPaths.TARGET_DATA))
                     followerData = serializer.Deserialize(reader, typeof(IEnumerable<CustomTarget>)) as IEnumerable<CustomTarget>;
@@ -107,8 +103,8 @@ namespace BLPPCounter.Utils
         _customTargets:
             List<CustomTarget> cts = PC.CustomTargets;
             _customTargets = new List<(string ID, int Rank)>(cts.Count);
-            List<(int RepIndex, CustomTarget NewCustomTarget)> toReplace = new List<(int RepIndex, CustomTarget NewCustomTarget)>();
-            List<int> toRemove = new List<int>();
+            List<(int RepIndex, CustomTarget NewCustomTarget)> toReplace = [];
+            List<int> toRemove = [];
             for (int i = 0; i < cts.Count; i++)
             {
                 CustomTarget ct = cts[i];
@@ -164,13 +160,13 @@ namespace BLPPCounter.Utils
         }
         internal static void ReloadFollowers()
         {
-            foreach (var p in _followerTargets)
+            foreach (var (ID, Rank) in _followerTargets)
             {
-                UsedIDs.Remove(long.Parse(p.ID));
-                IDtoNames.Remove(p.ID);
+                UsedIDs.Remove(long.Parse(ID));
+                IDtoNames.Remove(ID);
             }
             LoadFollowers().GetAwaiter().GetResult();
-            List<CustomTarget> targets = _followerTargets.Select(token => new CustomTarget(IDtoNames[token.ID], long.Parse(token.ID), token.Rank)).ToList();
+            List<CustomTarget> targets = [.. _followerTargets.Select(token => new CustomTarget(IDtoNames[token.ID], long.Parse(token.ID), token.Rank))];
             ReloadTargetList(ref targets, ref _followerTargets);
         }
         internal static void ReloadTargetList(ref List<CustomTarget> listVar, ref List<(string ID, int Rank)> displayListVar)
@@ -179,8 +175,8 @@ namespace BLPPCounter.Utils
             {
                 try
                 {
-                    (listVar, displayListVar) = ReloadTargetListInternal(listVar, displayListVar).GetAwaiter().GetResult();
-                    IEnumerator WaitThenUpdate()
+                    (listVar, displayListVar) = ReloadTargetListInternal(listVar).GetAwaiter().GetResult();
+                    static IEnumerator WaitThenUpdate()
                     {
                         yield return new WaitForEndOfFrame();
                         SettingsHandler.Instance.UpdateTargetLists();
@@ -197,9 +193,9 @@ namespace BLPPCounter.Utils
                 }
             }
         } 
-        private static async Task<(List<CustomTarget>, List<(string ID, int Rank)>)> ReloadTargetListInternal(List<CustomTarget> list, List<(string ID, int Rank)> displayList)
+        private static async Task<(List<CustomTarget>, List<(string ID, int Rank)>)> ReloadTargetListInternal(List<CustomTarget> list)
         {
-            List<CustomTarget> outpList = new List<CustomTarget>(list.Count);
+            List<CustomTarget> outpList = new(list.Count);
             List<(string ID, int Rank)> outpDisplayList;
             foreach (CustomTarget ct in list)
             {
@@ -211,7 +207,7 @@ namespace BLPPCounter.Utils
                 outpList.Add(new CustomTarget(playerData["name"].ToString(), ct.ID, (int)playerData["rank"]));
             }
             outpList.Sort((a, b) => a.Rank.CompareTo(b.Rank));
-            outpDisplayList = outpList.Select(token => (token.ID.ToString(), token.Rank)).ToList();
+            outpDisplayList = [.. outpList.Select(token => (token.ID.ToString(), token.Rank))];
             return (outpList, outpDisplayList);
         }
         public static void AddTarget(string name, string id, int rank)
@@ -264,11 +260,11 @@ namespace BLPPCounter.Utils
                 async Task<IEnumerable<CustomTarget>> PageHandler(string token) => 
                     await Task.Run(() => 
                 JToken.Parse(token).Children().Select(t => new CustomTarget(t["name"].ToString(), (long)t["id"], -1)));
-                outp = (await APIHandler.CalledPagedAPIFlat(MAX_LIST_LENGTH, (page, count) => string.Format(HelpfulPaths.BLAPI_FOLLOWERS, playerID, page, count), BLAPI.Throttle, PageHandler)).ToList();
+                outp = [.. (await APIHandler.CalledPagedAPIFlat(MAX_LIST_LENGTH, (page, count) => string.Format(HelpfulPaths.BLAPI_FOLLOWERS, playerID, page, count), BLAPI.Throttle, PageHandler))];
                 if (PC.UseSteamFriends)
                 {
                     IReadOnlyList<string> friends = await BS_Utils.Gameplay.GetUserInfo.GetPlatformUserModel().GetUserFriendsUserIds(false).ConfigureAwait(false);
-                    if (!(friends is null))
+                    if (friends is not null)
                         foreach (string id in friends)
                         {
                             if (outp.Any(token => token.ID.ToString().Equals(id))) continue;
@@ -293,13 +289,11 @@ namespace BLPPCounter.Utils
         {
             IEnumerable<JToken> toSave = FollowerTargets.Where(token => token.Rank >= 0)
                 .Select(token => JToken.FromObject(new CustomTarget(IDtoNames[token.ID], long.Parse(token.ID), token.Rank)));
-            using (StreamWriter sw = new StreamWriter(HelpfulPaths.TARGET_DATA))
-            {
-                JsonSerializer serializer = new JsonSerializer();
-                serializer.Serialize(sw, toSave, typeof(CustomTarget));
-            }
+            using StreamWriter sw = new(HelpfulPaths.TARGET_DATA);
+            JsonSerializer serializer = new();
+            serializer.Serialize(sw, toSave, typeof(CustomTarget));
         }
-        private static async Task LoadFollowers(bool ignoreDupes = false)
+        private static async Task LoadFollowers()
         {
             IEnumerable<CustomTarget> data = null;
             try
@@ -312,7 +306,7 @@ namespace BLPPCounter.Utils
             }
             if (data is null)
             {
-                _followerTargets = new List<(string ID, int Rank)>(0);
+                _followerTargets = [];
                 return;
             }
             _followerTargets = new List<(string ID, int Rank)>(data.Count());

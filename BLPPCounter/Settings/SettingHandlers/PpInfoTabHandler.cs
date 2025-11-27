@@ -53,7 +53,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private Calculator CurrentCalculator => Calculator.GetCalc(CurrentLeaderboard);
         private APIHandler CurrentAPI => APIHandler.GetAPI(CurrentLeaderboard);
 #if NEW_VERSION
-        private readonly Dictionary<string, BeatmapKey> TabMapInfo = new Dictionary<string, BeatmapKey>() // 1.37.0 and above
+        private readonly Dictionary<string, BeatmapKey> TabMapInfo = new() // 1.37.0 and above
 #else
         private readonly Dictionary<string, IDifficultyBeatmap> TabMapInfo = new() // 1.34.2 and below
 #endif
@@ -522,7 +522,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 }, out _, out _, false).Invoke();
             NoScoreTargetWrapper = new FormatWrapper((typeof(string), 't'));
             GetNoScoreTarget = () => { NoScoreTargetWrapper.SetValue('t', Targeter.TargetName, typeof(string)); return simple.Invoke(NoScoreTargetWrapper); };
-            GetTarget = () => TheCounter.TargetFormatter?.Invoke(Targeter.TargetName, "") ?? "Target formatter is null";
+            GetTarget = () => TheCounter.TargetFormatter(Targeter.TargetName, "") ?? "Target formatter is null";
         }
         private float GetAccToBeatTarget()
         {
@@ -667,7 +667,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             int commaCount = mods.Count(c => c == ',');
             if (commaCount == 0) return mods;
             if (commaCount == 1) return mods.Replace(", ", " and ");
-            return mods.Substring(0, mods.LastIndexOf(',')) + " and" + mods.Substring(mods.LastIndexOf(','));
+            return mods.Substring(0, mods.LastIndexOf(',')) + " and" + mods.Substring(mods.LastIndexOf(',') + 1);
         }
         private void UpdateMods() //this is why you use bitmasks instead of a billion bools vars
         {

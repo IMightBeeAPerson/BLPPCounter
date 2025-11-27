@@ -61,7 +61,7 @@ namespace BLPPCounter.Settings.Configs
         public virtual bool ReplayMods { get; set; } = true;
         public virtual bool DynamicAcc { get; set; } = true;
         public virtual bool ShowRank { get; set; } = true;
-        public virtual bool LocalReplays { get; set; } = true;
+        public virtual bool LocalReplays { get; set; } = false;
         public virtual bool LocalReplaysOnly { get; set; } = false;
         public virtual string RelativeDefault { get; set; } = "Normal";
         #endregion

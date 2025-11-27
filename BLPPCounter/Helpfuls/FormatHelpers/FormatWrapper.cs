@@ -162,6 +162,8 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
         }
         public void SetValue(char c, object value, Type valType)
         {
+            if (valType is null)
+                throw new ArgumentNullException(nameof(valType), "Type given cannot be null.");
             int index = GetIndex(c);
             if (index < 0)
                 throw new ArgumentException($"Character '{c}' is not part of the token set.");
@@ -181,6 +183,8 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
         }
         public void SetValueAndType(char c, object value, Type valType)
         {
+            if (valType is null)
+                throw new ArgumentNullException(nameof(valType), "Type given cannot be null.");
             int index = GetIndex(c);
             if (index < 0)
                 throw new ArgumentException($"Character '{c}' is not part of the token set.");
@@ -198,7 +202,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
         public void SetValues(params (char c, object value)[] vals)
         {
             foreach (var (c, value) in vals)
-                SetValue(c, value, value.GetType());
+                SetValue(c, value, value?.GetType());
         }
 
         public T GetValue<T>(char c)

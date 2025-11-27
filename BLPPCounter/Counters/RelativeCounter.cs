@@ -115,7 +115,7 @@ namespace BLPPCounter.Counters
         #endregion
         #region Variables
         public override string Name => DisplayName;
-        public string ReplayMods { get; private set; }
+        public string ReplayMods { get; private set; } = "";
 
         private float accToBeat, staticAccToBeat;
         private PPContainer replayPPVals;
@@ -157,6 +157,8 @@ namespace BLPPCounter.Counters
                     {
                         //Plugin.Log.Info($"Loading local replay for player {Targeter.TargetName} at path: {replayName}");
                         string path = LocalReplayHandler.GetReplayPath(replayName);
+                        if (path is null)
+                            throw new Exception("The local file found in header does not exist.");
                         replayData = File.ReadAllBytes(path);
                         if (!PC.LocalReplaysOnly)
                         {
@@ -366,7 +368,7 @@ namespace BLPPCounter.Counters
                     {
                         string theMods = "";
                         if (TheCounter.theCounter is RelativeCounter rc2) theMods = rc2.ReplayMods;
-                        formattedTokens.MakeTokenConstant('t', TheCounter.TargetFormatter.Invoke(PC.Target, theMods));
+                        formattedTokens.MakeTokenConstant('t', TheCounter.TargetFormatter(PC.Target, theMods));
                     }
                     else { formattedTokens.SetText('t'); formattedTokens.MakeTokenConstant('t'); }
                 },

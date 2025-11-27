@@ -9,6 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using UnityEngine;
+using static BLPPCounter.Helpfuls.HelpfulFormatter;
 using static BLPPCounter.Helpfuls.HelpfulMisc;
 
 namespace BLPPCounter.Helpfuls
@@ -718,58 +719,7 @@ namespace BLPPCounter.Helpfuls
                     if (!confirmFormat.Invoke(val.Symbol, extraArgs[val]))
                         throw new FormatException($"Invalid extra parameter format ... This is for the char '{val.Symbol}'");
                 }
-                Dictionary<char, TokenInfo> temp = [];
-                List<(char capture, IEnumerable<char> symbols)> buffer = [];
-                foreach (TokenKey val in tokens.Keys)
-                {
-                    if (char.IsDigit(val.Symbol))
-                    {
-                        MatchCollection mc = Regex.Matches(tokens[val], $"(?<={ESCAPE_CHAR}).");
-                        List<char> toAdd = [];
-                        foreach (Match item in mc)
-                        {
-                            char c = item.Value[0];
-                            if (temp.ContainsKey(c))
-                            {
-                                TokenInfo ti = temp[c];
-                                ti.AssignedCapture.Add(val.Symbol);
-                                if (ti.Usage < TokenUsage.Dependent)
-                                    ti.Usage = TokenUsage.Dependent;
-                                temp[c] = ti;
-                            }
-                            else
-                                toAdd.Add(c);
-                        }
-                        buffer.Add((val.Symbol, toAdd));
-                        continue;
-                    }
-                    if (!temp.TryAdd(val.Symbol, new TokenInfo(val.Symbol, val.Priority > FORMAT_SPLIT ? TokenUsage.Dependent : TokenUsage.Always)))
-                    {
-                        TokenInfo s = temp[val.Symbol];
-
-                        if (val.Priority < FORMAT_SPLIT)
-                            s.Usage = TokenUsage.Always;
-                        else
-                        {
-                            string rep = '{' + (val.Priority - FORMAT_SPLIT - 1).ToString() + '}';
-                            foreach (KeyValuePair<TokenKey, string> kvp in tokens)
-                                if (kvp.Value.Contains(rep))
-                                    s.AssignedGroup.Add(kvp.Key.Symbol);
-                        }
-
-                        temp[val.Symbol] = s;
-                    }
-                }
-                foreach (var (capture, symbols) in buffer)
-                    foreach (char c in symbols)
-                    {
-                        TokenInfo s = temp[c];
-                        s.AssignedCapture.Add(capture);
-                        if (s.Usage < TokenUsage.Dependent)
-                            s.Usage = TokenUsage.Dependent;
-                        temp[c] = s;
-                    }
-                tokenInfos = [.. temp.Values];
+                tokenInfos = CalculateTokenInfos(tokens);
             }
             catch (Exception e)
             {
@@ -829,6 +779,61 @@ namespace BLPPCounter.Helpfuls
             };
         }
 
+        private static TokenInfo[] CalculateTokenInfos(Dictionary<TokenKey, string> tokens)
+        {
+            Dictionary<char, TokenInfo> temp = [];
+            List<(char capture, IEnumerable<char> symbols)> buffer = [];
+            foreach (TokenKey val in tokens.Keys)
+            {
+                if (char.IsDigit(val.Symbol))
+                {
+                    MatchCollection mc = Regex.Matches(tokens[val], $"(?<={ESCAPE_CHAR}).");
+                    List<char> toAdd = [];
+                    foreach (Match item in mc)
+                    {
+                        char c = item.Value[0];
+                        if (temp.ContainsKey(c))
+                        {
+                            TokenInfo ti = temp[c];
+                            ti.AssignedCapture.Add(val.Symbol);
+                            if (ti.Usage < TokenUsage.Dependent)
+                                ti.Usage = TokenUsage.Dependent;
+                            temp[c] = ti;
+                        }
+                        else
+                            toAdd.Add(c);
+                    }
+                    buffer.Add((val.Symbol, toAdd));
+                    continue;
+                }
+                if (!temp.TryAdd(val.Symbol, new TokenInfo(val.Symbol, val.Priority > FORMAT_SPLIT ? TokenUsage.Dependent : TokenUsage.Always)))
+                {
+                    TokenInfo s = temp[val.Symbol];
+
+                    if (val.Priority < FORMAT_SPLIT)
+                        s.Usage = TokenUsage.Always;
+                    else
+                    {
+                        string rep = '{' + (val.Priority - FORMAT_SPLIT - 1).ToString() + '}';
+                        foreach (KeyValuePair<TokenKey, string> kvp in tokens)
+                            if (kvp.Value.Contains(rep))
+                                s.AssignedGroup.Add(kvp.Key.Symbol);
+                    }
+
+                    temp[val.Symbol] = s;
+                }
+            }
+            foreach (var (capture, symbols) in buffer)
+                foreach (char c in symbols)
+                {
+                    TokenInfo s = temp[c];
+                    s.AssignedCapture.Add(capture);
+                    if (s.Usage < TokenUsage.Dependent)
+                        s.Usage = TokenUsage.Dependent;
+                    temp[c] = s;
+                }
+            return [.. temp.Values];
+        }
         /// <summary>
         /// Builds arrays for the two-stage formatting process.
         /// </summary>
@@ -1048,24 +1053,70 @@ namespace BLPPCounter.Helpfuls
         /// <returns>A gradient color string representing the number.</returns>
         public static string NumberToGradient(float variance, float num)
         {
+            // Handle zero case based on blending settings
             if (num == 0)
+            {
                 if (PC.ColorGradBlending)
                 {
                     if (!PC.BlendMiddleColor)
+                    {
                         num = variance / 2f;
+                    }
                 }
-                else return ConvertColorToMarkup(PC.ColorGradZero);
-            bool neg = num < 0;
-            float toConvert = Math.Min(Math.Max(Math.Abs(neg && !PC.ColorGradBlending ? 1.0f - -num / variance : num / variance), PC.ColorGradMinDark) + (PC.BlendMiddleColor ? 0 : PC.ColorGradFlipPercent), 1f);
+                else
+                {
+                    return ConvertColorToMarkup(PC.ColorGradZero);
+                }
+            }
+
+            bool isNegative = num < 0;
+
+            // Calculate normalized value "toConvert"
+            float ratio;
+            if (isNegative && !PC.ColorGradBlending)
+            {
+                ratio = 1.0f + num / variance;
+            }
+            else
+            {
+                ratio = num / variance;
+            }
+
+            float adjustedRatio = Math.Abs(ratio);
+            float flipAdjustment = PC.BlendMiddleColor ? 0 : PC.ColorGradFlipPercent;
+            float clampedValue = Math.Min(
+                Math.Max(adjustedRatio, PC.ColorGradMinDark) + flipAdjustment,
+                1f
+            );
+
+            // Handle blending logic
             if (PC.ColorGradBlending)
-                return ConvertColorToMarkup(PC.BlendMiddleColor ?
-                            neg ?
-                                Blend(PC.ColorGradMin, PC.ColorGradZero, toConvert) :
-                                Blend(PC.ColorGradZero, PC.ColorGradMax, 1.0f - toConvert) :
-                            Blend(PC.ColorGradMin, PC.ColorGradMax, neg ? toConvert : 1.0f - toConvert));
-            return neg ? ConvertColorToMarkup(Multiply(PC.ColorGradMin, toConvert)) :
-                ConvertColorToMarkup(Multiply(PC.ColorGradMax, toConvert));
+            {
+                if (PC.BlendMiddleColor)
+                {
+                    if (isNegative)
+                    {
+                        return ConvertColorToMarkup(Blend(PC.ColorGradMin, PC.ColorGradZero, clampedValue));
+                    }
+                    else
+                    {
+                        return ConvertColorToMarkup(Blend(PC.ColorGradZero, PC.ColorGradMax, 1.0f - clampedValue));
+                    }
+                }
+                else
+                {
+                    return ConvertColorToMarkup(
+                        Blend(PC.ColorGradMin, PC.ColorGradMax, isNegative ? clampedValue : 1.0f - clampedValue)
+                    );
+                }
+            }
+
+            // No blending: apply color multiplication
+            return isNegative
+                ? ConvertColorToMarkup(Multiply(PC.ColorGradMin, clampedValue))
+                : ConvertColorToMarkup(Multiply(PC.ColorGradMax, clampedValue));
         }
+
 
         public static string NumberToGradient(float num) => NumberToGradient(GRAD_VARIANCE, num);
 
