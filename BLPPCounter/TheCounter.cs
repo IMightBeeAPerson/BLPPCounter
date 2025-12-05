@@ -1069,7 +1069,7 @@ namespace BLPPCounter
                     outp += DisplayFormatter(displayFc, pc.ExtraInfo && i == 3, ppVals[0, i], ppVals[1, i], mistakeColor, mistakes, CurrentLabels[i]) + "\n";
                 display.text = outp;
             } else
-                display.text = DisplayFormatter(displayFc, pc.ExtraInfo, ppVals[0, num - 1], ppVals[0, num - 1], mistakeColor, mistakes, CurrentLabels.Last());
+                display.text = DisplayFormatter(displayFc, pc.ExtraInfo, ppVals[0, num - 1], ppVals[1, num - 1], mistakeColor, mistakes, CurrentLabels.Last());
         }
         //public static string GetUpdateText(bool displayFc, float[] ppVals, int mistakes)
         //{

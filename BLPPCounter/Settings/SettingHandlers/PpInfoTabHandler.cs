@@ -1010,7 +1010,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         public void ResetTabs()
         {
-            if (CurrentMap.Equals(default) && CurrentDiff.Equals(default)) return;
+            if (CurrentMap is null && CurrentDiff.Equals(default)) return;
             string[] tabNames = [.. TabMapInfo.Keys];
             foreach (string s in tabNames)
                 TabMapInfo[s] = default;
