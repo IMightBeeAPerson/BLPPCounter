@@ -130,7 +130,7 @@ namespace BLPPCounter.Utils.API_Handlers
 
             // Initial batching
             var batchTasks = Enumerable.Range(0, (hashes.Length + MaxCountForBSPage - 1) / MaxCountForBSPage)
-                .Select(batchIndex => ProcessBatch(batchIndex))
+                .Select(ProcessBatch)
                 .ToArray();
 
             await Task.WhenAll(batchTasks);
@@ -245,8 +245,8 @@ namespace BLPPCounter.Utils.API_Handlers
         {
             int totalPages = (int)Math.Ceiling(totalCount / (double)maxCountPerPage);
             if (zeroIndexedPages) totalPages--;
-            SemaphoreSlim semaphore = new SemaphoreSlim(maxConcurrency);
-            List<Task<(int PageIndex, T Results)>> pageTasks = new List<Task<(int PageIndex, T Results)>>(totalPages);
+            SemaphoreSlim semaphore = new(maxConcurrency);
+            List<Task<(int PageIndex, T Results)>> pageTasks = new(totalPages);
 
             for (int pageNum = zeroIndexedPages ? 0 : 1; pageNum <= totalPages; pageNum++)
             {
@@ -324,7 +324,7 @@ namespace BLPPCounter.Utils.API_Handlers
 
                 Play[] current = dataTokens.Select(tokenSelector).ToArray();
 
-                if (!(replaceSelector is null))
+                if (replaceSelector is not null)
                 {
                     string[] mapHashes = current.Select(data => replaceSelector.Invoke(data, "").ExtraOutp).ToArray();
                     string[] names = await GetBSData(mapHashes, path: jsonPath);

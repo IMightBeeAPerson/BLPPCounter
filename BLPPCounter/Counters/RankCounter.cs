@@ -125,10 +125,7 @@ namespace BLPPCounter.Counters
                 UpdateFCEnabled = PC.PPFC,
                 UpdatePPEnabled = displayPP
             };
-            ppHandler.UpdateFC += (fcAcc, vals, actions) =>
-            {
-                vals[2].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
-            };
+            ppHandler.UpdateFC += (fcAcc, vals, actions) => vals[1].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
         }
         public override void ReinitCounter(TMP_Text display, RatingContainer ratingVals)
         {
