@@ -16,7 +16,7 @@ namespace BLPPCounter.Utils.API_Handlers
 {
     internal class BLAPI: APIHandler
     {
-        internal static readonly Throttler Throttle = new Throttler(100, 15);
+        internal static readonly Throttler Throttle = new(100, 15);
         internal static BLAPI Instance { get; private set; } = new BLAPI();
         private BLAPI() { }
         public override string API_HASH => HelpfulPaths.BLAPI_HASH;
@@ -35,11 +35,11 @@ namespace BLPPCounter.Utils.API_Handlers
         {
             diffData = diffData["difficulty"];
             if (speed != SongSpeed.Normal) diffData = diffData["modifiersRating"];
-            return new float[3] {
+            return [
                 (float)diffData[HelpfulMisc.AddModifier("accRating", speed)] * modMult,
                 (float)diffData[HelpfulMisc.AddModifier("passRating", speed)] * modMult,
                 (float)diffData[HelpfulMisc.AddModifier("techRating", speed)] * modMult
-                };
+                ];
         }
         public override string GetSongName(JToken diffData) => diffData["song"]["name"].ToString();
         public override string GetDiffName(JToken diffData) => (diffData["difficulty"]?["difficultyName"] ?? diffData["difficultyName"]).ToString();
@@ -50,8 +50,8 @@ namespace BLPPCounter.Utils.API_Handlers
             GetMaxScore(SelectSpecificDiff(JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash)).ConfigureAwait(false)), diffNum, modeName));
         public override float[] GetRatings(JToken diffData)
         {
-            if (!(diffData["difficulty"] is null)) diffData = diffData["difficulty"];
-            return new float[3] { (float)diffData["accRating"], (float)diffData["passRating"], (float)diffData["techRating"] };
+            if (diffData["difficulty"] is not null) diffData = diffData["difficulty"];
+            return [(float)diffData["accRating"], (float)diffData["passRating"], (float)diffData["techRating"]];
         }
         public override JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName)
         {
@@ -62,12 +62,12 @@ namespace BLPPCounter.Utils.API_Handlers
         public override bool MapIsUsable(JToken diffData)
         {
             if (diffData is null) return false;
-            if (!(diffData["difficulty"] is null)) diffData = diffData["difficulty"];
+            if (diffData["difficulty"] is not null) diffData = diffData["difficulty"];
             return HelpfulMisc.StatusIsUsable((int)diffData["status"]);
         }
         public override bool AreRatingsNull(JToken diffData)
         {
-            if (!(diffData["difficulty"] is null)) diffData = diffData["difficulty"];
+            if (diffData["difficulty"] is not null) diffData = diffData["difficulty"];
             return diffData["modifiersRating"] is null || diffData["modifiersRating"].ToString().Length == 0;
         }
         public override async Task<string> GetHashData(string hash, int diffNum) =>
@@ -80,29 +80,36 @@ namespace BLPPCounter.Utils.API_Handlers
         }
         public override float GetPP(JToken scoreData) => (float)scoreData["pp"];
         public override int GetScore(JToken scoreData) => (int)scoreData["modifiedScore"];
-        public override async Task<(float acc, float pp, SongSpeed speed, float modMult)[]> GetScoregraph(MapSelection ms, CancellationToken ct = default)
+        public override async Task<ScoregraphInfo[]> GetScoregraph(MapSelection ms, CancellationToken ct = default)
         {
             if (ms.IsUsable)
             {
+                ScoregraphInfo Parse1(JToken token)
+                {
+                    var (speed, modMult) = HelpfulMisc.ParseModifiers(token["modifiers"].ToString(), ms.MapData.diffData);
+                    return new ScoregraphInfo((float)token["accuracy"] / 100f, (float)Math.Round((float)token["pp"], PluginConfig.Instance.DecimalPrecision), speed, modMult, token["playerName"].ToString());
+                }
+
                 string data = await CallAPI_String($"leaderboard/{ms.MapData.songId}/scoregraph", ct: ct).ConfigureAwait(false);
-                return JToken.Parse(data).Children().Select(a => {
-                    var (speed, modMult) = HelpfulMisc.ParseModifiers(a["modifiers"].ToString(), ms.MapData.diffData);
-                    return ((float)a["accuracy"] / 100f, (float)Math.Round((float)a["pp"], PluginConfig.Instance.DecimalPrecision), speed, modMult);
-                }).ToArray();
+                return [.. JToken.Parse(data).Children().Select(Parse1)];
             } else
             {
                 string data = await CallAPI_String($"leaderboard/scores/{ms.MapData.songId}?count={PluginConfig.Instance.MinRank}", ct: ct).ConfigureAwait(false);
                 JToken mapData = ms.MapData.diffData;
                 float maxScore = (int)mapData["maxScore"];
                 float acc = (float)mapData["accRating"], pass = (float)mapData["passRating"], tech = (float)mapData["techRating"];
-                return JToken.Parse(data)["scores"].Children().Select(a => {
-                    var (speed, modMult) = HelpfulMisc.ParseModifiers(a["modifiers"].ToString(), ms.MapData.diffData);
-                    return (
-                    (float)a["modifiedScore"] / (float)mapData["maxScore"],
-                    (float)Math.Round(BLCalc.Instance.Inflate(BLCalc.Instance.GetSummedPp((int)a["modifiedScore"] / maxScore, acc, pass, tech)), PluginConfig.Instance.DecimalPrecision),
-                    speed, modMult
-                    );
-                    }).ToArray();
+
+                ScoregraphInfo Parse2(JToken token)
+                {
+                    var (speed, modMult) = HelpfulMisc.ParseModifiers(token["modifiers"].ToString(), ms.MapData.diffData);
+                    return new ScoregraphInfo(
+                        (float)token["modifiedScore"] / (float)mapData["maxScore"],
+                        (float)Math.Round(BLCalc.Instance.Inflate(BLCalc.Instance.GetSummedPp((int)token["modifiedScore"] / maxScore, acc, pass, tech)), PluginConfig.Instance.DecimalPrecision),
+                        speed, modMult, token["playerName"].ToString()
+                        );
+                }
+
+                return [.. JToken.Parse(data)["scores"].Children().Select(Parse2)];
             }
         }
         public override async Task<Play[]> GetScores(string userId, int count)
@@ -151,7 +158,7 @@ namespace BLPPCounter.Utils.API_Handlers
                 string songId = (string)dataToken["song"]["id"];
                 foreach (JToken mapToken in mapTokens)
                 {
-                    Map map = new Map(hash, songId + mapToken["value"] + mapToken["mode"], mapToken);
+                    Map map = new(hash, songId + mapToken["value"] + mapToken["mode"], mapToken);
                     if (Data.ContainsKey(hash))
                         Data[hash].Combine(map);
                     else Data[hash] = map;

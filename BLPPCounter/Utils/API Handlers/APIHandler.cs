@@ -305,7 +305,7 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false, CancellationToken ct = default);
         public abstract float GetPP(JToken scoreData);
         public abstract int GetScore(JToken scoreData);
-        public abstract Task<(float acc, float pp, SongSpeed speed, float modMult)[]> GetScoregraph(MapSelection ms, CancellationToken ct = default);
+        public abstract Task<ScoregraphInfo[]> GetScoregraph(MapSelection ms, CancellationToken ct = default);
         public abstract Task<Play[]> GetScores(string userId, int count);
         protected async Task<Play[]> GetScores(
         string userId, int count, string apiPathFormat, string scoreArrayPath, bool isZeroIndexed,
@@ -386,5 +386,21 @@ namespace BLPPCounter.Utils.API_Handlers
             //Plugin.Log.Info("Ranked Leaderboards: " + outp);
             return outp;
         }
+        #region Internal Classes
+        public struct ScoregraphInfo(float acc, float pp, SongSpeed speed, float modMult, string playerName)
+        {
+            public float Acc = acc;
+            public float PP = pp;
+            public SongSpeed Speed = speed;
+            public float ModMult = modMult;
+            public string PlayerName = playerName;
+
+            public void ChangePP(float acc, float pp)
+            {
+                Acc = acc;
+                PP = pp;
+            }
+        }
+        #endregion
     }
 }

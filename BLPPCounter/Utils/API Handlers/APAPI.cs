@@ -94,7 +94,7 @@ namespace BLPPCounter.Utils.API_Handlers
         {
             return (float)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_PLAYERID, userId) + "/" + accSaberType.ToString().ToLower()).ConfigureAwait(false))?["ap"];
         }
-        public override Task<(float acc, float pp, SongSpeed speed, float modMult)[]> GetScoregraph(MapSelection ms, CancellationToken ct = default) => SSAPI.Instance.GetScoregraph(ms, ct);
+        public override Task<ScoregraphInfo[]> GetScoregraph(MapSelection ms, CancellationToken ct = default) => SSAPI.Instance.GetScoregraph(ms, ct);
         internal override async Task AddMap(Dictionary<string, Map> Data, string hash, CancellationToken ct = default)
         {
             try

@@ -101,21 +101,20 @@ namespace BLPPCounter.Utils.API_Handlers
                 "id"
             ).ConfigureAwait(false);
         }
-        public override async Task<float> GetProfilePP(string userId)
+        public override async Task<float> GetProfilePP(string userId) => 
+            (float)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_USERID, userId, "basic")).ConfigureAwait(false))?["pp"];
+        public override async Task<ScoregraphInfo[]> GetScoregraph(MapSelection ms, CancellationToken ct = default)
         {
-            return (float)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_USERID, userId, "basic")).ConfigureAwait(false))?["pp"];
-        }
-        public override async Task<(float acc, float pp, SongSpeed speed, float modMult)[]> GetScoregraph(MapSelection ms, CancellationToken ct = default)
-        {
-            List<(float, float, SongSpeed, float)> pps = [];
+            List<ScoregraphInfo> pps = [];
+            const float SS_PAGELENGTH = 12f;
             string path = string.Format(HelpfulPaths.SSAPI_HASH, ms.Hash, "scores", Map.FromDiff(ms.Difficulty));
-            int pages = (int)Math.Ceiling(PluginConfig.Instance.MinRank / 12f);
+            int pages = (int)Math.Ceiling(PluginConfig.Instance.MinRank / SS_PAGELENGTH);
             int maxScore = (int)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, ms.Hash, "info", Map.FromDiff(ms.Difficulty)), ct: ct).ConfigureAwait(false))["maxScore"];
             for (int i = 1; i < pages + 1; i++)
-                pps.AddRange(JToken.Parse(await CallAPI_String(path + "&page=" + i, ct: ct).ConfigureAwait(false))["scores"].Children().Select(token => (
+                pps.AddRange(JToken.Parse(await CallAPI_String(path + "&page=" + i, ct: ct).ConfigureAwait(false))["scores"].Children().Select(token => new ScoregraphInfo(
                 (float)token["modifiedScore"] / maxScore,
                 (float)Math.Round((float)token["pp"], PluginConfig.Instance.DecimalPrecision),
-                SongSpeed.Normal, 1f
+                SongSpeed.Normal, 1f, token["leaderboardPlayerInfo"]["name"].ToString()
                 )));
             return [.. pps];
             /*if (ms.IsUsable)

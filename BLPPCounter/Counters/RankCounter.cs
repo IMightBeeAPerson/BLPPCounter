@@ -12,7 +12,7 @@ using System.Linq;
 using System.Threading;
 using TMPro;
 using UnityEngine;
-using static GameplayModifiers;
+using static BLPPCounter.Utils.API_Handlers.APIHandler;
 
 namespace BLPPCounter.Counters
 {
@@ -38,6 +38,7 @@ namespace BLPPCounter.Counters
             {"PP", 'x' },
             {"FCPP", 'y' },
             {"Rank", 'r' },
+            {"Next Player", 'n' },
             {"PP Difference", 'd' },
             {"Acc Difference", 'p' },
             {"Label", 'l' },
@@ -50,6 +51,7 @@ namespace BLPPCounter.Counters
                 {'x', "The unmodified PP number" },
                 {'y', "The unmodified PP number if the map was FC'ed" },
                 {'r', "The rank you would be on the leaderboard if the map ended right then" },
+                {'n', "The player directly ahead of you on the scoreboard" },
                 {'d', "The modified PP number, shows how much pp to go up one rank on the leaderboard" },
                 {'p', "The percent difference between your current acc and the person above you's acc" },
                 {'l', "The label (ex: PP, Tech PP, etc)" },
@@ -64,6 +66,7 @@ namespace BLPPCounter.Counters
                 { 'x', 543.21f },
                 { 'y', 654.32f },
                 { 'r', 3 },
+                { 'n', "Person" },
                 { 'd', 1.1f },
                 { 'p', 0.1f },
                 { 'l', "PP" },
@@ -75,7 +78,7 @@ namespace BLPPCounter.Counters
             },
             [
                 FormatRelation.CreateFunc("#{0}", "{0}"),
-                FormatRelation.CreateFunc<int>(num => HelpfulFormatter.GetWeightedRankColor(num) + '#' + num, num => HelpfulFormatter.GetWeightedRankColor(num))
+                FormatRelation.CreateFunc<int>(num => HelpfulFormatter.GetWeightedRankColor(num) + '#' + num, HelpfulFormatter.GetWeightedRankColor)
             ], new Dictionary<char, IEnumerable<(string, object)>>()
             {
                 { 'x', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
@@ -90,32 +93,31 @@ namespace BLPPCounter.Counters
         #region Variables
         public override string Name => DisplayName;
         private float[] rankArr;
-        private (float acc, float pp, SongSpeed speed, float modMult)[] mapData;
+        private ScoregraphInfo[] mapData;
 
         #endregion
         #region Inits
         public override void SetupData(MapSelection map, CancellationToken ct)
         {
             string songId = map.MapData.songId;
-            APIHandler api = APIHandler.GetSelectedAPI();
+            APIHandler api = GetSelectedAPI();
             mapData = api.GetScoregraph(map, ct).GetAwaiter().GetResult();
-            bool isUnranked = mapData[0].pp <= 0 || TheCounter.Leaderboard == Leaderboards.Accsaber;
+            bool isUnranked = mapData[0].PP <= 0 || TheCounter.Leaderboard == Leaderboards.Accsaber;
             for (int i = 0; i < mapData.Length; i++)
             {
-                if (!isUnranked && (TheCounter.Leaderboard != Leaderboards.Beatleader || mapData[i].speed == map.MapSpeed))
+                if (!isUnranked && (TheCounter.Leaderboard != Leaderboards.Beatleader || mapData[i].Speed == map.MapSpeed))
                     continue;
                 if (TheCounter.Leaderboard == Leaderboards.Beatleader)
                 {
-                    float[] specificPps = calc.GetPpWithSummedPp(mapData[i].acc, HelpfulPaths.GetAllRatingsOfSpeed(map.MapData.diffData, calc, mapData[i].speed));
-                    mapData[i] = (
+                    float[] specificPps = calc.GetPpWithSummedPp(mapData[i].Acc, HelpfulPaths.GetAllRatingsOfSpeed(map.MapData.diffData, calc, mapData[i].Speed));
+                    mapData[i].ChangePP(
                         BLCalc.Instance.GetAccDeflatedUnsafe(specificPps[0] + specificPps[1] + specificPps[2], PC.DecimalPrecision, ratings.SelectedRatings) / 100f,
-                        (float)Math.Round(specificPps[3], PC.DecimalPrecision),
-                        mapData[i].speed, mapData[i].modMult);
+                        (float)Math.Round(specificPps[3], PC.DecimalPrecision));
                 }
-                else mapData[i] = (mapData[i].acc, (float)Math.Round(calc.Inflate(calc.GetSummedPp(mapData[i].acc, ratings.SelectedRatings)), PC.DecimalPrecision), mapData[i].speed, mapData[i].modMult);
+                else mapData[i].ChangePP(mapData[i].Acc, (float)Math.Round(calc.Inflate(calc.GetSummedPp(mapData[i].Acc, ratings.SelectedRatings)), PC.DecimalPrecision));
             }
-            Array.Sort(mapData, (a,b) => (b.pp - a.pp) < 0 ? -1 : 1);
-            rankArr = [.. mapData.Select(t => t.pp)];
+            Array.Sort(mapData, (a,b) => (b.PP - a.PP) < 0 ? -1 : 1);
+            rankArr = [.. mapData.Select(t => t.PP)];
             //Plugin.Log.Debug($"[{string.Join(", ", mapData.Select(t => (t.acc, t.pp)))}]");
             ppHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 1)
             {
@@ -160,12 +162,12 @@ namespace BLPPCounter.Counters
         {
             displayRank = rankIniter.Invoke();
             rankWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(bool), (char)3), (typeof(bool), (char)4), (typeof(float), 'x'), (typeof(float), 'y'),
-                (typeof(int), 'r'), (typeof(float), 'd'), (typeof(float), 'p'), (typeof(string), 'c'), (typeof(string), 'l'));
+                (typeof(int), 'r'), (typeof(string), 'n'), (typeof(float), 'd'), (typeof(float), 'p'), (typeof(string), 'c'), (typeof(string), 'l'));
         }
-        private static string DisplayRank(bool fc, bool extraInfo, bool isNum1, float pp, float fcpp, int rank, float ppDiff, float percentDiff, string color, string label)
+        private static string DisplayRank(bool fc, bool extraInfo, bool isNum1, float pp, float fcpp, int rank, string playername, float ppDiff, float percentDiff, string color, string label)
         {
             rankWrapper.SetValues(((char)1, fc), ((char)2, extraInfo), ((char)3, !isNum1 && extraInfo), ((char)4, isNum1 && extraInfo), ('x', pp), ('y', fcpp),
-                    ('r', rank), ('d', ppDiff), ('p', percentDiff), ('c', color), ('l', label));
+                    ('r', rank), ('n', playername), ('d', ppDiff), ('p', percentDiff), ('c', color), ('l', label));
             return displayRank.Invoke(rankWrapper);
         }
         public override void UpdateFormat() => InitTheFormat();
@@ -185,6 +187,7 @@ namespace BLPPCounter.Counters
             int val = HelpfulMisc.FindInsertValueReverse(rankArr, pp);
             return Mathf.Clamp(val + 1, 1, Math.Min(PC.MinRank, mapData.Length));
         }
+        private ScoregraphInfo GetRankData(int rank) => mapData[Math.Max(rank - 2, 0)];
         #endregion
         #region Updates
         public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
@@ -192,16 +195,17 @@ namespace BLPPCounter.Counters
             ppHandler.Update(acc, mistakes, fcPercent);
 
             int rank = GetRank(ppHandler.GetPPGroup(0).TotalPP);
-            float ppDiff = (float)Math.Abs(Math.Round(mapData[Math.Max(rank - 2, 0)].pp - ppHandler.GetPPGroup(0).TotalPP, PluginConfig.Instance.DecimalPrecision));
-            float accDiff = (float)Math.Abs(Math.Round((mapData[Math.Max(rank - 2, 0)].acc - acc) * 100f, PluginConfig.Instance.DecimalPrecision));
+            ScoregraphInfo info = GetRankData(rank);
+            float ppDiff = (float)Math.Abs(Math.Round(info.PP - ppHandler.GetPPGroup(0).TotalPP, PluginConfig.Instance.DecimalPrecision));
+            float accDiff = (float)Math.Abs(Math.Round((info.Acc - acc) * 100f, PluginConfig.Instance.DecimalPrecision));
             string color = HelpfulFormatter.GetWeightedRankColor(rank);
             string text = "";
             //Plugin.Log.Info("PPVals: " + HelpfulMisc.Print(ppVals));
             if (PC.SplitPPVals && calc.RatingCount > 1)
                 for (int i = 0; i < calc.RatingCount; i++)
                     text += DisplayRank(ppHandler.DisplayFC, false, false, ppHandler[0, i], ppHandler[0, i],
-                        rank, ppDiff, accDiff, color, TheCounter.CurrentLabels[i]) + "\n";
-            text += DisplayRank(ppHandler.DisplayFC, PC.ExtraInfo, rank == 1, ppHandler[0], ppHandler[1], rank, ppDiff, accDiff, color, TheCounter.CurrentLabels.Last());
+                        rank, info.PlayerName, ppDiff, accDiff, color, TheCounter.CurrentLabels[i]) + '\n';
+            text += DisplayRank(ppHandler.DisplayFC, PC.ExtraInfo, rank == 1, ppHandler[0], ppHandler[1], rank, info.PlayerName, ppDiff, accDiff, color, TheCounter.CurrentLabels.Last());
             display.text = text;
         }
         public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
