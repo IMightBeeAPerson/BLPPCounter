@@ -1,5 +1,6 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
+using BLPPCounter.Utils.Enums;
 using System;
 
 namespace BLPPCounter.Utils.List_Settings

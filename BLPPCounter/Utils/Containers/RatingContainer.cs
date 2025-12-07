@@ -1,14 +1,14 @@
 ﻿using BLPPCounter.CalculatorStuffs;
+using BLPPCounter.Utils.Enums;
 using System;
 using UnityEngine;
 
-namespace BLPPCounter.Utils.Misc_Classes
+namespace BLPPCounter.Utils.Containers
 {
-#pragma warning disable CS0659
     public struct RatingContainer
     {
         public Leaderboards ValidLeaderboards { get; private set; }
-        public float[] Ratings => GetRatings(TheCounter.Leaderboard);
+        public readonly float[] Ratings => GetRatings(TheCounter.Leaderboard);
         public float[] SelectedRatings { get; private set; }
 
         private float StarRating, AccRating, PassRating, TechRating;
@@ -26,7 +26,7 @@ namespace BLPPCounter.Utils.Misc_Classes
             ValidLeaderboards = GetValidLeaderboards();
         }
 
-        public float[] GetRatings(Leaderboards leaderboard)
+        public readonly float[] GetRatings(Leaderboards leaderboard)
         {
             if ((leaderboard & ValidLeaderboards) == Leaderboards.None)
                 throw new ArgumentException("The given leaderboard is not valid for this container.");
@@ -41,7 +41,7 @@ namespace BLPPCounter.Utils.Misc_Classes
             PassRating *= multiplier;
             TechRating *= multiplier;
         }
-        public float[] GetAllRatings() => new float[4] { StarRating, AccRating, PassRating, TechRating };
+        public readonly float[] GetAllRatings() => [StarRating, AccRating, PassRating, TechRating];
         /// <summary>
         /// Changes the ratings values of this container.
         /// </summary>
@@ -116,7 +116,7 @@ namespace BLPPCounter.Utils.Misc_Classes
             TechRating = ratings[3];
             ValidLeaderboards = GetValidLeaderboards();
         }
-        private Leaderboards GetValidLeaderboards()
+        private readonly Leaderboards GetValidLeaderboards()
         {
             Leaderboards outp = StarRatingLeader;
             if (!Mathf.Approximately(AccRating, default) && !Mathf.Approximately(PassRating, default) && !Mathf.Approximately(TechRating, default))
@@ -183,14 +183,16 @@ namespace BLPPCounter.Utils.Misc_Classes
                 throw new ArgumentException($"Invalid rating length given. Expected >= 4, instead given {ratings.Length}.");
             return new RatingContainer(leaderboard, ratings[0], ratings[1], ratings[2], ratings[3]);
         }
-
+        #region Overrides
         public override readonly bool Equals(object obj) => obj is RatingContainer rc && Equals(rc);
         public readonly bool Equals(RatingContainer other) => Mathf.Approximately(StarRating, other.StarRating) && Mathf.Approximately(AccRating, other.AccRating) && Mathf.Approximately(PassRating, other.PassRating) && Mathf.Approximately(TechRating, other.TechRating);
         public static bool operator ==(RatingContainer left, RatingContainer right) => left.Equals(right);
         public static bool operator !=(RatingContainer left, RatingContainer right) => !(left == right);
-        public override readonly string ToString()
+        public override readonly string ToString() => $"StarRating: {StarRating}\nAccRating: {AccRating}\nPassRating: {PassRating}\nTechRating {TechRating}";
+        public override readonly int GetHashCode()
         {
-            return $"StarRating: {StarRating}\nAccRating: {AccRating}\nPassRating: {PassRating}\nTechRating {TechRating}";
+            return base.GetHashCode();
         }
+        #endregion
     }
 }

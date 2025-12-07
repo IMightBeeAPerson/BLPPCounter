@@ -2,7 +2,8 @@
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Utils.API_Handlers;
-using BLPPCounter.Utils.Misc_Classes;
+using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.Serializable_Classes;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -15,7 +16,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace BLPPCounter.Utils
+namespace BLPPCounter.Utils.Misc_Classes
 {
     public static class Targeter
     {

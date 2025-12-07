@@ -1,19 +1,15 @@
-﻿using BeatLeader.Utils;
-using BLPPCounter.CalculatorStuffs;
+﻿using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils.Misc_Classes;
-using IPA.Config.Data;
+using BLPPCounter.Utils.Profile_Utils;
+using BLPPCounter.Utils.Map_Utils;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 using System.Net.Http;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Threading;
 using System.Threading.Tasks;
-using static AlphabetScrollInfo;
 using static GameplayModifiers;
 
 namespace BLPPCounter.Utils.API_Handlers

@@ -1,6 +1,6 @@
 ﻿using BLPPCounter.Utils.Enums;
 
-namespace BLPPCounter.Utils.Misc_Classes
+namespace BLPPCounter.Utils.Profile_Utils
 {
     internal struct Play(string mapName, string mapKey, BeatmapDifficulty difficulty, string mode, float pp, float profilePpGained = -1, float oldPp = -1)
     {

@@ -1,13 +1,12 @@
 ﻿using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
-using BLPPCounter.Utils.Misc_Classes;
+using BLPPCounter.Utils.Containers;
+using BLPPCounter.Utils.Enums;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Linq;
-using UnityEngine;
 using static GameplayModifiers;
 
-namespace BLPPCounter.Utils
+namespace BLPPCounter.Utils.Map_Utils
 {
 #pragma warning disable CS0659
     public struct MapSelection
@@ -17,7 +16,7 @@ namespace BLPPCounter.Utils
         public string Mode { get; private set; }
         public SongSpeed MapSpeed { get; private set; }
         public RatingContainer Ratings { get; private set; }
-        public (string songId, JToken diffData) MapData => Map.Get(Mode, Difficulty);
+        public readonly (string songId, JToken diffData) MapData => Map.Get(Mode, Difficulty);
         public readonly bool IsUsable => HelpfulMisc.StatusIsUsable(this);
         public readonly string Hash => Map.Hash;
 

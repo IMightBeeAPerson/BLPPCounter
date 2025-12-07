@@ -1,4 +1,4 @@
-﻿using BLPPCounter.Utils;
+﻿using BLPPCounter.Utils.Serializable_Classes;
 using System.Collections.Generic;
 using IPA.Config.Stores.Attributes;
 using IPA.Config.Stores.Converters;

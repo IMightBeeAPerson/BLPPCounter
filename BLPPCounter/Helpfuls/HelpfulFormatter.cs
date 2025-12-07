@@ -1,6 +1,7 @@
 ﻿using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
+using BLPPCounter.Utils.Serializable_Classes;
 using ModestTree;
 using System;
 using System.Collections;
@@ -61,8 +62,8 @@ namespace BLPPCounter.Helpfuls
             string hold = "";
             for (int i = 0; i < PC.DecimalPrecision; i++) hold += "#";
             NUMBER_TOSTRING_FORMAT = PC.DecimalPrecision > 0 ? PC.FormatSettings.NumberFormat.Replace("#", "#." + hold) : PC.FormatSettings.NumberFormat;
-            SPECIAL_CHARS = new HashSet<char>() { ESCAPE_CHAR, RICH_SHORT, GROUP_OPEN, GROUP_CLOSE, CAPTURE_OPEN, CAPTURE_CLOSE };
-            ALL_SPECIAL_CHARS = new HashSet<char> { ESCAPE_CHAR, RICH_SHORT, DELIMITER, GROUP_OPEN, GROUP_CLOSE, INSERT_SELF, CAPTURE_OPEN, CAPTURE_CLOSE, PARAM_OPEN, PARAM_CLOSE, ALIAS };
+            SPECIAL_CHARS = [ESCAPE_CHAR, RICH_SHORT, GROUP_OPEN, GROUP_CLOSE, CAPTURE_OPEN, CAPTURE_CLOSE];
+            ALL_SPECIAL_CHARS = [ESCAPE_CHAR, RICH_SHORT, DELIMITER, GROUP_OPEN, GROUP_CLOSE, INSERT_SELF, CAPTURE_OPEN, CAPTURE_CLOSE, PARAM_OPEN, PARAM_CLOSE, ALIAS];
             RegexAllSpecialChars = "[" + string.Join("", ALL_SPECIAL_CHARS).Replace("]", "\\]") + "]";
             RegexSpecialChars = "[" + string.Join("", SPECIAL_CHARS).Replace("]", "\\]") + "]";
             GLOBAL_ALIASES = new Dictionary<string, char>()
@@ -314,7 +315,7 @@ namespace BLPPCounter.Helpfuls
                 throw new FormatException("Unexpected end after group open.");
 
             char symbol = format[i];
-            StringBuilder groupContent = new StringBuilder();
+            StringBuilder groupContent = new();
 
             // Must start with a letter or shorthand marker
             if (!char.IsLetter(symbol) && symbol != RICH_SHORT && symbol != '<')
@@ -379,7 +380,7 @@ namespace BLPPCounter.Helpfuls
                     if (i + 1 < format.Length && !IsSpecialChar(format[i + 1]))
                     {
                         i++;
-                        TokenKey tk = new TokenKey(format[i], FORMAT_SPLIT + sortIndex);
+                        TokenKey tk = new(format[i], FORMAT_SPLIT + sortIndex);
                         tokens[tk] = "{" + repIndex + "}";
                         priority[FORMAT_SPLIT + sortIndex] = format[i];
 
@@ -475,7 +476,7 @@ namespace BLPPCounter.Helpfuls
         /// <exception cref="FormatException">Thrown when the parameters are not correctly closed.</exception>
         private static string[] ParseExtraParams(string format, ref int i, char originChar)
         {
-            List<string> args = new List<string>();
+            List<string> args = [];
             i++; // skip '('
 
             string current = string.Empty;
@@ -526,7 +527,7 @@ namespace BLPPCounter.Helpfuls
 
             // Use the regex pattern you built earlier (TestRegexAliasPattern).
             // That pattern expects named groups "Token" and optionally "Params"
-            Regex aliasRegex = new Regex(TestRegexAliasPattern, RegexOptions.Singleline);
+            Regex aliasRegex = new(TestRegexAliasPattern, RegexOptions.Singleline);
 
             string Resolver(Match m)
             {
@@ -749,10 +750,10 @@ namespace BLPPCounter.Helpfuls
                 TokenOrdering ordering = parser.AnalyzeTokens();
 
                 // Return the runtime formatting delegate
-                return (FormatWrapper runtimeVars) =>
+                return runtimeVars =>
                 {
                     // Duplicate the compiled token values for this run (so we can mutate safely)
-                    Dictionary<TokenKey, string> runtimeTokens = new Dictionary<TokenKey, string>(compiledTokens);
+                    Dictionary<TokenKey, string> runtimeTokens = new(compiledTokens);
 
                     // apply var-level settings (mutate runtimeTokens as needed)
                     varSettings?.Invoke(compiledTokens, runtimeTokens, priority, runtimeVars);
@@ -771,7 +772,7 @@ namespace BLPPCounter.Helpfuls
                     parser.RebuildCaptures(runtimeTokens, ordering.Captures);
 
                     // Build arrays for formatting
-                    BuildFormatArrays(ordering.FirstLayer, ordering.SecondLayer, runtimeTokens, extraArgsWrapper, runtimeVars, runtimeTokens, out object[] firstArr, out object[] secondArr);
+                    BuildFormatArrays(ordering.FirstLayer, ordering.SecondLayer, extraArgsWrapper, runtimeVars, runtimeTokens, out object[] firstArr, out object[] secondArr);
 
                     // perform the two-stage format and return
                     return ApplyTwoStageFormat(parser.Formatted, firstArr, secondArr);
@@ -849,7 +850,6 @@ namespace BLPPCounter.Helpfuls
         private static void BuildFormatArrays(
             List<TokenKey> first,
             List<TokenKey> second,
-            Dictionary<TokenKey, string> tokens,
             FormatWrapper extraArgsWrapper,
             FormatWrapper runtimeVars,
             Dictionary<TokenKey, string> runtimeTokens,
@@ -898,38 +898,28 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="paramChar">The parameter character.</param>
         /// <returns>The global parameter amount.</returns>
-        public static int GetGlobalParamAmount(char paramChar)
+        public static int GetGlobalParamAmount(char paramChar) => paramChar switch
         {
-            switch (paramChar)
-            {
-                case 's': return 1;
-                case 'h': return 2;
-                default: return 0;
-            }
-        }
+            's' => 1,
+            'h' => 2,
+            _ => 0,
+        };
 
         /// <summary>
         /// Wraps a child confirmation callback with parent default confirmations.
         /// </summary>
         /// <param name="child">The child confirmation callback.</param>
         /// <returns>The wrapped confirmation callback.</returns>
-        private static Func<char, string[], bool> GetParentConfirmFormat(Func<char, string[], bool> child)
-        {
-            return (paramChar, values) =>
+        private static Func<char, string[], bool> GetParentConfirmFormat(Func<char, string[], bool> child) => (paramChar, values) =>
             {
                 if (child != null && child.Invoke(paramChar, values)) return true;
-                switch (paramChar)
+                return paramChar switch
                 {
-                    case 's':
-                        return values.Length == 1 && IsReferenceChar(values[0]);
-
-                    case 'h':
-                        return (values.Length == 1 && IsReferenceChar(values[0])) || (values.Length == 2 && IsReferenceChar(values[0]) && decimal.TryParse(values[1], out _));
-
-                    default: return false;
-                }
+                    's' => values.Length == 1 && IsReferenceChar(values[0]),
+                    'h' => (values.Length == 1 && IsReferenceChar(values[0])) || (values.Length == 2 && IsReferenceChar(values[0]) && decimal.TryParse(values[1], out _)),
+                    _ => false,
+                };
             };
-        }
 
         /// <summary>
         /// Wraps a child implement-args callback with parent implementations.
@@ -954,7 +944,7 @@ namespace BLPPCounter.Helpfuls
                         decimal toCompare = values.Length == 2 ? decimal.Parse(values[1]) : 0;
                         if (decimal.Parse(vals[values[0][0]] + "") <= toCompare)
                         {
-                            List<TokenKey> arr = tokens.Keys.Where(a => a.Symbol == values[0][0]).ToList();
+                            List<TokenKey> arr = [.. tokens.Keys.Where(a => a.Symbol == values[0][0])];
                             foreach (TokenKey item in arr)
                                 tokens[item] = "";
                         }
@@ -973,7 +963,7 @@ namespace BLPPCounter.Helpfuls
         /// <param name="text">The text to set.</param>
         public static void SetText(Dictionary<TokenKey, string> tokens, char c, string text = "")
         {
-            List<TokenKey> toModify = new List<TokenKey>();
+            List<TokenKey> toModify = [];
             foreach (var item in tokens.Keys) if (item.Symbol == c) toModify.Add(new TokenKey(c, item.Priority));
             foreach (var item in toModify)
                 if (item.Priority < FORMAT_SPLIT || text.IsEmpty())
@@ -991,7 +981,7 @@ namespace BLPPCounter.Helpfuls
         /// <param name="postText">The text to place after the existing text.</param>
         public static void SurroundText(Dictionary<TokenKey, string> tokens, char c, string preText, string postText)
         {
-            IEnumerable<int> keys = new List<int>(tokens.Keys.Where(val => val.Symbol == c).Select(val => val.Priority));
+            IEnumerable<int> keys = [.. tokens.Keys.Where(val => val.Symbol == c).Select(val => val.Priority)];
             //The lengths I have to to avoid cocerrent modification exceptions :(
             foreach (var item in keys)
                 tokens[new TokenKey(c, item)] = preText + tokens[new TokenKey(c, item)] + postText;
@@ -1145,24 +1135,21 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="c">The default character to convert.</param>
         /// <returns>The configured token character equivalent.</returns>
-        public static char DefaultToUsedChar(char c)
+        public static char DefaultToUsedChar(char c) => c switch
         {
-            switch (c)
-            {
-                case '&': return ESCAPE_CHAR;
-                case '*': return RICH_SHORT;
-                case ',': return DELIMITER;
-                case '[': return GROUP_OPEN;
-                case ']': return GROUP_CLOSE;
-                case '$': return INSERT_SELF;
-                case '<': return CAPTURE_OPEN;
-                case '>': return CAPTURE_CLOSE;
-                case '(': return PARAM_OPEN;
-                case ')': return PARAM_CLOSE;
-                case '\'': return ALIAS;
-                default: return c;
-            }
-        }
+            '&' => ESCAPE_CHAR,
+            '*' => RICH_SHORT,
+            ',' => DELIMITER,
+            '[' => GROUP_OPEN,
+            ']' => GROUP_CLOSE,
+            '$' => INSERT_SELF,
+            '<' => CAPTURE_OPEN,
+            '>' => CAPTURE_CLOSE,
+            '(' => PARAM_OPEN,
+            ')' => PARAM_CLOSE,
+            '\'' => ALIAS,
+            _ => c,
+        };
 
         /// <summary>
         /// Returns a colorized representation of a special formatting character using configured colors.
@@ -1170,21 +1157,18 @@ namespace BLPPCounter.Helpfuls
         /// <param name="c">Special character to colorize.</param>
         /// <returns>A string containing color markup and the character.</returns>
         /// <exception cref="ArgumentException">Thrown if the provided character is not recognized as special.</exception>
-        public static string ColorSpecialChar(char c)
+        public static string ColorSpecialChar(char c) => c switch
         {
-            switch (c)
-            {
-                case char v when v == ESCAPE_CHAR: return $"{ConvertColorToMarkup(PC.EscapeCharacterColor)}{v}";
-                case char v when v == RICH_SHORT: return $"{ConvertColorToMarkup(PC.ShorthandColor)}{v}";
-                case char v when v == DELIMITER: return $"{ConvertColorToMarkup(PC.DelimeterColor)}{v}";
-                case char v when v == GROUP_OPEN || v == GROUP_CLOSE: return $"{ConvertColorToMarkup(PC.GroupColor)}{v}";
-                case char v when v == INSERT_SELF: return $"{ConvertColorToMarkup(PC.GroupReplaceColor)}{v}";
-                case char v when v == CAPTURE_OPEN || v == CAPTURE_CLOSE: return $"{ConvertColorToMarkup(PC.CaptureColor)}{v}";
-                case char v when v == PARAM_OPEN || v == PARAM_CLOSE: return $"{ConvertColorToMarkup(PC.ParamColor)}{v}";
-                case char v when v == ALIAS: return $"{ConvertColorToMarkup(PC.AliasQuoteColor)}{v}";
-                default: throw new ArgumentException("Character given is not special");
-            }
-        }
+            char v when v == ESCAPE_CHAR => $"{ConvertColorToMarkup(PC.EscapeCharacterColor)}{v}",
+            char v when v == RICH_SHORT => $"{ConvertColorToMarkup(PC.ShorthandColor)}{v}",
+            char v when v == DELIMITER => $"{ConvertColorToMarkup(PC.DelimeterColor)}{v}",
+            char v when v == GROUP_OPEN || v == GROUP_CLOSE => $"{ConvertColorToMarkup(PC.GroupColor)}{v}",
+            char v when v == INSERT_SELF => $"{ConvertColorToMarkup(PC.GroupReplaceColor)}{v}",
+            char v when v == CAPTURE_OPEN || v == CAPTURE_CLOSE => $"{ConvertColorToMarkup(PC.CaptureColor)}{v}",
+            char v when v == PARAM_OPEN || v == PARAM_CLOSE => $"{ConvertColorToMarkup(PC.ParamColor)}{v}",
+            char v when v == ALIAS => $"{ConvertColorToMarkup(PC.AliasQuoteColor)}{v}",
+            _ => throw new ArgumentException("Character given is not special"),
+        };
 
         /// <summary>
         /// Converts a default-format string into a colorized format string using configured token characters.
@@ -1200,20 +1184,20 @@ namespace BLPPCounter.Helpfuls
         /// <returns>Colorized string representation.</returns>
         public static string ColorFormatToColor(string str)
         {
-            string Converter(Match m)
+            static string Converter(Match m)
             {
 #if NEW_VERSION
                 string name = m.Groups.First(g => g.Success && !char.IsDigit(g.Name[0])).Name; // 1.37.0 and above
 #else
                 string name = m.Groups.OfType<Group>().First(g => g.Success && !char.IsDigit(g.Name[0])).Name; //1.34.2 and below
 #endif
-                switch (name)
+                return name switch
                 {
-                    case "Special": return ColorSpecialChar(m.Value[0]);
-                    case "Color": return ConvertColorToMarkup(PluginConfig.Instance.GetColorFromName(m.Value.Substring(1)));
-                    case "Replace": return "{" + m.Value + "}";
-                    default: return m.Value;
-                }
+                    "Special" => ColorSpecialChar(m.Value[0]),
+                    "Color" => ConvertColorToMarkup(PluginConfig.Instance.GetColorFromName(m.Value.Substring(1))),
+                    "Replace" => "{" + m.Value + "}",
+                    _ => m.Value
+                };
             }
             return Regex.Replace(str, "(?<Special>" + RegexAllSpecialChars + ")|c(?<Color>[A-Z][a-z]+)|(?<Replace>\\d)", Converter);
         }
@@ -1282,12 +1266,12 @@ namespace BLPPCounter.Helpfuls
                 {
                     if (k.Priority <= FORMAT_SPLIT)
                     {
-                        if (!top.ContainsKey(k.Symbol)) top[k.Symbol] = new List<int>();
+                        if (!top.ContainsKey(k.Symbol)) top[k.Symbol] = [];
                         top[k.Symbol].Add(k.Priority);
                     }
                     else
                     {
-                        if (!bot.ContainsKey(k.Symbol)) bot[k.Symbol] = new List<int>();
+                        if (!bot.ContainsKey(k.Symbol)) bot[k.Symbol] = [];
                         bot[k.Symbol].Add(k.Priority);
                     }
                 }
@@ -1309,7 +1293,7 @@ namespace BLPPCounter.Helpfuls
                     {
                         if (hasLastTop)
                         {
-                            relations[lastTop] = new List<TokenKey>(children);
+                            relations[lastTop] = [.. children];
                         }
                         lastTop = k;
                         children.Clear();
@@ -1322,7 +1306,7 @@ namespace BLPPCounter.Helpfuls
                 }
 
                 if (hasLastTop)
-                    relations[lastTop] = new List<TokenKey>(children);
+                    relations[lastTop] = [.. children];
 
                 var valuesCopy = makeNewReference ? new Dictionary<TokenKey, string>(tokens) : tokens;
 

@@ -1,13 +1,12 @@
 ﻿using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Utils.Enums;
-using BLPPCounter.Utils.Misc_Classes;
+using BLPPCounter.Utils.Profile_Utils;
+using BLPPCounter.Utils.Map_Utils;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using static GameplayModifiers;
@@ -16,10 +15,10 @@ namespace BLPPCounter.Utils.API_Handlers
 {
     internal class APAPI: APIHandler
     {
-        private static readonly Throttler Throttle = new Throttler(400, 60);
+        private static readonly Throttler Throttle = new(400, 60);
         internal static APAPI Instance { get; private set; } = new APAPI();
-        private static readonly HashSet<int> UnrankedIds = new HashSet<int>();
-        private static readonly HashSet<string> UnrankedHashes = new HashSet<string>();
+        private static readonly HashSet<int> UnrankedIds = [];
+        private static readonly HashSet<string> UnrankedHashes = [];
         private APAPI() { }
         public override string API_HASH => HelpfulPaths.SSAPI_DIFFS;
         public override Task<(bool, HttpContent)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3, CancellationToken ct = default)

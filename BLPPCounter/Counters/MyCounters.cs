@@ -1,6 +1,6 @@
 ﻿using BLPPCounter.CalculatorStuffs;
-using BLPPCounter.Utils;
-using BLPPCounter.Utils.Misc_Classes;
+using BLPPCounter.Utils.Containers;
+using BLPPCounter.Utils.Map_Utils;
 using System.Threading;
 using TMPro;
 

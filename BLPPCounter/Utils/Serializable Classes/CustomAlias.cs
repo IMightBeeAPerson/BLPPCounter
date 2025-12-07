@@ -1,15 +1,12 @@
-﻿using BeatLeader.Utils;
-using BLPPCounter.Helpfuls;
+﻿using BLPPCounter.Helpfuls;
 using BLPPCounter.Helpfuls.FormatHelpers;
-using BLPPCounter.Utils.List_Settings;
 using ModestTree;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using static BeatSaberMarkupLanguage.Components.KEYBOARD;
 
-namespace BLPPCounter.Utils
+namespace BLPPCounter.Utils.Serializable_Classes
 {
     public struct CustomAlias
     {

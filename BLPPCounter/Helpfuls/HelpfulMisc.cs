@@ -3,7 +3,8 @@ using BeatSaberMarkupLanguage.Components.Settings;
 using BeatSaberMarkupLanguage.Parser;
 using BeatSaberMarkupLanguage.ViewControllers;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils;
+using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.Map_Utils;
 using Newtonsoft.Json.Linq;
 using System;
 using System.CodeDom;
@@ -23,7 +24,7 @@ namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
     {
-        public static readonly SongSpeed[] OrderedSpeeds = new SongSpeed[4] { SongSpeed.Slower, SongSpeed.Normal, SongSpeed.Faster, SongSpeed.SuperFast };
+        public static readonly SongSpeed[] OrderedSpeeds = [SongSpeed.Slower, SongSpeed.Normal, SongSpeed.Faster, SongSpeed.SuperFast];
         /// <summary>
         /// Returns a number based off the song speed, in the correct number, with slower being 0 and super fast being 3.
         /// </summary>
@@ -458,7 +459,7 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="ms">The map selection to check.</param>
         /// <returns>Whether or not the map selection has a usable status.</returns>
-        public static bool StatusIsUsable(MapSelection ms) => ms.Mode.Equals(Utils.Map.SS_MODE_NAME) || ms.Mode.Equals(Utils.Map.AP_MODE_NAME) || StatusIsUsable((int)ms.MapData.Item2["status"]);
+        public static bool StatusIsUsable(MapSelection ms) => ms.Mode.Equals(Map.SS_MODE_NAME) || ms.Mode.Equals(Map.AP_MODE_NAME) || StatusIsUsable((int)ms.MapData.diffData["status"]);
         /// <summary>
         /// Create a square matrix (a matrix with all arrays inside it being the same size).
         /// </summary>

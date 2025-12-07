@@ -6,12 +6,15 @@ using BeatSaberMarkupLanguage.ViewControllers;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.List_Settings;
-using BLPPCounter.Utils;
+using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.Misc_Classes;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Helpfuls.FormatHelpers;
+using BLPPCounter.Utils.Serializable_Classes;
+
 #if !NEW_VERSION
 using BLPPCounter.Utils.Special_Utils;
 #endif
@@ -149,7 +152,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         {
             if (NewAlias.Text is null || NewAlias.Text.Length == 0) return;
             ParserParams.EmitEvent("CloseWindow");
-            AliasListInfo ali = new AliasListInfo(new CustomAlias(_Counter, _FormatName, CurrentFormatInfo.Alias[_OldAliasName], NewAlias.Text, _OldAliasName));
+            AliasListInfo ali = new(new CustomAlias(_Counter, _FormatName, CurrentFormatInfo.Alias[_OldAliasName], NewAlias.Text, _OldAliasName));
 #if !NEW_VERSION
             if (AliasInfos.Count == 1 && AliasInfos[0].Equals("")) AliasInfos.Remove(""); // 1.34.2 and below
 #endif

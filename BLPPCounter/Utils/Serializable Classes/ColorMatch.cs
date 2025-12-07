@@ -1,20 +1,14 @@
 ﻿using Newtonsoft.Json;
 
-namespace BLPPCounter.Utils
+namespace BLPPCounter.Utils.Serializable_Classes
 {
-    public struct ColorMatch
+    public struct ColorMatch(int rank, string color)
     {
         [JsonProperty(nameof(Rank), Required = Required.DisallowNull)]
-        public int Rank { get; set; }
+        public int Rank { get; set; } = rank;
         [JsonProperty(nameof(Color), Required = Required.DisallowNull)]
-        public string Color { get; set; }
+        public string Color { get; set; } = color;
 
-        public ColorMatch(int rank, string color)
-        {
-            Rank = rank;
-            Color = color;
-        }
-
-        public override string ToString() => $"#{Rank}, Color: #{Color}";
+        public override readonly string ToString() => $"#{Rank}, Color: #{Color}";
     }
 }

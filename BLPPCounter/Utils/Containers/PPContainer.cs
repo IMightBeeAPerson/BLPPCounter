@@ -1,11 +1,7 @@
-﻿using BLPPCounter.CalculatorStuffs;
-using System;
-using System.Collections;
+﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using UnityEngine.UIElements;
 
-namespace BLPPCounter.Utils.Misc_Classes
+namespace BLPPCounter.Utils.Containers
 {
     public struct PPContainer
     {

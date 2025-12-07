@@ -3,6 +3,7 @@ using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.Map_Utils;
 using BLPPCounter.Utils.Misc_Classes;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -14,9 +15,8 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
-using static AlphabetScrollInfo;
 
-namespace BLPPCounter.Utils
+namespace BLPPCounter.Utils.Profile_Utils
 {
     internal class Profile
     {

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace BLPPCounter.Utils
+namespace BLPPCounter.Utils.Enums
 {
     [Flags]
     public enum Leaderboards //bitmask

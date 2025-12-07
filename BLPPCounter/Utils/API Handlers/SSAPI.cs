@@ -1,15 +1,12 @@
-﻿using BLPPCounter.CalculatorStuffs;
-using BLPPCounter.Helpfuls;
+﻿using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils.Enums;
-using BLPPCounter.Utils.Misc_Classes;
-using IPA.Config.Data;
+using BLPPCounter.Utils.Profile_Utils;
+using BLPPCounter.Utils.Map_Utils;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Security.Policy;
 using System.Threading;
 using System.Threading.Tasks;
 using static GameplayModifiers;
@@ -18,11 +15,11 @@ namespace BLPPCounter.Utils.API_Handlers
 {
     internal class SSAPI : APIHandler
     {
-        internal static readonly Throttler Throttle = new Throttler(50, 10);
+        internal static readonly Throttler Throttle = new(50, 10);
         internal static SSAPI Instance { get; private set; } = new SSAPI();
         private SSAPI() { }
-        private readonly HashSet<int> UnrankedIds = new HashSet<int>();
-        private readonly HashSet<string> UnrankedHashes = new HashSet<string>();
+        private readonly HashSet<int> UnrankedIds = [];
+        private readonly HashSet<string> UnrankedHashes = [];
         public override string API_HASH => HelpfulPaths.SSAPI_DIFFS;
         public override async Task<(bool, HttpContent)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3, CancellationToken ct = default)
         {
@@ -35,12 +32,11 @@ namespace BLPPCounter.Utils.API_Handlers
                 t = Throttle;
             return await CallAPI_Static(path, t, quiet, maxRetries, ct).ConfigureAwait(false);
         }
-        public override float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1) =>
-            new float[1] { (float)diffData["stars"] };
+        public override float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1) => [(float)diffData["stars"]];
         public override string GetSongName(JToken diffData) => diffData["songName"].ToString();
         public override string GetDiffName(JToken diffData) => Map.FromValue(int.Parse(diffData["difficulty"].ToString())).ToString();
         public override string GetLeaderboardId(JToken diffData) => diffData["id"].ToString();
-        public override bool MapIsUsable(JToken diffData) => !(diffData is null) && GetRatings(diffData)[0] > 0;
+        public override bool MapIsUsable(JToken diffData) => diffData is not null && GetRatings(diffData)[0] > 0;
         public override bool AreRatingsNull(JToken diffData) => (diffData["stars"] ?? diffData["starScoreSaber"]) is null;
         public override int GetMaxScore(JToken diffData)
         {
@@ -50,13 +46,13 @@ namespace BLPPCounter.Utils.API_Handlers
         }
         public override async Task<int> GetMaxScore(string hash, int diffNum, string modeName) => GetMaxScore(JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)).ConfigureAwait(false)));
         public override float[] GetRatings(JToken diffData) =>
-            new float[1] { (float)(diffData["stars"] ?? diffData["starScoreSaber"]) };
+            [(float)(diffData["stars"] ?? diffData["starScoreSaber"])];
         public override JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName)
         {
             if (diffData["id"] is null)
             {
                 string leaderboardId = diffData.Children().Where(token => (int)token["difficulty"] == diffNum && token["mode"].ToString().Substring(4).Equals(modeName)).First()["leaderboardId"].ToString();
-                return JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, leaderboardId, "Info")).Result);
+                return JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, leaderboardId, "Info")).GetAwaiter().GetResult());
             }
             return diffData;
         }
@@ -71,7 +67,7 @@ namespace BLPPCounter.Utils.API_Handlers
             name = (string)JToken.Parse(name)["name"];
             string outp = await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "scores", diff) + "&search=" + name, quiet, maxRetries: 1, ct: ct).ConfigureAwait(false);
             if (outp is null || outp.Length == 0) return null;
-            if (!(JToken.Parse(outp)["scores"].Children().FirstOrDefault(token => token["leaderboardPlayerInfo"]["name"].ToString().Equals(name)) is JObject tokenOutp)) return null;
+            if (JToken.Parse(outp)["scores"].Children().FirstOrDefault(token => token["leaderboardPlayerInfo"]["name"].ToString().Equals(name)) is not JObject tokenOutp) return null;
             JToken mapInfo = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diff), quiet, maxRetries: 1, ct: ct).ConfigureAwait(false));
             tokenOutp.Property("id").AddAfterSelf(new JProperty("maxScore", (int)mapInfo["maxScore"]));
             tokenOutp.Property("maxScore").AddAfterSelf(new JProperty("accuracy", (float)tokenOutp["modifiedScore"] / (float)tokenOutp["maxScore"]));
@@ -111,7 +107,7 @@ namespace BLPPCounter.Utils.API_Handlers
         }
         public override async Task<(float acc, float pp, SongSpeed speed, float modMult)[]> GetScoregraph(MapSelection ms, CancellationToken ct = default)
         {
-            List<(float, float, SongSpeed, float)> pps = new List<(float, float, SongSpeed, float)>();
+            List<(float, float, SongSpeed, float)> pps = [];
             string path = string.Format(HelpfulPaths.SSAPI_HASH, ms.Hash, "scores", Map.FromDiff(ms.Difficulty));
             int pages = (int)Math.Ceiling(PluginConfig.Instance.MinRank / 12f);
             int maxScore = (int)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, ms.Hash, "info", Map.FromDiff(ms.Difficulty)), ct: ct).ConfigureAwait(false))["maxScore"];
@@ -121,7 +117,7 @@ namespace BLPPCounter.Utils.API_Handlers
                 (float)Math.Round((float)token["pp"], PluginConfig.Instance.DecimalPrecision),
                 SongSpeed.Normal, 1f
                 )));
-            return pps.ToArray();
+            return [.. pps];
             /*if (ms.IsUsable)
             {
                 for (int i = 1; i < pages; i++)

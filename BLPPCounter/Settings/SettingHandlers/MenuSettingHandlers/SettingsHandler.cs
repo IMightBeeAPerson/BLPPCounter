@@ -6,8 +6,10 @@ using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
+using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.List_Settings;
 using BLPPCounter.Utils.Misc_Classes;
+using BLPPCounter.Utils.Serializable_Classes;
 using HMUI;
 using System;
 using System.Collections;
@@ -432,13 +434,13 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
 #endif
         private AsyncLock CustomInputLock = new();
 
-        [UIValue(nameof(CustomTarget))]
-        public string CustomTarget
+        [UIValue(nameof(CustomTargetName))]
+        public string CustomTargetName
         {
             get => "";
             set
             {
-                PropertyChanged(this, new PropertyChangedEventArgs(nameof(CustomTarget)));
+                PropertyChanged(this, new PropertyChangedEventArgs(nameof(CustomTargetName)));
                 Task.Run(async () =>
                 {
                     AsyncLock.Releaser? theLock = await CustomInputLock.TryLockAsync().ConfigureAwait(false);
@@ -448,7 +450,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
                         CustomTargetText.SetText("<color=\"yellow\">Loading...</color>");
                         try
                         {
-                            CustomTarget converted = await Utils.CustomTarget.ConvertToId(value);
+                            CustomTarget converted = await CustomTarget.ConvertToId(value);
                             if (Targeter.UsedIDs.Contains(converted.ID))
                             {
                                 if (AutoSelectAddedTarget)
@@ -504,7 +506,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
                         CustomRankText.SetText("<color=\"yellow\">Loading...</color>");
                         try
                         {
-                            CustomTarget converted = await Utils.CustomTarget.ConvertFromRank(value);
+                            CustomTarget converted = await CustomTarget.ConvertFromRank(value);
                             if (Targeter.UsedIDs.Contains(converted.ID))
                             {
                                 if (AutoSelectAddedTarget)

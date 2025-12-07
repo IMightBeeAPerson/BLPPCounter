@@ -1,7 +1,6 @@
-﻿using IPA.Config.Stores;
-using IPA.Config.Stores.Attributes;
+﻿using IPA.Config.Stores.Attributes;
 using IPA.Config.Stores.Converters;
-using BLPPCounter.Utils;
+using BLPPCounter.Utils.Serializable_Classes;
 using System.Collections.Generic;
 
 namespace BLPPCounter.Settings.Configs

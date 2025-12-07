@@ -1,4 +1,4 @@
-﻿using BLPPCounter.Utils;
+﻿using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.API_Handlers;
 using Newtonsoft.Json.Linq;
 using System;

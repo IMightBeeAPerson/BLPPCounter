@@ -1,20 +1,17 @@
-﻿using BeatLeader.Replayer;
-using BLPPCounter.CalculatorStuffs;
+﻿using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils;
+using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.API_Handlers;
-using BLPPCounter.Utils.List_Settings;
-using BLPPCounter.Utils.Misc_Classes;
-using Newtonsoft.Json.Linq;
+using BLPPCounter.Utils.Map_Utils;
+using BLPPCounter.Utils.Containers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using TMPro;
 using UnityEngine;
-using UnityEngine.Profiling;
 using static GameplayModifiers;
 
 namespace BLPPCounter.Counters

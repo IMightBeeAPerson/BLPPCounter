@@ -8,7 +8,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 
-namespace BLPPCounter.Utils
+namespace BLPPCounter.Utils.Serializable_Classes
 {
     public struct CustomTarget : IComparable<CustomTarget>
     {

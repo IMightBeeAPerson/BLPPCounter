@@ -1,10 +1,9 @@
-﻿using BLPPCounter.Helpfuls;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace BLPPCounter.Utils
+namespace BLPPCounter.Utils.Map_Utils
 {
     public class Map
     {
@@ -16,17 +15,17 @@ namespace BLPPCounter.Utils
         private readonly Dictionary<string, Dictionary<BeatmapDifficulty, (string, JToken)>> data;
         public Map(string hash) {
             Hash = hash;
-            data = new Dictionary<string, Dictionary<BeatmapDifficulty, (string, JToken)>>();
+            data = [];
         }
         public Map(string hash, string songId, JToken data) {
             Hash = hash;
-            this.data = new Dictionary<string, Dictionary<BeatmapDifficulty, (string, JToken)>>();
+            this.data = [];
             Add(songId, data);
         }
         public Map(string hash, string mode, BeatmapDifficulty difficulty, string songId, JToken data)
         {
             Hash = hash;
-            this.data = new Dictionary<string, Dictionary<BeatmapDifficulty, (string, JToken)>>();
+            this.data = [];
             Add(mode, difficulty, songId, data);
         }
         public void Add(string songId, JToken data)
@@ -37,7 +36,7 @@ namespace BLPPCounter.Utils
         }
         public void Add(string mode, BeatmapDifficulty difficulty, string songId, JToken data) {
             if (!this.data.ContainsKey(mode) || this.data[mode] == null)
-                this.data.Add(mode, new Dictionary<BeatmapDifficulty, (string, JToken)>());
+                this.data.Add(mode, []);
             this.data[mode].Add(difficulty, (songId, data));
         }
         public (string MapId, JToken Data) Get(string mode, BeatmapDifficulty difficulty) => data[mode][difficulty];
@@ -57,7 +56,7 @@ namespace BLPPCounter.Utils
             value = Get(difficulty);
             return value != null;
         }
-        public string[] GetModes() => data.Keys.ToArray();
+        public string[] GetModes() => [.. data.Keys];
         public void Combine(Map other)
         {
             foreach(string s in other.data.Keys)
