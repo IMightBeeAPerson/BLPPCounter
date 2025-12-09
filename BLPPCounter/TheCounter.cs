@@ -684,7 +684,7 @@ namespace BLPPCounter
         private static bool FormatPercentNeeded(string format)
         {
             percentNeededIniter = GetFormatPercentNeeded(format, out string _);
-            return percentNeededIniter != null;
+            return percentNeededIniter is not null;
         }
         private static void InitDisplayFormat()
         {

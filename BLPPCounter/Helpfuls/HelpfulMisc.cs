@@ -932,9 +932,9 @@ namespace BLPPCounter.Helpfuls
         }
         public static T[] RemoveElement<T>(this T[] arr, int index)
         {
-            List<T> hold = arr.ToList();
+            List<T> hold = [.. arr];
             hold.RemoveAt(index);
-            return hold.ToArray();
+            return [.. hold];
         }
         public static T[] InsertElement<T>(this T[] arr, int index, T value)
         {
