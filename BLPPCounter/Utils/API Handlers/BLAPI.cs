@@ -87,14 +87,14 @@ namespace BLPPCounter.Utils.API_Handlers
                 ScoregraphInfo Parse1(JToken token)
                 {
                     var (speed, modMult) = HelpfulMisc.ParseModifiers(token["modifiers"].ToString(), ms.MapData.diffData);
-                    return new ScoregraphInfo((float)token["accuracy"] / 100f, (float)Math.Round((float)token["pp"], PluginConfig.Instance.DecimalPrecision), speed, modMult, token["playerName"].ToString());
+                    return new ScoregraphInfo((float)token["accuracy"] / 100f, (float)Math.Round((float)token["pp"], PC.DecimalPrecision), speed, modMult, token["playerName"].ToString().ClampString(PC.MaxNameLength));
                 }
 
                 string data = await CallAPI_String($"leaderboard/{ms.MapData.songId}/scoregraph", ct: ct).ConfigureAwait(false);
                 return [.. JToken.Parse(data).Children().Select(Parse1)];
             } else
             {
-                string data = await CallAPI_String($"leaderboard/scores/{ms.MapData.songId}?count={PluginConfig.Instance.MinRank}", ct: ct).ConfigureAwait(false);
+                string data = await CallAPI_String($"leaderboard/scores/{ms.MapData.songId}?count={PC.MinRank}", ct: ct).ConfigureAwait(false);
                 JToken mapData = ms.MapData.diffData;
                 float maxScore = (int)mapData["maxScore"];
                 float acc = (float)mapData["accRating"], pass = (float)mapData["passRating"], tech = (float)mapData["techRating"];
@@ -104,8 +104,8 @@ namespace BLPPCounter.Utils.API_Handlers
                     var (speed, modMult) = HelpfulMisc.ParseModifiers(token["modifiers"].ToString(), ms.MapData.diffData);
                     return new ScoregraphInfo(
                         (float)token["modifiedScore"] / (float)mapData["maxScore"],
-                        (float)Math.Round(BLCalc.Instance.Inflate(BLCalc.Instance.GetSummedPp((int)token["modifiedScore"] / maxScore, acc, pass, tech)), PluginConfig.Instance.DecimalPrecision),
-                        speed, modMult, token["playerName"].ToString()
+                        (float)Math.Round(BLCalc.Instance.Inflate(BLCalc.Instance.GetSummedPp((int)token["modifiedScore"] / maxScore, acc, pass, tech)), PC.DecimalPrecision),
+                        speed, modMult, token["playerName"].ToString().ClampString(PC.MaxNameLength)
                         );
                 }
 

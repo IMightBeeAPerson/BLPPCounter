@@ -420,7 +420,7 @@ namespace BLPPCounter.Counters
                     {
                         string theMods = "";
                         if (TheCounter.theCounter is ClanCounter cc) theMods = cc.Mods;
-                        formattedTokens.MakeTokenConstant('t', TheCounter.TargetFormatter(PC.Target, theMods));
+                        formattedTokens.MakeTokenConstant('t', TheCounter.TargetFormatter(PC.Target.ClampString(PC.MaxNameLength), theMods));
                     }
                     else { formattedTokens.SetText('t'); formattedTokens.MakeTokenConstant('t'); }
                 },

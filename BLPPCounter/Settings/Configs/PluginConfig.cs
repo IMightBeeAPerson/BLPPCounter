@@ -45,6 +45,7 @@ namespace BLPPCounter.Settings.Configs
         public virtual bool HuntLoads { get; set; } = true;
         #endregion
         #region Misc Settings
+        public virtual int MaxNameLength { get; set; } = 20;
         public virtual int APITimeout { get; set; } = 5; //in seconds
         public virtual float ColorGradMinDark { get; set; } = 0.5f;
         public virtual bool ColorGradBlending { get; set; } = true;
@@ -70,6 +71,7 @@ namespace BLPPCounter.Settings.Configs
         #region Rank Counter Settings
         public virtual int MinRank { get; set; } = 100;
         public virtual int MaxRank { get; set; } = 0;
+
         #endregion
         #region Target Settings
         public virtual bool TargeterStartupWarnings { get; set; } = false;

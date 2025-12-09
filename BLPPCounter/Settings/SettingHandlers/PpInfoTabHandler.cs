@@ -523,7 +523,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 }, out _, out _, false).Invoke();
             NoScoreTargetWrapper = new FormatWrapper((typeof(string), 't'));
             GetNoScoreTarget = () => { NoScoreTargetWrapper.SetValue('t', Targeter.TargetName, typeof(string)); return simple.Invoke(NoScoreTargetWrapper); };
-            GetTarget = () => TheCounter.TargetFormatter(Targeter.TargetName, "") ?? "Target formatter is null";
+            GetTarget = () => TheCounter.TargetFormatter(Targeter.TargetName.ClampString(PC.MaxNameLength), "") ?? "Target formatter is null";
         }
         private float GetAccToBeatTarget()
         {

@@ -102,7 +102,7 @@ namespace BLPPCounter.Utils.API_Handlers
                 if (UnrankedHashes.Contains(hash) || ct.IsCancellationRequested) return;
                 JEnumerable<JToken> diffs = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_DIFFS, hash), ct: ct).ConfigureAwait(false)).Children();
                 bool anyRanked = false;
-                List<int> unrankedIdsToAdd = new List<int>();
+                List<int> unrankedIdsToAdd = [];
                 foreach (JToken diff in diffs)
                 {
                     int songId = (int)diff["leaderboardId"];

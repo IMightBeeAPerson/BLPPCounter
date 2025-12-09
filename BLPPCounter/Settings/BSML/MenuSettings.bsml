@@ -46,6 +46,7 @@
       </vertical>
       <text text='Misc Settings' align='Center'/>
       <vertical spacing='1'>
+        <slider-setting text='Max Name Length' value='MaxNameLength' integer-only='true' min='1' max='100' increment='1' apply-on-change='true' show-buttons='true'/>
         <slider-setting text='API Timeout' apply-on-change='true' value='APITimeout' integer-only='true' min='1' max='60' increment='1' show-buttons='true'/>
         <button text='Clear Cache' on-click='ClearCache' hover-hint='Clears the map cache'/>
         <checkbox-setting text='Use Gradient' apply-on-change='true' value='UseGrad' hover-hint='Instead of solid green/red, use a gradient based off of the value'/>
@@ -74,6 +75,11 @@
         <checkbox-setting text='Use Local Replays' value='LocalReplays' apply-on-change='true' hover-hint='Check the replays in Beatleaders folder before loading from the web'/>
         <checkbox-setting text='Local Replays ONLY' value='LocalReplaysOnly' apply-on-change='true' hover-hint='Never check the web for replays, only load locally'/>
         <list-setting id='DefaultCounterList' text='Default Counter' value='RelativeDefault' options='RelativeDefaultList' apply-on-change='true' hover-hint='What counter to go to when relative counter cannot be used' />
+      </vertical>
+      <text text='Rank Counter Settings' align='Center'/>
+      <vertical spacing='1'>
+        <slider-setting text='Lowest Rank' value='MinRank' integer-only='true' min='1' max='500' increment='1' apply-on-change='true' show-buttons='true'/>
+        <text text='This is the lowest rank the counter will load in. Lower number for less load time.' align='Center'/>
       </vertical>
       <text text='Target Settings' align='Center'/>
       <vertical spacing='1'>

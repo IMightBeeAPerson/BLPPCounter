@@ -230,6 +230,12 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         #region Misc Settings
         [UIAction(nameof(ClearCache))]
         public void ClearCache() { ClanCounter.ClearCache(); TheCounter.ClearCounter(); }
+        [UIValue(nameof(MaxNameLength))]
+        public int MaxNameLength
+        {
+            get => PC.MaxNameLength;
+            set { PC.MaxNameLength = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(MaxNameLength))); }
+        }
         [UIValue(nameof(APITimeout))]
         public int APITimeout
         {

@@ -28,6 +28,7 @@ namespace BLPPCounter.Utils.API_Handlers
             Timeout = ClientTimeout
         };
         private static readonly Throttler BSThrottler = new(50, 10);
+        protected static PluginConfig PC => PluginConfig.Instance;
 
         public abstract string API_HASH { get; }
         public abstract Task<(bool Success, HttpContent Content)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3, CancellationToken ct = default);
