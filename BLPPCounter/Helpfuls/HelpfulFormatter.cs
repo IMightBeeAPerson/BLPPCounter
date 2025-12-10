@@ -1,16 +1,12 @@
 ﻿using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils;
 using BLPPCounter.Utils.Serializable_Classes;
 using ModestTree;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using UnityEngine;
-using static BLPPCounter.Helpfuls.HelpfulFormatter;
 using static BLPPCounter.Helpfuls.HelpfulMisc;
 
 namespace BLPPCounter.Helpfuls
@@ -741,7 +737,8 @@ namespace BLPPCounter.Helpfuls
             {
                 // Build token parser and apply compile-time settings
                 TokenParser parser = TokenParser.UnrapTokens(tokens, true, formatted);
-                if (applySettings && settings != null) settings.Invoke(parser);
+                //Plugin.Log.Info(parser.ToString());
+                if (applySettings && settings is not null) settings.Invoke(parser);
 
                 // Keep a reference-to-template tokens (this is the "compiled" token map)
                 Dictionary<TokenKey, string> compiledTokens = parser.GetReference();
@@ -759,7 +756,7 @@ namespace BLPPCounter.Helpfuls
                     varSettings?.Invoke(compiledTokens, runtimeTokens, priority, runtimeVars);
 
                     // apply extra args via implementArgs -> populate extraArgsWrapper if present
-                    if (extraArgsWrapper != null)
+                    if (extraArgsWrapper is not null)
                     {
                         foreach (var key in extraArgs.Keys)
                         {
@@ -1572,7 +1569,7 @@ namespace BLPPCounter.Helpfuls
                 sb.Append("Token values: ");
                 foreach (var tv in tokenValues)
                     sb.AppendLine().AppendFormat("{0} || {1}", tv.Key, ToLiteral(tv.Value));
-                sb.AppendLine("----------------------------");
+                sb.AppendLine("\n----------------------------");
                 return sb.ToString();
             }
         }

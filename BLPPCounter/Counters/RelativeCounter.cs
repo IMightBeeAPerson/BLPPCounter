@@ -87,15 +87,15 @@ namespace BLPPCounter.Counters
                 {'y', 1 },
                 {'a', 2 },
                 {'t', 3 }
-            }, new Func<object, bool, object>[4] 
-            { 
+            },
+            [
                 FormatRelation.CreateFunc("<color={0}>{0}", "<color={0}>"),
                 FormatRelation.CreateFunc<float>(
                     outp => $"<color={(outp > 0 ? "green" : "red")}>" + outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT),
                     outp => outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT)),
                 FormatRelation.CreateFunc("{0}%", "{0}"),
                 FormatRelation.CreateFunc("Targeting <color=red>{0}</color>")
-            },
+            ],
             new Dictionary<char, IEnumerable<(string, object)>>(6)
             { //default values: IsInteger = false, MinVal = -1.0f, MaxVal = -1.0f, IncrementVal = -1.0f
                 { 'd', new (string, object)[3] { ("MinVal", 0), ("MaxVal", 50), ("IncrementVal", 1.5f), } },
@@ -104,11 +104,11 @@ namespace BLPPCounter.Counters
                 { 'y', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 10), } },
                 { 'o', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } },
                 { 'a', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 100), ("IncrementVal", 0.5f), } }
-            }, new (char, string)[2]
-            {
+            },
+            [
                 ((char)1, "Has a miss"),
                 ((char)2, "Is bottom of text")
-            }
+            ]
             );
         private static Task SetupTask = Task.CompletedTask;
         private static bool displayPP;
@@ -157,9 +157,7 @@ namespace BLPPCounter.Counters
                     if (replayName is not null)
                     {
                         //Plugin.Log.Info($"Loading local replay for player {Targeter.TargetName} at path: {replayName}");
-                        string path = LocalReplayHandler.GetReplayPath(replayName);
-                        if (path is null)
-                            throw new Exception("The local file found in header does not exist.");
+                        string path = LocalReplayHandler.GetReplayPath(replayName) ?? throw new Exception("The local file found in header does not exist.");
                         replayData = File.ReadAllBytes(path);
                         if (!PC.LocalReplaysOnly)
                         {
@@ -383,7 +381,8 @@ namespace BLPPCounter.Counters
                 }, out errorMessage, out HelpfulFormatter.TokenInfo[] arr, applySettings);//this is one line of code lol
 
             HashSet<char> ppSymbols = ['x', 'p'];
-            displayPP = arr.Any(token => token.Usage > HelpfulFormatter.TokenUsage.Never && ppSymbols.Contains(token.Token));
+            if (arr is not null)
+                displayPP = arr.Any(token => token.Usage > HelpfulFormatter.TokenUsage.Never && ppSymbols.Contains(token.Token));
 
             return outp;
         }

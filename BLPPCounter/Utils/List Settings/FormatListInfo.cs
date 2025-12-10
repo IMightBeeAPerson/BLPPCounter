@@ -31,7 +31,7 @@ namespace BLPPCounter.Utils
         public static Dictionary<string, char> AliasConverter { get; internal set; }
         private static List<object> ParentList;
         private static Action UpdateTable, UpdatePreview;
-        private static readonly Color OriginalColor = new Color(0.8f, 0.8f, 0.8f);
+        private static readonly Color OriginalColor = new(0.8f, 0.8f, 0.8f);
 
         private static readonly string AliasRegex = string.Format("(?<Token>{0}.|{0}{1}[^{1}]+{1}){2}(?<Params>[^{3}]+){3}|(?<Token>{0}{1}[^{1}]+{1}|{0}.)", Regex.Escape($"{ESCAPE_CHAR}"), Regex.Escape($"{ALIAS}"), Regex.Escape($"{PARAM_OPEN}"), Regex.Escape($"{PARAM_CLOSE}"));
         //(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)\)|(?<Token>&'[^']+'|&.)
@@ -39,13 +39,13 @@ namespace BLPPCounter.Utils
         private static readonly string EscapedCharRegex = $"{Regex.Escape("" + ESCAPE_CHAR)}{RegexSpecialChars}"; //&[&*[\]<>]
         internal static readonly Regex CollectiveRegex = GetRegexForAllChunks();
 
-        public static FormatListInfo DefaultVal => new FormatListInfo("Default Text", false);
+        public static FormatListInfo DefaultVal => new("Default Text", false);
 
         #endregion
         #region UI Variables
-        [UIValue(nameof(TypesOfChunks))] private List<object> TypesOfChunks = Enum.GetNames(typeof(ChunkType)).Select(s => s.Replace('_', ' ')).Cast<object>().ToList();
+        [UIValue(nameof(TypesOfChunks))] private List<object> TypesOfChunks = [.. Enum.GetNames(typeof(ChunkType)).Select(s => s.Replace('_', ' ')).Cast<object>()];
 #if NEW_VERSION
-        [UIValue(nameof(ChoiceOptions))] private List<object> ChoiceOptions = new List<object>(); //1.37.0 and above
+        [UIValue(nameof(ChoiceOptions))] private List<object> ChoiceOptions = []; //1.37.0 and above
 #else
         //This is done as a workaround to a bug with BSML in 1.29.0, where if DropDownListSetting tries to load from an empty list, it will break and throw an error.
         //Since the list here gets replaced when it is in use, it doesn't matter what I put in the list as long as there is something.
@@ -65,7 +65,7 @@ namespace BLPPCounter.Utils
         public ChunkType Chunk { get; private set; }
         [UIValue(nameof(IncrementVal))] private int IncrementVal
         {
-            get { if (int.TryParse(Text2, out int outp)) return outp; else return 50; }
+            get { if (int.TryParse(Text2, out int outp)) return outp; else return 1; }
             set => Text2 = "" + value;
         }
         [UIValue(nameof(Text))] private string Text { get => _Text; set { _Text = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Text))); } }
@@ -129,7 +129,7 @@ namespace BLPPCounter.Utils
                   choice: true
                   )
         {
-            ChoiceOptions = isTokenValue ? AliasConverter.Keys.Cast<object>().ToList() : SPECIAL_CHARS.Select(c => "" + c).Cast<object>().ToList();
+            ChoiceOptions = isTokenValue ? [.. AliasConverter.Keys.Cast<object>()] : [.. SPECIAL_CHARS.Select(c => "" + c).Cast<object>()];
             if (!isTokenValue) ChoiceText = "Choose Escaped Character";
         }
         private FormatListInfo(bool isOpen, string token, ChunkType ct) :
@@ -141,7 +141,7 @@ namespace BLPPCounter.Utils
                 choice: ct == Group_Open
                 )
         {
-            if (ct == Group_Open) ChoiceOptions = AliasConverter.Keys.Cast<object>().ToList();
+            if (ct == Group_Open) ChoiceOptions = [.. AliasConverter.Keys.Cast<object>()];
         }
         private FormatListInfo(bool isOpen, string richTextKey, string richTextValue) :
             this(
@@ -170,7 +170,7 @@ namespace BLPPCounter.Utils
                 choice: true
                 )
         {
-            ChoiceOptions = AliasConverter.Keys.Cast<object>().ToList();
+            ChoiceOptions = [.. AliasConverter.Keys.Cast<object>()];
             IncrementText = "Parameter Index";
         }
         #endregion
@@ -178,7 +178,7 @@ namespace BLPPCounter.Utils
         #region Inits
         public static List<FormatListInfo> InitAllFromChunks((Match, ChunkType)[] chunks)
         {
-            List<FormatListInfo> outp = new List<FormatListInfo>();
+            List<FormatListInfo> outp = [];
             foreach ((Match, ChunkType) chunk in chunks)
             {
                 outp.Add(InitFromGivenChunk(chunk, out FormatListInfo[] extras));
@@ -194,10 +194,10 @@ namespace BLPPCounter.Utils
             switch (chunk.Item2)
             {
                 case Regular_Text: return new FormatListInfo(chunk.Item1.Value, false);
-                case Escaped_Character: return new FormatListInfo(false, chunk.Item1.Value[1]+"", null as string[]);
+                case Escaped_Character: return new FormatListInfo(false, chunk.Item1.Value[1] + "", null as string[]);
                 case Escaped_Token:
                     if (!chunk.Item1.Groups["Params"].Success) return new FormatListInfo(true, chunk.Item1.Groups["Token"].Value.Substring(1), null as string[]);
-                    string[] theParams = chunk.Item1.Groups["Params"].Value.Split(DELIMITER).Select(s => ConvertFromAlias(s)).ToArray();
+                    string[] theParams = [.. chunk.Item1.Groups["Params"].Value.Split(DELIMITER).Select(ConvertFromAlias)];
                     extraInfo = new FormatListInfo[theParams.Length];
                     for (int i = 0; i < theParams.Length; i++)
                         extraInfo[i] = new FormatListInfo(theParams[i], i);
@@ -244,7 +244,7 @@ namespace BLPPCounter.Utils
         private static Regex GetRegexForAllChunks()
         {
             string outp = "\\G(?:";
-            List<ChunkType> arr = new List<ChunkType>() { Insert_Group_Value, Group_Open };
+            List<ChunkType> arr = [Insert_Group_Value, Group_Open];
             arr.AddRange((Enum.GetValues(typeof(ChunkType)) as IEnumerable<ChunkType>).Where(ct => !(arr.Contains(ct) || ct.Equals(Parameter))));
             foreach (ChunkType ct in arr)
                 outp += $"(?<{ct}>{GetRegexForChunk(ct)})|";
@@ -430,20 +430,25 @@ namespace BLPPCounter.Utils
                     break;
                 case Capture_Open:
                     TextCompLabelObj.text = "Enter Capture ID";
+                    Text = Text2 = IncrementVal.ToString();
                     break;
                 case Parameter:
                     IncrementerText.text = "Parameter Index";
-                    ChoiceOptions = AliasConverter.Keys.Cast<object>().ToList();
+                    ChoiceOptions = [.. AliasConverter.Keys.Cast<object>()];
                     break;
                 case Group_Open:
                 case Escaped_Token:
-                    ChoiceOptions = AliasConverter.Keys.Cast<object>().ToList();
+                    ChoiceOptions = [.. AliasConverter.Keys.Cast<object>()];
                     break;
                 case Escaped_Character:
-                    ChoiceOptions = SPECIAL_CHARS.Select(c => "" + c).Cast<object>().ToList();
+                    ChoiceOptions = [.. SPECIAL_CHARS.Select(c => "" + c).Cast<object>()];
                     break;
             }
-            if (((Escaped_Token | Escaped_Character | Group_Open | Parameter) & Chunk) > 0)
+            ShowChoice = ((Escaped_Token | Escaped_Character | Group_Open | Parameter) & Chunk) > 0;
+            ShowTextComp = ((Regular_Text | Rich_Text_Open) & Chunk) > 0;
+            ShowText2Comp = Rich_Text_Open == Chunk;
+            ShowIncrement = ((Capture_Open | Parameter) & Chunk) > 0;
+            if (ShowChoice)
             {
 #if NEW_VERSION
                 Choicer.Values = ChoiceOptions;
@@ -454,11 +459,11 @@ namespace BLPPCounter.Utils
 #endif
                 else Choicer.Value = Text;
                 Choicer.UpdateChoices();
-                ChoiceContainer.SetActive(true);
-            } else ChoiceContainer.SetActive(false);
-            TextComp.gameObject.SetActive(Chunk == Regular_Text || Chunk == Rich_Text_Open);
-            Text2Comp.gameObject.SetActive(Rich_Text_Open == Chunk);
-            Incrementer.gameObject.SetActive(((Capture_Open | Parameter) & Chunk) > 0);
+            }
+            ChoiceContainer.SetActive(ShowChoice);
+            TextComp.gameObject.SetActive(ShowTextComp);
+            Text2Comp.gameObject.SetActive(ShowText2Comp);
+            Incrementer.gameObject.SetActive(ShowIncrement);
             if (((Capture_Close | Group_Close | Rich_Text_Close | Parameter) & Chunk) != 0)
                 TellParentTheyHaveAChild();
         }
@@ -490,7 +495,7 @@ namespace BLPPCounter.Utils
                     for (int i = 0; i < TokenParams.Length; i++) outp += (i != 0 ? "," : "") + $"{ALIAS}{TokenParams[i]}{ALIAS}";
                     return outp + PARAM_CLOSE;
                 case Capture_Open:
-                    return $"{CAPTURE_OPEN}{Text}";
+                    return $"{CAPTURE_OPEN}{Text2}";
                 case Capture_Close:
                     return "" + CAPTURE_CLOSE;
                 case Group_Open:
