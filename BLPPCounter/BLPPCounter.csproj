@@ -176,6 +176,7 @@
     <Compile Include="CalculatorStuffs\Calculator.cs" />
     <Compile Include="CalculatorStuffs\SSCalc.cs" />
     <Compile Include="Counters\ClanCounter.cs" />
+    <Compile Include="Counters\ClanRankCounter.cs" />
     <Compile Include="Counters\MyCounters.cs" />
     <Compile Include="Counters\NormalCounter.cs" />
     <Compile Include="Counters\ProgressCounter.cs" />

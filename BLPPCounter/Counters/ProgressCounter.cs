@@ -23,14 +23,14 @@ namespace BLPPCounter.Counters
         #region Init
         public ProgressCounter(TMP_Text display, MapSelection map, CancellationToken ct) : base(display, map, ct)
         {
-            ppHandler = new PPHandler(ratings, calc, PluginConfig.Instance.DecimalPrecision, 2, (rating, acc, in main, ref toChange) => PPContainer.MultiplyFast(ref toChange, mult))
+            ppHandler = new PPHandler(ratings, calc, PluginConfig.Instance.DecimalPrecision, 2, (rating, acc, in main, ref toChange, _) => PPContainer.MultiplyFast(ref toChange, mult))
             {
                 UpdateFCEnabled = PluginConfig.Instance.PPFC
             };
-            ppHandler.UpdateFC += (acc, extraVals, extraCalls) =>
+            ppHandler.UpdateFC += (acc, extraVals, extraCalls, _) =>
             {
                 extraVals[2].SetValues(calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision, ratings));
-                extraCalls(0, acc, in extraVals[2], ref extraVals[3]);
+                extraCalls(0, acc, in extraVals[2], ref extraVals[3], _);
             };
         }
         #endregion

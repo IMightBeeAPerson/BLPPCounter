@@ -1,4 +1,5 @@
-﻿using BLPPCounter.CalculatorStuffs;
+﻿using BeatmapSaveDataVersion4;
+using BLPPCounter.CalculatorStuffs;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -8,8 +9,8 @@ namespace BLPPCounter.Utils.Containers
 {
     public class PPHandler : IEnumerable<float>
     {
-        public delegate void FCUpdateDelegate(RatingContainer ratings, float acc, in PPContainer main, ref PPContainer toChange);
-        public delegate void ChooseActionDelegate(int index, float acc, in PPContainer main, ref PPContainer toChange);
+        public delegate void FCUpdateDelegate(RatingContainer ratings, float acc, in PPContainer main, ref PPContainer toChange, float extraArg);
+        public delegate void ChooseActionDelegate(int index, float acc, in PPContainer main, ref PPContainer toChange, float extraArg);
 
         private RatingContainer ratings;
         private readonly Calculator calc;
@@ -27,7 +28,7 @@ namespace BLPPCounter.Utils.Containers
         public bool DisplayFC => !isFcing;
 
         public event Action<int> UpdateMistakes;
-        public event Action<float, PPContainer[], ChooseActionDelegate> UpdateFC;
+        public event Action<float, PPContainer[], ChooseActionDelegate, float> UpdateFC;
 
         public PPHandler(RatingContainer ratings, Calculator calc, int precision = -1, int extraPPVals = 0, params FCUpdateDelegate[] calcOtherPPs)
         {
@@ -48,11 +49,46 @@ namespace BLPPCounter.Utils.Containers
                 ppVals[i] = new PPContainer(calc.DisplayRatingCount, 0f, precision: precision);
         }
 
-        private void UseAction(int index, float acc, in PPContainer main, ref PPContainer toChange)
+        private void UseAction(int index, float acc, in PPContainer main, ref PPContainer toChange, float extraArg)
         {
-            calcOtherPPs[index](ratings, acc, in main, ref toChange);
+            calcOtherPPs[index](ratings, acc, in main, ref toChange, extraArg);
         }
         public void Update(float acc, int mistakes, float fcAcc = 0f)
+        {
+            UpdateInternalStart(acc, mistakes);
+
+            if (UpdatePPEnabled)
+                for (int i = 0; i < calcOtherPPs.Length; i++)
+                    calcOtherPPs[i](ratings, acc, in ppVals[0], ref ppVals[i + 1], 0);
+
+            if (!isFcing)
+                UpdateFC?.Invoke(fcAcc, ppVals, UseAction, 0);
+        }
+        public void Update(float acc, int mistakes, float fcAcc = 0f, float extraArg = 0f)
+        {
+            UpdateInternalStart(acc, mistakes);
+
+            if (UpdatePPEnabled)
+                for (int i = 0; i < calcOtherPPs.Length; i++)
+                    calcOtherPPs[i](ratings, acc, in ppVals[0], ref ppVals[i + 1], extraArg);
+
+            if (!isFcing)
+                UpdateFC?.Invoke(fcAcc, ppVals, UseAction, extraArg);
+        }
+        public void Update(float acc, int mistakes, Func<PPContainer, float> calcExtraArg, float fcAcc = 0f)
+        {
+            UpdateInternalStart(acc, mistakes);
+
+            float extraArg = calcExtraArg(ppVals[0]);
+
+            if (UpdatePPEnabled)
+                for (int i = 0; i < calcOtherPPs.Length; i++)
+                    calcOtherPPs[i](ratings, acc, in ppVals[0], ref ppVals[i + 1], extraArg);
+
+            if (!isFcing)
+                UpdateFC?.Invoke(fcAcc, ppVals, UseAction, extraArg);
+        }
+        private void UpdateInternalStart(float acc, int mistakes)
         {
             if (mistakes != this.mistakes)
             {
@@ -61,16 +97,8 @@ namespace BLPPCounter.Utils.Containers
                 UpdateMistakes?.Invoke(mistakes);
             }
 
-            if (!isFcing) 
-                UpdateFC?.Invoke(fcAcc, ppVals, UseAction);
-
             if (UpdatePPEnabled)
-            {
                 ppVals[0].SetValues(calc.GetPpWithSummedPp(acc, precision, ratings));
-
-                for (int i = 0; i < calcOtherPPs.Length; i++)
-                    calcOtherPPs[i](ratings, acc, in ppVals[0], ref ppVals[i + 1]);
-            }
         }
         public void Reset()
         {

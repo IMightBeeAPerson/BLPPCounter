@@ -156,7 +156,7 @@ namespace BLPPCounter.CalculatorStuffs
         public float GetWeight(float pp, float[] sortedClanPps, out int rank)
         {
             rank = 0;
-            if (sortedClanPps == null || sortedClanPps.Length == 0) return 1.0f;
+            if (sortedClanPps is null || sortedClanPps.Length == 0) return 1.0f;
             int count = 0;
             while (sortedClanPps[count++] > pp && count < sortedClanPps.Length);
             rank = count;
