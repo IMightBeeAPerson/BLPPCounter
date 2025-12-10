@@ -84,8 +84,8 @@
         <button id='ModeButton' text='&#60;color=#A020F0&#62;Input PP' align='Left' on-click='ToggleCAMode'/>
         <button text='Apply Values' click-event='UpdateCurrentTable' align='Right'/>
       </horizontal>
-      <slider-setting id='CA_PercentSlider' active='false' text='Percentage' color='#FFD700' increment='0.05' integer-only='false' min='~PercentSliderMin' max='~PercentSliderMax' show-buttons='true' apply-on-change='true' value='TestAcc' formatter='PercentFormat'/>
-      <slider-setting id='CA_PPSlider' text='PP Amount' color='#A020F0' increment='5' integer-only='true' min='~PPSliderMin' max='~PPSliderMax' show-buttons='true' apply-on-change='true' value='TestPp' formatter='PPFormat'/>
+      <slider-setting id='CA_PercentSlider' active='false' text='Percentage' color='#FFD700' increment='~PercentSliderIncrementNum' integer-only='false' min='~PercentSliderMin' max='~PercentSliderMax' show-buttons='true' apply-on-change='true' value='TestAcc' formatter='PercentFormat'/>
+      <slider-setting id='CA_PPSlider' text='PP Amount' color='#A020F0' increment='~SliderIncrementNum' integer-only='true' min='~PPSliderMin' max='~PPSliderMax' show-buttons='true' apply-on-change='true' value='TestPp' formatter='PPFormat'/>
       <horizontal id='PercentTable_BG' bg='round-rect-panel' bg-color='#CCC' pad-left='3'>
         <text id='PercentTable' text='&#10;&#10;&#10;&#10;&#10;&#10;' align='Center' font-size='3.5'/>
         <vertical spacing='3.5' pref-height='20' vertical-fit='PreferredSize' pad-top='11'>
@@ -154,12 +154,10 @@
           <vertical spacing='0' align='Right' pref-width='30' pref-height='30'>
             <text id='SessionWindow_PlaysSet' text='Plays Set: ' align='Center'/>
             <text id='SessionWindow_PpGained' text='Profile PP Gained: ' align='Center'/>
-            <text id='LevelText' text='Level:' align='Center'/>
-            <text id='ExperienceText' text='Experience:' align='Center'/>
           </vertical>
         </horizontal>
       </modal>
-      <slider-setting id='ProfilePPSlider' text='To Get' color='#A020F0' increment='5' integer-only='true' min='~PPSliderMin' max='~PPSliderMax' show-buttons='true' apply-on-change='true' value='ProfileTestPp' formatter='PPFormat'/>
+      <slider-setting id='ProfilePPSlider' text='To Get' color='#A020F0' increment='~SliderIncrementNum' integer-only='true' min='~PPSliderMin' max='~PPSliderMax' show-buttons='true' apply-on-change='true' value='ProfileTestPp' formatter='PPFormat'/>
       <horizontal>
       <text id='WeightedText' text='' align='Left'/>
       <text id='WeightedTextValue' text='' align='Right'/>
@@ -177,6 +175,8 @@
     <tab tags='SettingsTab' tab-name='Info Settings'>
       <vertical spacing='2' child-expand-height='true' horizontal-fit='PreferredSize' pref-width='100' vertical-fit='PreferredSize'>
         <checkbox-setting text='Show true ID' apply-on-change='true' value='ShowTrueID' hover-hint='Whether or not to show the leaderboard ID or actual beatsaber id'/>
+        <list-setting id='CalcSelector' text='Calculator Leaderboard' apply-on-change='true' value='CalcLeaderboard' options='CalcLeaderboards' hover-hint='Choose which leaderboard is used for the calculator'/>
+        <button id='SaveLeaderboardButton' text='Set Leaderboard' on-click='SaveLeaderboard' align='Center'/>
       </vertical>
     </tab>
     

@@ -11,7 +11,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace BLPPCounter.Utils
+namespace BLPPCounter.Utils.Misc_Classes
 {
     internal class Table: INotifyPropertyChanged
     {

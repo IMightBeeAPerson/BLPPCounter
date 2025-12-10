@@ -25,13 +25,16 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;NEW_VERSION</DefineConstants>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <DefineConstants>NEW_VERSION</DefineConstants>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition="$(DefineConstants.Contains('CIBuild')) OR '$(NCrunch)' == '1'">
     <DisableCopyToPlugins>True</DisableCopyToPlugins>
@@ -55,10 +58,9 @@
     <Reference Include="Counters+">
       <HintPath>$(BeatSaberDir)\Plugins\Counters+.dll</HintPath>
     </Reference>
-    <Reference Include="DataModels, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <Private>False</Private>
-      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\DataModels.dll</HintPath>
+    <Reference Include="DataModels, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL" Condition="$(DefineConstants.Contains('NEW_VERSION')) == true">
       <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\BSManager\BSInstances\1.40.0\Beat Saber_Data\Managed\DataModels.dll</HintPath>
     </Reference>
     <Reference Include="Interactable, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <Private>False</Private>
@@ -81,9 +83,11 @@
       <Private>False</Private>
       <SpecificVersion>False</SpecificVersion>
     </Reference>
-    <Reference Include="System.Net.Http, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
-    <Reference Include="UnityEngine.TextCoreFontEngineModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" Condition="$(DefineConstants.Contains('34.2')) == true OR $(DefineConstants.Contains('NEW_VERSION')) == true" />
-    <Reference Include="UnityEngine.TextCoreModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL" Condition="$(DefineConstants.Contains('34.2')) == false AND $(DefineConstants.Contains('NEW_VERSION')) == false" />
+    <Reference Include="System.Net.Http, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <SpecificVersion>True</SpecificVersion>
+    </Reference>
+    <Reference Include="UnityEngine.TextCoreFontEngineModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" Condition="$(DefineConstants.Contains('NEW_VERSION')) == true" />
+    <Reference Include="UnityEngine.TextCoreModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL" Condition="$(DefineConstants.Contains('NEW_VERSION')) == false" />
     <Reference Include="UnityEngine.TextRenderingModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
     <Reference Include="Zenject">
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\Zenject.dll</HintPath>
@@ -165,11 +169,6 @@
       <HintPath>$(BeatSaberDir)\Plugins\BS_Utils.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="ZenjectExtension, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <Private>False</Private>
-      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\ZenjectExtension.dll</HintPath>
-      <SpecificVersion>False</SpecificVersion>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CalculatorStuffs\APCalc.cs" />
@@ -177,11 +176,12 @@
     <Compile Include="CalculatorStuffs\Calculator.cs" />
     <Compile Include="CalculatorStuffs\SSCalc.cs" />
     <Compile Include="Counters\ClanCounter.cs" />
-    <Compile Include="Counters\IMyCounters.cs" />
+    <Compile Include="Counters\MyCounters.cs" />
     <Compile Include="Counters\NormalCounter.cs" />
     <Compile Include="Counters\ProgressCounter.cs" />
     <Compile Include="Counters\RankCounter.cs" />
     <Compile Include="Counters\RelativeCounter.cs" />
+    <Compile Include="Helpfuls\FormatHelpers\TokenKey.cs" />
     <Compile Include="Helpfuls\HelpfulMath.cs" />
     <Compile Include="Helpfuls\HelpfulMisc.cs" />
     <Compile Include="Helpfuls\HelpfulPaths.cs" />
@@ -195,12 +195,14 @@
     <Compile Include="Settings\Configs\PluginConfig.cs" />
     <Compile Include="Settings\Configs\TextFormatSettings.cs" />
     <Compile Include="Settings\Configs\TokenFormatSettings.cs" />
+    <Compile Include="Settings\SettingHandlers\MenuSettingHandlers\CounterSettingsHandler.cs" />
+    <Compile Include="Settings\SettingHandlers\MenuSettingHandlers\LeaderboardSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\PpInfoTabHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\ColorSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\CustomAliasHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\FormatEditorHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\MenuSettingsHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\SettingsHandler.cs" />
+    <Compile Include="Settings\SettingHandlers\MenuSettingHandlers\SettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\SimpleSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\SimpleMenuSettingsHandler.cs" />
     <Compile Include="Utils\API Handlers\APAPI.cs" />
@@ -208,10 +210,12 @@
     <Compile Include="Utils\API Handlers\SSAPI.cs" />
     <Compile Include="Utils\API Handlers\Throttler.cs" />
     <Compile Include="Utils\API Handlers\APIHandler.cs" />
+    <Compile Include="Utils\Converters\BoolStorageConverter.cs" />
     <Compile Include="Utils\Converters\SystemColorConverter.cs" />
     <Compile Include="Utils\Enums\APCategory.cs" />
     <Compile Include="Utils\Enums\PPType.cs" />
     <Compile Include="Utils\Enums\Leaderboards.cs" />
+    <Compile Include="Utils\List Settings\LeaderboardListInfo.cs" />
     <Compile Include="Utils\List Settings\SessionListInfo.cs" />
     <Compile Include="Utils\List Settings\TargetInfo.cs" />
     <Compile Include="Utils\List Settings\AliasListInfo.cs" />
@@ -220,24 +224,30 @@
     <Compile Include="Utils\List Settings\SettingToggleInfo.cs" />
     <Compile Include="Utils\List Settings\ValueListInfo.cs" />
     <Compile Include="Utils\Misc Classes\AsyncLock.cs" />
+    <Compile Include="Utils\Misc Classes\CharDictionary.cs" />
     <Compile Include="Utils\Misc Classes\CoroutineHost.cs" />
     <Compile Include="Utils\Misc Classes\ExtraBypasses.cs" />
-    <Compile Include="Utils\Misc Classes\Play.cs" />
-    <Compile Include="Utils\Misc Classes\Session.cs" />
-    <Compile Include="Utils\Misc Classes\FormatRelation.cs" />
-    <Compile Include="Utils\Misc Classes\Map.cs" />
-    <Compile Include="Utils\Misc Classes\MapSelection.cs" />
+    <Compile Include="Helpfuls\FormatHelpers\FormatWrapper.cs" />
+    <Compile Include="Utils\Misc Classes\LocalReplayHandler.cs" />
+    <Compile Include="Utils\Profile Utils\Play.cs" />
+    <Compile Include="Utils\Containers\PPContainer.cs" />
+    <Compile Include="Utils\Containers\PPHandler.cs" />
+    <Compile Include="Utils\Containers\RatingContainer.cs" />
+    <Compile Include="Utils\Profile Utils\Session.cs" />
+    <Compile Include="Helpfuls\FormatHelpers\FormatRelation.cs" />
+    <Compile Include="Utils\Map Utils\Map.cs" />
+    <Compile Include="Utils\Map Utils\MapSelection.cs" />
     <None Include="Utils\Misc Classes\PlaylistLoader.cs" />
     <Compile Include="Utils\Misc Classes\Table.cs" />
     <Compile Include="Utils\Misc Classes\Targeter.cs" />
     <Compile Include="Utils\Misc Classes\TimeLooper.cs" />
-    <Compile Include="Utils\Serializable Classes\Profile.cs" />
+    <Compile Include="Utils\Profile Utils\Profile.cs" />
     <Compile Include="Utils\Serializable Classes\ColorMatch.cs" />
     <Compile Include="Utils\Serializable Classes\CustomAlias.cs" />
     <Compile Include="Utils\Serializable Classes\CustomTarget.cs" />
     <Compile Include="Utils\Special Utils\FilledList.cs" Condition="$(DefineConstants.Contains('NEW_VERSION')) == false" />
     <Compile Include="Utils\Special Utils\SliderKey.cs" Condition="$(DefineConstants.Contains('NEW_VERSION')) == false" />
-    <None Include="Utils\Special Utils\BoolStorage.cs" />
+    <Compile Include="Utils\Special Utils\BoolStorage.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="BLPPCounterController.cs" />
     <Compile Include="TheCounter.cs" />

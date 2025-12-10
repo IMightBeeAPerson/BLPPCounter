@@ -1,4 +1,4 @@
-﻿using BLPPCounter.Helpfuls;
+﻿using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.API_Handlers;
 using Newtonsoft.Json.Linq;
 using System;
@@ -6,8 +6,6 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using static GameplayModifiers;
-using static NoteData;
-using static ScoreModel;
 
 namespace BLPPCounter.CalculatorStuffs
 {
@@ -52,6 +50,7 @@ namespace BLPPCounter.CalculatorStuffs
         public static BLCalc Instance { get; private set; } = new BLCalc();
         private BLCalc() { }
         #region PP Math
+        public override Leaderboards Leaderboard => Leaderboards.Beatleader;
         public override int RatingCount => 3;
         public override string Label => "BL";
         public override string[] StarLabels { get; } = new string[4] 
@@ -67,14 +66,14 @@ namespace BLPPCounter.CalculatorStuffs
             var (accRating, passRating, techRating) = (ratings[0], ratings[1], ratings[2]);
             float passPP = GetPassPp(passRating);
             if (float.IsInfinity(passPP) || float.IsNaN(passPP) || passPP < 0) passPP = 0;
-            return new float[] { GetAccPp(acc, accRating), passPP, GetTechPp(acc, techRating) };
+            return [GetAccPp(acc, accRating), passPP, GetTechPp(acc, techRating)];
             //Plugin.Log.Info($"acc = {acc}, ratings = {HelpfulMisc.Print(ratings)}, pp = {HelpfulMisc.Print(outp)}, total pp = {Inflate(outp[0] + outp[1] + outp[2])}");
             //return outp;
         }
         public override float[] SelectRatings(float[] ratings) => ratings.Skip(1).ToArray();
         public override float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings) //ratings order: acc pass tech
         {
-            if (deflatedPp > GetSummedPp(1.0f, ratings)) return precision >= 0 ? 100.0f : 1.0f;
+            if (deflatedPp > GetSummedPp(1.0f, ratings) || ratings is null || ratings.Length < 3) return precision >= 0 ? 100.0f : 1.0f;
             var (accRating, passRating, techRating) = (ratings[0], ratings[1], ratings[2]);
             deflatedPp -= GetPassPp(passRating);
             if (deflatedPp <= 0.0f) return 0.0f;
@@ -85,6 +84,12 @@ namespace BLPPCounter.CalculatorStuffs
         {
             float outp = GetAccDeflated(deflatedPp, precision, BLAPI.Instance.GetRatings(diffData, speed, modMult));
             return precision >= 0 ? (float)Math.Round(outp * 100.0f, precision) : outp;
+        }
+        public float GetAccDeflatedUnsafe(float deflatedPp, int precision, float[] ratings, float initGuess = 1.0f, int maxIterations = 100)
+        {
+            var (accRating, passRating, techRating) = (ratings[0], ratings[1], ratings[2]);
+            deflatedPp -= GetPassPp(passRating);
+            return (float)Math.Round(CalculateX(deflatedPp, techRating, accRating, initGuess, maxIterations: maxIterations) * 100.0f, precision);
         }
         public override float Inflate(float pp) => 650f * (float)Math.Pow(pp, 1.3f) / (float)Math.Pow(650f, 1.3f);
         public override float Deflate(float pp) => (float)Math.Pow(pp * (float)Math.Pow(650f, 1.3f) / 650f, 1.0f / 1.3f);
@@ -112,75 +117,6 @@ namespace BLPPCounter.CalculatorStuffs
             return x;
         }//Yes this is chatGPT code, modified to work properly with my code.
         #endregion
-        #region Replay Math
-        private static readonly int ScoringTypeMax = 
-            ((ScoringType[])Enum.GetValues(typeof(ScoringType))).Aggregate(-1, (total, current) => Math.Max(total, (int)current));
-        private static readonly int ExtendedScoringTypeMax = 
-            ((ExtendedScoringType[])Enum.GetValues(typeof(ExtendedScoringType))).Aggregate(-1, (total, current) => Math.Max(total, (int)current));
-        private static readonly Dictionary<ExtendedScoringType, NoteScoreDefinition> ExtendedNoteScoreDefinition = new Dictionary<ExtendedScoringType, NoteScoreDefinition>()
-        {
-#if !NEW_VERSION
-            {ExtendedScoringType.ArcHeadArcTail, new NoteScoreDefinition(15, 70, 70, 30, 30, 0) },
-            {ExtendedScoringType.ChainHeadArcTail, new NoteScoreDefinition(15, 70, 70, 0, 0, 0) },
-            {ExtendedScoringType.ChainLinkArcHead, new NoteScoreDefinition(0, 0, 0, 0, 0, 20) },
-#endif
-            {ExtendedScoringType.ChainHeadArcHead, new NoteScoreDefinition(15, 0, 70, 30, 30, 0) },
-            {ExtendedScoringType.ChainHeadArcHeadArcTail, new NoteScoreDefinition(15, 70, 70, 30, 30, 0) }
-        };
-        internal static (int Before, int After, int Acc) CutScoresForNote(BeatLeader.Models.Replay.NoteEvent note) =>
-            CutScoresForNote(note.noteCutInfo, GetScoringType(note.noteID));
-        internal static (int Before, int After, int Acc) CutScoresForNote(BeatLeader.Models.Replay.NoteCutInfo cut, ScoringType scoringType)
-        {
-            NoteScoreDefinition noteVals = GetNoteScoreDefinition(scoringType);
-
-#if NEW_VERSION
-            if (scoringType == ScoringType.ChainLink || scoringType == ScoringType.ChainLinkArcHead)
-#else
-            if (scoringType == ScoringType.BurstSliderElement || (int)scoringType == (int)ExtendedScoringType.ChainLinkArcHead)
-#endif
-                return (noteVals.minBeforeCutScore, noteVals.minAfterCutScore, noteVals.fixedCutScore);
-
-            int beforeCutRawScore, afterCutRawScore, cutDistanceRawScore;
-            beforeCutRawScore = noteVals.minBeforeCutScore == noteVals.maxBeforeCutScore ? noteVals.maxBeforeCutScore :
-                (int)Mathf.Clamp(Mathf.Round(noteVals.maxBeforeCutScore * cut.beforeCutRating), noteVals.minBeforeCutScore, noteVals.maxBeforeCutScore);
-            afterCutRawScore = noteVals.minAfterCutScore == noteVals.maxAfterCutScore ? noteVals.maxAfterCutScore :
-                (int)Mathf.Clamp(Mathf.Round(noteVals.maxAfterCutScore * cut.afterCutRating), noteVals.minAfterCutScore, noteVals.maxAfterCutScore);
-            cutDistanceRawScore = noteVals.maxCenterDistanceCutScore > 0 ? (int)Mathf.Round(noteVals.maxCenterDistanceCutScore * (1 - Mathf.Clamp01(cut.cutDistanceToCenter / 0.3f))) : 0;
-
-            return (beforeCutRawScore, afterCutRawScore, cutDistanceRawScore);
-        }
-        internal static int GetMaxCutScore(BeatLeader.Models.Replay.NoteEvent note) =>
-            GetNoteScoreDefinition(GetScoringType(note.noteID)).maxCutScore;
-        internal static int GetCutScore(BeatLeader.Models.Replay.NoteEvent note) =>
-            GetCutScore(note.noteCutInfo, GetScoringType(note.noteID));
-        internal static int GetCutScore(BeatLeader.Models.Replay.NoteCutInfo cut, ScoringType scoringType)
-        {
-            var (Before, After, Acc) = CutScoresForNote(cut, scoringType);
-            return Before + After + Acc; 
-        }
-        //Link: https://github.com/BeatLeader/beatleader-mod/blob/master/Source/7_Utils/ReplayStatisticUtils.cs#L15
-        internal static ScoringType GetScoringType(int noteId)
-        {
-            ScoringType outp;
-            if (noteId < 100_000)
-                outp = (ScoringType)(noteId / 10_000 - 2);
-            else outp = (ScoringType)(noteId / 10_000_000 - 2);
-            return outp > (ScoringType)ExtendedScoringTypeMax ? ScoringType.Normal : outp;
-        }
-        internal static NoteScoreDefinition GetNoteScoreDefinition(ScoringType scoringType)
-        {
-            if ((int)scoringType > ScoringTypeMax)
-                return (int)scoringType > ExtendedScoringTypeMax ? ScoreModel.GetNoteScoreDefinition(ScoringType.Normal) : ExtendedNoteScoreDefinition[(ExtendedScoringType)scoringType];
-            return ScoreModel.GetNoteScoreDefinition(scoringType);
-        }
-        internal enum ExtendedScoringType
-        {
-#if !NEW_VERSION
-            ArcHeadArcTail = 6, ChainHeadArcTail = 7, ChainLinkArcHead = 8,
-#endif
-            ChainHeadArcHead = 9, ChainHeadArcHeadArcTail = 10 //for now, 1.40.9+ stuff will always be used. Once modding there becomes normal, I'll change it to only work on pre 1.40.9
-        }
-#endregion
         #region Clan Math
         private float TotalPP(float coefficient, float[] ppVals, int startIndex)
         {

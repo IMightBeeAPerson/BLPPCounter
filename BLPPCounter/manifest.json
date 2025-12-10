@@ -5,7 +5,7 @@
   "author": "Person",
   "version": "0.5.3",
   "description": "Adds a BeatLeader pp counter and a few other things.",
-  "gameVersion": "1.40.0",
+  "gameVersion": "1.39.1",
   "dependsOn": {
     "BSIPA": "^4.2.0",
     "SiraUtil": "^3.0.5",
@@ -26,7 +26,7 @@
       },
       "BSML": {
         "Resource": "BLPPCounter.Settings.BSML.Settings.bsml",
-        "Host": "BLPPCounter.Settings.SettingHandlers.SettingsHandler",
+        "Host": "BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers.CounterSettingsHandler",
         "Icon": "BLPPCounter.Images.pp.png"
       }
     }

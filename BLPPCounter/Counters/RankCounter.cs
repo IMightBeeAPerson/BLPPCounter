@@ -1,19 +1,22 @@
-﻿using Newtonsoft.Json.Linq;
-using BLPPCounter.CalculatorStuffs;
+﻿using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
+using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils;
+using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.API_Handlers;
+using BLPPCounter.Utils.Map_Utils;
+using BLPPCounter.Utils.Containers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using TMPro;
-using BLPPCounter.Utils.List_Settings;
-using BeatLeader.Replayer;
-using BLPPCounter.Utils.API_Handlers;
+using UnityEngine;
+using static BLPPCounter.Utils.API_Handlers.APIHandler;
 
 namespace BLPPCounter.Counters
 {
-    public class RankCounter : IMyCounters
+    public class RankCounter(TMP_Text display, MapSelection map, CancellationToken ct) : MyCounters(display, map, ct)
     {
         #region Static Variables
         public static int OrderNumber => 4;
@@ -22,30 +25,39 @@ namespace BLPPCounter.Counters
         public static string DisplayHandler => DisplayName;
         private static PluginConfig PC => PluginConfig.Instance;
 
-        private static Func<bool, bool, bool, float, float, int, float, string, string, string> displayRank;
-        private static Func<Func<Dictionary<char, object>, string>> rankIniter;
+        /// <summary>
+        /// fc, extraInfo, isNum1, pp, fcpp, rank, ppDiff, percentDiff, color, label
+        /// </summary>
+        private static Func<FormatWrapper, string> displayRank;
+        private static Func<Func<FormatWrapper, string>> rankIniter;
+        private static FormatWrapper rankWrapper;
+        private static bool displayPP;
 
-        public static readonly Dictionary<string, char> MainAlias = new Dictionary<string, char>()
+        public static readonly Dictionary<string, char> MainAlias = new()
         {
             {"PP", 'x' },
             {"FCPP", 'y' },
             {"Rank", 'r' },
+            {"Next Player", 'n' },
             {"PP Difference", 'd' },
+            {"Acc Difference", 'p' },
             {"Label", 'l' },
             {"Rank Color", 'c' }
         };
-        internal static readonly FormatRelation MainRelation = new FormatRelation("Main Format", DisplayName,
+        internal static readonly FormatRelation MainRelation = new("Main Format", DisplayName,
             PC.FormatSettings.RankTextFormat, str => PC.FormatSettings.RankTextFormat = str, MainAlias, 
             new Dictionary<char, string>()
             {
                 {'x', "The unmodified PP number" },
                 {'y', "The unmodified PP number if the map was FC'ed" },
                 {'r', "The rank you would be on the leaderboard if the map ended right then" },
+                {'n', "The player directly ahead of you on the scoreboard" },
                 {'d', "The modified PP number, shows how much pp to go up one rank on the leaderboard" },
+                {'p', "The percent difference between your current acc and the person above you's acc" },
                 {'l', "The label (ex: PP, Tech PP, etc)" },
                 {'c', "The color of the rank (set in settings)" }
             }, str => { var hold = GetTheFormat(str, out string errorStr); return (hold, errorStr); },
-            new Dictionary<char, object>()
+            new FormatWrapper(new Dictionary<char, object>()
             {
                 {(char)1, true },
                 {(char)2, true },
@@ -54,82 +66,80 @@ namespace BLPPCounter.Counters
                 { 'x', 543.21f },
                 { 'y', 654.32f },
                 { 'r', 3 },
-                { 'd', 0.1f },
+                { 'n', "Person" },
+                { 'd', 1.1f },
+                { 'p', 0.1f },
                 { 'l', "PP" },
                 { 'c', 3 }
-            }, HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>()
+            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>()
             {
                 {'r', 0 },
                 {'c', 1 }
-            }, new Func<object, bool, object>[]
-            {
+            },
+            [
                 FormatRelation.CreateFunc("#{0}", "{0}"),
-                FormatRelation.CreateFunc<int>(num => HelpfulFormatter.GetWeightedRankColor(num) + '#' + num, num => HelpfulFormatter.GetWeightedRankColor(num))
-            }, new Dictionary<char, IEnumerable<(string, object)>>()
+                FormatRelation.CreateFunc<int>(num => HelpfulFormatter.GetWeightedRankColor(num) + '#' + num, HelpfulFormatter.GetWeightedRankColor)
+            ], new Dictionary<char, IEnumerable<(string, object)>>()
             {
                 { 'x', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
                 { 'y', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
                 { 'r', new (string, object)[4] { ("IsInteger", true), ("MinVal", 1), ("MaxVal", 100), ("IncrementVal", 1) } },
                 { 'd', new (string, object)[3] { ("MinVal", 0), ("MaxVal", 50), ("IncrementVal", 1.5f) } },
+                { 'p', new (string, object)[3] { ("MinVal", 0), ("MaxVal", 50), ("IncrementVal", 0.5f) } },
                 { 'c', new (string, object)[4] { ("IsInteger", true), ("MinVal", 1), ("MaxVal", 100), ("IncrementVal", 1) } },
             }
             );
         #endregion
         #region Variables
-        public string Name => DisplayName;
-        private int precision;
-        private float accRating, passRating, techRating, starRating;
-        private TMP_Text display;
-        private float[] mapPP, ratings;
-        private int ratingLen;
-        private Calculator calc;
+        public override string Name => DisplayName;
+        private float[] rankArr;
+        private ScoregraphInfo[] mapData;
+
         #endregion
         #region Inits
-        public RankCounter(TMP_Text display, float accRating, float passRating, float techRating, float starRating)
+        public override void SetupData(MapSelection map, CancellationToken ct)
         {
-            this.accRating = accRating;
-            this.passRating = passRating;
-            this.techRating = techRating;
-            this.starRating = starRating;
-            this.display = display;
-            precision = PluginConfig.Instance.DecimalPrecision;
-            calc = Calculator.GetSelectedCalc();
-            ratings = calc.SelectRatings(starRating, accRating, passRating, techRating);
-            ratingLen = ratings.Length == 1 ? 0 : ratings.Length;
+            string songId = map.MapData.songId;
+            APIHandler api = GetSelectedAPI();
+            mapData = api.GetScoregraph(map, ct).GetAwaiter().GetResult();
+            bool isUnranked = mapData[0].PP <= 0 || TheCounter.Leaderboard == Leaderboards.Accsaber;
+            for (int i = 0; i < mapData.Length; i++)
+            {
+                if (!isUnranked && (TheCounter.Leaderboard != Leaderboards.Beatleader || mapData[i].Speed == map.MapSpeed))
+                    continue;
+                if (TheCounter.Leaderboard == Leaderboards.Beatleader)
+                {
+                    float[] specificPps = calc.GetPpWithSummedPp(mapData[i].Acc, HelpfulPaths.GetAllRatingsOfSpeed(map.MapData.diffData, calc, mapData[i].Speed));
+                    mapData[i].ChangePP(
+                        BLCalc.Instance.GetAccDeflatedUnsafe(specificPps[0] + specificPps[1] + specificPps[2], PC.DecimalPrecision, ratings.SelectedRatings) / 100f,
+                        (float)Math.Round(specificPps[3], PC.DecimalPrecision));
+                }
+                else mapData[i].ChangePP(mapData[i].Acc, (float)Math.Round(calc.Inflate(calc.GetSummedPp(mapData[i].Acc, ratings.SelectedRatings)), PC.DecimalPrecision));
+            }
+            Array.Sort(mapData, (a,b) => (b.PP - a.PP) < 0 ? -1 : 1);
+            rankArr = [.. mapData.Select(t => t.PP)];
+            //Plugin.Log.Debug($"[{string.Join(", ", mapData.Select(t => (t.acc, t.pp)))}]");
+            ppHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 1)
+            {
+                UpdateFCEnabled = PC.PPFC,
+                UpdatePPEnabled = displayPP
+            };
+            ppHandler.UpdateFC += (fcAcc, vals, actions) => vals[1].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
         }
-        public RankCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating, map.StarRating) { SetupData(map); }
-        public void SetupData(MapSelection map)
+        public override void ReinitCounter(TMP_Text display, RatingContainer ratingVals)
         {
-            string songId = map.MapData.Item1;
-            APIHandler api = APIHandler.GetSelectedAPI();
-            mapPP = api.GetScoregraph(map).Result;
-            Array.Sort(mapPP);//, (a,b) => (int)(b - a));
-            //Plugin.Log.Debug($"[{string.Join(", ", mapPP)}]");
+            base.ReinitCounter(display, ratingVals);
         }
-        public void ReinitCounter(TMP_Text display) => this.display = display;
-        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating, float starRating)
+        public override void ReinitCounter(TMP_Text display, MapSelection map) 
         {
-            this.display = display;
-            this.passRating = passRating;
-            this.accRating = accRating;
-            this.techRating = techRating;
-            this.starRating = starRating;
-            precision = PluginConfig.Instance.DecimalPrecision;
-            calc = Calculator.GetSelectedCalc();
-            ratings = calc.SelectRatings(starRating, accRating, passRating, techRating);
-            ratingLen = ratings.Length == 1 ? 0 : ratings.Length;
-        }
-        public void ReinitCounter(TMP_Text display, MapSelection map) 
-        { 
-            ReinitCounter(display, map.PassRating, map.AccRating, map.TechRating, map.StarRating);
-            SetupData(map); 
+            base.ReinitCounter(display, map);
         }
         #endregion
         #region Helper Methods
         public static void FormatTheFormat(string format) => rankIniter = GetTheFormat(format, out _);
-        public static Func<Func<Dictionary<char, object>, string>> GetTheFormat(string format, out string errorStr)
+        public static Func<Func<FormatWrapper, string>> GetTheFormat(string format, out string errorStr)
         {
-            return HelpfulFormatter.GetBasicTokenParser(format, MainAlias, DisplayName,
+            var outp = HelpfulFormatter.GetBasicTokenParser(format, MainAlias, DisplayName,
                 formattedTokens =>
                 {
                     if (!PC.ShowLbl) formattedTokens.SetText('l');
@@ -141,22 +151,26 @@ namespace BLPPCounter.Counters
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
                     if (!(bool)vals[(char)3]) HelpfulFormatter.SetText(tokensCopy, '3');
                     if (!(bool)vals[(char)4]) HelpfulFormatter.SetText(tokensCopy, '4');
-                }, out errorStr);
+                }, out errorStr, out HelpfulFormatter.TokenInfo[] arr);
+
+            HashSet<char> ppSymbols = ['x', 'd'];
+            displayPP = arr.Any(token => token.Usage > HelpfulFormatter.TokenUsage.Never && ppSymbols.Contains(token.Token));
+
+            return outp;
         }
         public static void InitTheFormat()
         {
-            var simple = rankIniter.Invoke();
-            displayRank = (fc, extraInfo, isNum1, pp, fcpp, rank, ppDiff, color, label) =>
-            {
-                Dictionary<char, object> vals = new Dictionary<char, object>()
-                {
-                    {(char)1, fc }, {(char)2, extraInfo }, {(char)3, !isNum1 && extraInfo }, {(char)4, isNum1 && extraInfo }, {'x', pp}, {'y', fcpp },
-                    {'r', rank}, {'d', ppDiff}, {'c', color }, {'l',label}
-                };
-                return simple.Invoke(vals);
-            };
+            displayRank = rankIniter.Invoke();
+            rankWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(bool), (char)3), (typeof(bool), (char)4), (typeof(float), 'x'), (typeof(float), 'y'),
+                (typeof(int), 'r'), (typeof(string), 'n'), (typeof(float), 'd'), (typeof(float), 'p'), (typeof(string), 'c'), (typeof(string), 'l'));
         }
-        public void UpdateFormat() => InitTheFormat();
+        private static string DisplayRank(bool fc, bool extraInfo, bool isNum1, float pp, float fcpp, int rank, string playername, float ppDiff, float percentDiff, string color, string label)
+        {
+            rankWrapper.SetValues(((char)1, fc), ((char)2, extraInfo), ((char)3, !isNum1 && extraInfo), ((char)4, isNum1 && extraInfo), ('x', pp), ('y', fcpp),
+                    ('r', rank), ('n', playername), ('d', ppDiff), ('p', percentDiff), ('c', color), ('l', label));
+            return displayRank.Invoke(rankWrapper);
+        }
+        public override void UpdateFormat() => InitTheFormat();
         public static bool InitFormat()
         {
             if (rankIniter == null) FormatTheFormat(PC.FormatSettings.RankTextFormat);
@@ -168,36 +182,33 @@ namespace BLPPCounter.Counters
             rankIniter = null;
             displayRank = null;
         }
-        private int GetRank(float pp) { int val = Array.BinarySearch(mapPP, pp); return mapPP.Length - (val >= 0 ? val - 1 : Math.Abs(val) - 2); }
+        private int GetRank(float pp) 
+        { 
+            int val = HelpfulMisc.FindInsertValueReverse(rankArr, pp);
+            return Mathf.Clamp(val + 1, 1, Math.Min(PC.MinRank, mapData.Length));
+        }
+        private ScoregraphInfo GetRankData(int rank) => mapData[Math.Max(rank - 2, 0)];
         #endregion
         #region Updates
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
+        public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
-            bool displayFc = PluginConfig.Instance.PPFC && mistakes > 0;
-            float[] ppVals = new float[(ratingLen + 1) * 2], temp;
-            temp = calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision, ratings);
-            //Plugin.Log.Info($"ratings: {HelpfulMisc.Print(temp)}\ttemp: {HelpfulMisc.Print(temp)}");
-            for (int i = 0; i < temp.Length; i++)
-                ppVals[i] = temp[i];
-            if (displayFc)
-            {
-                temp = calc.GetPpWithSummedPp(fcPercent, PluginConfig.Instance.DecimalPrecision, ratings);
-                for (int i = 0; i < temp.Length; i++)
-                    ppVals[i + temp.Length] = temp[i];
-            }
-            int rank = GetRank(ppVals[ratingLen]);
-            float ppDiff = (float)Math.Abs(Math.Round(mapPP[mapPP.Length + 1 - Math.Max(2, Math.Min(rank, mapPP.Length + 1))] - ppVals[ratingLen], precision));
+            ppHandler.Update(acc, mistakes, fcPercent);
+
+            int rank = GetRank(ppHandler.GetPPGroup(0).TotalPP);
+            ScoregraphInfo info = GetRankData(rank);
+            float ppDiff = (float)Math.Abs(Math.Round(info.PP - ppHandler.GetPPGroup(0).TotalPP, PluginConfig.Instance.DecimalPrecision));
+            float accDiff = (float)Math.Abs(Math.Round((info.Acc - acc) * 100f, PluginConfig.Instance.DecimalPrecision));
             string color = HelpfulFormatter.GetWeightedRankColor(rank);
             string text = "";
             //Plugin.Log.Info("PPVals: " + HelpfulMisc.Print(ppVals));
             if (PC.SplitPPVals && calc.RatingCount > 1)
-                for (int i = 0; i < ratingLen; i++)
-                    text += displayRank(displayFc, false, false, ppVals[i], ppVals[i + ratingLen],
-                        rank, ppDiff, color, TheCounter.CurrentLabels[i]) + "\n";
-            text += displayRank(displayFc, PC.ExtraInfo, rank == 1, ppVals[ratingLen], ppVals[ratingLen * 2 + 1], rank, ppDiff, color, TheCounter.CurrentLabels.Last());
+                for (int i = 0; i < calc.RatingCount; i++)
+                    text += DisplayRank(ppHandler.DisplayFC, false, false, ppHandler[0, i], ppHandler[0, i],
+                        rank, info.PlayerName, ppDiff, accDiff, color, TheCounter.CurrentLabels[i]) + '\n';
+            text += DisplayRank(ppHandler.DisplayFC, PC.ExtraInfo, rank == 1, ppHandler[0], ppHandler[1], rank, info.PlayerName, ppDiff, accDiff, color, TheCounter.CurrentLabels.Last());
             display.text = text;
         }
-        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
+        public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
         #endregion
 
     }

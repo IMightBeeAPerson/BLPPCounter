@@ -6,11 +6,13 @@ using static GameplayModifiers;
 using System.Text.RegularExpressions;
 using System.Linq;
 using System.Net.Http;
-using IPA.Utilities;
 using System.Text;
 using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Settings.SettingHandlers;
+using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.Containers;
+using System.Collections.Generic;
 
 namespace BLPPCounter.Helpfuls
 {
@@ -22,6 +24,8 @@ namespace BLPPCounter.Helpfuls
         public static readonly string THE_FOLDER = Path.Combine(Environment.CurrentDirectory, "UserData", "PP Counter");
         public static readonly string BL_CACHE_FILE = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "LeaderboardsCache");
         public static readonly string BL_REPLAY_FOLDER = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "Replays");
+        public static readonly string BL_REPLAY_CACHE_FOLDER = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "ReplayerCache");
+        public static readonly string BL_REPLAY_HEADERS = Path.Combine(Environment.CurrentDirectory, "UserData", "BeatLeader", "ReplayHeadersCache");
         public static readonly string TAOHABLE_DATA = Path.Combine(THE_FOLDER, "TaohableData.json");
         public static readonly string HEADERS = Path.Combine(THE_FOLDER, "Headers.json");
         public static readonly string PROFILE_DATA = Path.Combine(THE_FOLDER, "Profiles.json");
@@ -38,6 +42,7 @@ namespace BLPPCounter.Helpfuls
         public static readonly string BLAPI = "https://api.beatleader.com/";
         public static readonly string BLAPI_HASH = "https://api.beatleader.com/leaderboards/hash/{0}"; //hash
         public static readonly string BLAPI_USERID = "https://api.beatleader.com/player/{0}?stats=false"; //user_id
+        public static readonly string BLAPI_USERID_FULL = "https://api.beatleader.com/player/{0}"; //user_id
         public static readonly string BLAPI_CLAN = "https://api.beatleader.com/leaderboard/clanRankings/{0}"; //clan_id
         public static readonly string BLAPI_CLAN_PLAYERS = "https://api.beatleader.com/clan/{0}?count={1}"; //clan_name (the 4 letter one), count
         public static readonly string BLAPI_SCORE = "https://api.beatleader.com/score/general/{0}/{1}/{2}/{3}"; //user_id, hash, diff, mode || Ex: https://api.beatleader.com/score/general/76561198306905129/a3292aa17b782ee2a229800186324947a4ec9fee/Expert/Standard
@@ -45,6 +50,7 @@ namespace BLPPCounter.Helpfuls
         public static readonly string BLAPI_FOLLOWERS = "https://api.beatleader.com/player/{0}/followers?page={1}&count={2}&type=following"; //user_id, page, count
         //public static readonly string BLAPI_FOLLOWERS = "https://api.beatleader.com/players?page={0}&count={1}&leaderboardContext=general&friends=true"; //page, count
         public static readonly string BLAPI_PLAYER_FILTER = "https://api.beatleader.com/players?page={0}&count={1}&leaderboardContext=general"; //page, count
+        public static readonly string BLAPI_SCOREVALUE = "https://api.beatleader.com/player/{0}/scorevalue/{1}/{2}/{3}"; //user_id, hash, diff, mode
 
         public static readonly string SSAPI = "https://scoresaber.com/api/";
         //UNRANKED: https://scoresaber.com/api/leaderboard/by-hash/bdacecbf446f0f066f4189c7fe1a81c6d3664b90/info?difficulty=5
@@ -66,6 +72,7 @@ namespace BLPPCounter.Helpfuls
         public static readonly string APAPI_CATEGORY_SCORES = "https://api.accsaber.com/players/{0}/{1}/scores"; //user_id, accsaber category (true, standard, tech)
         public static readonly string APAPI_RECENT_SCORE = "https://api.accsaber.com/players/{0}/recent-scores?pageSize=1"; //user_id
 
+        //Docs: https://api.beatsaver.com/docs/index.html
         public static readonly string BSAPI = "https://api.beatsaver.com/";
         public static readonly string BSAPI_MAPID = "https://api.beatsaver.com/maps/id/{0}";
         public static readonly string BSAPI_HASH = "https://api.beatsaver.com/maps/hash/{0}";
@@ -128,7 +135,7 @@ namespace BLPPCounter.Helpfuls
         public static float GetRating(JToken data, PPType type, SongSpeed mod = SongSpeed.Normal)
         {
             if (data is null) return 0;
-            if (mod != SongSpeed.Normal && !(data["modifiersRating"] is null)) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
+            if (mod != SongSpeed.Normal && data["modifiersRating"] is not null) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
             string path = HelpfulMisc.AddModifier(HelpfulMisc.PPTypeToRating(type), mod);
             //Below is a workaround for how Taoh formats his data.
             if (mod == SongSpeed.Normal && type == PPType.Star && data[path] is null) return (float)(data["star" + HelpfulMisc.ToCapName(PpInfoTabHandler.Instance.CurrentLeaderboard)] ?? 0);
@@ -136,23 +143,28 @@ namespace BLPPCounter.Helpfuls
         }
         public static float GetRating(JToken data, PPType type, string modName)
         {
-            if (!modName.Equals("") && !(data?["modifiersRating"] is null)) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
+            if (!modName.Equals("") && data?["modifiersRating"] is not null) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
             string path = HelpfulMisc.AddModifier(HelpfulMisc.PPTypeToRating(type), modName);
             return (float)(data?[path] ?? 0);
         }
-        public static float[] GetAllRatingsOfSpeed(JToken data, Calculator calc, SongSpeed mod = SongSpeed.Normal)
+        public static RatingContainer GetAllRatingsOfSpeed(JToken data, Calculator calc, SongSpeed mod = SongSpeed.Normal)
         { //star, acc, pass, tech
-            float[] outp = calc.SelectRatings(GetRating(data, PPType.Star, mod), GetRating(data, PPType.Acc, mod), GetRating(data, PPType.Pass, mod), GetRating(data, PPType.Tech, mod));
-            outp = outp.FilledWithDefaults() ? new float[0] : outp;
-            return outp;
+            float[] outp = [.. Enum.GetValues(typeof(PPType)).Cast<PPType>().Select(type => GetRating(data, type, mod))];
+            return RatingContainer.GetContainer(calc?.Leaderboard ?? Leaderboards.None, outp);
         }
-        public static float[] GetAllRatings(JToken data, Calculator calc) =>
-            GetAllRatingsOfSpeed(data, calc, SongSpeed.Slower).Union(GetAllRatingsOfSpeed(data, calc, SongSpeed.Normal)).Union(GetAllRatingsOfSpeed(data, calc, SongSpeed.Faster)).Union(GetAllRatingsOfSpeed(data, calc, SongSpeed.SuperFast)).ToArray();
-
+        public static RatingContainer GetAllRatingsOfSpeed(JToken data, SongSpeed mod = SongSpeed.Normal) => GetAllRatingsOfSpeed(data, null, mod);
+        public static RatingContainer[] GetAllRatings(JToken data, Calculator calc)
+        {
+            List<RatingContainer> outp = new(4); //length of the SongSpeed Enum.
+            foreach (SongSpeed s in HelpfulMisc.OrderedSpeeds)
+                outp.Add(GetAllRatingsOfSpeed(data, calc, s));
+            return [.. outp];
+        }
+        public static RatingContainer[] GetAllRatings(JToken data) => GetAllRatings(data, null);
         public static float GetMultiAmount(JToken data, string name)
         {
             if (!Calculator.GetSelectedCalc().UsesModifiers) return 1.0f;
-            MatchCollection mc = Regex.Matches(data.TryEnter("difficulty")["modifierValues"].ToString(), "^\\s*\"(.+?)\": *(-?\\d(?:\\.\\d+)?).*$", RegexOptions.Multiline);
+            MatchCollection mc = Regex.Matches(data.TryEnter("difficulty")["modifierValues"].ToString(), @"^\s*""(.+?)"": *(-?\d(?:\.\d+)?).*$", RegexOptions.Multiline);
 #if NEW_VERSION
             string val = mc.FirstOrDefault(m => m.Groups[1].Value.Equals(name))?.Groups[2].Value; // 1.37.0 and above
 #else
@@ -160,11 +172,23 @@ namespace BLPPCounter.Helpfuls
 #endif
             return val is null ? 0 : float.Parse(val);
         }
+        public static Dictionary<string, float> GetMultiAmounts(JToken data)
+        {
+            MatchCollection mc = Regex.Matches(data.TryEnter("difficulty")["modifierValues"].ToString(), @"^\s*""(.+?)"": *(-?\d(?:\.\d+)?).*$", RegexOptions.Multiline);
+            Dictionary<string, float> multiAmounts = new Dictionary<string, float>(mc.Count - 1);
+            foreach (Match m in mc)
+            {
+                if (m.Groups[1].Value.Equals("modifierId")) continue;
+                multiAmounts.Add(m.Groups[1].Value, float.Parse(m.Groups[2].Value));
+            }
+            return multiAmounts;
+        }
         public static float GetMultiAmounts(JToken data, string[] names) 
         {
             //Plugin.Log.Info(data.ToString());
-            float outp = 1; 
-            foreach (string n in names) outp += GetMultiAmount(data, n);
+            float outp = 1;
+            Dictionary<string, float> vals = GetMultiAmounts(data);
+            foreach (string n in names) outp += vals.TryGetValue(n, out float val) ? val : 0;
             return outp; 
         }
 #endregion

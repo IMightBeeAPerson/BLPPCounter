@@ -1,16 +1,37 @@
 # Beatleader PP Counter
 ### Description
 #### How do I install this?
-It's a counters+ counter. Mostly self-explainatory, just drag the file into your plugins folder and put it on with counters+.
+Like any other mod, just find your plugins folder and place it into there. If this doesn't make sense then please find the BSMG discord and ask for help there.
+#### Dependencies 
+- BSIPA (Core mod, this should already be installed)
+- SiraUtil (Almost a core mod, maybe double check but almost certainly is already installed)
+- BSML
+- Counters+
+- BeatLeader
 #### What is this?
-This is a counter for beatleader PP. It has various options for how to do this, from just the standard counter to competing against your own scores or sniping other people's scores. It even has functionality for clan wars, where it can tell you what percent you'd need to get on a map to capture it. It does account for all modifiers, and below is 2 methods on how to completely customize the data shown. There is an in game way and config way, with both being a bit of a mess. The counter works fine if you never want to mess with it.
+This is a counter originally for beatleader PP. It has various options for how to do this, from just the standard counter to competing against your own scores or sniping other people's scores. It even has functionality for clan wars, where it can tell you what percent you'd need to get on a map to capture it. This counter has come a long way since this, and now works with Scoresaber and Accsaber as well. In addition, there are 2 methods on how to completely customize the data shown. There is an in game way and config way, with both being a bit of a mess, however the counter works fine if you never want to mess with it. There is also a tab call PP Calculator, which provides ways to view and calculate PP.
+## PP Calculator
+### Overview
+There is a mod tab provided called PP Calculator, which does exactly what it says it does. It will provide you with serveral tabs to easily calculate how much PP you can get from a map. There are several tabs within this tab that displays different information. Note: all tabs here only update while looking at them, so if you feel this tab causes lag for you, simply select a different tab and it will stop updating.
+### Info Tab
+This tab displays simple information about the map like its name, its star rating, and its id. It will also display the "Mod Mult", which only changes if you are using BL with negative non speed modifiers. This tab will update and change as you select different maps. If you select a map that isn't cached, then it may take a second to update as it has to make a web call. 
+### Clan Tab (Beatleader only)
+This tab is for those who are looking to capture a map. It will display a table with the 4 different speeds, and what percent you need on the map to capture it at each speed. The top part will show your previous score (if you have one), the current clan that owns the map, as well as the pp needed to capture the map. If you click one the select buttons, it will select the speed modifier of that row for you. If you are targeting someone, then this tab will use their perspective instead, telling you how much pp they would need to capture the map.
+### Relative Tab (Basically Beatleader only)
+This tab will show what percent is needed to beat your own score with different speed modifiers. This tab is kinda useless if you're not on Beatleader, since it will simply show your score. However, if you are targeting someone, it will show their score instead.
+### Custom Tab
+This tab is an interactive tab that will allow you to see what score you need to get on the selected map to get a certain amount of pp or what pp a certain score will give you. It will display a table with all speed modifiers accounted for. the table doesn't update automatically so make sure to hit the "Apply Values" button once you set the slider to what you want.
+### Profile Tab
+This tab is by far the most complex one. In this tab your top 100 scores are stored and kept track of, as well as new scores that were set. From this, your +1 pp value is calculated, which is what pp play you need to gain 1 pp to your profile. You can view your top 100 plays with the "Show Top Plays" button. The "Show Session" button will show what plays have been set since you opened the game last, as well as the total profile pp gained from these scores. The bottom sliders can show you the amount of profile pp a certain pp score will gain you. If you have the accsaber leaderboard selected, then there is an extra option for each form of ap, tech, standard, and true. The total option will show the session correctly, but the +1 pp value is accurate but uselss since accsaber is not one giant leaderboard.
 
-**Side note:** This is just a project done for fun, and is my first time coding a mod and in general stuff that relies on APIs and other libraries. If you decide to use this, remember that it may not work perfectly. However, feel free to inform me of any bugs you find.
+**Side Note:** This is by far the most complex tab, involving some quite math heavy functions, and is prone to being inaccurate. If your score seem to give you much more pp than you were expecting, then try to refresh the top 100 plays. If the estimate is wildly off, then there is most likely a bug and please report it to me.
+### Settings Tab
+Not much to say on this one, there are settings here for setting the bounds of the sliders on the other tabs, as well as setting which leaderboard is shown for the PP Calculator tab. Make sure to hit the "Apply" button below or it will not change. The "Show True ID" option will change the id shown in the Info Tab to be the beatsaver id instead of the leaderboard specific one.
 ## In game settings
 ### Overview
 Inside of the game, there are a lot of settings that aren't just directly for the counter. If you go to mod settings for this mod, there are a lot of submenus and options, and therefore need a lot of explanations. This will go in order, from top to bottom. Note that the ui works fine in FPFC mode if you would prefer to edit it outside of VR.
-### Simple menu
-This refers to the first checkbox setting and the submenu below it. The checkbox setting will toggle on/off whether in the information from the submenu will be used in the tab setting menu on the song select screen. If it is toggled off, the menu in the song select screen will show almost all options for the counter that can be found in the counters+ menu. If it is toggled on, then within the submenu you can choose which settings to show in the song select menu. That way, if you would like on certain settings to be able to be changed on short notice, you can do so.
+### Custom Menu UI
+This refers to the first checkbox setting and the submenu below it. The checkbox setting will toggle on/off whether in the information from the submenu will be used in the tab setting menu on the song select screen. If it is toggled on, then within the submenu you can choose which settings to show in the song select menu. That way, if you would like on certain settings to be able to be changed on short notice, you can do so. Please note that this menu is auto generated and thus may be a bit confusing. All it does is show or hide options from your settings menu in the solo screen.
 ### Format Editor
 This is by far the most complex part of this menu. This is about completely customizing any part of this counter to look however you want. It also is optional, so feel free to skip over this. 
 #### Auto Update Preview
@@ -84,7 +105,7 @@ What the above example does is for specifically the normal counter, replace the 
 | FormatName | This refers to what specific format inside of the counter to use. "Main Format" will always refer to the main format usually shown in a counter, but there is a table below showing what each format name is |
 | AliasCharacter | This is the character you wish to change, you must put the character, which is provided below for all counters (this was changed from previous versions to better work with the in game ui). |
 | AliasName | The new alias name for the given AliasCharacter. Any character is allowed except for the ones used in token settings. If you do use one of those characters, it may or may not work, depending on how the parser handles it. Best practice would be to avoid using them at all. |
-| OldAlias | For parsing reasons, the old alias that this is to replace is required to be provided. Just copy and paste it from below |
+| OldAlias | For parsing reasons, the old alias that this replaces is required to be provided. Just copy and paste it from below. |
 
 Every character has a default alias that works perfectly fine without any changes, so if this feels too complicated and you just want to use what is given, feel free to do so. 
 ### Counter & Format Names
@@ -131,6 +152,7 @@ These both have mostly the same syntax, and therefore will share the same table.
 | f | FC Color | Must use as a group value, and will color everything inside group |
 | l | Label | The label (ex: PP, Tech PP, etc) |
 | e | Mistakes | The amount of mistakes made in the map. This includes bomb and wall hits |
+| z | Mistake Color | Color for mistakes compared to your replay mistakes (uses the advanced miss counter colors and logic) |
 | t | Target | This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target |
 
 Below is a table with the letters that only apply to one counter or the other.
@@ -173,6 +195,7 @@ This counter will show what rank you are on the leaderboard if the map were to e
 | x | PP | The unmodified PP number |
 | y | FCPP | The unmodified PP number if the map was FC'ed |
 | r | Rank | The rank you would be on the leaderboard if the map ended right then |
+| n | Next Player | The player whose score is directly in front of you |
 | d | PP Difference | The modified PP number, shows how much pp to go up one rank on the leaderboard |
 | l | Label | The label (ex: PP, Tech PP, etc) |
 | c | Rank Color | The color of the rank (set in settings) |

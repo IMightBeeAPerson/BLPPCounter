@@ -5,12 +5,14 @@ using BeatSaberMarkupLanguage.Parser;
 using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Counters;
 using BLPPCounter.Helpfuls;
+using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Patches;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils;
+using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
+using BLPPCounter.Utils.Profile_Utils;
+using BLPPCounter.Utils.Map_Utils;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Enums;
-using BLPPCounter.Utils.List_Settings;
 using BLPPCounter.Utils.Misc_Classes;
 using BS_Utils.Utilities;
 using HMUI;
@@ -19,8 +21,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
@@ -48,15 +48,15 @@ namespace BLPPCounter.Settings.SettingHandlers
         private IDifficultyBeatmap CurrentMap; // 1.34.2 and below
 #endif
         private (JToken Diffdata, JToken Scoredata) CurrentDiff;
-        private AsyncLock RefreshLock = new AsyncLock(), ProfileLock = new AsyncLock();
+        private AsyncLock RefreshLock = new(), ProfileLock = new();
         private bool SelectButtonsOn = false;
-        internal Leaderboards CurrentLeaderboard { get; private set; } = PC.Leaderboard;
+        internal Leaderboards CurrentLeaderboard { get; private set; } = PC.CalcLeaderboard;
         private Calculator CurrentCalculator => Calculator.GetCalc(CurrentLeaderboard);
         private APIHandler CurrentAPI => APIHandler.GetAPI(CurrentLeaderboard);
 #if NEW_VERSION
-        private readonly Dictionary<string, BeatmapKey> TabMapInfo = new Dictionary<string, BeatmapKey>() // 1.37.0 and above
+        private readonly Dictionary<string, BeatmapKey> TabMapInfo = new() // 1.37.0 and above
 #else
-        private readonly Dictionary<string, IDifficultyBeatmap> TabMapInfo = new Dictionary<string, IDifficultyBeatmap>() // 1.34.2 and below
+        private readonly Dictionary<string, IDifficultyBeatmap> TabMapInfo = new() // 1.34.2 and below
 #endif
         {
             { "Info", default },
@@ -66,7 +66,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             { "Profile", default },
             { "Settings", default } //This one is only here to provide a list of names
         };
-        private readonly Dictionary<string, Action<PpInfoTabHandler>> Updates = new Dictionary<string, Action<PpInfoTabHandler>>()
+        private readonly Dictionary<string, Action<PpInfoTabHandler>> Updates = new()
         {
             {"Info", new Action<PpInfoTabHandler>(pith => pith.UpdateInfo()) },
             {"Capture", new Action<PpInfoTabHandler>(pith => pith.UpdateCaptureValues()) },
@@ -74,11 +74,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             {"Custom", new Action<PpInfoTabHandler>(pith => pith.UpdateCustomAccuracy()) },
             {"Profile", new Action<PpInfoTabHandler>(pith => pith.UpdateProfile()) }
         };
-        private static readonly string[] SelectionButtonTags = new string[4] { "SSButton", "NMButton", "FSButton", "SFButton" };
+        private static readonly string[] SelectionButtonTags = ["SSButton", "NMButton", "FSButton", "SFButton"];
         private Table ClanTableTable, RelativeTableTable, PPTableTable, PercentTableTable;
         public bool ChangeTabSettings = false;
         #region Relative Counter
         private static Func<string> GetTarget, GetNoScoreTarget;
+        private static FormatWrapper NoScoreTargetWrapper;
         private float TargetPP = 0;
         private bool TargetHasScore = false;
         #endregion
@@ -100,6 +101,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         private bool ShowProfileTab => true;// CurrentLeaderboard != Leaderboards.Accsaber;
 
         [UIComponent(nameof(MainTabSelector))] internal TabSelector MainTabSelector;
+        [UIComponent(nameof(SaveLeaderboardButton))] private Button SaveLeaderboardButton;
+        [UIComponent(nameof(CalcSelector))] internal ListSetting CalcSelector;
 
         [UIValue(nameof(ShowTrueID))] private bool ShowTrueID
         {
@@ -110,6 +113,20 @@ namespace BLPPCounter.Settings.SettingHandlers
                 MapID.gameObject.SetActive(!value);
                 TrueMapID.gameObject.SetActive(value);
             }
+        }
+        [UIValue(nameof(CalcLeaderboard))] private string CalcLeaderboard
+        {
+            get => PC.CalcLeaderboard.ToString();
+            set => PC.CalcLeaderboard = (Leaderboards)Enum.Parse(typeof(Leaderboards), value);
+        }
+        [UIValue(nameof(CalcLeaderboards))] private List<object> CalcLeaderboards => [.. LeaderboardSettingsHandler.Instance.UsableLeaderboards.Select(a => a.ToString())];
+        [UIAction(nameof(SaveLeaderboard))] private void SaveLeaderboard()
+        {
+            SaveLeaderboardButton.interactable = false;
+            ChangeTabSettings = true;
+            SettingsHandler.Instance.CalcSelector.ReceiveValue();
+            ResetTabs();
+            Task.Run(async () => { await Refresh(true); SaveLeaderboardButton.interactable = true; });
         }
         [UIValue(nameof(PercentSliderMin))] private float PercentSliderMin
         {
@@ -159,6 +176,9 @@ namespace BLPPCounter.Settings.SettingHandlers
                 UpdateTabSliders(value);
             }
         }
+        [UIValue(nameof(PercentSliderIncrementNum))]
+        private float PercentSliderIncrementNum => _SliderIncrementNum / 100f;
+
         private bool _ShowTrueID = PC.ShowTrueID;
         private float _PercentSliderMin = PC.PercentSliderMin;
         private float _PercentSliderMax = PC.PercentSliderMax;
@@ -184,7 +204,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 Task.Run(() => UpdateProfile());
             }
         }
-        [UIValue(nameof(APCategorySettings))] private List<object> APCategorySettings = Enum.GetNames(typeof(APCategory)).Skip(1).Cast<object>().ToList();
+        [UIValue(nameof(APCategorySettings))] private List<object> APCategorySettings = [.. Enum.GetNames(typeof(APCategory)).Skip(1).Cast<object>()];
         private APCategory _APSetting = APCategory.All;
 
         [UIComponent(nameof(ProfileTab))] private Tab ProfileTab;
@@ -197,12 +217,10 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(SessionWindow_PlaysSet))] private TextMeshProUGUI SessionWindow_PlaysSet;
         [UIComponent(nameof(SessionWindow_PpGained))] private TextMeshProUGUI SessionWindow_PpGained;
         [UIComponent(nameof(SessionTable))] private CustomCellListTableData SessionTable;
-        [UIValue(nameof(SessionTable_Infos))] private List<object> SessionTable_Infos => CurrentProfile?.CurrentSession.Info ?? new List<object>(0);
+        [UIValue(nameof(SessionTable_Infos))] private List<object> SessionTable_Infos => CurrentProfile?.CurrentSession.Info ?? [];
 
         [UIComponent(nameof(PlusOneLabel))] private TextMeshProUGUI PlusOneLabel;
         [UIComponent(nameof(PlusOneText))] private TextMeshProUGUI PlusOneText;
-        [UIComponent(nameof(LevelText))] private TextMeshProUGUI LevelText;
-        [UIComponent(nameof(ExperienceText))] private TextMeshProUGUI ExperienceText;
         [UIComponent(nameof(ReloadDataButton))] private Button ReloadDataButton;
         [UIComponent(nameof(AccSaberSetting))] private DropDownListSetting AccSaberSetting;
         [UIComponent(nameof(ProfilePPSlider))] private SliderSetting ProfilePPSlider;
@@ -260,32 +278,32 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(TrueMapID))] private TextMeshProUGUI TrueMapID;
         [UIValue(nameof(BeatmapName))] private string BeatmapName
         {
-            get => _BeatmapName;
-            set { if (MapName is null) return; MapName.text = $"<color=#777>Map Name: <color=#AAA>{value.ClampString(25)}</color>"; _BeatmapName = value; }
+            get => $"<color=#777>Map Name: <color=#AAA>{_BeatmapName.ClampString(25)}</color>";
+            set { if (MapName is null) return; _BeatmapName = value; MapName.text = $"<color=#777>Map Name: <color=#AAA>{value.ClampString(25)}</color>"; }
         }
         private string _BeatmapName = "";
         [UIValue(nameof(BeatmapID))] private string BeatmapID
         {
-            get => _BeatmapID;
-            set { if (MapID is null) return; MapID.text = $"<color=#777>Map ID: <color=#AAA>{value}</color>"; _BeatmapID = value; }
+            get => $"<color=#777>Map ID: <color=#AAA>{_BeatmapID}</color>";
+            set { if (MapID is null) return; _BeatmapID = value; MapID.text = $"<color=#777>Map ID: <color=#AAA>{value}</color>"; }
         }
         private string _BeatmapID = "";
         [UIValue(nameof(MapModeText))] private string MapModeText
         {
-            get => _MapModeText;
-            set { if (MapID is null) return; MapMode.text = $"<color=#777>Map Type: <color=#AAA>{value}</color>"; _MapModeText = value; }
+            get => $"<color=#777>Map Type: <color=#AAA>{_MapModeText}</color>";
+            set { if (MapID is null) return; _MapModeText = value; MapMode.text = $"<color=#777>Map Type: <color=#AAA>{value}</color>"; }
         }
         private string _MapModeText = "";
         [UIValue(nameof(MapDiffText))] private string MapDiffText
         {
-            get => _MapDiffText;
-            set { if (MapID is null) return; MapDiff.text = $"<color=#777>Map Difficulty: <color=#AAA>{value}</color>"; _MapDiffText = value; }
+            get => $"<color=#777>Map Difficulty: <color=#AAA>{_MapDiffText}</color>";
+            set { if (MapID is null) return; _MapDiffText = value; MapDiff.text = $"<color=#777>Map Difficulty: <color=#AAA>{value}</color>"; }
         }
         private string _MapDiffText = "";
         [UIValue(nameof(TrueBeatmapID))] private string TrueBeatmapID
         {
-            get => _TrueBeatmapID;
-            set { if (MapID is null) return; TrueMapID.text = $"<color=#777>True Map ID: <color=#AAA>{value}</color>"; _TrueBeatmapID = value; }
+            get => $"<color=#777>True Map ID: <color=#AAA>{_TrueBeatmapID}</color>";
+            set { if (MapID is null) return; _TrueBeatmapID = value; TrueMapID.text = $"<color=#777>True Map ID: <color=#AAA>{value}</color>"; }
         }
         private string _TrueBeatmapID = "";
 #endregion
@@ -350,17 +368,15 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void DoTestThing()
         {
             //CurrentProfile.AddPlay(ProfilePPSlider.Value);
-            //UpdateProfilePP();
-            //UpdateProfile();
-            CompletedMap(0.995f, Sldvc.selectedDifficultyBeatmap);
+            UpdateProfilePP();
+            UpdateProfile();
+            CompletedMap(0.990f, Sldvc.selectedDifficultyBeatmap);
         }*/
-        [UIAction(nameof(RefreshProfilePP))] private void RefreshProfilePP()
-        {
-            Task.Run(async () => await RefreshProfileScores().ConfigureAwait(false));
-        }
+        [UIAction(nameof(RefreshProfilePP))]
+        private void RefreshProfilePP() => Task.Run(RefreshProfileScores);
         private async Task RefreshProfileScores()
         {
-            AsyncLock.Releaser? theLock = await ProfileLock.TryLockAsync().ConfigureAwait(false);
+            AsyncLock.Releaser? theLock = await ProfileLock.TryLockAsync();
             if (theLock is null) return;
             using (theLock.Value)
             {
@@ -368,7 +384,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 if (CurrentProfile is null)
                     UpdateProfile();
                 CurrentProfile.ReloadScores();
-                await Refresh(true).ConfigureAwait(false);
+                await Refresh(true);
                 ReloadDataButton.interactable = true;
             }
         }
@@ -504,9 +520,10 @@ namespace BLPPCounter.Settings.SettingHandlers
                 new Dictionary<string, char>() { { "Target", 't' } }, "TargetNoScoreMessage", null, (tokens, tokensCopy, priority, vals) =>
                 {
                     foreach (char key in vals.Keys) if (vals[key] is null || vals[key].ToString().Length == 0) HelpfulFormatter.SetText(tokensCopy, key);
-                }, out _, false).Invoke();
-            GetNoScoreTarget = () => simple.Invoke(new Dictionary<char, object>() { { 't', Targeter.TargetName } });
-            GetTarget = () => TheCounter.TargetFormatter?.Invoke(Targeter.TargetName, "") ?? "Target formatter is null";
+                }, out _, out _, false).Invoke();
+            NoScoreTargetWrapper = new FormatWrapper((typeof(string), 't'));
+            GetNoScoreTarget = () => { NoScoreTargetWrapper.SetValue('t', Targeter.TargetName, typeof(string)); return simple.Invoke(NoScoreTargetWrapper); };
+            GetTarget = () => TheCounter.TargetFormatter(Targeter.TargetName.ClampString(PC.MaxNameLength), "") ?? "Target formatter is null";
         }
         private float GetAccToBeatTarget()
         {
@@ -540,19 +557,19 @@ namespace BLPPCounter.Settings.SettingHandlers
                 mode,
                 true //Debug option, just prevents prints when the API was called.
                 ).ConfigureAwait(false);
-            TargetHasScore = !(scoreData is null);
+            TargetHasScore = scoreData is not null;
             if (!TargetHasScore) { await UpdateDiff().ConfigureAwait(false); return 0.0f; } //target doesn't have a score on this diff.
             JToken diffData = null;
             try
             {
                 string actualMode = TheCounter.SelectMode(mode, CurrentLeaderboard);
-                Map map = await TheCounter.GetMap(hash, actualMode, CurrentLeaderboard).ConfigureAwait(false);
+                Map map = await TheCounter.GetMap(hash, actualMode, CurrentLeaderboard, true);
                 //Plugin.Log.Info($"SelectedMap: {map}");
                 if (!map.TryGet(actualMode, CurrentMap.difficulty, out var val))
                     throw new Exception();
                 BeatmapID = val.MapId;
                 diffData = val.Data;
-                TrueBeatmapID = BLAPI.CleanUpId(IsBL ? BeatmapID : map.Get(mode ?? "Standard", CurrentMap.difficulty).MapId);
+                TrueBeatmapID = BLAPI.CleanUpId(IsBL ? _BeatmapID : map.Get(mode ?? "Standard", CurrentMap.difficulty).MapId);
 #if NEW_VERSION
                 BeatmapName = Sldvc.beatmapLevel.songName;
 #else
@@ -582,7 +599,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             Calculator calc = CurrentCalculator;
             string[][] arr = new string[] { "<color=red>Slower</color>", "<color=#aaa>Normal</color>", "<color=#0F0>Faster</color>", "<color=#FFD700>Super Fast</color>" }.RowToColumn(3);
-            float[] ratings = HelpfulPaths.GetAllRatings(IsBL && !(CurrentDiff.Diffdata["difficulty"] is null) ? CurrentDiff.Diffdata["difficulty"] : CurrentDiff.Diffdata, calc); //ss-sf, [star, acc, pass, tech] (selects by leaderboard)
+            //ss-sf, [star, acc, pass, tech] (selects by leaderboard)
+            float[] ratings = [.. HelpfulPaths.GetAllRatings(CurrentDiff.Diffdata.TryEnter("difficulty"), calc).SelectMany(rating => rating.SelectedRatings)];
             if (!UsesMods)
             {
                 float[] newArr = new float[ratings.Length * 4];
@@ -598,9 +616,9 @@ namespace BLPPCounter.Settings.SettingHandlers
             int len = ratings.Length / 4; //divide by 4 because 3 speed mods + 1 no mod
             //Plugin.Log.Info($"rating len: {ratings.Length}, len: {len}");
             for (int i = 0; i < arr.Length; i++)
-                arr[i][1] = "<color=#0c0>" + valueCalc.Invoke(ratings.Skip(i * len).Take(len).ToArray()) + "</color>" + suffix;
+                arr[i][1] = "<color=#0c0>" + valueCalc.Invoke([.. ratings.Skip(i * len).Take(len)]) + "</color>" + suffix;
             if (!Mathf.Approximately(CurrentModMultiplier, 1.0f)) for (int i = 0; i < arr.Length; i++)
-                    arr[i][2] = "<color=green>" + valueCalc(ratings.Skip(i * len).Take(len).Select(current => current * CurrentModMultiplier).ToArray()) + "</color>" + suffix;
+                    arr[i][2] = "<color=green>" + valueCalc([.. ratings.Skip(i * len).Take(len).Select(current => current * CurrentModMultiplier)]) + "</color>" + suffix;
             else for (int i = 0; i < arr.Length; i++) arr[i][2] = "N/A";
             if (tableTable is null)
                 tableTable = new Table(table, arr, speedLbl, accLbl, gnLbl) { HasEndColumn = true };
@@ -650,7 +668,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             int commaCount = mods.Count(c => c == ',');
             if (commaCount == 0) return mods;
             if (commaCount == 1) return mods.Replace(", ", " and ");
-            return mods.Substring(0, mods.LastIndexOf(',')) + " and" + mods.Substring(mods.LastIndexOf(','));
+            return mods.Substring(0, mods.LastIndexOf(',')) + " and" + mods.Substring(mods.LastIndexOf(',') + 1);
         }
         private void UpdateMods() //this is why you use bitmasks instead of a billion bools vars
         {
@@ -715,7 +733,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void SucceededMap(StandardLevelScenesTransitionSetupDataSO transition, LevelCompletionResults results)
         {
             ClearMapTabs();
-            TheCounter.theCounter = null;
+            TheCounter.SettingChanged = true;
             Task.Run(async () => {
 #if NEW_VERSION
                 await CompletedMap(HelpfulMisc.GetAcc(transition, results), transition.beatmapKey, transition.beatmapLevel);
@@ -879,7 +897,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             if (!IsBL || CurrentDiff.Diffdata is null || !BLAPI.Instance.MapIsUsable(CurrentDiff.Diffdata)) return;
             ClanTarget.SetText(TargetHasScore ? GetTarget() : GetNoScoreTarget());
-            PPToCapture = ClanCounter.LoadNeededPp(BeatmapID, out _, out string owningClan)?.First() ?? -1f;
+            PPToCapture = ClanCounter.LoadNeededPp(_BeatmapID, out _, out string owningClan)?.First() ?? -1f;
             OwningClan.SetText($"<color=red>{owningClan}</color> owns this map.");
             PPTarget.SetText($"<color=#0F0>{Math.Round(PPToCapture, PC.DecimalPrecision)}</color> " + GetPPLabel());
         }
@@ -906,13 +924,13 @@ namespace BLPPCounter.Settings.SettingHandlers
             string hash = Sldvc.selectedDifficultyBeatmap.level.levelID.Split('_')[2];
 #endif
             string actualModeName = TheCounter.SelectMode(modeName, CurrentLeaderboard);
-            Map map = mapFailed ? null : await TheCounter.GetMap(hash, actualModeName, CurrentLeaderboard).ConfigureAwait(false);
+            Map map = mapFailed ? null : await TheCounter.GetMap(hash, actualModeName, CurrentLeaderboard, true);
             (string MapId, JToken Data) val = default;
             bool failed = !(map?.TryGet(actualModeName, diff, out val) ?? false);
             if (failed)
             {
                 //Plugin.Log.Warn("Map failed to load. Most likely unranked.");
-                map = await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader).ConfigureAwait(false);
+                map = await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader, true);
                 if (!map.TryGet(modeName, diff, out val))
                 {
                     Plugin.Log.Error("Completely failed to load any map whatsoever. Either you are disconnected from the internet or beatleader is down.");
@@ -921,7 +939,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
             BeatmapID = val.MapId;
             JToken tokens = val.Data;
-            TrueBeatmapID =  BLAPI.CleanUpId(IsBL || failed ? BeatmapID : (await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader).ConfigureAwait(false)).Get(modeName ?? "Standard", CurrentMap.difficulty).MapId);
+            TrueBeatmapID =  BLAPI.CleanUpId(IsBL || failed ? _BeatmapID : (await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader, true)).Get(modeName ?? "Standard", CurrentMap.difficulty).MapId);
             //Plugin.Log.Info("CurrentMap\n" + map);
             CurrentDiff = (tokens, CurrentDiff.Scoredata);
             MapDiffText = HelpfulMisc.AddSpaces(CurrentMap.difficulty.ToString().Replace("+", "Plus"));
@@ -940,22 +958,20 @@ namespace BLPPCounter.Settings.SettingHandlers
             CurrentProfile.ReloadTableValues();
             PlusOneLabel.SetText("+1 " + GetPPLabel());
             PlusOneText.SetText($"<color=#0F0>{CurrentProfile.PlusOne}</color> {GetPPLabel()}");
-            LevelText.SetText($"Level: <color=#0F0>{CurrentProfile.Level}</color>");
-            ExperienceText.SetText($"Experience: <color=#0F0>{CurrentProfile.Experience}</color>");
             UpdateProfilePP();
         }
         public Task Refresh(bool forceRefresh = false) => DoRefresh(forceRefresh);
         private async Task DoRefresh(bool forceRefresh)
         {
             //Plugin.Log.Info($"ActualMap: {Sldvc?.selectedDifficultyBeatmap.level.songName ?? "null"} || Currently Saved Map: {CurrentMap?.level.songName ?? "null"}");
-            //Plugin.Log.Info("TabSelectionPatch: " + TabSelectionPatch.GetIfTabIsSelected(TabName));
+            //Plugin.Log.Info($"ActualMap: [{Sldvc?.beatmapKey.levelId}, {Sldvc?.beatmapKey.difficulty}] || Currently Saved Map: [{CurrentMap.levelId}, {CurrentMap.difficulty}]");
+            //Plugin.Log.Info("TabSelectionPatch: " + TabSelectionPatch.GetIfTabIsSelected(TabName) + ", Maps equal? " + (Sldvc?.beatmapKey.Equals(CurrentMap)));
+            //Plugin.Log.Info("Are we on the tab? " + TabSelectionPatch.IsOnModsTab);
             if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || !TabSelectionPatch.IsOnModsTab) return;
 #if NEW_VERSION
-            if (!forceRefresh && (Sldvc?.beatmapKey.Equals(CurrentMap) ?? false)) return; // 1.37.0 and above
-
+            if (!forceRefresh && (Sldvc?.beatmapKey.levelId?.Equals(CurrentMap.levelId) ?? false) && Sldvc.beatmapKey.difficulty == CurrentMap.difficulty) return; // 1.37.0 and above
 #else
             if (!forceRefresh && (Sldvc?.selectedDifficultyBeatmap?.Equals(CurrentMap) ?? false)) return; // 1.34.2 and below
-
 #endif
             AsyncLock.Releaser? theLock = await RefreshLock.TryLockAsync();
             if (theLock is null) return;
@@ -963,7 +979,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             {
                 try
                 {
-                    CurrentLeaderboard = PC.Leaderboard;
+                    CurrentLeaderboard = PC.CalcLeaderboard;
                     UpdateMods();
                     TargetPP = await UpdateTargetPP();
                     await UpdateTabDisplay(forceRefresh, false);
@@ -995,7 +1011,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         public void ResetTabs()
         {
-            string[] tabNames = TabMapInfo.Keys.ToArray();
+#if NEW_VERSION
+            if (CurrentMap.Equals(default) && CurrentDiff.Equals(default)) return;
+#else
+            if (CurrentMap is null && CurrentDiff.Equals(default)) return;
+#endif
+            string[] tabNames = [.. TabMapInfo.Keys];
             foreach (string s in tabNames)
                 TabMapInfo[s] = default;
             PPTableTable?.ClearTable();
@@ -1008,7 +1029,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void UpdateTabSliders(int amount = -1)
         {
             if (amount <= 0) amount = PC.SliderIncrementNum;
-            HelpfulMisc.SetIncrements(amount, MinPPSlider, MaxPPSlider, MinAccSlider, MaxAccSlider, CA_PPSliderSlider, CA_PercentSliderSlider, ProfilePPSlider);
+            HelpfulMisc.SetIncrements(amount, MinPPSlider, MaxPPSlider, CA_PPSliderSlider, ProfilePPSlider);
+            HelpfulMisc.SetIncrements(amount, 1f / 100f, MinAccSlider, MaxAccSlider, CA_PercentSliderSlider);
         }
 #endregion
     }

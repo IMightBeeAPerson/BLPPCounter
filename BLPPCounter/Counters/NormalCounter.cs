@@ -1,64 +1,40 @@
-﻿using BLPPCounter.CalculatorStuffs;
-using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils;
-using System;
+﻿using BLPPCounter.Settings.Configs;
+using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.Map_Utils;
+using BLPPCounter.Utils.Containers;
+using System.Threading;
 using TMPro;
 
 namespace BLPPCounter.Counters
 {
-    public class NormalCounter: IMyCounters
+    public class NormalCounter(TMP_Text display, MapSelection map, CancellationToken ct) : MyCounters(display, map, ct)
     {
         public static string DisplayName => "Normal";
         public static string DisplayHandler => TheCounter.DisplayName;
         public static int OrderNumber => 0;
         public static Leaderboards ValidLeaderboards => Leaderboards.All;
-        public string Name => DisplayName;
-        private TMP_Text display;
-        private int precision;
-        private float[] ppContainer, ppVals;
-        private Calculator Calc;
+        public override string Name => DisplayName;
 
         #region Init
-        public NormalCounter(TMP_Text display, float accRating, float passRating, float techRating, float starRating)
+        public override void SetupData(MapSelection map, CancellationToken ct) 
         {
-            this.display = display;
-            precision = PluginConfig.Instance.DecimalPrecision;
-            Calc = Calculator.GetSelectedCalc();
-            ppContainer = Calc.SelectRatings(starRating, accRating, passRating, techRating);
-            ppVals = new float[Calc.DisplayRatingCount * 2];
+            ppHandler = new PPHandler(ratings, calc, PluginConfig.Instance.DecimalPrecision, 1)
+            {
+                UpdateFCEnabled = PluginConfig.Instance.PPFC
+            };
+            ppHandler.UpdateFC += (acc, extraVals, extraCalls) => extraVals[1].SetValues(calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision, ratings));
         }
-        public NormalCounter(TMP_Text display, MapSelection map) : this(display, map.AccRating, map.PassRating, map.TechRating, map.StarRating) { SetupData(map); }
-
-        public void ReinitCounter(TMP_Text display) { this.display = display; }
-
-        public void ReinitCounter(TMP_Text display, float passRating, float accRating, float techRating, float starRating) 
-        {
-            this.display = display;
-            precision = PluginConfig.Instance.DecimalPrecision;
-            Calc = Calculator.GetSelectedCalc();
-            ppContainer = Calc.SelectRatings(starRating, accRating, passRating, techRating);
-        }
-
-        public void ReinitCounter(TMP_Text display, MapSelection map) 
-        { 
-            this.display = display;
-            Calc = Calculator.GetSelectedCalc();
-            ppContainer = Calc.SelectRatings(map.StarRating, map.AccRating, map.PassRating, map.TechRating);
-        }
-        public void SetupData(MapSelection map) { }
-        public void UpdateFormat() { }
+        public override void UpdateFormat() { }
         public static bool InitFormat() => TheCounter.FormatUsable;
         public static void ResetFormat() { }
         #endregion
         #region Updates
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
+        public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
-            bool displayFC = PluginConfig.Instance.PPFC && mistakes > 0;
-            Calc.SetPp(acc, ppVals, 0, precision, ppContainer);
-            if (displayFC) Calc.SetPp(fcPercent, ppVals, ppVals.Length / 2, precision, ppContainer);
-            TheCounter.UpdateText(displayFC, display, ppVals, mistakes);
+            ppHandler.Update(acc, mistakes, fcPercent);
+            TheCounter.UpdateText(ppHandler.DisplayFC, display, ppHandler, mistakes);
         }
-        public void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
+        public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
         #endregion
     }
 }

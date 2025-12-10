@@ -14,6 +14,13 @@ using TMPro;
 using BLPPCounter.Settings.Configs;
 using UnityEngine.UI;
 using static BLPPCounter.Helpfuls.HelpfulFormatter;
+using System.Collections;
+using UnityEngine;
+using BLPPCounter.Utils.Misc_Classes;
+using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
+using BLPPCounter.Helpfuls.FormatHelpers;
+using BLPPCounter.Utils.Enums;
+
 #if !NEW_VERSION
 using BLPPCounter.Utils.Special_Utils;
 #endif
@@ -27,7 +34,6 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         public static FormatEditorHandler Instance { get; } = new FormatEditorHandler();
         private static PluginConfig PC => PluginConfig.Instance;
         private FormatEditorHandler() { }
-        #region Format Settings Editor
         #region Misc Variables
         private FormatRelation CurrentFormatInfo => MenuSettingsHandler.AllFormatInfo[(_FormatName, _Counter)];
         private bool loaded = false;
@@ -35,6 +41,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private string rawFormat;
         private bool saveable = false;
         private FormatListInfo lastSelectedInfo = null;
+        private Table AliasTableTable;
         #endregion
         #region UI Components
         #region Main Menu
@@ -73,6 +80,10 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         #endregion
         #endregion
         #region UI Values
+        [UIValue(nameof(MenuHeight))]
+        private int MenuHeight => SettingsHandler.MENU_HEIGHT;
+        [UIValue(nameof(MenuAnchor))]
+        private int MenuAnchor => SettingsHandler.MENU_ANCHOR;
         #region Main Menu
 #if NEW_VERSION
         [UIValue(nameof(Counter))]
@@ -108,14 +119,17 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         [UIValue(nameof(FormatValues))]
         private List<object> FormatValues { get; } = new List<object>();
         #endregion
-#endregion
+        #endregion
         #region UI Actions & UI Called Functions
         #region Main Menu
+#pragma warning disable IDE0051
         [UIAction("#back")] private void GoBack() => MenuSettingsHandler.Instance.GoBack();
+#pragma warning restore IDE0051
         private void UpdateFormatOptions()
         {
 #if NEW_VERSION
             FormatNames = MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>().ToList();
+            //Plugin.Log.Info($"[{FormatNames.Aggregate("", (total, obj) => ", " + obj.ToString()).Substring(2)}]");
             ChooseFormat.Values = FormatNames; // 1.37.0 and above
 #else
             FormatNameContainer = new FilledList(MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>().ToList());
@@ -130,6 +144,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         {
             //Plugin.Log.Info($"Counter: {_Counter}, Format: {_FormatName}");
             FormatListInfo.AliasConverter = CurrentFormatInfo.Alias;
+            //Plugin.Log.Info(HelpfulMisc.Print(CurrentFormatInfo.Alias));
             foreach (KeyValuePair<string, char> item in GLOBAL_ALIASES) FormatListInfo.AliasConverter[item.Key] = item.Value;
             FormattedText.text = CurrentFormatInfo.GetQuickFormat();
             //This is so that ui doesn't break from a specific error.
@@ -178,8 +193,10 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                 outp += fli.GetDisplay();
                 colorOutp += fli.GetColorDisplay();
                 saveable &= fli.Updatable();
+                //if (!fli.Updatable()) Plugin.Log.Info(fli.ToString() + "\nHas Child: " + fli.HasChild);
             }
             PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : "Can not format.";
+            //if (!saveable) Plugin.Log.Info(CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")));
 #if NEW_VERSION
             if (PreviewDisplay.text.Contains("\nPossible")) PreviewDisplay.text = PreviewDisplay.text.Split("\nPossible")[0]; // 1.37.0 and above
 #else
@@ -198,6 +215,14 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         {
             TheSaveButton.interactable = saveable;
             SaveMessage.text = "";
+        }
+        internal void GotoCell(int index)
+        {
+#if NEW_VERSION
+            FormatEditor.TableView.ScrollToCellWithIdx(index, TableView.ScrollPositionType.Center, false);
+#else
+            FormatEditor.tableView.ScrollToCellWithIdx(index, TableView.ScrollPositionType.Center, false);
+#endif
         }
         
         [UIAction(nameof(SelectedCell))]
@@ -260,18 +285,23 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         { //lastSelectedInfo is already null checked before this is called, so no need to do it twice.
             int selectedIndex = FormatChunks.IndexOf(lastSelectedInfo);
             FormatChunks.Insert(selectedIndex, FormatListInfo.DefaultVal); //places given val ABOVE the val at the index.
-            if (FormatChunks.Count > selectedIndex + 1)
-                (FormatChunks[selectedIndex + 1] as FormatListInfo).AboveInfo = FormatChunks[selectedIndex] as FormatListInfo;
+            if (selectedIndex - 1 >= 0)
+                (FormatChunks[selectedIndex] as FormatListInfo).AboveInfo = FormatChunks[selectedIndex - 1] as FormatListInfo;
+            (FormatChunks[selectedIndex + 1] as FormatListInfo).AboveInfo = FormatChunks[selectedIndex] as FormatListInfo;
             UpdateFormatTable(true);
+            GotoCell(selectedIndex);
         }
         [UIAction(nameof(AddBelowSelected))]
         private void AddBelowSelected()
         { //lastSelectedInfo is already null checked before this is called, so no need to do it twice.
-            int selectedIndex = FormatChunks.IndexOf(lastSelectedInfo) + 1;
-            FormatChunks.Insert(selectedIndex, FormatListInfo.DefaultVal);
+            int selectedIndex = FormatChunks.IndexOf(lastSelectedInfo);
+            FormatChunks.Insert(selectedIndex + 1, FormatListInfo.DefaultVal);
             if (FormatChunks.Count > selectedIndex + 1)
                 (FormatChunks[selectedIndex + 1] as FormatListInfo).AboveInfo = FormatChunks[selectedIndex] as FormatListInfo;
+            if (FormatChunks.Count > selectedIndex + 2)
+                (FormatChunks[selectedIndex + 2] as FormatListInfo).AboveInfo = FormatChunks[selectedIndex + 1] as FormatListInfo;
             UpdateFormatTable(true);
+            GotoCell(selectedIndex + 1);
         }
         [UIAction(nameof(ForceUpdatePreviewDisplay))]
         private void ForceUpdatePreviewDisplay() => UpdatePreviewDisplay(true); //dislike this function's need for existance.
@@ -301,7 +331,13 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             UpdateFormatTable(true);
             //MenuSettingsHandler.UpdateAliasTable(AliasTable, CurrentFormatInfo.Descriptions);
             Dictionary<char, string> reversedAlias = CurrentFormatInfo.Alias.Swap();
-            new Table(AliasTable, CurrentFormatInfo.Descriptions.Select(kvp => new KeyValuePair<string, string>(reversedAlias[kvp.Key], kvp.Value)), "Tokens", "Descriptions").UpdateTable();
+            AliasTableTable = new Table(AliasTable, CurrentFormatInfo.Descriptions.Select(kvp => new KeyValuePair<string, string>(reversedAlias[kvp.Key], kvp.Value)), "Tokens", "Descriptions");
+            IEnumerator WaitThenUpdate()
+            {
+                yield return new WaitForEndOfFrame();
+                AliasTableTable.UpdateTable();
+            }
+            CoroutineHost.Start(WaitThenUpdate());
         }
         [UIAction(nameof(SaveFormatToConfig))]
         private void SaveFormatToConfig()
@@ -316,7 +352,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             TheSaveButton.interactable = false;
             UpdateFormatDisplay();
         }
-        #endregion
+#endregion
         #region Value Editor
         private void UpdatePreviewForValue(bool forceUpdate = false)
         {
@@ -337,7 +373,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private void ParseValues()
         {
             List<ValueListInfo> outp = new List<ValueListInfo>();
-            Dictionary<char, object> testVals = CurrentFormatInfo.TestValues;
+            FormatWrapper testVals = CurrentFormatInfo.TestValues;
             IEnumerable<char> tokens = testVals.Keys;
             foreach (char token in tokens)
             {
@@ -362,7 +398,6 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             UpdatePreviewForValue(true);
             ValueSaveButton.interactable = false;
         }
-        #endregion
         #endregion
 #endregion
     }

@@ -1,12 +1,8 @@
-﻿using BLPPCounter.Utils.Misc_Classes;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace BLPPCounter.Utils
+namespace BLPPCounter.Utils.Misc_Classes
 {
     internal class TimeLooper
     {

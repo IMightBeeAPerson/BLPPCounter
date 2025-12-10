@@ -1,13 +1,9 @@
 ﻿using BLPPCounter.Utils.List_Settings;
-using IPA.Utilities;
-using JetBrains.Annotations;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace BLPPCounter.Utils
+namespace BLPPCounter.Helpfuls.FormatHelpers
 {
     internal class FormatRelation
     {
@@ -20,8 +16,8 @@ namespace BLPPCounter.Utils
         public readonly Dictionary<string, char> Alias;
         public readonly Dictionary<char, string> Descriptions;
         private readonly Func<char, int> ParamAmounts;
-        private readonly Func<string, (Func<Func<Dictionary<char, object>, string>>, string)> GetFormat;
-        public readonly Dictionary<char, object> TestValues;
+        private readonly Func<string, (Func<Func<FormatWrapper, string>>, string)> GetFormat;
+        public readonly FormatWrapper TestValues;
         private readonly Dictionary<char, IEnumerable<(string, object)>> TestValueParams;
         private readonly Dictionary<char, int> TestValueFormatIndex;
         private readonly Func<object, bool, object>[] TestValueFormats;
@@ -33,8 +29,8 @@ namespace BLPPCounter.Utils
         public int GetParamAmount(char token) => ParamAmounts(token);
 
         public FormatRelation(string name, string counterName, string format, Action<string> formatSetter, Dictionary<string, char> alias,
-            Dictionary<char, string> descriptions, Func<string, (Func<Func<Dictionary<char, object>, string>>, string)> getFormat,
-            Dictionary<char, object> testValues, Func<char, int> paramAmounts, Dictionary<char, int> testValueFormatIndex,
+            Dictionary<char, string> descriptions, Func<string, (Func<Func<FormatWrapper, string>>, string)> getFormat,
+            FormatWrapper testValues, Func<char, int> paramAmounts, Dictionary<char, int> testValueFormatIndex,
             Func<object, bool, object>[] testValueFormats, Dictionary<char, IEnumerable<(string, object)>> testValueParams,
             IEnumerable<KeyValuePair<char, string>> extraNames = null, IEnumerable<KeyValuePair<char, ValueListInfo.ValueType>> valTypes = null)
         {
@@ -56,30 +52,30 @@ namespace BLPPCounter.Utils
             TokenToName = new Dictionary<char, string>(hold);
         }
         public FormatRelation(string name, string counterName, string format, Action<string> formatSetter, Dictionary<string, char> alias,
-            Dictionary<char, string> descriptions, Func<string, (Func<Func<Dictionary<char, object>, string>>, string)> getFormat,
-            Dictionary<char, object> testValues, Func<char, int> paramAmounts, Dictionary<char, int> testValueFormatIndex,
+            Dictionary<char, string> descriptions, Func<string, (Func<Func<FormatWrapper, string>>, string)> getFormat,
+            FormatWrapper testValues, Func<char, int> paramAmounts, Dictionary<char, int> testValueFormatIndex,
             Func<object, bool, object>[] testValueFormats, Dictionary<char, IEnumerable<(string, object)>> testValueParams,
             IEnumerable<(char, string)> extraNames, IEnumerable<(char, ValueListInfo.ValueType)> valTypes = null) :
             this(name, counterName, format, formatSetter, alias, descriptions, getFormat, testValues, paramAmounts, testValueFormatIndex, testValueFormats,
                 testValueParams, extraNames?.Select(a => new KeyValuePair<char, string>(a.Item1, a.Item2)), 
                 valTypes?.Select(a => new KeyValuePair<char, ValueListInfo.ValueType>(a.Item1, a.Item2)))
         { }
-        private string GetQuickFormat(string rawFormat, bool useFormatsOnTestVals, Dictionary<char, object> givenTestVals = null)
+        private string GetQuickFormat(string rawFormat, bool useFormatsOnTestVals, FormatWrapper givenTestVals = null)
         {
-            Dictionary<char, object> testVals = givenTestVals ?? (useFormatsOnTestVals ? GetFormattedTestVals(false) : TestValues);
-            (Func<Func<Dictionary<char, object>, string>>, string) gotFormat = GetFormat.Invoke(rawFormat); //item1 = formatter, item2 = error message
+            FormatWrapper testVals = givenTestVals ?? (useFormatsOnTestVals ? GetFormattedTestVals(false) : TestValues);
+            (Func<Func<FormatWrapper, string>>, string) gotFormat = GetFormat.Invoke(rawFormat); //item1 = formatter, item2 = error message
             return gotFormat.Item1?.Invoke().Invoke(testVals) ?? gotFormat.Item2;
         }
         public string GetQuickFormat(string rawFormat = default) => GetQuickFormat(rawFormat == default ? _Format : rawFormat, true);
-        public string GetQuickFormat(Dictionary<char, object> testVals, string rawFormat = default) =>
+        public string GetQuickFormat(FormatWrapper testVals, string rawFormat = default) =>
             GetQuickFormat(rawFormat == default ? _Format : rawFormat, true, testVals);
         public string GetQuickFormatWithRawTestVals(string rawFormat = default) => GetQuickFormat(rawFormat == default ? _Format : rawFormat, false);
-        public Dictionary<char, object> GetFormattedTestVals(bool toDisplay)
+        public FormatWrapper GetFormattedTestVals(bool toDisplay)
         {
-            Dictionary<char, object> outp = new Dictionary<char, object>(TestValues);
+            FormatWrapper outp = new FormatWrapper(TestValues);
             if (TestValueFormats == null) return outp;
             foreach (char token in TestValueFormatIndex.Keys)
-                outp[token] = TestValueFormats[TestValueFormatIndex[token]].Invoke(outp[token], toDisplay);
+                outp.SetValueAndType(token, TestValueFormats[TestValueFormatIndex[token]].Invoke(outp[token], toDisplay));
             return outp;
         }
         public IEnumerable<(string, object)> GetExtraTestParams(char token) =>

@@ -1,13 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace BLPPCounter.Utils
+﻿namespace BLPPCounter.Utils.Enums
 {
     public enum PPType
     {
-        Acc, Tech, Pass, Total, Star
+        Star, Acc, Pass, Tech
     }
 }

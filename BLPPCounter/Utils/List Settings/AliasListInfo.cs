@@ -1,10 +1,8 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
-using BLPPCounter.Helpfuls;
+using BLPPCounter.Helpfuls.FormatHelpers;
+using BLPPCounter.Utils.Serializable_Classes;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BLPPCounter.Utils.List_Settings
 {
@@ -26,10 +24,10 @@ namespace BLPPCounter.Utils.List_Settings
         [UIAction(nameof(RemoveAlias))]
         private void RemoveAlias() => RemoveSelf?.Invoke(this);
 
-        internal void Apply(FormatRelation fr) => CustomAlias.ApplyAliases(new CustomAlias[1] { Alias }, fr);
-        internal void Apply(Dictionary<(string, string), FormatRelation> frs) => CustomAlias.ApplyAliases(new CustomAlias[1] { Alias }, frs);
-        internal void Unapply(FormatRelation fr) => CustomAlias.RemoveAliases(new CustomAlias[1] { Alias }, fr);
-        internal void Unapply(Dictionary<(string, string), FormatRelation> frs) => CustomAlias.RemoveAliases(new CustomAlias[1] { Alias }, frs);
+        internal void Apply(FormatRelation fr) => CustomAlias.ApplyAliases([Alias], fr);
+        internal void Apply(Dictionary<(string, string), FormatRelation> frs) => CustomAlias.ApplyAliases([Alias], frs);
+        internal void Unapply(FormatRelation fr) => CustomAlias.RemoveAliases([Alias], fr);
+        internal void Unapply(Dictionary<(string, string), FormatRelation> frs) => CustomAlias.RemoveAliases([Alias], frs);
         public override string ToString() => Alias.ToString();
     }
 }

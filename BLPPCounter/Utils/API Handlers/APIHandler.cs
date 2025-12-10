@@ -1,38 +1,46 @@
-﻿using static GameplayModifiers;
+﻿using BLPPCounter.Helpfuls;
+using BLPPCounter.Settings.Configs;
+using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.Map_Utils;
+using BLPPCounter.Utils.Profile_Utils;
+using ModestTree;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Net.Http;
-using BLPPCounter.Settings.Configs;
-using UnityEngine.Windows.Speech;
 using System.Collections.Generic;
-using BLPPCounter.Helpfuls;
 using System.Linq;
-using System.Runtime.CompilerServices;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using BLPPCounter.Utils.Misc_Classes;
-using BLPPCounter.Utils.Enums;
-using ModestTree;
-using System.Xml.Schema;
+using static GameplayModifiers;
 
 namespace BLPPCounter.Utils.API_Handlers
 {
     internal abstract class APIHandler
     {
-        protected static readonly TimeSpan ClientTimeout = new TimeSpan(0, 0, 5);
-        protected static readonly HttpClient client = new HttpClient
+        private static TimeSpan clientTimeout = TimeSpan.FromSeconds(PluginConfig.Instance.APITimeout);
+        internal static TimeSpan ClientTimeout
+        {
+            get => clientTimeout;
+            set { clientTimeout = value; client.Timeout = value; }
+        }
+        protected static readonly HttpClient client = new()
         {
             Timeout = ClientTimeout
         };
-        private static readonly Throttler BSThrottler = new Throttler(50, 10);
-
-        public static bool UsingDefault = false;
+        private static readonly Throttler BSThrottler = new(50, 10);
+        protected static PluginConfig PC => PluginConfig.Instance;
 
         public abstract string API_HASH { get; }
-        public abstract Task<(bool Success, HttpContent Content)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3);
-        public static async Task<(bool Success, HttpContent Content)> CallAPI_Static(string path, Throttler throttler = null, bool quiet = false, int maxRetries = 3)
+        public abstract Task<(bool Success, HttpContent Content)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3, CancellationToken ct = default);
+        public static async Task<(bool Success, HttpContent Content)> CallAPI_Static(string path, Throttler throttler = null, bool quiet = false, int maxRetries = 3, CancellationToken ct = default)
         {
             const int initialRetryDelayMs = 500;
+            bool closeRequest = false;
+            if (ct.IsCancellationRequested)
+            {
+                Plugin.Log.Warn("API call skipped due to CancellationToken.");
+                return (false, null);
+            }
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 try
@@ -42,7 +50,15 @@ namespace BLPPCounter.Utils.API_Handlers
 
                     Plugin.Log.Debug("API Call: " + path);
 
-                    HttpResponseMessage response = await client.GetAsync(new Uri(path)).ConfigureAwait(false); //Seems this isn't needed, but gonna leave it here: .Replace(" ", "%20")
+                    HttpResponseMessage response;
+                    if (closeRequest)
+                    {
+                        HttpRequestMessage request = new(HttpMethod.Get, new Uri(path));
+                        request.Headers.ConnectionClose = true;
+                        response = await client.SendAsync(request, ct).ConfigureAwait(false);
+                        closeRequest = false;
+                    } else response = await client.GetAsync(new Uri(path), ct).ConfigureAwait(false);
+
                     int status = (int)response.StatusCode;
                     if (status >= 400 && status < 500)
                     {
@@ -56,6 +72,26 @@ namespace BLPPCounter.Utils.API_Handlers
                 }
                 catch (Exception e)
                 {
+                    if (e is TaskCanceledException)
+                    {
+                        if (ct.IsCancellationRequested)
+                        {
+                            Plugin.Log.Warn("API call has been canceled through cancel token.");
+                            break;
+                        }
+                        if (!quiet)
+                        {
+                            Plugin.Log.Error($"API request failed with a TaskCanceledException, meaning the request almost certainly timed out. Clearing pool and retrying one more time.");
+                            Plugin.Log.Debug(e);
+                        }
+
+                        if (closeRequest)
+                            continue;
+
+                        attempt = Math.Max(maxRetries - 2, 0);
+                        closeRequest = true;
+                        continue;
+                    }
                     if (!quiet)
                     {
                         Plugin.Log.Error($"API request failed (attempt {attempt}/{maxRetries})\nPath: {path}\nError: {e.Message}");
@@ -97,7 +133,7 @@ namespace BLPPCounter.Utils.API_Handlers
 
             // Initial batching
             var batchTasks = Enumerable.Range(0, (hashes.Length + MaxCountForBSPage - 1) / MaxCountForBSPage)
-                .Select(batchIndex => ProcessBatch(batchIndex))
+                .Select(ProcessBatch)
                 .ToArray();
 
             await Task.WhenAll(batchTasks);
@@ -194,15 +230,15 @@ namespace BLPPCounter.Utils.API_Handlers
                 }
             }
         }
-        public async Task<string> CallAPI_String(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3)
+        public async Task<string> CallAPI_String(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3, CancellationToken ct = default)
         {
-            var data = await CallAPI(path, quiet, forceNoHeader, maxRetries).ConfigureAwait(false);
+            var data = await CallAPI(path, quiet, forceNoHeader, maxRetries, ct).ConfigureAwait(false);
             if (!data.Success) return null;
             return await data.Content.ReadAsStringAsync().ConfigureAwait(false);
         }
-        public async Task<byte[]> CallAPI_Bytes(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3)
+        public async Task<byte[]> CallAPI_Bytes(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3, CancellationToken ct = default)
         {
-            var data = await CallAPI(path, quiet, forceNoHeader, maxRetries).ConfigureAwait(false);
+            var data = await CallAPI(path, quiet, forceNoHeader, maxRetries, ct).ConfigureAwait(false);
             if (!data.Success) return null;
             return await data.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
         }
@@ -212,8 +248,8 @@ namespace BLPPCounter.Utils.API_Handlers
         {
             int totalPages = (int)Math.Ceiling(totalCount / (double)maxCountPerPage);
             if (zeroIndexedPages) totalPages--;
-            SemaphoreSlim semaphore = new SemaphoreSlim(maxConcurrency);
-            List<Task<(int PageIndex, T Results)>> pageTasks = new List<Task<(int PageIndex, T Results)>>(totalPages);
+            SemaphoreSlim semaphore = new(maxConcurrency);
+            List<Task<(int PageIndex, T Results)>> pageTasks = new(totalPages);
 
             for (int pageNum = zeroIndexedPages ? 0 : 1; pageNum <= totalPages; pageNum++)
             {
@@ -267,10 +303,10 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName);
         public abstract Task<string> GetHashData(string hash, int diffNum);
         public abstract string GetHash(JToken diffData);
-        public abstract Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false);
+        public abstract Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false, CancellationToken ct = default);
         public abstract float GetPP(JToken scoreData);
         public abstract int GetScore(JToken scoreData);
-        public abstract Task<float[]> GetScoregraph(MapSelection ms);
+        public abstract Task<ScoregraphInfo[]> GetScoregraph(MapSelection ms, CancellationToken ct = default);
         public abstract Task<Play[]> GetScores(string userId, int count);
         protected async Task<Play[]> GetScores(
         string userId, int count, string apiPathFormat, string scoreArrayPath, bool isZeroIndexed,
@@ -291,7 +327,7 @@ namespace BLPPCounter.Utils.API_Handlers
 
                 Play[] current = dataTokens.Select(tokenSelector).ToArray();
 
-                if (!(replaceSelector is null))
+                if (replaceSelector is not null)
                 {
                     string[] mapHashes = current.Select(data => replaceSelector.Invoke(data, "").ExtraOutp).ToArray();
                     string[] names = await GetBSData(mapHashes, path: jsonPath);
@@ -308,8 +344,7 @@ namespace BLPPCounter.Utils.API_Handlers
 
         public abstract Task<float> GetProfilePP(string userId);
         internal abstract Task AddMap(Dictionary<string, Map> Data, string hash, CancellationToken ct = default);
-        public static APIHandler GetAPI(bool useDefault = false) => GetAPI(!useDefault ? PluginConfig.Instance.Leaderboard : PluginConfig.Instance.DefaultLeaderboard);
-        public static APIHandler GetSelectedAPI() => GetAPI(UsingDefault);
+        public static APIHandler GetSelectedAPI() => GetAPI(TheCounter.Leaderboard);
         public static APIHandler GetAPI(Leaderboards leaderboard)
         {
             switch (leaderboard)
@@ -352,5 +387,21 @@ namespace BLPPCounter.Utils.API_Handlers
             //Plugin.Log.Info("Ranked Leaderboards: " + outp);
             return outp;
         }
+        #region Internal Classes
+        public struct ScoregraphInfo(float acc, float pp, SongSpeed speed, float modMult, string playerName)
+        {
+            public float Acc = acc;
+            public float PP = pp;
+            public SongSpeed Speed = speed;
+            public float ModMult = modMult;
+            public string PlayerName = playerName;
+
+            public void ChangePP(float acc, float pp)
+            {
+                Acc = acc;
+                PP = pp;
+            }
+        }
+        #endregion
     }
 }

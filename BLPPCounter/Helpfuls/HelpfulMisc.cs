@@ -1,19 +1,16 @@
-﻿using BeatLeader.Models;
-using BeatSaberMarkupLanguage;
+﻿using BeatSaberMarkupLanguage;
 using BeatSaberMarkupLanguage.Components.Settings;
 using BeatSaberMarkupLanguage.Parser;
 using BeatSaberMarkupLanguage.ViewControllers;
-using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils;
-using IPA.Config.Data;
+using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.Map_Utils;
 using Newtonsoft.Json.Linq;
 using System;
 using System.CodeDom;
 using System.CodeDom.Compiler;
 using System.Collections;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -27,6 +24,7 @@ namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc
     {
+        public static readonly SongSpeed[] OrderedSpeeds = [SongSpeed.Slower, SongSpeed.Normal, SongSpeed.Faster, SongSpeed.SuperFast];
         /// <summary>
         /// Returns a number based off the song speed, in the correct number, with slower being 0 and super fast being 3.
         /// </summary>
@@ -205,13 +203,13 @@ namespace BLPPCounter.Helpfuls
         public static bool IsNumber(object o) => IsNumber(o?.GetType());
         public static string SplitByUppercase(string s) => Regex.Replace(s, "(?!^)[A-Z][^A-Z]*", " $&");
         public static string ConvertColorToHex(System.Drawing.Color c) => $"#{ToRgba(c):X8}";
-        public static string ConvertColorToHex(UnityEngine.Color c) => $"#{ToRgba(c):X8}";
+        public static string ConvertColorToHex(Color c) => $"#{ToRgba(c):X8}";
         public static string ConvertColorToMarkup(System.Drawing.Color c) => $"<color={ConvertColorToHex(c)}>";
         public static int ArgbToRgba(int argb) => (argb << 8) + (int)((uint)argb >> 24); //can't use triple shift syntax, so best I can do is casting :(
         public static int RgbaToArgb(int rgba) => (int)((uint)rgba >> 8) + (rgba << 24);
         public static int ToRgba(System.Drawing.Color c) => ArgbToRgba(c.ToArgb());
-        public static int ToRgba(UnityEngine.Color c) => ((int)Math.Round(c.r * 0xFF) << 24) + ((int)Math.Round(c.g * 0xFF) << 16) + ((int)Math.Round(c.b * 0xFF) << 8) + (int)Math.Round(c.a * 0xFF);
-        public static UnityEngine.Color TextToColor(string text)
+        public static int ToRgba(Color c) => ((int)Math.Round(c.r * 0xFF) << 24) + ((int)Math.Round(c.g * 0xFF) << 16) + ((int)Math.Round(c.b * 0xFF) << 8) + (int)Math.Round(c.a * 0xFF);
+        public static Color TextToColor(string text)
         {
             if (text[0] == '#')
             {
@@ -226,26 +224,27 @@ namespace BLPPCounter.Helpfuls
                 return ConvertColor(System.Drawing.Color.FromArgb(RgbaToArgb(int.Parse(text, System.Globalization.NumberStyles.HexNumber))));
             }
             if (text.Contains('"')) text = text.Replace("\"", "");
-            return (UnityEngine.Color)(typeof(UnityEngine.Color).GetProperties(BindingFlags.Public | BindingFlags.Static)
-                .Where(pi => pi.PropertyType == typeof(UnityEngine.Color))
-                .FirstOrDefault(pi => pi.Name.Equals(text))?.GetValue(null, null) ?? default(UnityEngine.Color));
+            return (Color)(typeof(Color).GetProperties(BindingFlags.Public | BindingFlags.Static)
+                .Where(pi => pi.PropertyType == typeof(Color))
+                .FirstOrDefault(pi => pi.Name.Equals(text))?.GetValue(null, null) ?? default(Color));
         }
-        public static UnityEngine.Color ConvertColor(System.Drawing.Color color) =>
-            new UnityEngine.Color(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f);
-        public static System.Drawing.Color ConvertColor(UnityEngine.Color color) =>
+        public static Color ConvertColor(System.Drawing.Color color) =>
+            new(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f);
+        public static System.Drawing.Color ConvertColor(Color color) =>
             System.Drawing.Color.FromArgb((int)Math.Round(color.a * 0xFF), (int)Math.Round(color.r * 0xFF), (int)Math.Round(color.g * 0xFF), (int)Math.Round(color.b * 0xFF));
         public static System.Drawing.Color Multiply(System.Drawing.Color a, float b) =>
             System.Drawing.Color.FromArgb((int)Math.Round(a.A * b), (int)Math.Round(a.R * b), (int)Math.Round(a.G * b), (int)Math.Round(a.B * b));
-        public static System.Drawing.Color Blend(System.Drawing.Color a, System.Drawing.Color b, float aWeight = 0.5f, float bWeight = 0.5f)
+        public static System.Drawing.Color Blend(System.Drawing.Color a, System.Drawing.Color b, float t)
         {
-            aWeight *= 2f;
-            bWeight *= 2f;
-            float newA = a.A * aWeight + b.A * bWeight,
-                newR = a.R * aWeight + b.R * bWeight,
-                newG = a.G * aWeight + b.G * bWeight,
-                newB = a.B * aWeight + b.B * bWeight;
-            float maxMult = Math.Min(255f / Math.Max(Math.Max(newA, Math.Max(newR, Math.Max(newG, newB))), 0.1f), 1f);
-            return System.Drawing.Color.FromArgb((int)Math.Round(newA * maxMult), (int)Math.Round(newR * maxMult), (int)Math.Round(newG * maxMult), (int)Math.Round(newB * maxMult));
+            t = Mathf.Clamp(t, 0f, 1f);
+            float invT = 1f - t;
+
+            int A = (int)Math.Round(a.A * t + b.A * invT);
+            int R = (int)Math.Round(a.R * t + b.R * invT);
+            int G = (int)Math.Round(a.G * t + b.G * invT);
+            int B = (int)Math.Round(a.B * t + b.B * invT);
+
+            return System.Drawing.Color.FromArgb(A, R, G, B);
         }
         public static BSMLParserParams AddToComponent(BSMLResourceViewController brvc, GameObject container) =>
 #if NEW_VERSION
@@ -255,7 +254,7 @@ namespace BLPPCounter.Helpfuls
 #endif
         public static IEnumerable<T> GetDuplicates<T, V>(this IEnumerable<T> arr, Func<T, V> valToCompare)
         {
-            Dictionary<V, (T, bool)> firstItems = new Dictionary<V, (T, bool)>();
+            Dictionary<V, (T, bool)> firstItems = [];
             return arr.Where(item => 
             {
                 V val = valToCompare(item);
@@ -270,7 +269,7 @@ namespace BLPPCounter.Helpfuls
         }
         public static IEnumerable<T> GetDuplicates<T>(this IEnumerable<T> arr)
         {
-            Dictionary<T, bool> set = new Dictionary<T, bool>();
+            Dictionary<T, bool> set = [];
             foreach (T item in arr)
                 if (set.ContainsKey(item) && !set[item]) set[item] = true;
                 else set.Add(item, false);
@@ -278,7 +277,7 @@ namespace BLPPCounter.Helpfuls
         }
         public static IEnumerable<T> RemoveDuplicates<T, V>(this IEnumerable<T> arr, Func<T, V> valToCompare)
         {
-            Dictionary<V, T> singleItems = new Dictionary<V, T>();
+            Dictionary<V, T> singleItems = [];
             foreach (T item in arr) 
             {
                 V val = valToCompare(item);
@@ -288,12 +287,12 @@ namespace BLPPCounter.Helpfuls
         }
         public static IEnumerable<T> RemoveDuplicates<T>(this IEnumerable<T> arr)
         {
-            HashSet<T> set = new HashSet<T>();
+            HashSet<T> set = [];
             return arr.Where(item => { if (set.Contains(item)) return false; else set.Add(item); return true; });
         }
         public static IEnumerable<T> RemoveAll<T>(this IEnumerable<T> arr, IEnumerable<T> other)
         {
-            HashSet<T> hash = new HashSet<T>(other);
+            HashSet<T> hash = [.. other];
             return arr.Where(item => hash.Contains(item));
         }
         public static Dictionary<V, K> Swap<K, V>(this Dictionary<K, V> dict) =>
@@ -314,12 +313,12 @@ namespace BLPPCounter.Helpfuls
         public static T[][] RowToColumn<T>(this IEnumerable<T> arr, int rowLengths = 0)
         {
             int len = arr.Count();
-            return arr.Select(s =>
+            return [.. arr.Select(s =>
             {
                 T[] newArr = new T[rowLengths > 0 ? rowLengths : len];
                 newArr[0] = s;
                 return newArr;
-            }).ToArray();
+            })];
         }
         public static string Print<T>(this T[][] matrix)
         {
@@ -393,14 +392,14 @@ namespace BLPPCounter.Helpfuls
             comparer(item1[value] as T, item2[value] as T);
         public static int CompareStructValues<T>(JToken item1, JToken item2, string value, Func<T, T, int> comparer) where T : struct =>
            comparer((T)Convert.ChangeType(item1[value], typeof(T)), (T)Convert.ChangeType(item2[value], typeof(T)));
-        public static void UpdateListSetting(this ListSetting menu, List<string> newValues)//https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/documentation-comments
+        public static void UpdateListSetting(this ListSetting menu, List<object> newValues)
         {
 #if NEW_VERSION
-            menu.Values = newValues; // 1.37.0 and above
+            menu.Values = newValues;
 #else
-            menu.values = newValues.Cast<object>().ToList(); // 1.34.2 and below
+            menu.values = newValues;
 #endif
-            if (!newValues.Any(str => str.Equals((string)menu.Value))) menu.Value = newValues[0];
+            if (!newValues.Any(str => str.Equals(menu.Value))) menu.Value = newValues[0];
             else menu.Value = menu.Value; //seems stupid but calls the update method.
             menu.ApplyValue(); //Update the actual value
         }
@@ -460,7 +459,7 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="ms">The map selection to check.</param>
         /// <returns>Whether or not the map selection has a usable status.</returns>
-        public static bool StatusIsUsable(MapSelection ms) => ms.Mode.Equals(Utils.Map.SS_MODE_NAME) || ms.Mode.Equals(Utils.Map.AP_MODE_NAME) || StatusIsUsable((int)ms.MapData.Item2["status"]);
+        public static bool StatusIsUsable(MapSelection ms) => ms.Mode.Equals(Map.SS_MODE_NAME) || ms.Mode.Equals(Map.AP_MODE_NAME) || StatusIsUsable((int)ms.MapData.diffData["status"]);
         /// <summary>
         /// Create a square matrix (a matrix with all arrays inside it being the same size).
         /// </summary>
@@ -542,16 +541,24 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="incrementNum">The number to set the increment to.</param>
         /// <param name="toSet">The <see cref="SliderSetting"/>s to set.</param>
-        public static void SetIncrements(int incrementNum, params SliderSetting[] toSet)
+        public static void SetIncrements(int incrementNum, params SliderSetting[] toSet) => SetIncrements(incrementNum, 1.0f, toSet);
+        /// <summary>
+        /// Sets the increment for the given <see cref="SliderSetting"/>s to the given number multiplied by a given <paramref name="mult"/>.
+        /// </summary>
+        /// <param name="incrementNum">The number to set the increment to.</param>
+        /// <param name="mult">The multiplier for <paramref name="incrementNum"/></param>
+        /// <param name="toSet">The <see cref="SliderSetting"/>s to set.</param>
+        public static void SetIncrements(int incrementNum, float mult, params SliderSetting[] toSet)
         {
+            float realIncrementNum = incrementNum * mult;
             foreach (SliderSetting s in toSet)
             {
 #if NEW_VERSION
-                s.Increments = incrementNum;
-                s.Slider.numberOfSteps = (int)Math.Round((s.Slider.maxValue - s.Slider.minValue) / incrementNum) + 1;
+                s.Increments = realIncrementNum;
+                s.Slider.numberOfSteps = (int)Math.Round((s.Slider.maxValue - s.Slider.minValue) / realIncrementNum) + 1;
 #else
                 s.increments = incrementNum;
-                s.slider.numberOfSteps = (int)Math.Round((s.slider.maxValue - s.slider.minValue) / incrementNum) + 1;
+                s.slider.numberOfSteps = (int)Math.Round((s.slider.maxValue - s.slider.minValue) / realIncrementNum) + 1;
 #endif
             }
         }
@@ -581,6 +588,18 @@ namespace BLPPCounter.Helpfuls
         /// <param name="name">The key to attempt to move into.</param>
         /// <returns>Either the child <see cref="JToken">JToken</see> or if it is null the parent <see cref="JToken">JToken</see>.</returns>
         public static JToken TryEnter(this JToken data, string name) => data[name] ?? data;
+        /// <summary>
+        /// Removes the value at <paramref name="removeIndex"/>, sifting all values above <paramref name="removeIndex"/> up.
+        /// </summary>
+        /// <typeparam name="T">The array type.</typeparam>
+        /// <param name="arr">The array to perform the action on.</param>
+        /// <param name="removeIndex">The index of the value to override.</param>
+        public static void SiftUp<T>(T[] arr, int removeIndex)
+        {
+            if (arr.Length <= removeIndex || removeIndex < 0) return;
+            for (int i = removeIndex; i < arr.Length - 1; i++)
+                arr[i] = arr[i + 1];
+        }
         /// <summary>
         /// Inserts a value at <paramref name="insertIndex"/>, sifting all values at and below <paramref name="insertIndex"/> down.
         /// This will remove the value at the last index and return it. This action does not change the size of <paramref name="arr"/>.
@@ -682,8 +701,22 @@ namespace BLPPCounter.Helpfuls
         /// <returns>The index where the value should be inserted.</returns>
         public static int FindInsertValue<T>(T[] arr, T value) where T : IComparable<T>
         {
-            if (arr is null || arr.Length == 0 || (value?.Equals(default(T)) ?? false)) return -1;
+            if (arr is null || arr.Length == 0 || (value?.Equals(default(T)) ?? true)) return -1;
             int index = Array.BinarySearch(arr, value);
+            if (index >= 0) return index;
+            return -index - 1;
+        }
+        /// <summary>
+        /// Given a sorted array (largest to smallest) <paramref name="arr"/> and a <paramref name="value"/>, find where this value is to be inserted.
+        /// </summary>
+        /// <typeparam name="T">A type that can be compared using <see cref="IComparable{T}"/></typeparam>
+        /// <param name="arr">The sorted array to check (is not modified).</param>
+        /// <param name="value">the value to check for insertion.</param>
+        /// <returns>The index where the value should be inserted.</returns>
+        public static int FindInsertValueReverse<T>(T[] arr, T value) where T : IComparable<T>
+        {
+            if (arr is null || arr.Length == 0 || (value?.Equals(default(T)) ?? true)) return -1;
+            int index = ReverseBinarySearch(arr, value);
             if (index >= 0) return index;
             return -index - 1;
         }
@@ -770,13 +803,13 @@ namespace BLPPCounter.Helpfuls
             const int LongBits = 64;
 
             if (arr is null || arr.Length == 0)
-                return Array.Empty<ulong>();
+                return [];
 
             // Determine bits per enum
             ulong max = 0;
             foreach (T item in Enum.GetValues(typeof(T)))
                 max = Math.Max(Convert.ToUInt64(item), max);
-            if (max == 0) return new ulong[] { 0 }; // Single-value enum
+            if (max == 0) return [0]; // Single-value enum
 
             int bitsPerEnum = (int)Math.Ceiling(Math.Log(max + 1, 2));
 
@@ -899,17 +932,17 @@ namespace BLPPCounter.Helpfuls
         }
         public static T[] RemoveElement<T>(this T[] arr, int index)
         {
-            List<T> hold = arr.ToList();
+            List<T> hold = [.. arr];
             hold.RemoveAt(index);
-            return hold.ToArray();
+            return [.. hold];
         }
         public static T[] InsertElement<T>(this T[] arr, int index, T value)
         {
             if (index >= arr.Length)
-                return arr.Append(value).ToArray();
-            List<T> hold = arr.ToList();
+                return [.. arr, value];
+            List<T> hold = [.. arr];
             hold.Insert(index, value);
-            return hold.ToArray();
+            return [.. hold];
         }
         public static string ClampString(this string str, int maxLength)
         {
@@ -1044,13 +1077,27 @@ namespace BLPPCounter.Helpfuls
         }
         public static void AddSorted<T>(this List<T> list, T toAdd, Comparison<T> comparer, bool greatestFirst = false) =>
             AddSorted(list, toAdd, Comparer<T>.Create(comparer), greatestFirst);
-
-            /*float[] ConvertArr(double[] arr)
-            {
-                float[] outp = new float[arr.Length];
-                for (int i = 0; i < arr.Length; i++)
-                    outp[i] = (float)arr[i];
-                return outp;
-            }*/
+        public static SongSpeed GetSongSpeed(string mods)
+        {
+            Match regexSpeed = Regex.Match(mods.ToLower(), "fs|sf|ss");
+            return regexSpeed.Success ? GetModifierFromShortname(regexSpeed.Value) : SongSpeed.Normal;
+        }
+        public static (SongSpeed speed, float modMult) ParseModifiers(string mods, JToken modifierData, bool allowNoFail = false, char delimiter = ',')
+        {
+            mods = mods.ToLower();
+            Match regexSpeed = Regex.Match(mods, "fs|sf|ss");
+            string[] modArr = Regex.Replace(mods, allowNoFail ? $"(?:fs|sf|ss){delimiter}?" : $"(?:fs|sf|ss|nf){delimiter}?", "").Split(delimiter);
+            SongSpeed speed = regexSpeed.Success ? GetModifierFromShortname(regexSpeed.Value) : SongSpeed.Normal;
+            //Plugin.Log.Info("Mod Array Length: " + modArr.Length + ", value[0].Length = " + modArr[0].Length);
+            return (speed, modArr.Length > 1 || modArr.Length == 1 && modArr[0].Length > 0 ? HelpfulPaths.GetMultiAmounts(modifierData, modArr) : 1.0f);
+        }
+        public static bool HasNonSpeedMods(string mods, char delimiter = ',') => Regex.Replace(mods, $"(?:fs|sf|ss|nf){delimiter}?", "", RegexOptions.IgnoreCase).Length > 0;
+        /*float[] ConvertArr(double[] arr)
+        {
+            float[] outp = new float[arr.Length];
+            for (int i = 0; i < arr.Length; i++)
+                outp[i] = (float)arr[i];
+            return outp;
+        }*/
     }
 }

@@ -1,6 +1,7 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
 using BeatSaberMarkupLanguage.Components.Settings;
 using BLPPCounter.Helpfuls;
+using BLPPCounter.Helpfuls.FormatHelpers;
 using IPA.Utilities;
 using System;
 using System.Collections.Generic;
@@ -119,12 +120,18 @@ namespace BLPPCounter.Utils.List_Settings
             " || Val Formatted: " + Formatterer(_GivenValue);
         #endregion
         #region Static Functions
-        internal static Dictionary<char, object> GetNewTestVals(IEnumerable<ValueListInfo> arr, bool formatted = true, Dictionary<char, object> oldVals = null)
+        internal static FormatWrapper GetNewTestVals(IEnumerable<ValueListInfo> arr, bool formatted = true, FormatWrapper oldVals = null)
         {
-            Dictionary<char, object> outp = oldVals ?? new Dictionary<char, object>();
+            if (oldVals is null)
+            {
+                Dictionary<char, object> outp = new Dictionary<char, object>();
+                foreach (ValueListInfo val in arr)
+                    outp[val.GivenToken] = formatted ? val.FormattedGivenValue : val.GivenValue;
+                return new FormatWrapper(outp);
+            }
             foreach (ValueListInfo val in arr)
-                outp[val.GivenToken] = formatted ? val.FormattedGivenValue : val.GivenValue;
-            return outp;
+                oldVals[val.GivenToken] = formatted ? val.FormattedGivenValue : val.GivenValue;
+            return oldVals;
         }
         #endregion
         #region Internal Class(es)

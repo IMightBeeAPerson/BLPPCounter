@@ -5,29 +5,31 @@ using BLPPCounter.Counters;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
+using BLPPCounter.Utils.API_Handlers;
+using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.List_Settings;
 using BLPPCounter.Utils.Misc_Classes;
-using CountersPlus.ConfigModels;
+using BLPPCounter.Utils.Serializable_Classes;
 using HMUI;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using Zenject;
 
-namespace BLPPCounter.Settings.SettingHandlers
+namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
 {
     /*<checkbox-setting text='Local Replays' apply-on-change='true' value='LocalReplay' hover-hint='Check for any local replays before loading from website' active='false'/>
      <dropdown-list-setting text='Playlists' apply-on-change='true' value='ChosenPlaylist' options='PlNames' hover-hint='A playlist to load' active='false'/>
     <button text='Load Playlist' on-click='LoadPlaylist' hover-hint='Loads the selected playlist into cache to prevent lag' active='false'/>*/
     //(?<att1>\[[^"\]]+)"[^"\]]+"(?<att2>\)]).*(?<bre>[\n\r]\s*)(?<words>(?:\w+ )+)(?!;)(?<name>\w+)
     //${att1}nameof(${name})${att2}${bre}${words}${name}
-    public class SettingsHandler: ConfigModel, INotifyPropertyChanged
+    public class SettingsHandler: INotifyPropertyChanged
     {
 #pragma warning disable CS0649, IDE0044
         #region Variables
@@ -36,6 +38,13 @@ namespace BLPPCounter.Settings.SettingHandlers
         private static PluginConfig PC => PluginConfig.Instance;
         public static SettingsHandler Instance { get; private set; } = new SettingsHandler();
         public static event Action<SettingsHandler> NewInstance;
+#if NEW_VERSION
+        internal static readonly int MENU_HEIGHT = 70;
+        internal static readonly int MENU_ANCHOR = 0;
+#else
+        internal static readonly int MENU_HEIGHT = 60;
+        internal static readonly int MENU_ANCHOR = 5;
+#endif
         #endregion
         #region Init
         public SettingsHandler()
@@ -43,13 +52,11 @@ namespace BLPPCounter.Settings.SettingHandlers
             NewInstance?.Invoke(this);
             TypesOfPPChanged += () =>
             {
-                if (CounterList != null) CounterList.UpdateListSetting(TypesOfPP.Cast<string>().ToList());
+                if (CounterList != null) CounterList.UpdateListSetting(TypesOfPP);
                 else if (!TypesOfPP.Any(obj => ((string)obj).Equals(PPType))) PPType = (string)TypesOfPP[0];
-                if (DefaultCounterList != null) DefaultCounterList.UpdateListSetting(RelativeDefaultList.Cast<string>().ToList());
+                if (DefaultCounterList != null) DefaultCounterList.UpdateListSetting(RelativeDefaultList);
                 else if (!RelativeDefaultList.Any(obj => ((string)obj).Equals(RelativeDefault))) RelativeDefault = (string)RelativeDefaultList[0];
-                PpInfoTabHandler.Instance.ChangeTabSettings = true;
-                PpInfoTabHandler.Instance.ResetTabs();
-                TheCounter.theCounter = null;
+                TheCounter.SettingChanged = true;
             };
             PropertyChanged += (obj, args) =>
             {
@@ -58,8 +65,14 @@ namespace BLPPCounter.Settings.SettingHandlers
                     case nameof(Leaderboard):
                         TypesOfPPChanged?.Invoke();
                         break;
+                    case nameof(CalcLeaderboard):
+                        PpInfoTabHandler.Instance.ChangeTabSettings = true;
+                        PpInfoTabHandler.Instance.CalcSelector.ReceiveValue();
+                        PpInfoTabHandler.Instance.ResetTabs();
+                        break;
                     case nameof(UseUnranked):
-                        TheCounter.theCounter = null;
+                    case nameof(LocalReplaysOnly):
+                        TheCounter.SettingChanged = true;
                         break;
                     case nameof(DecimalPrecision):
                         string hold = "";
@@ -69,19 +82,30 @@ namespace BLPPCounter.Settings.SettingHandlers
                     case nameof(Target):
                         PpInfoTabHandler.Instance.ResetTabs();
                         break;
+                    case nameof(APITimeout):
+                        APIHandler.ClientTimeout = TimeSpan.FromSeconds(PC.APITimeout);
+                        break;
+                    case nameof(LocalReplays):
+                        if (PC.LocalReplays) LocalReplayHandler.LoadReplays();
+                        TheCounter.SettingChanged = true;
+                        break;
 
                 }
             };
         }
+#pragma warning disable IDE0051
+
+        [UIAction("#post-parse")]
+        private void PostParse()
+        {
+            TargetPostParse();
+#if !NEW_VERSION
+            LeaderboardPostParse();
+#endif
+        }
+#pragma warning restore IDE0051
         #endregion
         #region General Settings
-
-        [UIValue(nameof(UseUnranked))]
-        public bool UseUnranked
-        {
-            get => PC.UseUnranked;
-            set {PC.UseUnranked = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseUnranked))); }
-        }
         [UIValue(nameof(DecimalPrecision))]
         public int DecimalPrecision
         {
@@ -121,7 +145,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(CounterList))]
         private ListSetting CounterList;
         [UIValue(nameof(TypesOfPP))]
-        public List<object> TypesOfPP => new List<object>(TheCounter.DisplayNames);
+        public List<object> TypesOfPP => [.. TheCounter.DisplayNames];
 
         [UIValue(nameof(UpdateAfterTime))]
         public bool UpdateAfterTime
@@ -143,66 +167,81 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         #endregion
         #region Leaderboard Settings
-        [UIComponent(nameof(DefLeader))] 
-        private ListSetting DefLeader;
+        private LeaderboardSettingsHandler LeaderboardSettings => LeaderboardSettingsHandler.Instance;
+        [UIObject(nameof(LeaderboardModal))]
+        private GameObject LeaderboardModal;
+        [UIComponent(nameof(LeaderboardTable))]
+        internal CustomCellListTableData LeaderboardTable;
+        [UIComponent(nameof(LeaderboardSelector))]
+        internal ListSetting LeaderboardSelector;
+        [UIComponent(nameof(CalcSelector))]
+        internal ListSetting CalcSelector;
         [UIValue(nameof(Leaderboard))]
-        public string Leaderboard
+        private string Leaderboard
         {
-            get => PC.Leaderboard.ToString();
-            set 
-            {
-                PC.Leaderboard = (Leaderboards)Enum.Parse(typeof(Leaderboards), value);
-                if (!(DefLeader is null))
-                {
-#if NEW_VERSION
-                    DefLeader.Values = DefaultLeaderboards;
-                    if (!DefLeader.Values.Contains(DefaultLeaderboard))
-                        DefaultLeaderboard = DefLeader.Values[0] as string;
-#else
-                    DefLeader.values = DefaultLeaderboards;
-                    if (!DefLeader.values.Contains(DefaultLeaderboard))
-                        DefaultLeaderboard = DefLeader.values[0] as string;
-#endif
-                    DefLeader.ReceiveValue();
-                }
-                PropertyChanged(this, new PropertyChangedEventArgs(nameof(Leaderboard)));
-            }
+            get => LeaderboardSettings.NextLeaderboardToAdd.ToString();
+            set { LeaderboardSettings.NextLeaderboardToAdd = (Leaderboards)Enum.Parse(typeof(Leaderboards), value); PropertyChanged(this, new PropertyChangedEventArgs(nameof(Leaderboard))); }
         }
+        internal void LeaderboardUpdate() => PropertyChanged(this, new PropertyChangedEventArgs(nameof(Leaderboard)));
         [UIValue(nameof(LeaderboardList))]
-        public List<object> LeaderboardList
+        private List<object> LeaderboardList => LeaderboardSettings.LeaderboardList;
+        [UIValue(nameof(LeaderboardOptions))]
+        private List<object> LeaderboardOptions => LeaderboardSettings.LeaderboardOptions;
+        [UIAction(nameof(AddLeaderboard))]
+        private void AddLeaderboard() => LeaderboardSettings.AddCell();
+        [UIValue(nameof(CalcLeaderboard))]
+        private string CalcLeaderboard
         {
-            get
-            {
-                List<object> outp = new List<object>((int)Math.Log((int)Leaderboards.All + 1, 2));
-                for (int i = 1; i < (int)Leaderboards.All; i <<= 1)
-                    outp.Add(((Leaderboards)i).ToString());
-                return outp;
-            }
+            get => PC.CalcLeaderboard.ToString();
+            set { PC.CalcLeaderboard = (Leaderboards)Enum.Parse(typeof(Leaderboards), value); PropertyChanged(this, new PropertyChangedEventArgs(nameof(CalcLeaderboard))); }
         }
-        [UIValue(nameof(DefaultToLeaderboard))]
-        public bool DefaultToLeaderboard
+        [UIValue(nameof(CalcLeaderboards))]
+        private List<object> CalcLeaderboards => [.. LeaderboardSettings.UsableLeaderboards.Select(a => a.ToString())];
+        [UIValue(nameof(UseUnranked))]
+        public bool UseUnranked
         {
-            get => PC.DefaultToLeaderboard;
-            set { PC.DefaultToLeaderboard = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(DefaultToLeaderboard))); }
+            get => PC.UseUnranked;
+            set { PC.UseUnranked = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseUnranked))); }
         }
-        [UIValue(nameof(DefaultLeaderboard))]
-        public string DefaultLeaderboard
-        {
-            get => PC.DefaultLeaderboard.ToString();
-            set { PC.DefaultLeaderboard = (Leaderboards)Enum.Parse(typeof(Leaderboards), value); PropertyChanged(this, new PropertyChangedEventArgs(nameof(DefaultLeaderboard))); }
-        }
-        [UIValue(nameof(DefaultLeaderboards))]
-        public List<object> DefaultLeaderboards => LeaderboardList.Where(l => !l.Equals(Leaderboard)).ToList();
         [UIValue(nameof(LeaderInLabel))] 
         public bool LeaderInLabel
         {
             get => PC.LeaderInLabel;
             set { PC.LeaderInLabel = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(LeaderInLabel))); }
         }
+        [UIValue(nameof(HuntLoads))] 
+        public bool HuntLoads
+        {
+            get => PC.HuntLoads;
+            set { PC.HuntLoads = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(HuntLoads))); }
+        }
+#if !NEW_VERSION
+        private void LeaderboardPostParse()
+        {
+            IEnumerator WaitThenUpdate()
+            {
+                yield return new WaitForEndOfFrame();
+                (LeaderboardModal.transform as RectTransform).sizeDelta = new Vector2(100, 80);
+            }
+            CoroutineHost.Start(WaitThenUpdate());
+        }
+#endif
 #endregion
         #region Misc Settings
         [UIAction(nameof(ClearCache))]
         public void ClearCache() { ClanCounter.ClearCache(); TheCounter.ClearCounter(); }
+        [UIValue(nameof(MaxNameLength))]
+        public int MaxNameLength
+        {
+            get => PC.MaxNameLength;
+            set { PC.MaxNameLength = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(MaxNameLength))); }
+        }
+        [UIValue(nameof(APITimeout))]
+        public int APITimeout
+        {
+            get => PC.APITimeout;
+            set { PC.APITimeout = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(APITimeout))); }
+        }
         [UIValue(nameof(UseGrad))]
         public bool UseGrad
         {
@@ -237,6 +276,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             get => PC.ColorGradBlending;
             set { PC.ColorGradBlending = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ColorGradBlending))); }
+        }
+        [UIValue(nameof(BlendMiddleColor))]
+        private bool BlendMiddleColor
+        {
+            get => PC.BlendMiddleColor;
+            set { PC.BlendMiddleColor = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(BlendMiddleColor))); }
         }
         [UIValue(nameof(ColorGradFlipPercent))]
         private float ColorGradFlipPercent
@@ -284,6 +329,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             get => PC.UseReplay;
             set { PC.UseReplay = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseReplay))); }
         }
+        [UIValue(nameof(ReplayMods))]
+        public bool ReplayMods
+        {
+            get => PC.ReplayMods;
+            set { PC.ReplayMods = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ReplayMods))); }
+        }
         [UIValue(nameof(DynamicAcc))]
         public bool DynamicAcc
         {
@@ -295,6 +346,18 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             get => PC.ShowRank;
             set {PC.ShowRank = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(ShowRank))); }
+        }
+        [UIValue(nameof(LocalReplays))]
+        public bool LocalReplays
+        {
+            get => PC.LocalReplays;
+            set { PC.LocalReplays = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(LocalReplays))); }
+        }
+        [UIValue(nameof(LocalReplaysOnly))]
+        public bool LocalReplaysOnly
+        {
+            get => PC.LocalReplaysOnly;
+            set { PC.LocalReplaysOnly = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(LocalReplaysOnly))); }
         }
         [UIValue(nameof(RelativeDefault))]
         public string RelativeDefault
@@ -312,7 +375,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(DefaultCounterList))]
         private ListSetting DefaultCounterList;
         [UIValue(nameof(RelativeDefaultList))]
-        public List<object> RelativeDefaultList => TypesOfPP.Where(a => a is string b && !RelativeCounter.DisplayName.Equals(b)).Prepend(Targeter.NO_TARGET).ToList();
+        public List<object> RelativeDefaultList => [.. TypesOfPP.Where(a => a is string b && !RelativeCounter.DisplayName.Equals(b)).Prepend(Targeter.NO_TARGET)];
         #endregion
         #region Rank Counter Settings
         [UIValue(nameof(MinRank))]
@@ -334,6 +397,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             get => PC.TargeterStartupWarnings;
             set { PC.TargeterStartupWarnings = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(TargeterStartupWarnings))); }
+        }
+        [UIValue(nameof(UseSteamFriends))]
+        public bool UseSteamFriends
+        {
+            get => PC.UseSteamFriends;
+            set { PC.UseSteamFriends = value; PropertyChanged(this, new PropertyChangedEventArgs(nameof(UseSteamFriends))); }
         }
         [UIValue(nameof(ShowEnemy))]
         public bool ShowEnemy
@@ -363,19 +432,21 @@ namespace BLPPCounter.Settings.SettingHandlers
         private Button ReloadCustomRanksButton;
         [UIComponent(nameof(ReloadFollowersButton))]
         private Button ReloadFollowersButton;
+        [UIComponent(nameof(DeleteTarget))]
+        private Button DeleteTarget;
 #if !NEW_VERSION
         [UIObject(nameof(TargetModal))]
         private GameObject TargetModal;
 #endif
-        private AsyncLock CustomInputLock = new AsyncLock();
+        private AsyncLock CustomInputLock = new();
 
-        [UIValue(nameof(CustomTarget))]
-        public string CustomTarget
+        [UIValue(nameof(CustomTargetName))]
+        public string CustomTargetName
         {
             get => "";
             set
             {
-                PropertyChanged(this, new PropertyChangedEventArgs(nameof(CustomTarget)));
+                PropertyChanged(this, new PropertyChangedEventArgs(nameof(CustomTargetName)));
                 Task.Run(async () =>
                 {
                     AsyncLock.Releaser? theLock = await CustomInputLock.TryLockAsync().ConfigureAwait(false);
@@ -385,7 +456,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                         CustomTargetText.SetText("<color=\"yellow\">Loading...</color>");
                         try
                         {
-                            CustomTarget converted = await Utils.CustomTarget.ConvertToId(value);
+                            CustomTarget converted = await CustomTarget.ConvertToId(value);
                             if (Targeter.UsedIDs.Contains(converted.ID))
                             {
                                 if (AutoSelectAddedTarget)
@@ -407,7 +478,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                                 SelectedTarget = ti;
                                 UpdateSelectedTarget();
                             }
-                            CustomTargetText.SetText("<color=\"green\">Success!</color>");
+                            CustomTargetText.SetText("<color=\"green\">Success" + (AutoSelectAddedTarget ? ", player set as target." : "!") + "</color>");
                             CustomTargetInput.Text = "";
                             IEnumerator WaitThenUpdate()
                             {
@@ -441,7 +512,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                         CustomRankText.SetText("<color=\"yellow\">Loading...</color>");
                         try
                         {
-                            CustomTarget converted = await Utils.CustomTarget.ConvertFromRank(value);
+                            CustomTarget converted = await CustomTarget.ConvertFromRank(value);
                             if (Targeter.UsedIDs.Contains(converted.ID))
                             {
                                 if (AutoSelectAddedTarget)
@@ -450,9 +521,8 @@ namespace BLPPCounter.Settings.SettingHandlers
                                     UpdateSelectedTarget();
                                     CustomRankText.SetText("<color=#FFA500>Set as target, ID is in use.</color>");
                                     CustomRankInput.Text = "";
-                                    return;
-                                }
-                                throw new ArgumentException("this ID is already in use.");
+                                } else throw new ArgumentException("this ID is already in use.");
+                                return;
                             }
                             PC.CustomTargets.AddSorted(converted);
                             Targeter.AddTarget(converted);
@@ -463,7 +533,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                                 SelectedTarget = ti;
                                 UpdateSelectedTarget();
                             }
-                            CustomRankText.SetText("<color=\"green\">Success!</color>");
+                            CustomRankText.SetText("<color=\"green\">Success" + (AutoSelectAddedTarget ? ", player set as target." : "!") + "</color>");
                             CustomRankInput.Text = "";
                             IEnumerator WaitThenUpdate()
                             {
@@ -475,6 +545,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                         catch (Exception e)
                         {
                             Plugin.Log.Warn(e.Message);
+                            Plugin.Log.Debug(e);
                             CustomRankText.SetText($"<color=\"red\">Failure, {e.Message}</color>");
                         }
                     }
@@ -514,11 +585,11 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIValue(nameof(CustomTargetInfos))]
         private List<object> CustomTargetInfos => GetTargetList(Targeter.CustomTargets);
         [UIValue(nameof(SelectedTargetInfo))]
-        private List<object> SelectedTargetInfo => SelectedTarget is null ? new List<object>(0) : new List<object>(1) { SelectedTarget };
+        private List<object> SelectedTargetInfo => SelectedTarget is null ? [] : [SelectedTarget];
         private object SelectedTarget = null;
         private SelectableCell LastCellSelected;
-        private bool TargetMenuHasBeenOpened = false;
-        private readonly Dictionary<long, TargetInfo> IdToTarget = new Dictionary<long, TargetInfo>();
+        private bool TargetMenuIsOpen = false;
+        private readonly Dictionary<long, TargetInfo> IdToTarget = [];
 
         [UIAction(nameof(ResetTarget))]
         private void ResetTarget()
@@ -548,25 +619,45 @@ namespace BLPPCounter.Settings.SettingHandlers
                 ReloadFollowersButton.interactable = true;
             });
         }
+        [UIAction(nameof(RemoveTarget))]
+        private void RemoveTarget()
+        {
+            if (PC.Target.Equals(Targeter.NO_TARGET)) return;
+            if (!Targeter.DeleteTarget(PC.TargetID.ToString())) return;
+            SelectedTarget = null;
+            UpdateSelectedTarget();
+            if (TargetMenuIsOpen)
+            {
+#if NEW_VERSION
+                CustomTargetList.Data = CustomTargetInfos;
+                CustomTargetList.TableView.ReloadData();
+#else
+                CustomTargetList.data = CustomTargetInfos;
+                CustomTargetList.tableView.ReloadData();
+#endif
+            }
+        }
 #pragma warning disable IDE0051
         [UIAction("#ShowTargetMenu")]
         private void ShowTargetMenu()
         {
-            if (!TargetMenuHasBeenOpened)
+            IEnumerator WaitThenUpdate()
             {
-                TargetMenuHasBeenOpened = true;
-                IEnumerator WaitThenUpdate()
-                {
-                    yield return new WaitForEndOfFrame();
-                    UpdateTargetLists();
-                }
-                CoroutineHost.Start(WaitThenUpdate());
+                yield return new WaitForEndOfFrame();
+                UpdateTargetLists();
             }
+            CoroutineHost.Start(WaitThenUpdate());
+            TargetMenuIsOpen = true;
+        }
+        [UIAction("#HideTargetMenu")]
+        private void HideTargetMenu()
+        {
+            TargetMenuIsOpen = false;
         }
 #pragma warning restore IDE0051
         public void UpdateTargetLists()
         {
-            if (!TargetMenuHasBeenOpened) return;
+            if (!TargetMenuIsOpen) return;
 #if NEW_VERSION
             ClanTargetList.Data = ClanTargetInfos;
             FollowerTargetList.Data = FollowerTargetInfos;
@@ -591,14 +682,18 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private void UpdateSelectedTarget()
         {
-            if (SelectedTarget is TargetInfo ti && !(ti is null))
+            if (SelectedTarget is TargetInfo ti && ti is not null)
+            {
                 ti.SetAsTarget();
+                DeleteTarget.interactable = Targeter.CustomTargets.Any(token => token.ID.Equals(ti.RealID));
+            }
             else
             {
                 Target = Targeter.NO_TARGET;
                 PC.TargetID = -1;
+                DeleteTarget.interactable = false;
             }
-            if (!TargetMenuHasBeenOpened) return;
+            if (!TargetMenuIsOpen) return;
 #if NEW_VERSION
             DisplayList.Data = SelectedTargetInfo;
             DisplayList.TableView.ReloadData();
@@ -615,8 +710,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private List<object> GetTargetList(IEnumerable<(string ID, int Rank)> ids)
         {
-            if (ids is null) return new List<object>(0);
-            List<object> outp = new List<object>(ids.Count());
+            if (ids is null) return [];
+            List<object> outp = new(ids.Count());
             foreach (var (id, rank) in ids)
             {
                 if (!Targeter.IDtoNames.TryGetValue(id, out string name))
@@ -637,10 +732,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
             return new TargetInfo(name, id.ID, (Leaderboards.Beatleader, id.Rank));
         }
-#endregion
-#pragma warning disable IDE0051
-        [UIAction("#post-parse")]
-        private void PostParse()
+        private void TargetPostParse()
         {
 #if NEW_VERSION
             ClanTargetList.TableView.didSelectCellWithIdxEvent += (view, index) => { SelectedTarget = ClanTargetInfos[index]; UpdateSelectedTarget(view.GetCellAtIndex(index)); };
@@ -667,9 +759,16 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (PC.TargetID > -1)
             {
                 SelectedTarget = IdToTarget[PC.TargetID];
-                if (TargetMenuHasBeenOpened)
+                if (TargetMenuIsOpen)
                     UpdateSelectedTarget();
             }
+            int count = 0;
+            while (DeleteTarget is null && count++ < 20) Thread.Sleep(50);
+            if (DeleteTarget is null)
+                Plugin.Log.Warn("DeleteTarget button not initialized.");
+            else 
+                DeleteTarget.interactable = Targeter.CustomTargets.Any(token => token.ID.Equals(PC.TargetID.ToString()));
         }
+#endregion
     }
 }

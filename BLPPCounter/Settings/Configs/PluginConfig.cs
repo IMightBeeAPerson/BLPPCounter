@@ -3,10 +3,14 @@ using System.Runtime.CompilerServices;
 using IPA.Config.Stores;
 using IPA.Config.Stores.Attributes;
 using IPA.Config.Stores.Converters;
-using BLPPCounter.Utils;
+using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.Misc_Classes;
+using BLPPCounter.Utils.Serializable_Classes;
 using System.Drawing;
 using System.Reflection;
 using System.Linq;
+using BLPPCounter.Utils.Special_Utils;
+using BLPPCounter.Utils.Converters;
 
 [assembly: InternalsVisibleTo(GeneratedStore.AssemblyVisibilityTarget)]
 namespace BLPPCounter.Settings.Configs
@@ -32,17 +36,20 @@ namespace BLPPCounter.Settings.Configs
         public virtual string PPType { get; set; } = "Normal";
         #endregion
         #region Leaderboard Settings
-        public virtual bool DefaultToLeaderboard { get; set; } = true;
-        [UseConverter]
-        public virtual Leaderboards Leaderboard { get; set; } = Leaderboards.Beatleader;
-        [UseConverter]
-        public virtual Leaderboards DefaultLeaderboard { get; set; } = Leaderboards.Scoresaber;
+        [UseConverter(typeof(ListConverter<Leaderboards>))]
+        public virtual List<Leaderboards> LeaderboardsInUse { get; set; } = [Leaderboards.Beatleader];
+        [UseConverter(typeof(EnumConverter<Leaderboards>))]
+        public virtual Leaderboards CalcLeaderboard { get; set; } = Leaderboards.Beatleader;
         public virtual bool UseUnranked { get; set; } = true;
         public virtual bool LeaderInLabel { get; set; } = true;
+        public virtual bool HuntLoads { get; set; } = true;
         #endregion
         #region Misc Settings
+        public virtual int MaxNameLength { get; set; } = 20;
+        public virtual int APITimeout { get; set; } = 5; //in seconds
         public virtual float ColorGradMinDark { get; set; } = 0.5f;
         public virtual bool ColorGradBlending { get; set; } = true;
+        public virtual bool BlendMiddleColor { get; set; } = false;
         public virtual float ColorGradFlipPercent { get; set; } = 0.1f;
         public virtual int ColorGradMaxDiff { get; set; } = 100;
         #endregion
@@ -54,13 +61,17 @@ namespace BLPPCounter.Settings.Configs
         #endregion
         #region Relative Counter Settings
         public virtual bool UseReplay { get; set; } = true;
+        public virtual bool ReplayMods { get; set; } = true;
         public virtual bool DynamicAcc { get; set; } = true;
         public virtual bool ShowRank { get; set; } = true;
+        public virtual bool LocalReplays { get; set; } = false;
+        public virtual bool LocalReplaysOnly { get; set; } = false;
         public virtual string RelativeDefault { get; set; } = "Normal";
         #endregion
         #region Rank Counter Settings
         public virtual int MinRank { get; set; } = 100;
         public virtual int MaxRank { get; set; } = 0;
+
         #endregion
         #region Target Settings
         public virtual bool TargeterStartupWarnings { get; set; } = false;
@@ -69,16 +80,16 @@ namespace BLPPCounter.Settings.Configs
         public virtual string Target { get; set; } = Targeter.NO_TARGET;
         public virtual long TargetID { get; set; } = -1;
         public virtual bool AutoSelectAddedTarget { get; set; } = true;
+        public virtual bool UseSteamFriends { get; set; } = true;
 
-        //The below list is not in order so that in the config file there is nothing below this that gets obstructed.
         [UseConverter(typeof(ListConverter<CustomTarget>))]
         public virtual List<CustomTarget> CustomTargets { get; set; } = new List<CustomTarget>();
         #endregion
         #region Menu Settings
         #region Simple Settings
         public virtual bool SimpleUI { get; set; } = true;
-        public virtual long SimpleMenuConfig { get; set; } = 0; //Don't worry about this, nothing janky at all going on here :)
-        public virtual int SimpleMenuConfigLength { get; set; } = 0; //Nothing janky at all
+        [UseConverter(typeof(BoolStorageConverter))]
+        public virtual BoolStorage SimpleMenuConfig { get; set; } = new BoolStorage();
         #endregion
         #region Format Settings
         public virtual bool UpdatePreview { get; set; } = true;

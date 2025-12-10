@@ -1,12 +1,10 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
 using BLPPCounter.Helpfuls;
-using BLPPCounter.Settings.Configs;
-using BLPPCounter.Settings.SettingHandlers;
-using System;
+using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
+using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.Misc_Classes;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BLPPCounter.Utils.List_Settings
 {
@@ -27,9 +25,9 @@ namespace BLPPCounter.Utils.List_Settings
             _displayName = displayName; 
             _id = id;
             if (ranks is null || ranks.Length == 0)
-                Ranks = new Dictionary<Leaderboards, int>();
+                Ranks = [];
             else
-                Ranks = new Dictionary<Leaderboards, int>(ranks.Select(token => new KeyValuePair<Leaderboards, int>(token.Item1, token.Item2)));
+                Ranks = new(ranks.Select(token => new KeyValuePair<Leaderboards, int>(token.Item1, token.Item2)));
 
         }
 
