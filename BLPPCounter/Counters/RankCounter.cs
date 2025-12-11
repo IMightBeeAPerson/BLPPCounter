@@ -31,7 +31,6 @@ namespace BLPPCounter.Counters
         private static Func<FormatWrapper, string> displayRank;
         private static Func<Func<FormatWrapper, string>> rankIniter;
         private static FormatWrapper rankWrapper;
-        private static bool displayPP;
 
         public static readonly Dictionary<string, char> MainAlias = new()
         {
@@ -121,8 +120,7 @@ namespace BLPPCounter.Counters
             //Plugin.Log.Debug($"[{string.Join(", ", mapData.Select(t => (t.acc, t.pp)))}]");
             ppHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 1)
             {
-                UpdateFCEnabled = PC.PPFC,
-                UpdatePPEnabled = displayPP
+                UpdateFCEnabled = PC.PPFC
             };
             ppHandler.UpdateFC += (fcAcc, vals, actions) => vals[1].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
         }
@@ -152,9 +150,6 @@ namespace BLPPCounter.Counters
                     if (!(bool)vals[(char)3]) HelpfulFormatter.SetText(tokensCopy, '3');
                     if (!(bool)vals[(char)4]) HelpfulFormatter.SetText(tokensCopy, '4');
                 }, out errorStr, out HelpfulFormatter.TokenInfo[] arr);
-
-            HashSet<char> ppSymbols = ['x', 'd'];
-            displayPP = arr.Any(token => token.Usage > HelpfulFormatter.TokenUsage.Never && ppSymbols.Contains(token.Token));
 
             return outp;
         }
