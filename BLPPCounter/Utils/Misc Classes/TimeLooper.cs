@@ -4,14 +4,14 @@ using System.Threading.Tasks;
 
 namespace BLPPCounter.Utils.Misc_Classes
 {
-    internal class TimeLooper
+    internal class TimeLooper(int msDelay)
     {
         private ManualResetEvent waiter;
-        private Task task;
+        private Task task = Task.CompletedTask;
         private Action lastTaskAction;
         private CancellationTokenSource cts;
-        public int Delay;
-        public readonly object Locker;
+        public int Delay = msDelay;
+        public readonly object Locker = new();
         public bool IsPaused { get; private set; }
         public TimeLooper(Action task, int msDelay) : this(msDelay)
         {
@@ -21,12 +21,7 @@ namespace BLPPCounter.Utils.Misc_Classes
         {
             GenerateTask(task).GetAwaiter().GetResult();
         }
-        public TimeLooper(int msDelay)
-        {
-            Delay = msDelay;
-            Locker = new object();
-            task = Task.CompletedTask;
-        }
+
         public TimeLooper() : this(0) { }
 
         public async Task GenerateTask(Action task)

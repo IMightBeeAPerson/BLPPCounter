@@ -323,26 +323,35 @@ namespace BLPPCounter
         }
         public override void CounterDestroy() {
             Plugin.Log.Debug($"There were {notes} note(s) handled.");
-            ChangeNotifiers(false);
-            if (enabled)
+            try
             {
-                lastLeaderboardIndex = leaderboardIndex;
-                if (pc.UpdateAfterTime)
-                    TimeLooper.End().GetAwaiter().GetResult();
-            }
-            if (!InitTask.IsCompleted)
-            {
-                Plugin.Log.Warn("Player exited map faster than the init task could complete. Cancelling.");
-                InitTaskCanceller.Cancel();
-                try
+                ChangeNotifiers(false);
+                if (enabled)
                 {
-                    InitTask.GetAwaiter().GetResult();
-                } catch (Exception e)
-                {
-                    Plugin.Log.Warn($"Error waiting for InitTask\n{e}");
+                    lastLeaderboardIndex = leaderboardIndex;
+                    if (pc.UpdateAfterTime)
+                        TimeLooper.End().GetAwaiter().GetResult();
                 }
+                if (!InitTask.IsCompleted)
+                {
+                    Plugin.Log.Warn("Player exited map faster than the init task could complete. Cancelling.");
+                    InitTaskCanceller.Cancel();
+                    try
+                    {
+                        InitTask.GetAwaiter().GetResult();
+                    }
+                    catch (Exception e)
+                    {
+                        Plugin.Log.Warn($"Error waiting for InitTask\n{e}");
+                    }
+                }
+                InitTaskCanceller.Dispose();
+            } catch (Exception e)
+            {
+                Plugin.Log.Error("There was an issue turning the counter off!");
+                Plugin.Log.Debug(e);
+                theCounter = null;
             }
-            InitTaskCanceller.Dispose();
         }
         public override void CounterInit()
         {
@@ -437,6 +446,7 @@ namespace BLPPCounter
                     if (pc.UpdateAfterTime) SetTimeLooper();
                     SetLabels();
                     display.SetText("Loaded!");
+                    Plugin.Log.Debug("Counter loaded successfully.");
                     if (notes < 1) theCounter.UpdateCounter(1, 0, 0, 1, null);
                     return;
                 } else
