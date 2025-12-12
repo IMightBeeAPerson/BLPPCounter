@@ -330,7 +330,9 @@ namespace BLPPCounter
                 {
                     lastLeaderboardIndex = leaderboardIndex;
                     if (pc.UpdateAfterTime)
-                        TimeLooper.End().GetAwaiter().GetResult();
+#pragma warning disable CS4014 // Do not await this call or you deadlock the main thread you dingus
+                        TimeLooper.End();
+#pragma warning restore CS4014
                 }
                 if (!InitTask.IsCompleted)
                 {
@@ -447,7 +449,8 @@ namespace BLPPCounter
                     SetLabels();
                     display.SetText("Loaded!");
                     Plugin.Log.Debug("Counter loaded successfully.");
-                    if (notes < 1) theCounter.UpdateCounter(1, 0, 0, 1, null);
+                    if (pc.UpdateAfterTime) await TimeLooper.Start();
+                    else if (notes < 1) theCounter.UpdateCounter(1, 0, 0, 1, null);
                     return;
                 } else
                     Plugin.Log.Warn("Maps failed to load, most likely unranked.");
@@ -490,12 +493,16 @@ namespace BLPPCounter
                 if (e is NullReferenceException || e is ArgumentNullException)
                     Plugin.Log.Debug($"NULL CHECKS: theCounter null? {theCounter is null} || scoringElement null? {scoringElement is null} || InitTask is null? {InitTask is null} || TimeLooper is null? {TimeLooper is null} || scoringElement.NoteData is null? {scoringElement?.noteData is null}");
             }
+            finally
+            {
+                if (pc.UpdateAfterTime)
+                    TimeLooper.Resume();
+            }
         }
         private void OnNoteScoredInternal(ScoringElement scoringElement)
         {
             if (scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb)
                 return;
-            bool enteredLock = InitTask.IsCompleted && pc.UpdateAfterTime && Monitor.TryEnter(TimeLooper.Locker); //This is to make sure timeLooper is paused, not to pause this thread.
             NoteData.ScoringType st = scoringElement.noteData.scoringType;
             currentNote = scoringElement.noteData;
             if (st == NoteData.ScoringType.Ignore) goto Finish; //if scoring type is Ignore, skip this function
@@ -521,11 +528,9 @@ namespace BLPPCounter
             fcAcc = (float)fcTotalHitscore / maxHitscore;
         //Plugin.Log.Info($"Note #{notes} ({st}): {cutScore} / {maxCutScore}" + (offset != 0 ? $" (shifted max from {scoringElement.maxPossibleCutScore})" : ""));
         Finish:
-            if (enteredLock) Monitor.Exit(TimeLooper.Locker);
             if (!InitTask.IsCompleted) return;
             theCounter.SoftUpdate(acc, notes, mistakes, fcAcc, currentNote);
             if (!pc.UpdateAfterTime) theCounter.UpdateCounter(acc, notes, mistakes, fcAcc, currentNote);
-            else TimeLooper.SetStatus(false);
         }
 #if !NEW_VERSION
         private void OnSliderSpawn(SliderController sc)
@@ -551,9 +556,9 @@ namespace BLPPCounter
         }
         private void SetTimeLooper()
         {
-            TimeLooper.Delay = (int)(pc.UpdateTime * 1000);
+            TimeLooper.DelayMs = (int)(pc.UpdateTime * 1000);
             int currentNotes = 0;
-            TimeLooper.GenerateTask(() =>
+            TimeLooper.SetAction(() =>
             {
                 if (currentNotes == notes) return true;
                 theCounter.UpdateCounter(acc, notes, mistakes, fcAcc, currentNote);
