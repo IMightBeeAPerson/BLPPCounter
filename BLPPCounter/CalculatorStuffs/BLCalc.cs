@@ -80,7 +80,7 @@ namespace BLPPCounter.CalculatorStuffs
             float outp = CalculateX(deflatedPp, techRating, accRating);
             return precision >= 0 ? (float)Math.Round(outp * 100.0f, precision) : outp;
         }
-        public override float GetAccDeflated(float deflatedPp, JToken diffData, SongSpeed speed, float modMult = 1.0f, int precision = -1)
+        public override float GetAccDeflated(float deflatedPp, JObject diffData, SongSpeed speed, float modMult = 1.0f, int precision = -1)
         {
             float outp = GetAccDeflated(deflatedPp, precision, BLAPI.Instance.GetRatings(diffData, speed, modMult));
             return precision >= 0 ? (float)Math.Round(outp * 100.0f, precision) : outp;

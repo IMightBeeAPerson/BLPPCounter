@@ -70,7 +70,7 @@ namespace BLPPCounter.Utils.Misc_Classes
         private bool _HasEndColumn = false;
         private bool _CenterText = true;
         private int _MaxWidth = -1; //<= 0 means no max width
-        private Color _HighlightColor = new Color(1, 1, 0, 0.5f); //Color used when highlighting text.
+        private Color _HighlightColor = new(1, 1, 0, 0.5f); //Color used when highlighting text.
 
         public readonly TextMeshProUGUI Container;
         private string[][] Values; //Values given to be in the table. Can only be set so that no one can just change a value without notifying this object.
@@ -114,8 +114,8 @@ namespace BLPPCounter.Utils.Misc_Classes
             Container = container;
             Values = values;
             Names = names;
-            HighlightQueue = new HashSet<(int, int)>();
-            UsedHighlights = new HashSet<(int, int)>();
+            HighlightQueue = [];
+            UsedHighlights = [];
 
             SpacingValues = HelpfulMisc.CreateSquareMatrix<float>(Values.Length + 1, Names.Length); //+1 because this also stores values for the Names array.
             TableValues = HelpfulMisc.CreateSquareMatrix<string>(Values.Length + 1, Names.Length);
@@ -133,7 +133,7 @@ namespace BLPPCounter.Utils.Misc_Classes
 
             //Setup the button adder variables
             CurrentButtonColumn = -1;
-            TableButtons = new List<Button>();
+            TableButtons = [];
 
             //This is a special line to fix an error in the font where people don't set the width for spaces, which screws up highlighting.
             if (Container.font.characterLookupTable[' '].glyph.metrics.width == 0) Container.font.MakeSpacesHaveSpace();
@@ -212,14 +212,14 @@ namespace BLPPCounter.Utils.Misc_Classes
         {
             HighlightQueue.Clear(); //No matter what, remove all queued highlights from queue.
             if (!FormattingUpdated) return; //If formatting isn't updated, meaning TableValues could be null, do not proceed.
-            Regex r = new Regex("</?mark[^>]*>"); //Simple regex that finds any <mark> tag.
+            Regex r = new("</?mark[^>]*>"); //Simple regex that finds any <mark> tag.
             foreach ((int, int) highlight in UsedHighlights) //Iterates through all highlights in use.
                 TableValues[highlight.Item1][highlight.Item2] = r.Replace(TableValues[highlight.Item1][highlight.Item2], ""); //Removes the highlight from TableValues using the regex replace.
             UsedHighlights.Clear(); //Clears used highlights once they are all back into the queue.
         }
         private void RequeueHighlights()
         {
-            Regex r = new Regex("</?mark[^>]*>"); //Simple regex that finds any <mark> tag.
+            Regex r = new("</?mark[^>]*>"); //Simple regex that finds any <mark> tag.
             foreach ((int, int) highlight in UsedHighlights) //Iterates through all highlights in use.
             {
                 TableValues[highlight.Item1][highlight.Item2] = r.Replace(TableValues[highlight.Item1][highlight.Item2], ""); //Removes the highlight from TableValues using the regex replace.
@@ -250,7 +250,7 @@ namespace BLPPCounter.Utils.Misc_Classes
 
             // Destroy old buttons
             foreach (Button b in TableButtons)
-                if (!(b is null)) UnityEngine.Object.Destroy(b.gameObject);
+                if (b is not null) UnityEngine.Object.Destroy(b.gameObject);
             TableButtons.Clear();
 
             // Force TMP mesh update
@@ -280,7 +280,7 @@ namespace BLPPCounter.Utils.Misc_Classes
             float xOffset = -TableWidth / 2f + columnStart + (column >= Names.Length ? columnWidth : MaxLengths[column]) / 2f;
 
             // --- Add in the extra column ---
-            if (!(columnName is null))
+            if (columnName is not null)
             {
                 Names = Names.InsertElement(column, columnName);
                 MaxLengths = MaxLengths.InsertElement(column, columnWidth);
@@ -331,9 +331,9 @@ namespace BLPPCounter.Utils.Misc_Classes
                 }
                 TableButtons.Add(btn);
             }
-            if (HasButtonsBeenAdded || !(columnName is null))
+            if (HasButtonsBeenAdded || columnName is not null)
                 ContainerUpdated = false;
-            if (!(columnName is null))
+            if (columnName is not null)
                 CurrentButtonColumn = column;
             else CurrentButtonColumn = -1;
         }
@@ -378,9 +378,9 @@ namespace BLPPCounter.Utils.Misc_Classes
         }
         private void CalculateRowSpacing(int columnIndex)
         {
-            float[] columnLengths = Values.Select(arr => GetLenWithoutRich(arr[columnIndex])).Prepend(GetLenWithoutRich(Names[columnIndex])).ToArray();
+            float[] columnLengths = [.. Values.Select(arr => GetLenWithoutRich(arr[columnIndex])).Prepend(GetLenWithoutRich(Names[columnIndex]))];
             if (columnIndex != CurrentButtonColumn)
-                MaxLengths[columnIndex] = columnLengths.Aggregate((total, current) => Math.Max(total, current));
+                MaxLengths[columnIndex] = columnLengths.Aggregate(Math.Max);
             for (int j = 0; j < columnLengths.Length; j++) 
                 SpacingValues[j][columnIndex] = MaxLengths[columnIndex] - columnLengths[j];
         }
@@ -417,7 +417,7 @@ namespace BLPPCounter.Utils.Misc_Classes
         }
         private void UpdateFormatting()
         {
-            string space = new string(' ', Spaces); //Set space to the amount of Spaces. 
+            string space = new(' ', Spaces); //Set space to the amount of Spaces. 
             Prefix = $"|{space}"; //Sets prefix based on Spaces.
             Format = _CenterText ? "<space={1}px>{0}<space={2}px>" : "{0}<space={1}px>"; //Sets Format based on CenterText.
             Spacer = $"{space}|{space}"; //Sets Spacer based on Spaces.
@@ -426,7 +426,7 @@ namespace BLPPCounter.Utils.Misc_Classes
 
         public override string ToString()
         {
-            string space = new string(' ', Spaces); //Converts Spaces from an int into the actual amount of spaces
+            string space = new(' ', Spaces); //Converts Spaces from an int into the actual amount of spaces
             string[] rows = new string[Values.Length + 2]; //This is the actual rows the table will show, including the dividing dash line.
 
             bool softUpdate = SoftUpdate; //Need to store this variable here in case UpdateValues changes its value.

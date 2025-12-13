@@ -68,8 +68,8 @@ namespace BLPPCounter.CalculatorStuffs
         public override int RatingCount => 1;
         public override bool UsesModifiers => false;
         public override string Label => "AP";
-        public override string[] StarLabels { get; } = new string[1] { "<color=#00FF00>Complexity</color>" };
-        public static readonly APCalc Instance = new APCalc();
+        public override string[] StarLabels { get; } = ["<color=#00FF00>Complexity</color>"];
+        public static readonly APCalc Instance = new();
         private APCalc()
         {
             PointList.Reverse();
@@ -82,7 +82,7 @@ namespace BLPPCounter.CalculatorStuffs
             float outp = InvertCurve(deflatedPp / ((ratings[0] + 18) * 61));
             return precision < 0 ? outp : (float)Math.Round(outp * 100.0f, precision);
         }
-        public override float GetAccDeflated(float deflatedPp, JToken diffData, GameplayModifiers.SongSpeed speed = GameplayModifiers.SongSpeed.Normal, float modMult = 1, int precision = -1)
+        public override float GetAccDeflated(float deflatedPp, JObject diffData, GameplayModifiers.SongSpeed speed = GameplayModifiers.SongSpeed.Normal, float modMult = 1, int precision = -1)
         {
             float outp = GetAccDeflated(deflatedPp, precision, APAPI.Instance.GetRatings(diffData, speed, modMult));
             return precision >= 0 ? (float)Math.Round(outp * 100.0f, precision) : outp;

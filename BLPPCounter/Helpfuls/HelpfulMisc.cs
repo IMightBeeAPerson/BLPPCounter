@@ -1082,7 +1082,7 @@ namespace BLPPCounter.Helpfuls
             Match regexSpeed = Regex.Match(mods.ToLower(), "fs|sf|ss");
             return regexSpeed.Success ? GetModifierFromShortname(regexSpeed.Value) : SongSpeed.Normal;
         }
-        public static (SongSpeed speed, float modMult) ParseModifiers(string mods, JToken modifierData, bool allowNoFail = false, char delimiter = ',')
+        public static (SongSpeed speed, float modMult) ParseModifiers(string mods, JObject modifierData, bool allowNoFail = false, char delimiter = ',')
         {
             mods = mods.ToLower();
             Match regexSpeed = Regex.Match(mods, "fs|sf|ss");

@@ -653,7 +653,7 @@ namespace BLPPCounter
         }
         public static MapSelection GetDifficulty(Map m, BeatmapDifficulty diff, Leaderboards leaderboard, string mode = "Standard", GameplayModifiers mods = null, bool quiet = false)
         {
-            (_, JToken diffData) = m.Get(mode, diff);
+            (_, JObject diffData) = m.Get(mode, diff);
             if (!SetupMapData(diffData, leaderboard, out float[] ratings, mods, quiet)) return default;
             return new MapSelection(m, diff, mode, mods?.songSpeed ?? SongSpeed.Slower, leaderboard, ratings);
         }
@@ -898,7 +898,7 @@ namespace BLPPCounter
                     JEnumerable<JToken> results = JObject.Parse(File.ReadAllText(HelpfulPaths.BL_CACHE_FILE))["Entries"].Children();
                     foreach (JToken result in results)
                     {
-                        Map map = new Map(result["SongInfo"]["hash"].ToString().ToUpper(), (string)result["LeaderboardId"], result["DifficultyInfo"]);
+                        Map map = new(result["SongInfo"]["hash"].ToString().ToUpper(), (string)result["LeaderboardId"], result["DifficultyInfo"] as JObject);
                         if (Data.ContainsKey(map.Hash))
                             Data[map.Hash].Combine(map);
                         else Data[map.Hash] = map;
@@ -932,9 +932,9 @@ namespace BLPPCounter
                     if (!ssRanked && !apRanked) continue;
                     Map apMap = null, ssMap = null;
                     if (apRanked)
-                        apMap = new Map(result["hash"].ToString().ToUpper(), Map.AP_MODE_NAME, Map.FromValue(int.Parse(result["difficulty"].ToString())), result["scoreSaberID"].ToString(), result);
+                        apMap = new Map(result["hash"].ToString().ToUpper(), Map.AP_MODE_NAME, Map.FromValue(int.Parse(result["difficulty"].ToString())), result["scoreSaberID"].ToString(), result as JObject);
                     if (ssRanked)
-                        ssMap = new Map(result["hash"].ToString().ToUpper(), Map.SS_MODE_NAME, Map.FromValue(int.Parse(result["difficulty"].ToString())), result["scoreSaberID"].ToString(), result);
+                        ssMap = new Map(result["hash"].ToString().ToUpper(), Map.SS_MODE_NAME, Map.FromValue(int.Parse(result["difficulty"].ToString())), result["scoreSaberID"].ToString(), result as JObject);
                     Map map = ssRanked && apRanked ? Map.Combine(apMap, ssMap) : ssRanked ? ssMap : apMap;
                     if (Data.ContainsKey(map.Hash))
                         Data[map.Hash].Combine(map);
@@ -968,7 +968,7 @@ namespace BLPPCounter
         }
         private bool SetupMapData(CancellationToken ct)
         {
-            JToken data;
+            JObject data;
             string songId;
 #if NEW_VERSION
             mode = SelectMode(beatmapDiff.beatmapCharacteristic.serializedName, Leaderboard); 
@@ -986,11 +986,11 @@ namespace BLPPCounter
                     return false;
                 }
 #if NEW_VERSION
-                Dictionary<string, (string, JToken)> hold = theMap.Get(beatmapDiff.difficulty); // 1.37.0 and above
+                Dictionary<string, (string, JObject)> hold = theMap.Get(beatmapDiff.difficulty); // 1.37.0 and above
 #else
-                Dictionary<string, (string, JToken)> hold = theMap.Get(beatmap.difficulty); // 1.34.2 and below
+                Dictionary<string, (string, JObject)> hold = theMap.Get(beatmap.difficulty); // 1.34.2 and below
 #endif
-                if (!hold.TryGetValue(mode, out (string, JToken) holdInfo))
+                if (!hold.TryGetValue(mode, out (string, JObject) holdInfo))
                 {
                     Plugin.Log.Warn($"The mode '{mode}' doesn't exist.\nKeys: [{string.Join(", ", hold.Keys)}]");
                     return false;
@@ -1008,7 +1008,7 @@ namespace BLPPCounter
             Plugin.Log.Info("Map Hash: " + hash);
             return SetupMapData(data);
         }
-        private bool SetupMapData(JToken data)
+        private bool SetupMapData(JObject data)
         {
             if (!SetupMapData(data, Leaderboard, out float[] ratings, mods))
                 return false;
@@ -1025,7 +1025,7 @@ namespace BLPPCounter
         /// <param name="mods">What mods are used in the map (defaults to null for no mods).</param>
         /// <param name="quiet">Whether or not for this function to print out the ratings to read.</param>
         /// <returns>Whether or not the ratings were loaded successfully.</returns>
-        public static bool SetupMapData(JToken data, Leaderboards leaderboard, out float[] ratings, GameplayModifiers mods = null, bool quiet = false)
+        public static bool SetupMapData(JObject data, Leaderboards leaderboard, out float[] ratings, GameplayModifiers mods = null, bool quiet = false)
         {
             if (data is null || data.ToString().Length <= 0)
             {
@@ -1061,7 +1061,7 @@ namespace BLPPCounter
             }
             
         }
-        public static float GetStarMultiplier(JToken data, GameplayModifiers mods)
+        public static float GetStarMultiplier(JObject data, GameplayModifiers mods)
         {
             if (!Calculator.GetCalc(Leaderboard).UsesModifiers || mods is null) return 1.0f;
             float outp = 1.0f;

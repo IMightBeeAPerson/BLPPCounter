@@ -47,7 +47,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 #else
         private IDifficultyBeatmap CurrentMap; // 1.34.2 and below
 #endif
-        private (JToken Diffdata, JToken Scoredata) CurrentDiff;
+        private (JObject Diffdata, JObject Scoredata) CurrentDiff;
         private AsyncLock RefreshLock = new(), ProfileLock = new();
         private bool SelectButtonsOn = false;
         internal Leaderboards CurrentLeaderboard { get; private set; } = PC.CalcLeaderboard;
@@ -201,7 +201,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             set
             {
                 _APSetting = (APCategory)Enum.Parse(typeof(APCategory), value);
-                Task.Run(() => UpdateProfile());
+                Task.Run(UpdateProfile);
             }
         }
         [UIValue(nameof(APCategorySettings))] private List<object> APCategorySettings = [.. Enum.GetNames(typeof(APCategory)).Skip(1).Cast<object>()];
@@ -550,7 +550,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             string mode = CurrentMap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName; // 1.34.2 and below
 #endif
             string hash = Sldvc.beatmapLevel.levelID.Split('_')[2];
-            JToken scoreData = await CurrentAPI.GetScoreData(
+            JObject scoreData = await CurrentAPI.GetScoreData(
                 Targeter.TargetID,
                 hash,
                 CurrentMap.difficulty.ToString().Replace("+", "Plus"),
@@ -559,7 +559,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 ).ConfigureAwait(false);
             TargetHasScore = scoreData is not null;
             if (!TargetHasScore) { await UpdateDiff().ConfigureAwait(false); return 0.0f; } //target doesn't have a score on this diff.
-            JToken diffData = null;
+            JObject diffData = null;
             try
             {
                 string actualMode = TheCounter.SelectMode(mode, CurrentLeaderboard);
@@ -600,7 +600,8 @@ namespace BLPPCounter.Settings.SettingHandlers
             Calculator calc = CurrentCalculator;
             string[][] arr = new string[] { "<color=red>Slower</color>", "<color=#aaa>Normal</color>", "<color=#0F0>Faster</color>", "<color=#FFD700>Super Fast</color>" }.RowToColumn(3);
             //ss-sf, [star, acc, pass, tech] (selects by leaderboard)
-            float[] ratings = [.. HelpfulPaths.GetAllRatings(CurrentDiff.Diffdata.TryEnter("difficulty"), calc).SelectMany(rating => rating.SelectedRatings)];
+            JObject data = IsBL ? CurrentDiff.Diffdata.TryEnter("difficulty") as JObject : CurrentDiff.Diffdata;
+            float[] ratings = [.. HelpfulPaths.GetAllRatings(data, calc).SelectMany(rating => rating.GetRatings(calc.Leaderboard)).Where(num => num > 0f)];
             if (!UsesMods)
             {
                 float[] newArr = new float[ratings.Length * 4];
@@ -614,7 +615,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 ratings = newArr;
             }
             int len = ratings.Length / 4; //divide by 4 because 3 speed mods + 1 no mod
-            //Plugin.Log.Info($"rating len: {ratings.Length}, len: {len}");
+            //Plugin.Log.Info($"rating len: {ratings.Length}, len: {len}, ratings: {ratings.Print()}");
             for (int i = 0; i < arr.Length; i++)
                 arr[i][1] = "<color=#0c0>" + valueCalc.Invoke([.. ratings.Skip(i * len).Take(len)]) + "</color>" + suffix;
             if (!Mathf.Approximately(CurrentModMultiplier, 1.0f)) for (int i = 0; i < arr.Length; i++)
@@ -925,7 +926,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 #endif
             string actualModeName = TheCounter.SelectMode(modeName, CurrentLeaderboard);
             Map map = mapFailed ? null : await TheCounter.GetMap(hash, actualModeName, CurrentLeaderboard, true);
-            (string MapId, JToken Data) val = default;
+            (string MapId, JObject Data) val = default;
             bool failed = !(map?.TryGet(actualModeName, diff, out val) ?? false);
             if (failed)
             {
@@ -938,7 +939,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 }
             }
             BeatmapID = val.MapId;
-            JToken tokens = val.Data;
+            JObject tokens = val.Data;
             TrueBeatmapID =  BLAPI.CleanUpId(IsBL || failed ? _BeatmapID : (await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader, true)).Get(modeName ?? "Standard", CurrentMap.difficulty).MapId);
             //Plugin.Log.Info("CurrentMap\n" + map);
             CurrentDiff = (tokens, CurrentDiff.Scoredata);

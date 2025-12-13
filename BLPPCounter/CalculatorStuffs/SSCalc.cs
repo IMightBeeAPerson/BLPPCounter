@@ -69,7 +69,7 @@ namespace BLPPCounter.CalculatorStuffs
             float outp = InvertCurve(deflatedPp / (SecretMultiplier * ratings[0]));
             return precision < 0 ? outp : (float)Math.Round(outp * 100.0f, precision);
         }
-        public override float GetAccDeflated(float deflatedPp, JToken diffData, GameplayModifiers.SongSpeed speed = GameplayModifiers.SongSpeed.Normal, float modMult = 1, int precision = -1)
+        public override float GetAccDeflated(float deflatedPp, JObject diffData, GameplayModifiers.SongSpeed speed = GameplayModifiers.SongSpeed.Normal, float modMult = 1, int precision = -1)
         {
             float outp = GetAccDeflated(deflatedPp, precision, SSAPI.Instance.GetRatings(diffData, speed, modMult));
             return precision >= 0 ? (float)Math.Round(outp * 100.0f, precision) : outp;

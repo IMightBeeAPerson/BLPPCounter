@@ -154,9 +154,9 @@ namespace BLPPCounter.CalculatorStuffs
         /// <param name="ratings">The rating values. This should match with the leaderboards index (for BL it should be 3, for SS it should 1, etc).</param>
         /// <returns>Returns all pp for each type of rating. There is also the summed and inflated pp as the last element in <paramref name="ratings"/>.</returns>
         public float[] GetPpWithSummedPp(float acc, RatingContainer ratings) =>
-            RatingCount == 1 ? GetPp(acc, ratings) : GetPp(acc, ratings).Append(Inflate(GetSummedPp(acc, ratings))).ToArray();
+            RatingCount == 1 ? GetPp(acc, ratings) : [.. GetPp(acc, ratings), Inflate(GetSummedPp(acc, ratings))];
         public float[] GetPpWithSummedPp(float acc, params float[] ratings) =>
-            RatingCount == 1 ? GetPp(acc, ratings) : GetPp(acc, ratings).Append(Inflate(GetSummedPp(acc, ratings))).ToArray();
+            RatingCount == 1 ? GetPp(acc, ratings) : [.. GetPp(acc, ratings), Inflate(GetSummedPp(acc, ratings))];
         public float[] GetPpWithSummedPp(float acc) => GetPpWithSummedPp(acc, Ratings);
         /// <summary>
         /// Calculates the pp for given ratings and accuracy, then rounds them to the number of decimals given.
@@ -166,20 +166,20 @@ namespace BLPPCounter.CalculatorStuffs
         /// <param name="precision">This the number of decimals to round the numbers to.</param>
         /// <returns>Returns all pp for each type of rating. There is also the summed and inflated pp as the last element in the array.</returns>
         public float[] GetPpWithSummedPp(float acc, int precision, RatingContainer ratings) =>
-            RatingCount == 1 ? GetPp(acc, precision, ratings) : GetPp(acc, precision, ratings).Append((float)Math.Round(Inflate(GetSummedPp(acc, ratings)), precision)).ToArray();
+            RatingCount == 1 ? GetPp(acc, precision, ratings) : [.. GetPp(acc, precision, ratings), (float)Math.Round(Inflate(GetSummedPp(acc, ratings)), precision)];
         public float[] GetPpWithSummedPp(float acc, int precision, params float[] ratings) =>
-            RatingCount == 1 ? GetPp(acc, precision, ratings) : GetPp(acc, precision, ratings).Append((float)Math.Round(Inflate(GetSummedPp(acc, ratings)), precision)).ToArray();
+            RatingCount == 1 ? GetPp(acc, precision, ratings) : [.. GetPp(acc, precision, ratings), (float)Math.Round(Inflate(GetSummedPp(acc, ratings)), precision)];
         public float[] GetPpWithSummedPp(float acc, int precision) => GetPpWithSummedPp(acc, precision, Ratings);
         public abstract float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings);
         public float GetAccDeflated(float deflatedPp, RatingContainer ratings, int precision = -1) => GetAccDeflated(deflatedPp, precision, ratings.SelectedRatings);
         public float GetAccDeflated(float deflatedPp, int precision = -1) => GetAccDeflated(deflatedPp, Ratings, precision);
-        public abstract float GetAccDeflated(float deflatedPp, JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1.0f, int precision = -1);
+        public abstract float GetAccDeflated(float deflatedPp, JObject diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1.0f, int precision = -1);
         public float GetAcc(float inflatedPp, RatingContainer ratings, int precision = -1) =>
             GetAccDeflated(Deflate(inflatedPp), ratings, precision);
         public float GetAcc(float inflatedPp, int precision = -1, params float[] ratings) =>
             GetAccDeflated(Deflate(inflatedPp), precision, ratings);
         public float GetAcc(float inflatedPp, int precision = -1) => GetAcc(Deflate(inflatedPp), Ratings, precision);
-        public float GetAcc(float inflatedPp, JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1.0f, int precision = -1) =>
+        public float GetAcc(float inflatedPp, JObject diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1.0f, int precision = -1) =>
             GetAccDeflated(Deflate(inflatedPp), diffData, speed, modMult, precision);
         public abstract float Inflate(float deflatedPp);
         public abstract float Deflate(float inflatedPp);
@@ -188,20 +188,13 @@ namespace BLPPCounter.CalculatorStuffs
         public float CurveDerivative(float acc) => GetCurveDerivative(acc, PointList);
         #region Static Methods
         public static Calculator GetSelectedCalc() => GetCalc(TheCounter.Leaderboard);
-        public static Calculator GetCalc(Leaderboards leaderboard)
+        public static Calculator GetCalc(Leaderboards leaderboard) => leaderboard switch
         {
-            switch(leaderboard)
-            {
-                case Leaderboards.Beatleader:
-                    return BLCalc.Instance;
-                case Leaderboards.Scoresaber:
-                    return SSCalc.Instance;
-                case Leaderboards.Accsaber:
-                    return APCalc.Instance;
-                default:
-                    return null;
-            }
-        }
+            Leaderboards.Beatleader => BLCalc.Instance,
+            Leaderboards.Scoresaber => SSCalc.Instance,
+            Leaderboards.Accsaber => APCalc.Instance,
+            _ => null,
+        };
         public static float GetCurve(float acc, List<(double, double)> curve)
         {
             int i = 1;
@@ -228,7 +221,7 @@ namespace BLPPCounter.CalculatorStuffs
             ((ScoringType[])Enum.GetValues(typeof(ScoringType))).Aggregate(-1, (total, current) => Math.Max(total, (int)current));
         private static readonly int ExtendedScoringTypeMax =
             ((ExtendedScoringType[])Enum.GetValues(typeof(ExtendedScoringType))).Aggregate(-1, (total, current) => Math.Max(total, (int)current));
-        private static readonly Dictionary<ExtendedScoringType, NoteScoreDefinition> ExtendedNoteScoreDefinition = new Dictionary<ExtendedScoringType, NoteScoreDefinition>()
+        private static readonly Dictionary<ExtendedScoringType, NoteScoreDefinition> ExtendedNoteScoreDefinition = new()
         {
 #if !NEWER_VERSION
             {ExtendedScoringType.ArcHeadArcTail, new NoteScoreDefinition(15, 70, 70, 30, 30, 0) },
