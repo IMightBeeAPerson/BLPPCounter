@@ -22,6 +22,7 @@ namespace BLPPCounter.Helpfuls
          * after 11 notes:   x4, 75% filled,  score: 3,335 + 115 * 4 = 3,795 
          * after 12 notes:   x4, 87.5% filled,  score: 3,795 + 115 * 4 = 4,225
          * after 13 notes:   x8, 0% filled,  score: 4,225 + 115 * 4 = 4,715 (13th note is x4)
+         
          * for all notes 14 and beyond, multiplier is x8, each note adds 115 * 8 = 920
          * after 14 notes:    x8, 0% filled, score: 4,715 + 920 = 5,635
          */

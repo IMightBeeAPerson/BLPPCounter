@@ -6,82 +6,154 @@ namespace BLPPCounter.Utils.Misc_Classes
 {
     internal class TimeLooper
     {
-        private ManualResetEvent waiter;
-        private Task task;
-        private Action lastTaskAction;
-        private CancellationTokenSource cts;
-        public int Delay;
-        public readonly object Locker;
-        public bool IsPaused { get; private set; }
-        public TimeLooper(Action task, int msDelay) : this(msDelay)
-        {
-            GenerateTask(task).GetAwaiter().GetResult();
-        }
-        public TimeLooper(Func<bool> task, int msDelay) : this(msDelay)
-        {
-            GenerateTask(task).GetAwaiter().GetResult();
-        }
-        public TimeLooper(int msDelay)
-        {
-            Delay = msDelay;
-            Locker = new object();
-            task = Task.CompletedTask;
-        }
-        public TimeLooper() : this(0) { }
+#pragma warning disable CS4014 // Start calls inside of constructors do not need to be awaited
+        private CancellationTokenSource cts = new();
+        private Task loopTask = Task.CompletedTask;
+        private Action mainAction;
 
-        public async Task GenerateTask(Action task)
+        private TaskCompletionSource<bool> pauseTcs;
+
+        public bool IsPaused { get; set; }
+        public int DelayMs { get; set; }
+
+        public TimeLooper() { }
+
+        public TimeLooper(Action action, int delayMs)
         {
-            if (!this.task.IsCompleted)
-                await End();
-            waiter = new ManualResetEvent(false); //set == resume, reset == pause. Starts out in paused state.
-            IsPaused = true;
-            cts = new CancellationTokenSource();
-            CancellationToken ct = cts.Token;
-            lastTaskAction = task;
-            this.task = Task.Run(() =>
-            {
-                while (true)
-                {
-                    waiter.WaitOne();
-                    lock (Locker)
-                    {
-                        if (!ct.IsCancellationRequested)
-                            task.Invoke();
-                    }
-                    if (ct.IsCancellationRequested) return; //double break is so that we don't need to wait for Delay before ending nor will it execute the task if ended while paused
-                    Thread.Sleep(Delay);
-                }
-            }, ct);
+            SetAction(action);
+            DelayMs = delayMs;
+            Start();
         }
-        public Task GenerateTask(Func<bool> task) =>
-            GenerateTask(() =>
-            {
-                if (task.Invoke()) SetStatus(true);
-            });
-        private Task GenerateTask() => GenerateTask(lastTaskAction);
-        public void SetStatus(bool isPaused)
+
+        public TimeLooper(Func<bool> func, int delayMs)
         {
-            if (IsPaused == isPaused) return;
-            if (isPaused) waiter.Reset(); else waiter.Set();
-            IsPaused = isPaused;
+            SetAction(func);
+            DelayMs = delayMs;
+            Start();
         }
+
+        public void SetAction(Action action)
+        {
+            mainAction = action ?? throw new ArgumentNullException(nameof(action));
+        }
+
+        public void SetAction(Func<bool> func)
+        {
+            if (func is null)
+                throw new ArgumentNullException(nameof(func));
+            mainAction = () =>
+            {
+                if (func())
+                    PauseAsync();
+                else
+                    Resume();
+            };
+        }
+
+        // ───────────────────────────────────────────────────────────
+        // Start / Stop
+        // ───────────────────────────────────────────────────────────
         public async Task Start()
         {
-            if (!task.IsCompleted)
-                await End();
-            await GenerateTask();
+            await End();
+            cts = new CancellationTokenSource();
+            loopTask = Task.Run(async () => await LoopAsync(cts.Token), cts.Token);
         }
-        public Task End()
+
+        public async Task End()
         {
-            return Task.Run(async () =>
+            if (loopTask.IsCompleted)
+                return;
+
+            try
             {
                 cts.Cancel();
-                SetStatus(false);
-                await task;
+                await loopTask;
+            }
+            catch (OperationCanceledException)
+            {
+                // expected
+            }
+            finally
+            {
                 cts.Dispose();
-                waiter.Dispose();
-            });
-            
+            }
+        }
+
+        // ───────────────────────────────────────────────────────────
+        // Pause / Resume
+        // ───────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Pauses the loop and returns a Task that completes
+        /// ONCE the loop acknowledges it is paused.
+        /// </summary>
+        public Task PauseAsync()
+        {
+            if (IsPaused)
+                return Task.CompletedTask;
+
+            IsPaused = true;
+            pauseTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            return pauseTcs.Task;
+        }
+
+        /// <summary>
+        /// Synchronous pause (if you can't use async in the caller).
+        /// </summary>
+        public void Pause()
+        {
+            PauseAsync().GetAwaiter().GetResult();
+        }
+
+        public void Resume()
+        {
+            if (!IsPaused)
+                return;
+
+            IsPaused = false;
+            // loop continues automatically
+        }
+
+        // ───────────────────────────────────────────────────────────
+        // Internal Loop
+        // ───────────────────────────────────────────────────────────
+        private async Task LoopAsync(CancellationToken ct)
+        {
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    // Handle pause
+                    if (IsPaused)
+                    {
+                        // Signal that the pause is recognized
+                        pauseTcs?.TrySetResult(true);
+
+                        // Stay paused until Resume() or cancellation
+                        await Task.Delay(10, ct);
+
+                        continue;
+                    }
+
+                    // Execute action
+                    try
+                    {
+                        mainAction?.Invoke();
+                    }
+                    catch (Exception ex)
+                    {
+                        Plugin.Log.Error(ex);
+                    }
+
+                    // Delay before next run
+                    await Task.Delay(DelayMs, ct);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // expected on cancellation
+            }
         }
     }
 }

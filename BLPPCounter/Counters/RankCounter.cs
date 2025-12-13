@@ -25,9 +25,6 @@ namespace BLPPCounter.Counters
         public static string DisplayHandler => DisplayName;
         private static PluginConfig PC => PluginConfig.Instance;
 
-        /// <summary>
-        /// fc, extraInfo, isNum1, pp, fcpp, rank, ppDiff, percentDiff, color, label
-        /// </summary>
         private static Func<FormatWrapper, string> displayRank;
         private static Func<Func<FormatWrapper, string>> rankIniter;
         private static FormatWrapper rankWrapper;
@@ -103,21 +100,22 @@ namespace BLPPCounter.Counters
             APIHandler api = GetSelectedAPI();
             mapData = api.GetScoregraph(map, ct).GetAwaiter().GetResult();
             bool isUnranked = mapData[0].PP <= 0 || TheCounter.Leaderboard == Leaderboards.Accsaber;
-            for (int i = 0; i < mapData.Length; i++)
-            {
-                if (!isUnranked && (TheCounter.Leaderboard != Leaderboards.Beatleader || mapData[i].Speed == map.MapSpeed))
-                    continue;
-                if (TheCounter.Leaderboard == Leaderboards.Beatleader)
+            if (calc.UsesModifiers)
+                for (int i = 0; i < mapData.Length; i++)
                 {
-                    float[] specificPps = calc.GetPpWithSummedPp(mapData[i].Acc, HelpfulPaths.GetAllRatingsOfSpeed(map.MapData.diffData, calc, mapData[i].Speed));
-                    mapData[i].ChangePP(
-                        BLCalc.Instance.GetAccDeflatedUnsafe(specificPps[0] + specificPps[1] + specificPps[2], PC.DecimalPrecision, ratings.SelectedRatings) / 100f,
-                        (float)Math.Round(specificPps[3], PC.DecimalPrecision));
+                    if (!isUnranked && (TheCounter.Leaderboard != Leaderboards.Beatleader || mapData[i].Speed == map.MapSpeed))
+                        continue;
+                    if (TheCounter.Leaderboard == Leaderboards.Beatleader)
+                    {
+                        float[] specificPps = calc.GetPpWithSummedPp(mapData[i].Acc, HelpfulPaths.GetAllRatingsOfSpeed(map.MapData.diffData, calc, mapData[i].Speed));
+                        mapData[i].ChangePP(
+                            BLCalc.Instance.GetAccDeflatedUnsafe(specificPps[0] + specificPps[1] + specificPps[2], PC.DecimalPrecision, ratings.SelectedRatings) / 100f,
+                            (float)Math.Round(specificPps[3], PC.DecimalPrecision));
+                    }
+                    else mapData[i].ChangePP(mapData[i].Acc, (float)Math.Round(calc.Inflate(calc.GetSummedPp(mapData[i].Acc, ratings.SelectedRatings)), PC.DecimalPrecision));
                 }
-                else mapData[i].ChangePP(mapData[i].Acc, (float)Math.Round(calc.Inflate(calc.GetSummedPp(mapData[i].Acc, ratings.SelectedRatings)), PC.DecimalPrecision));
-            }
-            Array.Sort(mapData, (a,b) => (b.PP - a.PP) < 0 ? -1 : 1);
-            rankArr = [.. mapData.Select(t => t.PP)];
+            Array.Sort(mapData, (a,b) => (calc.UsesModifiers ? b.PP - a.PP : b.Acc - a.Acc) < 0 ? -1 : 1);
+            rankArr = [.. mapData.Select(t => calc.UsesModifiers ? t.PP : t.Acc)];
             //Plugin.Log.Debug($"[{string.Join(", ", mapData.Select(t => (t.acc, t.pp)))}]");
             ppHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 1)
             {
@@ -174,9 +172,9 @@ namespace BLPPCounter.Counters
             rankIniter = null;
             displayRank = null;
         }
-        private int GetRank(float pp) 
+        private int GetRank(float inVal) 
         { 
-            int val = HelpfulMisc.FindInsertValueReverse(rankArr, pp);
+            int val = HelpfulMisc.FindInsertValueReverse(rankArr, inVal);
             return Mathf.Clamp(val + 1, 1, Math.Min(PC.MinRank, mapData.Length));
         }
         private ScoregraphInfo GetRankData(int rank) => mapData[Math.Max(rank - 2, 0)];
@@ -186,7 +184,7 @@ namespace BLPPCounter.Counters
         {
             ppHandler.Update(acc, mistakes, fcPercent);
 
-            int rank = GetRank(ppHandler.GetPPGroup(0).TotalPP);
+            int rank = GetRank(calc.UsesModifiers ? ppHandler.GetPPGroup(0).TotalPP : acc);
             ScoregraphInfo info = GetRankData(rank);
             float ppDiff = (float)Math.Abs(Math.Round(info.PP - ppHandler.GetPPGroup(0).TotalPP, PluginConfig.Instance.DecimalPrecision));
             float accDiff = (float)Math.Abs(Math.Round((info.Acc - acc) * 100f, PluginConfig.Instance.DecimalPrecision));
