@@ -124,15 +124,7 @@ namespace BLPPCounter.Counters
                 UpdateFCEnabled = PC.PPFC,
                 UpdatePPEnabled = displayPP
             };
-            ppHandler.UpdateFC += (fcAcc, vals, actions) => vals[1].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
-        }
-        public override void ReinitCounter(TMP_Text display, RatingContainer ratingVals)
-        {
-            base.ReinitCounter(display, ratingVals);
-        }
-        public override void ReinitCounter(TMP_Text display, MapSelection map) 
-        {
-            base.ReinitCounter(display, map);
+            ppHandler.UpdateFC += (fcAcc, vals, actions, _) => vals[1].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
         }
         #endregion
         #region Helper Methods
@@ -190,7 +182,7 @@ namespace BLPPCounter.Counters
         private ScoregraphInfo GetRankData(int rank) => mapData[Math.Max(rank - 2, 0)];
         #endregion
         #region Updates
-        public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
+        public override void UpdateCounterInternal(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
             ppHandler.Update(acc, mistakes, fcPercent);
 
@@ -199,14 +191,12 @@ namespace BLPPCounter.Counters
             float ppDiff = (float)Math.Abs(Math.Round(info.PP - ppHandler.GetPPGroup(0).TotalPP, PluginConfig.Instance.DecimalPrecision));
             float accDiff = (float)Math.Abs(Math.Round((info.Acc - acc) * 100f, PluginConfig.Instance.DecimalPrecision));
             string color = HelpfulFormatter.GetWeightedRankColor(rank);
-            string text = "";
             //Plugin.Log.Info("PPVals: " + HelpfulMisc.Print(ppVals));
             if (PC.SplitPPVals && calc.RatingCount > 1)
                 for (int i = 0; i < calc.RatingCount; i++)
-                    text += DisplayRank(ppHandler.DisplayFC, false, false, ppHandler[0, i], ppHandler[0, i],
-                        rank, info.PlayerName, ppDiff, accDiff, color, TheCounter.CurrentLabels[i]) + '\n';
-            text += DisplayRank(ppHandler.DisplayFC, PC.ExtraInfo, rank == 1, ppHandler[0], ppHandler[1], rank, info.PlayerName, ppDiff, accDiff, color, TheCounter.CurrentLabels.Last());
-            display.text = text;
+                    outpText.AppendLine(DisplayRank(ppHandler.DisplayFC, false, false, ppHandler[0, i], ppHandler[0, i],
+                        rank, info.PlayerName, ppDiff, accDiff, color, TheCounter.CurrentLabels[i]));
+            outpText.AppendLine(DisplayRank(ppHandler.DisplayFC, PC.ExtraInfo, rank == 1, ppHandler[0], ppHandler[1], rank, info.PlayerName, ppDiff, accDiff, color, TheCounter.CurrentLabels.Last()));
         }
         public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
         #endregion
