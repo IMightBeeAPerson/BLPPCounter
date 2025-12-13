@@ -99,8 +99,9 @@ namespace BLPPCounter.Counters
             string songId = map.MapData.songId;
             APIHandler api = GetSelectedAPI();
             mapData = api.GetScoregraph(map, ct).GetAwaiter().GetResult();
+            Array.Sort(mapData, (a, b) => (calc.UsesModifiers ? b.PP - a.PP : b.Acc - a.Acc) < 0 ? -1 : 1);
             bool isUnranked = mapData[0].PP <= 0 || TheCounter.Leaderboard == Leaderboards.Accsaber;
-            if (calc.UsesModifiers)
+            if (calc.UsesModifiers || isUnranked)
                 for (int i = 0; i < mapData.Length; i++)
                 {
                     if (!isUnranked && (TheCounter.Leaderboard != Leaderboards.Beatleader || mapData[i].Speed == map.MapSpeed))
@@ -114,7 +115,6 @@ namespace BLPPCounter.Counters
                     }
                     else mapData[i].ChangePP(mapData[i].Acc, (float)Math.Round(calc.Inflate(calc.GetSummedPp(mapData[i].Acc, ratings.SelectedRatings)), PC.DecimalPrecision));
                 }
-            Array.Sort(mapData, (a,b) => (calc.UsesModifiers ? b.PP - a.PP : b.Acc - a.Acc) < 0 ? -1 : 1);
             rankArr = [.. mapData.Select(t => calc.UsesModifiers ? t.PP : t.Acc)];
             //Plugin.Log.Debug($"[{string.Join(", ", mapData.Select(t => (t.acc, t.pp)))}]");
             ppHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 1)
