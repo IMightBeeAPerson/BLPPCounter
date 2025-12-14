@@ -154,9 +154,9 @@ namespace BLPPCounter.CalculatorStuffs
         /// <param name="ratings">The rating values. This should match with the leaderboards index (for BL it should be 3, for SS it should 1, etc).</param>
         /// <returns>Returns all pp for each type of rating. There is also the summed and inflated pp as the last element in <paramref name="ratings"/>.</returns>
         public float[] GetPpWithSummedPp(float acc, RatingContainer ratings) =>
-            RatingCount == 1 ? GetPp(acc, ratings) : GetPp(acc, ratings).Append(Inflate(GetSummedPp(acc, ratings))).ToArray();
+            RatingCount == 1 ? GetPp(acc, ratings) : [.. GetPp(acc, ratings), Inflate(GetSummedPp(acc, ratings))];
         public float[] GetPpWithSummedPp(float acc, params float[] ratings) =>
-            RatingCount == 1 ? GetPp(acc, ratings) : GetPp(acc, ratings).Append(Inflate(GetSummedPp(acc, ratings))).ToArray();
+            RatingCount == 1 ? GetPp(acc, ratings) : [.. GetPp(acc, ratings), Inflate(GetSummedPp(acc, ratings))];
         public float[] GetPpWithSummedPp(float acc) => GetPpWithSummedPp(acc, Ratings);
         /// <summary>
         /// Calculates the pp for given ratings and accuracy, then rounds them to the number of decimals given.
