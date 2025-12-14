@@ -600,7 +600,8 @@ namespace BLPPCounter.Settings.SettingHandlers
             Calculator calc = CurrentCalculator;
             string[][] arr = new string[] { "<color=red>Slower</color>", "<color=#aaa>Normal</color>", "<color=#0F0>Faster</color>", "<color=#FFD700>Super Fast</color>" }.RowToColumn(3);
             //ss-sf, [star, acc, pass, tech] (selects by leaderboard)
-            float[] ratings = [.. HelpfulPaths.GetAllRatings(CurrentDiff.Diffdata.TryEnter("difficulty"), calc).SelectMany(rating => rating.SelectedRatings)];
+            JToken data = IsBL ? CurrentDiff.Diffdata.TryEnter("difficulty") as JObject : CurrentDiff.Diffdata;
+            float[] ratings = [.. HelpfulPaths.GetAllRatings(data, calc).SelectMany(rating => rating.GetRatings(calc.Leaderboard)).Where(num => num > 0f)];
             if (!UsesMods)
             {
                 float[] newArr = new float[ratings.Length * 4];
