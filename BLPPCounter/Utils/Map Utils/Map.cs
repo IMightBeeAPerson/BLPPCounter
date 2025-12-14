@@ -12,46 +12,46 @@ namespace BLPPCounter.Utils.Map_Utils
         public static readonly string AP_MODE_NAME = "AP_Diff";
         private static readonly string SS_TAOH_FORMAT = "\"name\":\"{0}\",\"scoreSaberID\":{1},\"hash\":\"{2}\",\"difficulty\":\"{3}\",\"characteristic\":\"{4}\",\"starScoreSaber\":{5}";
         private static readonly string AP_TAOH_FORMAT = "\"name\":\"{0}\",\"scoreSaberID\":{1},\"hash\":\"{2}\",\"difficulty\":\"{3}\",\"characteristic\":\"{4}\",\"complexityAccSaber\":{5}";
-        private readonly Dictionary<string, Dictionary<BeatmapDifficulty, (string, JObject)>> data;
+        private readonly Dictionary<string, Dictionary<BeatmapDifficulty, (string, JToken)>> data;
         public Map(string hash) {
             Hash = hash;
             data = [];
         }
-        public Map(string hash, string songId, JObject data) {
+        public Map(string hash, string songId, JToken data) {
             Hash = hash;
             this.data = [];
             Add(songId, data);
         }
-        public Map(string hash, string mode, BeatmapDifficulty difficulty, string songId, JObject data)
+        public Map(string hash, string mode, BeatmapDifficulty difficulty, string songId, JToken data)
         {
             Hash = hash;
             this.data = [];
             Add(mode, difficulty, songId, data);
         }
-        public void Add(string songId, JObject data)
+        public void Add(string songId, JToken data)
         {
             string mode = data["modeName"].ToString();
             BeatmapDifficulty difficulty = FromValue((int)data["value"]);
             Add(mode, difficulty, songId, data);
         }
-        public void Add(string mode, BeatmapDifficulty difficulty, string songId, JObject data) {
+        public void Add(string mode, BeatmapDifficulty difficulty, string songId, JToken data) {
             if (!this.data.ContainsKey(mode) || this.data[mode] == null)
                 this.data.Add(mode, []);
             this.data[mode].Add(difficulty, (songId, data));
         }
-        public (string MapId, JObject Data) Get(string mode, BeatmapDifficulty difficulty) => data[mode][difficulty];
+        public (string MapId, JToken Data) Get(string mode, BeatmapDifficulty difficulty) => data[mode][difficulty];
         public static BeatmapDifficulty FromValue(int value) => (BeatmapDifficulty)((value + 1) / 2 - 1);
         public static int FromDiff(BeatmapDifficulty value) => ((int)value + 1) * 2 - 1;
-        public Dictionary<string, (string, JObject)> Get(BeatmapDifficulty difficulty) =>
+        public Dictionary<string, (string, JToken)> Get(BeatmapDifficulty difficulty) =>
             data.Where(kvp => kvp.Value.ContainsKey(difficulty)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value[difficulty]);
-        public bool TryGet(string mode, BeatmapDifficulty difficulty, out (string MapId, JObject Data) value)
+        public bool TryGet(string mode, BeatmapDifficulty difficulty, out (string MapId, JToken Data) value)
         {
             if (data.TryGetValue(mode, out var hold) && hold.TryGetValue(difficulty, out value))
                 return true;
             value = (default, default);
             return false;
         }
-        public bool TryGet(BeatmapDifficulty difficulty, out Dictionary<string, (string, JObject)> value) 
+        public bool TryGet(BeatmapDifficulty difficulty, out Dictionary<string, (string, JToken)> value) 
         {
             value = Get(difficulty);
             return value != null;
@@ -74,18 +74,18 @@ namespace BLPPCounter.Utils.Map_Utils
             m1.Combine(m2);
             return m1;
         }
-        public static Map ConvertSSToTaoh(string hash, string songId, JObject SSInfo)
+        public static Map ConvertSSToTaoh(string hash, string songId, JToken SSInfo)
         {
             int diff = (int)SSInfo["difficulty"]["difficulty"];
-            JObject newToken = JObject.Parse('{' + string.Format(SS_TAOH_FORMAT, SSInfo["songName"].ToString(), songId, hash, diff, SSInfo["difficulty"]["gameMode"].ToString().Replace("Solo", ""), (float)SSInfo["stars"]) + '}');
+            JToken newToken = JToken.Parse('{' + string.Format(SS_TAOH_FORMAT, SSInfo["songName"].ToString(), songId, hash, diff, SSInfo["difficulty"]["gameMode"].ToString().Replace("Solo", ""), (float)SSInfo["stars"]) + '}');
             return new Map(hash, SS_MODE_NAME, FromValue(diff), songId, newToken);
         }
-        public static Map ConvertAPToTaoh(string hash, string songId, JObject APInfo)
+        public static Map ConvertAPToTaoh(string hash, string songId, JToken APInfo)
         {
             //Plugin.Log.Info($"APInfo\n{APInfo}");
             string hold = APInfo["difficulty"].ToString().ToLower();
             int diff = FromDiff((BeatmapDifficulty)Enum.Parse(typeof(BeatmapDifficulty), char.ToUpper(hold[0]) + hold.Substring(1)));
-            JObject newToken = JObject.Parse('{' + string.Format(AP_TAOH_FORMAT, APInfo["songName"].ToString(), songId, hash, diff, "Standard", (float)APInfo["complexity"]) + '}');
+            JToken newToken = JToken.Parse('{' + string.Format(AP_TAOH_FORMAT, APInfo["songName"].ToString(), songId, hash, diff, "Standard", (float)APInfo["complexity"]) + '}');
             return new Map(hash, AP_MODE_NAME, FromValue(diff), songId, newToken);
         }
         public override string ToString()

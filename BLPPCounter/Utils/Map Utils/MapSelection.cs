@@ -16,7 +16,7 @@ namespace BLPPCounter.Utils.Map_Utils
         public string Mode { get; private set; }
         public SongSpeed MapSpeed { get; private set; }
         public RatingContainer Ratings { get; private set; }
-        public readonly (string songId, JObject diffData) MapData => Map.Get(Mode, Difficulty);
+        public readonly (string songId, JToken diffData) MapData => Map.Get(Mode, Difficulty);
         public readonly bool IsUsable => HelpfulMisc.StatusIsUsable(this);
         public readonly string Hash => Map.Hash;
 

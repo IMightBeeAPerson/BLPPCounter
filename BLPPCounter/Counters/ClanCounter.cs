@@ -237,7 +237,7 @@ namespace BLPPCounter.Counters
         public override void SetupData(MapSelection map, CancellationToken ct) //setupStatus key: 0 = success, 1 = Map not ranked, 2 = Map already captured, 3 = load failed, 4 = map too hard to capture
         {
             setupStatus = 0;
-            JObject mapData = map.MapData.diffData;
+            JToken mapData = map.MapData.diffData;
             if (int.Parse(mapData["status"].ToString()) != 3) { setupStatus = 1; goto theEnd; }
             string songId = map.MapData.songId;
             Mods = "";

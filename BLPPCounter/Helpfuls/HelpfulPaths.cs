@@ -132,36 +132,36 @@ namespace BLPPCounter.Helpfuls
         #endregion
 
         #region Json Paths
-        public static float GetRating(JObject data, PPType type, SongSpeed mod = SongSpeed.Normal)
+        public static float GetRating(JToken data, PPType type, SongSpeed mod = SongSpeed.Normal)
         {
             if (data is null) return 0;
-            if (mod != SongSpeed.Normal && data["modifiersRating"] is not null) data = data["modifiersRating"] as JObject; //only BL uses more than one rating so this will work for now.
+            if (mod != SongSpeed.Normal && data["modifiersRating"] is not null) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
             string path = HelpfulMisc.AddModifier(HelpfulMisc.PPTypeToRating(type), mod);
             //Below is a workaround for how Taoh formats his data.
             if (mod == SongSpeed.Normal && type == PPType.Star && data[path] is null) return (float)(data["star" + HelpfulMisc.ToCapName(PpInfoTabHandler.Instance.CurrentLeaderboard)] ?? 0);
             return (float)(data[path] ?? 0);
         }
-        public static float GetRating(JObject data, PPType type, string modName)
+        public static float GetRating(JToken data, PPType type, string modName)
         {
-            if (!modName.Equals("") && data?["modifiersRating"] is not null) data = data["modifiersRating"] as JObject; //only BL uses more than one rating so this will work for now.
+            if (!modName.Equals("") && data?["modifiersRating"] is not null) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
             string path = HelpfulMisc.AddModifier(HelpfulMisc.PPTypeToRating(type), modName);
             return (float)(data?[path] ?? 0);
         }
-        public static RatingContainer GetAllRatingsOfSpeed(JObject data, Calculator calc, SongSpeed mod = SongSpeed.Normal)
+        public static RatingContainer GetAllRatingsOfSpeed(JToken data, Calculator calc, SongSpeed mod = SongSpeed.Normal)
         { //star, acc, pass, tech
             float[] outp = [.. Enum.GetValues(typeof(PPType)).Cast<PPType>().Select(type => GetRating(data, type, mod))];
             return RatingContainer.GetContainer(calc?.Leaderboard ?? Leaderboards.None, outp);
         }
-        public static RatingContainer GetAllRatingsOfSpeed(JObject data, SongSpeed mod = SongSpeed.Normal) => GetAllRatingsOfSpeed(data, null, mod);
-        public static RatingContainer[] GetAllRatings(JObject data, Calculator calc)
+        public static RatingContainer GetAllRatingsOfSpeed(JToken data, SongSpeed mod = SongSpeed.Normal) => GetAllRatingsOfSpeed(data, null, mod);
+        public static RatingContainer[] GetAllRatings(JToken data, Calculator calc)
         {
             List<RatingContainer> outp = new(4); //length of the SongSpeed Enum.
             foreach (SongSpeed s in HelpfulMisc.OrderedSpeeds)
                 outp.Add(GetAllRatingsOfSpeed(data, calc, s));
             return [.. outp];
         }
-        public static RatingContainer[] GetAllRatings(JObject data) => GetAllRatings(data, null);
-        public static float GetMultiAmount(JObject data, string name)
+        public static RatingContainer[] GetAllRatings(JToken data) => GetAllRatings(data, null);
+        public static float GetMultiAmount(JToken data, string name)
         {
             if (!Calculator.GetSelectedCalc().UsesModifiers) return 1.0f;
             MatchCollection mc = Regex.Matches(data.TryEnter("difficulty")["modifierValues"].ToString(), @"^\s*""(.+?)"": *(-?\d(?:\.\d+)?).*$", RegexOptions.Multiline);
@@ -172,10 +172,10 @@ namespace BLPPCounter.Helpfuls
 #endif
             return val is null ? 0 : float.Parse(val);
         }
-        public static Dictionary<string, float> GetMultiAmounts(JObject data)
+        public static Dictionary<string, float> GetMultiAmounts(JToken data)
         {
             MatchCollection mc = Regex.Matches(data.TryEnter("difficulty")["modifierValues"].ToString(), @"^\s*""(.+?)"": *(-?\d(?:\.\d+)?).*$", RegexOptions.Multiline);
-            Dictionary<string, float> multiAmounts = new(mc.Count - 1);
+            Dictionary<string, float> multiAmounts = new Dictionary<string, float>(mc.Count - 1);
             foreach (Match m in mc)
             {
                 if (m.Groups[1].Value.Equals("modifierId")) continue;
@@ -183,7 +183,7 @@ namespace BLPPCounter.Helpfuls
             }
             return multiAmounts;
         }
-        public static float GetMultiAmounts(JObject data, string[] names) 
+        public static float GetMultiAmounts(JToken data, string[] names) 
         {
             //Plugin.Log.Info(data.ToString());
             float outp = 1;
