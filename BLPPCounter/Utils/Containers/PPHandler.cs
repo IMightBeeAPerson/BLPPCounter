@@ -1,5 +1,4 @@
-﻿using BeatmapSaveDataVersion4;
-using BLPPCounter.CalculatorStuffs;
+﻿using BLPPCounter.CalculatorStuffs;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -21,7 +20,7 @@ namespace BLPPCounter.Utils.Containers
         private readonly int precision;
         private int mistakes;
         private bool isFcing;
-        private PPContainer[] ppVals;
+        private readonly PPContainer[] ppVals;
 
         public bool UpdateFCEnabled;
         public bool UpdatePPEnabled;

@@ -32,13 +32,13 @@ namespace BLPPCounter.Utils.API_Handlers
                 t = Throttle;
             return CallAPI_Static(path, t, quiet, maxRetries, ct);
         }
-        public override float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1) => new float[1] { (float)(diffData["complexity"] ?? diffData["complexityAccSaber"]) };
-        public override float[] GetRatings(JToken diffData) => new float[1] { (float)(diffData["complexity"] ?? diffData["complexityAccSaber"]) };
+        public override float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1) => [(float)(diffData["complexity"] ?? diffData["complexityAccSaber"])];
+        public override float[] GetRatings(JToken diffData) => [(float)(diffData["complexity"] ?? diffData["complexityAccSaber"])];
         public override string GetSongName(JToken diffData) => diffData["songName"].ToString();
         public override string GetDiffName(JToken diffData) => diffData["difficulty"].ToString();
         public override string GetLeaderboardId(JToken diffData) => diffData["leaderboardId"].ToString();
         public override string GetHash(JToken diffData) => diffData["songHash"].ToString();
-        public override bool MapIsUsable(JToken diffData) => !(diffData is null) && GetRatings(diffData)[0] > 0;
+        public override bool MapIsUsable(JToken diffData) => diffData is not null && GetRatings(diffData)[0] > 0;
         public override bool AreRatingsNull(JToken diffData) => (diffData["complexity"] ?? diffData["complexityAccSaber"]) is null;
         public override int GetMaxScore(JToken diffData) => (int)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, diffData["leaderboardId"] ?? diffData["scoreSaberID"], "info")).Result)["maxScore"];
         public override async Task<int> GetMaxScore(string hash, int diffNum, string modeName) => GetMaxScore(JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)).ConfigureAwait(false))["difficulty"]);

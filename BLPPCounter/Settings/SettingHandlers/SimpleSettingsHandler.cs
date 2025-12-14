@@ -1,18 +1,12 @@
 ﻿using BeatSaberMarkupLanguage;
 using BeatSaberMarkupLanguage.Attributes;
-using BeatSaberMarkupLanguage.Components;
 using BeatSaberMarkupLanguage.GameplaySetup;
-using BeatSaberMarkupLanguage.Parser;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Settings.SettingHandlers.MenuViews;
 using BLPPCounter.Utils;
-using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.ComponentModel.Design;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -25,7 +19,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 #pragma warning disable CS0649, IDE0051, IDE0044
         #region Static Variables
         public static SimpleSettingsHandler Instance { get; private set; } = new SimpleSettingsHandler();
-        private static readonly HashSet<string> NonSettingTags = new HashSet<string>(2) { "settings-container", "vertical", "horizontal", "modal", "custom-list" };
+        private static readonly HashSet<string> NonSettingTags = ["settings-container", "vertical", "horizontal", "modal", "custom-list"];
         #endregion
         #region UI & Normal Variables
 #if !NEW_VERSION
@@ -38,8 +32,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void LoadElements()
         {
             const string resource = "BLPPCounter.Settings.BSML.MenuSettings.bsml";
-            const string regex = @"(?<=\s)<\/?([A-z\-]+)[^>]*>(?=[^<]*?$)(?!\z)";
-            MatchCollection mc = Regex.Matches(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), resource), regex, RegexOptions.Multiline);
+            MatchCollection mc = HelpfulRegex.LoadElementsRegex.Matches(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), resource));
 #if NEW_VERSION
             bool loadData = PluginConfig.Instance.SimpleMenuConfig.Length == mc.Count(m => !NonSettingTags.Contains(m.Groups[1].Value) && !m.Value.Contains('~')); //1.37.0 and above
             //Plugin.Log.Info($"Real Count: {PluginConfig.Instance.SimpleMenuConfig.Length}, counted count: {mc.Count(m => !NonSettingTags.Contains(m.Groups[1].Value) && !m.Value.Contains('~'))}");
@@ -52,7 +45,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 #endif
             if (loadData) SimpleMenuSettingsHandler.Instance.LoadMenu();
             string huh = "";
-            Dictionary<string, bool> usable = new Dictionary<string, bool>();
+            Dictionary<string, bool> usable = [];
             foreach (SettingToggleInfo sti in SimpleMenuSettingsHandler.Instance.UISettings.Cast<SettingToggleInfo>())
                 usable[sti.Text] = sti.Usable;
             foreach (Match m in mc)

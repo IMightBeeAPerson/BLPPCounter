@@ -188,6 +188,7 @@
     <Compile Include="Helpfuls\HelpfulMisc.cs" />
     <Compile Include="Helpfuls\HelpfulPaths.cs" />
     <Compile Include="Helpfuls\HelpfulFormatter.cs" />
+    <Compile Include="Helpfuls\HelpfulRegex.cs" />
     <Compile Include="Patches\MenuLevelPatch.cs" />
     <Compile Include="Patches\MenuModifierPatch.cs" />
     <Compile Include="Patches\SoloFlowPatch.cs" />
@@ -197,7 +198,6 @@
     <Compile Include="Settings\Configs\PluginConfig.cs" />
     <Compile Include="Settings\Configs\TextFormatSettings.cs" />
     <Compile Include="Settings\Configs\TokenFormatSettings.cs" />
-    <Compile Include="Settings\SettingHandlers\MenuSettingHandlers\CounterSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuSettingHandlers\LeaderboardSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\PpInfoTabHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\ColorSettingsHandler.cs" />

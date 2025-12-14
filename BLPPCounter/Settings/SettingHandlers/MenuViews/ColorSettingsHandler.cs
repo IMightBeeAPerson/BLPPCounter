@@ -11,7 +11,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 {
     public class ColorSettingsHandler: BSMLResourceViewController
     {
-#pragma warning disable CS0649
+#pragma warning disable CS0649, IDE0044, IDE0051
         private static PluginConfig PC => PluginConfig.Instance;
         public static ColorSettingsHandler Instance { get; } = new ColorSettingsHandler();
         public override string ResourceName => "BLPPCounter.Settings.BSML.MenuComponents.ColorSettings.bsml";
@@ -27,7 +27,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         #endregion
         #region UI Values
         [UIValue(nameof(ColorValues))]
-        private List<object> ColorValues { get; } = new List<object>();
+        private List<object> ColorValues { get; } = [];
         #endregion
         #region UI Actions & Misc Functions
         [UIAction("#back")] private void GoBack() => MenuSettingsHandler.Instance.GoBack();

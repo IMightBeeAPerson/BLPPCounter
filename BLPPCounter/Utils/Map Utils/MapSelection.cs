@@ -53,21 +53,21 @@ namespace BLPPCounter.Utils.Map_Utils
             }
             throw new Exception("There is no ratings matching the ones in this mapSelection. Something is very wrong.");
         }
-        public (bool, bool) GetDifference(MapSelection other)
+        public readonly (bool, bool) GetDifference(MapSelection other)
         {
             bool ratingDiff = other.MapSpeed != MapSpeed || !Ratings.Equals(other.Ratings);
             bool diffDiff = !Difficulty.Equals(other.Difficulty) || !Mode.Equals(other.Mode);
             return (ratingDiff, diffDiff);
         }
-        public override string ToString()
+        public override readonly string ToString()
         {
             string mapHash = Map is null ? "null" : Map.Hash;
             return $"Map: {mapHash}\nDifficulty: {Difficulty}\nMode: {Mode}\n{Ratings}";
         }
-        public bool Equals(MapSelection other) {
+        public readonly bool Equals(MapSelection other) {
             if (other.Map is null || Map is null) return base.Equals(other);
             return other.Map.Hash.Equals(Map.Hash) && other.Difficulty.Equals(Difficulty) && other.Mode.Equals(Mode);
         }
-        public override bool Equals(object obj) => obj is MapSelection selection && Equals(selection);
+        public override readonly bool Equals(object obj) => obj is MapSelection selection && Equals(selection);
     }
 }

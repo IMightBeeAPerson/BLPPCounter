@@ -11,7 +11,7 @@ namespace BLPPCounter.Utils.List_Settings
     internal class TargetInfo
     {
         [UIValue(nameof(DisplayName))] public string DisplayName => _displayName.ClampString(25);
-        private string _displayName;
+        private readonly string _displayName;
         [UIValue(nameof(ID))] public string ID => $"<color=#999>ID</color> <color=#777>{_id}</color>";
         public string RealID => _id;
         private readonly string _id;

@@ -57,12 +57,12 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
             // Safely allocate lookup arrays only if the cluster exists
             lookupLow = maxTokenLow >= 0
-                ? Enumerable.Repeat(-1, maxTokenLow - minTokenLow + 1).ToArray()
-                : Array.Empty<int>();
+                ? [.. Enumerable.Repeat(-1, maxTokenLow - minTokenLow + 1)]
+                : [];
 
             lookupHigh = minTokenHigh != int.MaxValue
-                ? Enumerable.Repeat(-1, maxTokenHigh - minTokenHigh + 1).ToArray()
-                : Array.Empty<int>();
+                ? [.. Enumerable.Repeat(-1, maxTokenHigh - minTokenHigh + 1)]
+                : [];
 
             // Fill lookup tables
             for (int i = 0; i < tokens.Length; i++)
@@ -124,11 +124,11 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             }
             // Safely allocate lookup arrays only if the cluster exists
             lookupLow = maxTokenLow >= 0
-                ? Enumerable.Repeat(-1, maxTokenLow - minTokenLow + 1).ToArray()
-                : Array.Empty<int>();
+                ? [.. Enumerable.Repeat(-1, maxTokenLow - minTokenLow + 1)]
+                : [];
             lookupHigh = minTokenHigh != int.MaxValue
-                ? Enumerable.Repeat(-1, maxTokenHigh - minTokenHigh + 1).ToArray()
-                : Array.Empty<int>();
+                ? [.. Enumerable.Repeat(-1, maxTokenHigh - minTokenHigh + 1)]
+                : [];
             // Fill lookup tables
             for (i = 0; i < dict.Count; i++)
             {

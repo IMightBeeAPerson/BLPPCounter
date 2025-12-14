@@ -11,14 +11,12 @@ using System.ComponentModel;
 using static BLPPCounter.Utils.FormatListInfo.ChunkType;
 using static BLPPCounter.Helpfuls.HelpfulMisc;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Helpfuls;
-using System.Reflection;
 using BLPPCounter.Settings.SettingHandlers.MenuViews;
-using static BLPPCounter.Utils.FormatListInfo;
+using BLPPCounter.Helpfuls;
+
 
 
 #if !NEW_VERSION
-using BLPPCounter.Utils.Special_Utils;
 #endif
 using BeatSaberMarkupLanguage.Components;
 
@@ -33,12 +31,6 @@ namespace BLPPCounter.Utils
         private static Action UpdateTable, UpdatePreview;
         private static readonly Color OriginalColor = new(0.8f, 0.8f, 0.8f);
 
-        private static readonly string AliasRegex = string.Format("(?<Token>{0}.|{0}{1}[^{1}]+{1}){2}(?<Params>[^{3}]+){3}|(?<Token>{0}{1}[^{1}]+{1}|{0}.)", Regex.Escape($"{ESCAPE_CHAR}"), Regex.Escape($"{ALIAS}"), Regex.Escape($"{PARAM_OPEN}"), Regex.Escape($"{PARAM_CLOSE}"));
-        //(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)\)|(?<Token>&'[^']+'|&.)
-        private static readonly string RegularTextRegex = "[^" + INSERT_SELF + RegexSpecialChars.Substring(1) + "+"; //[^$&*[\]<>]+
-        private static readonly string EscapedCharRegex = $"{Regex.Escape("" + ESCAPE_CHAR)}{RegexSpecialChars}"; //&[&*[\]<>]
-        internal static readonly Regex CollectiveRegex = GetRegexForAllChunks();
-
         public static FormatListInfo DefaultVal => new("Default Text", false);
 
         #endregion
@@ -49,7 +41,7 @@ namespace BLPPCounter.Utils
 #else
         //This is done as a workaround to a bug with BSML in 1.29.0, where if DropDownListSetting tries to load from an empty list, it will break and throw an error.
         //Since the list here gets replaced when it is in use, it doesn't matter what I put in the list as long as there is something.
-        [UIValue(nameof(ChoiceOptions))] private List<object> ChoiceOptions = new List<object>(1) { "Placeholder" }; //1.34.2 and below
+        [UIValue(nameof(ChoiceOptions))] private List<object> ChoiceOptions = ["Placeholder"]; //1.34.2 and below
 #endif
 
         [UIValue(nameof(ChunkStr))] private string ChunkStr
@@ -132,6 +124,7 @@ namespace BLPPCounter.Utils
             ChoiceOptions = isTokenValue ? [.. AliasConverter.Keys.Cast<object>()] : [.. SPECIAL_CHARS.Select(c => "" + c).Cast<object>()];
             if (!isTokenValue) ChoiceText = "Choose Escaped Character";
         }
+#pragma warning disable IDE0060
         private FormatListInfo(bool isOpen, string token, ChunkType ct) :
             this(
                 ct: ct,
@@ -143,6 +136,7 @@ namespace BLPPCounter.Utils
         {
             if (ct == Group_Open) ChoiceOptions = [.. AliasConverter.Keys.Cast<object>()];
         }
+#pragma warning restore IDE0060
         private FormatListInfo(bool isOpen, string richTextKey, string richTextValue) :
             this(
                 ct: isOpen ? Rich_Text_Open : Rich_Text_Close,
@@ -231,7 +225,7 @@ namespace BLPPCounter.Utils
         }
         public static (Match, ChunkType)[] ChunkItAll(string format)
         {
-            MatchCollection mc = CollectiveRegex.Matches(format);
+            MatchCollection mc = HelpfulRegex.CollectiveFormatRegex.Matches(format);
             (Match, ChunkType)[] outp = new (Match, ChunkType)[mc.Count];
             for (int i = 0; i < outp.Length; i++)
 #if NEW_VERSION
@@ -241,7 +235,7 @@ namespace BLPPCounter.Utils
 #endif
             return outp;
         }
-        private static Regex GetRegexForAllChunks()
+        internal static Regex GetRegexForAllChunks()
         {
             string outp = "\\G(?:";
             List<ChunkType> arr = [Insert_Group_Value, Group_Open];
@@ -256,9 +250,9 @@ namespace BLPPCounter.Utils
         {
             switch (ct)
             {
-                case Regular_Text: return RegularTextRegex;//[^$&*[\]<>]+
-                case Escaped_Character: return EscapedCharRegex;//&[&*[\]<>]
-                case Escaped_Token: return AliasRegex;//(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)\)|(?<Token>&'[^']+'|&.)
+                case Regular_Text: return "[^" + INSERT_SELF + RegexSpecialChars.Substring(1) + "+";//[^$&*[\]<>]+
+                case Escaped_Character: return $"{Regex.Escape("" + ESCAPE_CHAR)}{RegexSpecialChars}";//&[&*[\]<>]
+                case Escaped_Token: return string.Format("(?<Token>{0}.|{0}{1}[^{1}]+{1}){2}(?<Params>[^{3}]+){3}|(?<Token>{0}{1}[^{1}]+{1}|{0}.)", Regex.Escape($"{ESCAPE_CHAR}"), Regex.Escape($"{ALIAS}"), Regex.Escape($"{PARAM_OPEN}"), Regex.Escape($"{PARAM_CLOSE}"));//(?<Token>&.|&'[^']+')\((?<Params>[^\)]+)\)|(?<Token>&'[^']+'|&.)
                 case Capture_Open: return $"{Regex.Escape(CAPTURE_OPEN+"")}\\d+"; //<\d+
                 case Capture_Close: return Regex.Escape(CAPTURE_CLOSE + ""); //>
                 case Group_Open: return string.Format("(?<Alias>{0}{1}[^{1}]+{1})|(?<Token>{0}[^{1}])", Regex.Escape($"{GROUP_OPEN}"), Regex.Escape($"{ALIAS}")); //(?<Alias>\['[^']+')|(?<Token>\[[^'])
@@ -282,7 +276,7 @@ namespace BLPPCounter.Utils
         {
             PluginConfig pc = PluginConfig.Instance;
             string outp;
-            string ColorEscapeToken(string token) => token[0] == ALIAS ? 
+            static string ColorEscapeToken(string token) => token[0] == ALIAS ? 
                 string.Format(ColorDefaultFormatToColor("'cAlias0'"), ConvertFromAlias(token)) :
                 string.Format(ColorFormatToColor("'cAlias0'"), GetKeyFromDictionary(AliasConverter, token[0]));
             switch (ct)

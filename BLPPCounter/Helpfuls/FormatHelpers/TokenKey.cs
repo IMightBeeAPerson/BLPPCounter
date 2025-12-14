@@ -2,16 +2,10 @@
 
 namespace BLPPCounter.Helpfuls.FormatHelpers
 {
-    public readonly struct TokenKey : IEquatable<TokenKey>
+    public readonly struct TokenKey(char symbol, int priority) : IEquatable<TokenKey>
     {
-        public readonly char Symbol;
-        public readonly int Priority;
-
-        public TokenKey(char symbol, int priority)
-        {
-            Symbol = symbol;
-            Priority = priority;
-        }
+        public readonly char Symbol = symbol;
+        public readonly int Priority = priority;
 
         public override int GetHashCode()
         {

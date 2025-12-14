@@ -73,6 +73,6 @@ namespace BLPPCounter.Utils.Serializable_Classes
             RemoveAliases(aliases, relation.Alias, relation.CounterName);
 
 
-        public override string ToString() => $"For {CounterName} counter, replace the default alias for the variable '{AliasCharacter}' to be \"{AliasName}\"";
+        public override readonly string ToString() => $"For {CounterName} counter, replace the default alias for the variable '{AliasCharacter}' to be \"{AliasName}\"";
     }
 }

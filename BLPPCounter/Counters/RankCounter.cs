@@ -124,7 +124,7 @@ namespace BLPPCounter.Counters
                     UpdateFCEnabled = PC.PPFC,
                     UpdatePPEnabled = displayPP
                 };
-                ppHandler.UpdateFC += (fcAcc, vals, actions) => vals[1].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
+                ppHandler.UpdateFC += (fcAcc, vals, actions, _) => vals[1].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
             }
             catch (Exception e)
             {

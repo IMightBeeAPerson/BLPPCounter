@@ -17,6 +17,7 @@ namespace BLPPCounter.Utils.API_Handlers
 {
     internal abstract class APIHandler
     {
+#pragma warning disable IDE0042
         private static TimeSpan clientTimeout = TimeSpan.FromSeconds(PluginConfig.Instance.APITimeout);
         internal static TimeSpan ClientTimeout
         {
@@ -166,7 +167,7 @@ namespace BLPPCounter.Utils.API_Handlers
                             if (!succeeded) return;
 
                             JToken rawHashData = JToken.Parse(await content.ReadAsStringAsync().ConfigureAwait(false));
-                            List<JToken> hashData = batch.Count > 1 ? rawHashData.Children().ToList() : new List<JToken>(1) { rawHashData };
+                            List<JToken> hashData = batch.Count > 1 ? [.. rawHashData.Children()] : [rawHashData];
                             var returnedHashes = new HashSet<string>();
 
                             for (int i = 0; i < hashData.Count; i++)
@@ -189,7 +190,7 @@ namespace BLPPCounter.Utils.API_Handlers
 
                 // Wait before next retry if there are still missing
                 await Task.Delay(initialRetryDelayMs * (int)Math.Pow(2, attempt - 1)).ConfigureAwait(false);
-                missingIndices = missingIndices.Where(i => results[i] == null).ToList();
+                missingIndices = [.. missingIndices.Where(i => results[i] == null)];
             }
 
             // Fill any remaining missing values with null
@@ -325,11 +326,11 @@ namespace BLPPCounter.Utils.API_Handlers
                 if (!usesPages && dataTokens.Count() > count)
                     dataTokens = dataTokens.Take(count);
 
-                Play[] current = dataTokens.Select(tokenSelector).ToArray();
+                Play[] current = [.. dataTokens.Select(tokenSelector)];
 
                 if (replaceSelector is not null)
                 {
-                    string[] mapHashes = current.Select(data => replaceSelector.Invoke(data, "").ExtraOutp).ToArray();
+                    string[] mapHashes = [.. current.Select(data => replaceSelector.Invoke(data, "").ExtraOutp)];
                     string[] names = await GetBSData(mapHashes, path: jsonPath);
 
                     for (int i = 0; i < current.Length; i++)
@@ -338,27 +339,20 @@ namespace BLPPCounter.Utils.API_Handlers
 
                 return current;
             }
-            return (usesPages ? await CalledPagedAPIFlat(count, (page, currentCount) => string.Format(apiPathFormat, userId, page, currentCount), throttler, DoStuff, isZeroIndexed) :
-                await CalledPagedAPIFlat(count, (page, currentCount) => string.Format(apiPathFormat, userId), throttler, DoStuff, isZeroIndexed, count)).ToArray();
+            return [.. usesPages ? await CalledPagedAPIFlat(count, (page, currentCount) => string.Format(apiPathFormat, userId, page, currentCount), throttler, DoStuff, isZeroIndexed) :
+                await CalledPagedAPIFlat(count, (page, currentCount) => string.Format(apiPathFormat, userId), throttler, DoStuff, isZeroIndexed, count)];
         }
 
         public abstract Task<float> GetProfilePP(string userId);
         internal abstract Task AddMap(Dictionary<string, Map> Data, string hash, CancellationToken ct = default);
         public static APIHandler GetSelectedAPI() => GetAPI(TheCounter.Leaderboard);
-        public static APIHandler GetAPI(Leaderboards leaderboard)
+        public static APIHandler GetAPI(Leaderboards leaderboard) => leaderboard switch
         {
-            switch (leaderboard)
-            {
-                case Leaderboards.Beatleader:
-                    return BLAPI.Instance;
-                case Leaderboards.Scoresaber:
-                    return SSAPI.Instance;
-                case Leaderboards.Accsaber:
-                    return APAPI.Instance;
-                default:
-                    return null;
-            }
-        }
+            Leaderboards.Beatleader => BLAPI.Instance,
+            Leaderboards.Scoresaber => SSAPI.Instance,
+            Leaderboards.Accsaber => APAPI.Instance,
+            _ => null,
+        };
         public static async Task<Leaderboards> GetRankedLeaderboards(string hash, BeatmapDifficulty diff, string trueMode)
         {
             (bool success, HttpContent data) = await CallAPI_Static(string.Format(HelpfulPaths.BSAPI_HASH, hash), BSThrottler).ConfigureAwait(false);

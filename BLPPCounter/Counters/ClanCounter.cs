@@ -10,7 +10,6 @@ using BLPPCounter.Utils.Misc_Classes;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -99,26 +98,26 @@ namespace BLPPCounter.Counters
                 {'f', 1 },
                 {'t', 2 },
                 {'m', 3 }
-            }, new Func<object, bool, object>[4]
-            {
+            },
+            [
                 FormatRelation.CreateFunc<float>(
                     outp => $"<color={(outp > 0 ? "green" : "red")}>" + outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT),
                     outp => outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT)),
                 FormatRelation.CreateFuncWithWrapper("<color={0}>{0}", "<color={0}>"),
                 FormatRelation.CreateFunc("Targeting <color=red>{0}</color>"),
                 FormatRelation.CreateFuncWithWrapper("{0}%", "Get {0}% for ___ PP!")
-            }, new Dictionary<char, IEnumerable<(string, object)>>(5)
+            ], new Dictionary<char, IEnumerable<(string, object)>>(5)
             {
                 { 'p', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
                 { 'o', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
                 { 'x', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
                 { 'y', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
                 { 'm', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 100), ("IncrementVal", 1) } }
-            }, new (char, string)[2]
-            {
+            },
+            [
                 ((char)1, "Has a miss"),
                 ((char)2, "Is bottom of text")
-            }
+            ]
             );
         internal static readonly FormatRelation WeightedFormatRelation = new("Weighted Format", DisplayName,
             PC.FormatSettings.WeightedTextFormat, str => PC.FormatSettings.WeightedTextFormat = str, WeightedFormatAlias,
@@ -154,15 +153,15 @@ namespace BLPPCounter.Counters
                 { 'r', 1 },
                 { 'x', 2 },
                 { 'y', 2 },
-            }, new Func<object, bool, object>[3]
-            {
+            },
+            [
                 FormatRelation.CreateFuncWithWrapper<int>(a => $"{HelpfulFormatter.GetWeightedRankColor(a)}{a}",
                     a => () => HelpfulFormatter.GetWeightedRankColor(a)),
                 FormatRelation.CreateFunc("#{0}", "{0}"),
                 FormatRelation.CreateFunc<float>(
                     outp => $"<color={(outp > 0 ? "green" : "red")}>" + outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT),
                     outp => outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT))
-            }, new Dictionary<char, IEnumerable<(string, object)>>(5)
+            ], new Dictionary<char, IEnumerable<(string, object)>>(5)
             {
                 { 'c', new (string, object)[4] { ("IsInteger", true), ("MinVal", 1), ("MaxVal", 100), ("IncrementVal", 1) } },
                 { 'r', new (string, object)[4] { ("IsInteger", true), ("MinVal", 1), ("MaxVal", 100), ("IncrementVal", 1) } },
@@ -170,12 +169,12 @@ namespace BLPPCounter.Counters
                 { 'o', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
                 { 'x', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
                 { 'y', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
-            }, new (char, string)[3]
-            {
+            },
+            [
                 ((char)1, "Has a miss"),
                 ((char)2, "Is bottom of text"),
                 ((char)3, "Show Rank Info")
-            }
+            ]
             );
         internal static readonly FormatRelation MessageFormatRelation = new("Custom Message Format", DisplayName,
             PC.MessageSettings.ClanMessage, str => PC.MessageSettings.ClanMessage = str, MessageFormatAlias,
@@ -203,12 +202,12 @@ namespace BLPPCounter.Counters
                 {'c', 0 },
                 {'a', 1 },
                 {'t', 2 }
-            }, new Func<object, bool, object>[3]
-            {
+            },
+            [
                 FormatRelation.CreateFuncWithWrapper("<color={0}>{0}", "<color={0}>"),
                 FormatRelation.CreateFunc("{0}%", "{0}"),
                 FormatRelation.CreateFunc("Targeting <color=red>{0}</color>", "{0}")
-            }, new Dictionary<char, IEnumerable<(string, object)>>(5)
+            ], new Dictionary<char, IEnumerable<(string, object)>>(5)
             {
                 { 'a', new (string, object)[3] { ("MinVal", 0), ("MaxVal", 100), ("IncrementVal", 1.5f), } },
                 { 'x', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
@@ -333,7 +332,7 @@ namespace BLPPCounter.Counters
             }
             List<float> clone = [.. actualPpVals];
             clone.Remove(playerScore);
-            float[] clanPPs = clone.ToArray();
+            float[] clanPPs = [.. clone];
             Array.Sort(clanPPs, (a, b) => (int)Math.Round(b - a));
             float neededPp = mapCaptured ? 0.0f : BLCalc.Instance.GetNeededPlay(actualPpVals, pp, playerScore);
             return (clanPPs.Prepend(neededPp).ToArray(), mapCaptured, owningClan, playerClanId);
@@ -406,7 +405,7 @@ namespace BLPPCounter.Counters
         {
             foreach ((MapSelection, float[]) pair in mapCache)
                 if (pair.Item1.Equals(map)) {
-                    clanPPs = pair.Item2.Skip(1).ToArray();
+                    clanPPs = [.. pair.Item2.Skip(1)];
                     Plugin.Log.Debug($"PP: {pair.Item2[0]}");
                     return pair.Item2[0];
                 }

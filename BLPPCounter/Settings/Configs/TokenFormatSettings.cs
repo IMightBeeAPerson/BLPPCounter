@@ -25,6 +25,6 @@ namespace BLPPCounter.Settings.Configs
             {"c", "color" }
         };
         [UseConverter(typeof(ListConverter<CustomAlias>))]
-        public virtual List<CustomAlias> TokenAliases { get; set; } = new List<CustomAlias>();
+        public virtual List<CustomAlias> TokenAliases { get; set; } = [];
     }
 }

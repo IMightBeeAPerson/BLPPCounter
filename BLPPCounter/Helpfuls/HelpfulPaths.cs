@@ -110,7 +110,7 @@ namespace BLPPCounter.Helpfuls
                 try
                 {
                     CurrentTaohHeaders = JToken.Parse(headerString);
-                    int SimpleComparer<T>(T i1, T i2) where T : IComparable => i1.CompareTo(i2);
+                    static int SimpleComparer<T>(T i1, T i2) where T : IComparable => i1.CompareTo(i2);
                     headersGood = HelpfulMisc.CompareStructValues<float>(TaohHeaders, CurrentTaohHeaders, "top10kVersion", SimpleComparer) <= 0
                         && HelpfulMisc.CompareStructValues<float>(TaohHeaders, CurrentTaohHeaders, "songLibraryVersion", SimpleComparer) <= 0
                         && HelpfulMisc.CompareValues(TaohHeaders, CurrentTaohHeaders, "top10kUpdated", item => DateTime.Parse(item), SimpleComparer) <= 0;
@@ -164,7 +164,7 @@ namespace BLPPCounter.Helpfuls
         public static float GetMultiAmount(JToken data, string name)
         {
             if (!Calculator.GetSelectedCalc().UsesModifiers) return 1.0f;
-            MatchCollection mc = Regex.Matches(data.TryEnter("difficulty")["modifierValues"].ToString(), @"^\s*""(.+?)"": *(-?\d(?:\.\d+)?).*$", RegexOptions.Multiline);
+            MatchCollection mc = HelpfulRegex.JsonFloatValueGrabber.Matches(data.TryEnter("difficulty")["modifierValues"].ToString());
 #if NEW_VERSION
             string val = mc.FirstOrDefault(m => m.Groups[1].Value.Equals(name))?.Groups[2].Value; // 1.37.0 and above
 #else
@@ -174,8 +174,8 @@ namespace BLPPCounter.Helpfuls
         }
         public static Dictionary<string, float> GetMultiAmounts(JToken data)
         {
-            MatchCollection mc = Regex.Matches(data.TryEnter("difficulty")["modifierValues"].ToString(), @"^\s*""(.+?)"": *(-?\d(?:\.\d+)?).*$", RegexOptions.Multiline);
-            Dictionary<string, float> multiAmounts = new Dictionary<string, float>(mc.Count - 1);
+            MatchCollection mc = HelpfulRegex.JsonFloatValueGrabber.Matches(data.TryEnter("difficulty")["modifierValues"].ToString());
+            Dictionary<string, float> multiAmounts = new(mc.Count - 1);
             foreach (Match m in mc)
             {
                 if (m.Groups[1].Value.Equals("modifierId")) continue;

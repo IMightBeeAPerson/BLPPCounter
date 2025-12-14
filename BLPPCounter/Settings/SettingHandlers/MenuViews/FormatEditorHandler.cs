@@ -101,23 +101,23 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private string _FormatName = null; // 1.34.2 and below
 #endif
         [UIValue(nameof(CounterNames))]
-        private List<object> CounterNames => TheCounter.ValidDisplayNames[Leaderboards.Beatleader].Where(a => MenuSettingsHandler.AllFormatInfo.Any(b => b.Key.Item2.Equals(a)))
-            .Append(TheCounter.DisplayName).Cast<object>().ToList();
+        private List<object> CounterNames => [.. TheCounter.ValidDisplayNames[Leaderboards.Beatleader].Where(a => MenuSettingsHandler.AllFormatInfo.Any(b => b.Key.Item2.Equals(a)))
+            .Append(TheCounter.DisplayName).Cast<object>()];
 #if NEW_VERSION
         [UIValue(nameof(FormatNames))]
-        private List<object> FormatNames = new List<object>(); // 1.37.0 and above
+        private List<object> FormatNames = []; // 1.37.0 and above
 #else
         private List<object> FormatNames => FormatNameContainer.List;
-        private FilledList FormatNameContainer = new FilledList(); // 1.34.2 and below
+        private FilledList FormatNameContainer = new(); // 1.34.2 and below
 #endif
 #endregion
 #region Format Editor
         [UIValue(nameof(FormatChunks))]
-        public List<object> FormatChunks { get; } = new List<object>();
+        public List<object> FormatChunks { get; } = [];
         #endregion
         #region Value Editor
         [UIValue(nameof(FormatValues))]
-        private List<object> FormatValues { get; } = new List<object>();
+        private List<object> FormatValues { get; } = [];
         #endregion
         #endregion
         #region UI Actions & UI Called Functions
@@ -132,7 +132,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             //Plugin.Log.Info($"[{FormatNames.Aggregate("", (total, obj) => ", " + obj.ToString()).Substring(2)}]");
             ChooseFormat.Values = FormatNames; // 1.37.0 and above
 #else
-            FormatNameContainer = new FilledList(MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>().ToList());
+            FormatNameContainer = new FilledList([.. MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>()]);
             Plugin.Log.Info($"[{FormatNames.Aggregate("", (total, obj) => ", " + obj.ToString()).Substring(2)}]");
             ChooseFormat.values = FormatNames; // 1.34.2 and below
 #endif
@@ -372,7 +372,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         [UIAction(nameof(ParseValues))]
         private void ParseValues()
         {
-            List<ValueListInfo> outp = new List<ValueListInfo>();
+            List<ValueListInfo> outp = [];
             FormatWrapper testVals = CurrentFormatInfo.TestValues;
             IEnumerable<char> tokens = testVals.Keys;
             foreach (char token in tokens)

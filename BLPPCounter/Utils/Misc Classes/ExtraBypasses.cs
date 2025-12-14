@@ -32,7 +32,7 @@ namespace BLPPCounter.Utils.Misc_Classes
             segmented.SelectCellWithNumber(index);
 
             // Explicitly fire TabSelected so content gets updated
-            _tabSelected?.Invoke(selector, new object[] { segmented, index });
+            _tabSelected?.Invoke(selector, [segmented, index]);
         }
 
         /// <summary>

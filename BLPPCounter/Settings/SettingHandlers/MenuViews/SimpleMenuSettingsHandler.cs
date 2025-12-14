@@ -2,6 +2,7 @@
 using BeatSaberMarkupLanguage.Attributes;
 using BeatSaberMarkupLanguage.Components;
 using BeatSaberMarkupLanguage.ViewControllers;
+using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Utils;
@@ -29,7 +30,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         [UIValue(nameof(MenuAnchor))]
         private int MenuAnchor = SettingsHandler.MENU_ANCHOR;
         [UIValue(nameof(UISettings))]
-        public List<object> UISettings { get; } = new List<object>();
+        public List<object> UISettings { get; } = [];
 
         public SimpleMenuSettingsHandler()
         {
@@ -58,9 +59,8 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private List<SettingToggleInfo> ConvertMenu()
         {
             const string resource = "BLPPCounter.Settings.BSML.MenuSettings.bsml";
-            const string regex = @"<([^ ]+-setting|text|button)[^>]*(?<=text) *= *(['""])(?!~)(.*?)\2[^>]*?(?:(?<=hover-hint) *= *(['""])(.*?)\4[^>]*)?\/>(?=[^<]*?$)";
-            List<SettingToggleInfo> outp = new List<SettingToggleInfo>();
-            MatchCollection mc = Regex.Matches(Utilities.GetResourceContent(System.Reflection.Assembly.GetExecutingAssembly(), resource), regex, RegexOptions.Multiline);
+            List<SettingToggleInfo> outp = [];
+            MatchCollection mc = HelpfulRegex.ConvertMenuRegex.Matches(Utilities.GetResourceContent(System.Reflection.Assembly.GetExecutingAssembly(), resource));
             if (PC.SimpleMenuConfig.Length != mc.Count)
                 PC.SimpleMenuConfig = new BoolStorage(mc.Count, true);
             int count = 0;

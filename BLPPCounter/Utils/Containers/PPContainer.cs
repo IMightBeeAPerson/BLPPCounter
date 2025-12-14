@@ -78,7 +78,7 @@ namespace BLPPCounter.Utils.Containers
 
         private readonly float Round(float a) => Precision < 0 ? a : (float)Math.Round(a, Precision);
 
-        public float this[int i] { 
+        public readonly float this[int i] { 
             get 
             {
                 if (PPLength < 4)
@@ -87,27 +87,27 @@ namespace BLPPCounter.Utils.Containers
                         throw new IndexOutOfRangeException("Index must be 0 when PPContainer length is less than 4.");
                     return TotalPP;
                 }
-                switch (i)
+                return i switch
                 {
-                    case 0: return AccPP;
-                    case 1: return TechPP;
-                    case 2: return PassPP;
-                    case 3: return TotalPP;
-                    default: throw new IndexOutOfRangeException("Index must be between 0 and 3, inclusive.");
-                }
+                    0 => AccPP,
+                    1 => TechPP,
+                    2 => PassPP,
+                    3 => TotalPP,
+                    _ => throw new IndexOutOfRangeException("Index must be between 0 and 3, inclusive."),
+                };
             }
         }
         public static PPContainer operator +(PPContainer a) => a;
         public static PPContainer operator +(PPContainer a, float b) => 
-            new PPContainer(a.PPLength, a.TotalPP + b, a.AccPP + b, a.TechPP + b, a.PassPP + b, a.Precision);
+            new(a.PPLength, a.TotalPP + b, a.AccPP + b, a.TechPP + b, a.PassPP + b, a.Precision);
         public static PPContainer operator +(PPContainer a, PPContainer b) => 
-            new PPContainer(a.PPLength, a.TotalPP + b.TotalPP, a.AccPP + b.AccPP, a.TechPP + b.TechPP, a.PassPP + b.PassPP, Math.Max(a.Precision, b.Precision));
+            new(a.PPLength, a.TotalPP + b.TotalPP, a.AccPP + b.AccPP, a.TechPP + b.TechPP, a.PassPP + b.PassPP, Math.Max(a.Precision, b.Precision));
         public static PPContainer operator -(PPContainer a) =>
-            new PPContainer(a.PPLength, -a.TotalPP, -a.AccPP, -a.TechPP, -a.PassPP, a.Precision);
+            new(a.PPLength, -a.TotalPP, -a.AccPP, -a.TechPP, -a.PassPP, a.Precision);
         public static PPContainer operator -(PPContainer a, float b) => 
-            new PPContainer(a.PPLength, a.TotalPP - b, a.AccPP - b, a.TechPP - b, a.PassPP - b, a.Precision);
+            new(a.PPLength, a.TotalPP - b, a.AccPP - b, a.TechPP - b, a.PassPP - b, a.Precision);
         public static PPContainer operator -(PPContainer a, PPContainer b) => 
-            new PPContainer(a.PPLength, a.TotalPP - b.TotalPP, a.AccPP - b.AccPP, a.TechPP - b.TechPP, a.PassPP - b.PassPP, Math.Max(a.Precision, b.Precision));
+            new(a.PPLength, a.TotalPP - b.TotalPP, a.AccPP - b.AccPP, a.TechPP - b.TechPP, a.PassPP - b.PassPP, Math.Max(a.Precision, b.Precision));
         public static PPContainer operator -(PPContainer a, float[] b)
         {
             if (a.PPLength > b.Length)

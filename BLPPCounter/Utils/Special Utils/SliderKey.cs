@@ -1,27 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace BLPPCounter.Utils.Special_Utils
+﻿namespace BLPPCounter.Utils.Special_Utils
 {
-    internal struct SliderKey
+    internal struct SliderKey(int timeMs, int lineIndex, NoteLineLayer lineLayer, ColorType color, NoteCutDirection cutDir)
     {
-        public int timeMs;
-        public int lineIndex;
-        public NoteLineLayer lineLayer;
-        public ColorType color;
-        public NoteCutDirection cutDir;
-
-        public SliderKey(int timeMs, int lineIndex, NoteLineLayer lineLayer, ColorType color, NoteCutDirection cutDir)
-        {
-            this.timeMs = timeMs;
-            this.lineIndex = lineIndex;
-            this.lineLayer = lineLayer;
-            this.color = color;
-            this.cutDir = cutDir;
-        }
+        public int timeMs = timeMs;
+        public int lineIndex = lineIndex;
+        public NoteLineLayer lineLayer = lineLayer;
+        public ColorType color = color;
+        public NoteCutDirection cutDir = cutDir;
 
         public override bool Equals(object obj)
         {
@@ -29,7 +14,7 @@ namespace BLPPCounter.Utils.Special_Utils
             var o = (SliderKey)obj;
             return timeMs == o.timeMs && lineIndex == o.lineIndex && lineLayer == o.lineLayer && color == o.color && cutDir == o.cutDir;
         }
-        public override int GetHashCode()
+        public override readonly int GetHashCode()
         {
             unchecked
             {

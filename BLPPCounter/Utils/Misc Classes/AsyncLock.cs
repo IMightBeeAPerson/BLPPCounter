@@ -6,7 +6,7 @@ namespace BLPPCounter.Utils.Misc_Classes
 {
     public class AsyncLock
     {
-        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim _semaphore = new(1, 1);
 
         /// <summary>
         /// Acquires the lock asynchronously. Use 'using' to release it automatically.

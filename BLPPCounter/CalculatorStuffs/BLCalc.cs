@@ -12,7 +12,7 @@ namespace BLPPCounter.CalculatorStuffs
     /* This is all ripped from the beatleader github and changed to work with my stuffs.*/
     public class BLCalc: Calculator
     {
-        internal override List<(double, double)> PointList { get; } = new List<(double, double)> {
+        internal override List<(double, double)> PointList { get; } = [
                 (1.0, 7.424),
                 (0.999, 6.241),
                 (0.9975, 5.158),
@@ -45,7 +45,7 @@ namespace BLPPCounter.CalculatorStuffs
                 (0.65, 0.296),
                 (0.6, 0.256),
                 (0.0, 0.000)
-        };
+        ];
         private readonly float CLANWAR_WEIGHT_COEFFICIENT = 0.8f;
         public static BLCalc Instance { get; private set; } = new BLCalc();
         private BLCalc() { }
@@ -53,8 +53,7 @@ namespace BLPPCounter.CalculatorStuffs
         public override Leaderboards Leaderboard => Leaderboards.Beatleader;
         public override int RatingCount => 3;
         public override string Label => "BL";
-        public override string[] StarLabels { get; } = new string[4] 
-        { "<color=blue>Acc</color> Stars","<color=red>Pass</color> Stars","<color=green>Tech</color> Stars","<color=yellow>Total</color> Stars" };
+        public override string[] StarLabels { get; } = ["<color=blue>Acc</color> Stars","<color=red>Pass</color> Stars","<color=green>Tech</color> Stars","<color=yellow>Total</color> Stars"];
         public override bool UsesModifiers => true;
         public float GetPassPp(float passRating) => 15.2f * Mathf.Exp(Mathf.Pow(passRating, 1 / 2.62f)) - 30f;
         public float GetAccPp(float acc, float accRating) => GetCurve(acc) * accRating * 34f;
@@ -70,7 +69,7 @@ namespace BLPPCounter.CalculatorStuffs
             //Plugin.Log.Info($"acc = {acc}, ratings = {HelpfulMisc.Print(ratings)}, pp = {HelpfulMisc.Print(outp)}, total pp = {Inflate(outp[0] + outp[1] + outp[2])}");
             //return outp;
         }
-        public override float[] SelectRatings(float[] ratings) => ratings.Skip(1).ToArray();
+        public override float[] SelectRatings(float[] ratings) => [.. ratings.Skip(1)];
         public override float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings) //ratings order: acc pass tech
         {
             if (deflatedPp > GetSummedPp(1.0f, ratings) || ratings is null || ratings.Length < 3) return precision >= 0 ? 100.0f : 1.0f;
@@ -136,22 +135,22 @@ namespace BLPPCounter.CalculatorStuffs
             float coefficient = CLANWAR_WEIGHT_COEFFICIENT;
             for (int i = clanPpVals.Length - 1; i >= 0; i--)
             {
-                float[] bottomData = clanPpVals.Skip(i).ToArray();
+                float[] bottomData = [.. clanPpVals.Skip(i)];
                 float bottomPp = TotalPP(coefficient, bottomData, i);
-                bottomData = bottomData.Prepend(clanPpVals[i]).ToArray();
+                bottomData = [.. bottomData.Prepend(clanPpVals[i])];
                 float modifiedBottomPp = TotalPP(coefficient, bottomData, i);
                 float diff = modifiedBottomPp - bottomPp;
-                if (diff > ppDiff) return CalcFinalPP(coefficient, clanPpVals.Skip(i + 1).ToArray(), i + 1, ppDiff);
+                if (diff > ppDiff) return CalcFinalPP(coefficient, [.. clanPpVals.Skip(i + 1)], i + 1, ppDiff);
             }
             return CalcFinalPP(coefficient, clanPpVals, 0, ppDiff);
         }
         public float GetNeededPlay(List<float> clanPpVals, float otherClan, float playerPp)
         {
-            float[] clone = clanPpVals.ToArray();
+            float[] clone = [.. clanPpVals];
             clanPpVals.Remove(playerPp);
-            float ourClan = TotalPP(CLANWAR_WEIGHT_COEFFICIENT, clanPpVals.ToArray(), 0);
+            float ourClan = TotalPP(CLANWAR_WEIGHT_COEFFICIENT, [.. clanPpVals], 0);
             if (otherClan - TotalPP(CLANWAR_WEIGHT_COEFFICIENT, clone, 0) <= 0) return 0.0f;
-            float result = GetNeededPP(clanPpVals.ToArray(), otherClan - ourClan);
+            float result = GetNeededPP([.. clanPpVals], otherClan - ourClan);
             return result;
         }
         public float GetWeight(float pp, float[] sortedClanPps, out int rank)

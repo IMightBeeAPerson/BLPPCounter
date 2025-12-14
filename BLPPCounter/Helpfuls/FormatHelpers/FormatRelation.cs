@@ -72,7 +72,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
         public string GetQuickFormatWithRawTestVals(string rawFormat = default) => GetQuickFormat(rawFormat == default ? _Format : rawFormat, false);
         public FormatWrapper GetFormattedTestVals(bool toDisplay)
         {
-            FormatWrapper outp = new FormatWrapper(TestValues);
+            FormatWrapper outp = new(TestValues);
             if (TestValueFormats == null) return outp;
             foreach (char token in TestValueFormatIndex.Keys)
                 outp.SetValueAndType(token, TestValueFormats[TestValueFormatIndex[token]].Invoke(outp[token], toDisplay));
@@ -120,9 +120,9 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             
         public static Func<object, bool, object> CreateFuncWithWrapper(string format) => CreateFuncWithWrapper(format, format);
         public override bool Equals(object obj) => obj is FormatRelation fr && Equals(fr);
-        public bool Equals(FormatRelation fr) => !(fr is null) && fr.CounterName.Equals(CounterName) && fr.Name.Equals(Name);
+        public bool Equals(FormatRelation fr) => fr is not null && fr.CounterName.Equals(CounterName) && fr.Name.Equals(Name);
         public override int GetHashCode() => base.GetHashCode();
-        public static bool operator ==(FormatRelation left, FormatRelation right) => !(left is null) && left.Equals(right);
+        public static bool operator ==(FormatRelation left, FormatRelation right) => left is not null && left.Equals(right);
         public static bool operator !=(FormatRelation left, FormatRelation right) => left is null || !left.Equals(right);
     }
 }

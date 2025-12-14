@@ -12,7 +12,7 @@ namespace BLPPCounter.Utils.Misc_Classes
             {
                 if (_instance is null)
                 {
-                    GameObject go = new GameObject("CoroutineHost");
+                    GameObject go = new("CoroutineHost");
                     _instance = go.AddComponent<CoroutineHost>();
                     DontDestroyOnLoad(go);
                 }

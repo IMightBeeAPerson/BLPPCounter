@@ -83,7 +83,7 @@ namespace BLPPCounter.Settings.Configs
         public virtual bool UseSteamFriends { get; set; } = true;
 
         [UseConverter(typeof(ListConverter<CustomTarget>))]
-        public virtual List<CustomTarget> CustomTargets { get; set; } = new List<CustomTarget>();
+        public virtual List<CustomTarget> CustomTargets { get; set; } = [];
         #endregion
         #region Menu Settings
         #region Simple Settings
@@ -117,7 +117,8 @@ namespace BLPPCounter.Settings.Configs
         [UseConverter(typeof(SystemColorConverter))] public virtual Color HighlightColor { get; set; } = Color.FromArgb(119, 255, 255, 0); //#77ffff00
         [UseConverter(typeof(SystemColorConverter))] public virtual Color SecondHighlightColor { get; set; } = Color.FromArgb(119, 18, 252, 255); //#7712fcff
         #endregion
-        [Ignore] private readonly Dictionary<string, PropertyInfo> Colors = new Dictionary<string, PropertyInfo>(
+        [Ignore]
+        private readonly Dictionary<string, PropertyInfo> Colors = new Dictionary<string, PropertyInfo>(
             typeof(PluginConfig).GetProperties(BindingFlags.Public | BindingFlags.Instance)
                 .Where(p => p.PropertyType.Equals(typeof(Color)) && p.Name.EndsWith("Color"))
                 .Select(p => new KeyValuePair<string, PropertyInfo>(p.Name.Substring(0, p.Name.Length - 5), p)));

@@ -10,21 +10,14 @@ using System.Threading.Tasks;
 
 namespace BLPPCounter.Utils.Serializable_Classes
 {
-    public struct CustomTarget : IComparable<CustomTarget>
+    public struct CustomTarget(string name, long id, int rank) : IComparable<CustomTarget>
     {
         [JsonProperty(nameof(Name), Required = Required.DisallowNull)]
-        public string Name;
+        public string Name = name;
         [JsonProperty(nameof(ID), Required = Required.DisallowNull)]
-        public long ID;
+        public long ID = id;
         [JsonProperty(nameof(Rank), Required = Required.DisallowNull)]
-        public int Rank; //For now this is only gonna store BL rank.
-
-        public CustomTarget(string name, long id, int rank)
-        {
-            Name = name;
-            ID = id;
-            Rank = rank;
-        }
+        public int Rank = rank; //For now this is only gonna store BL rank.
 
         public static async Task<CustomTarget> ConvertToId(string str)
         {
@@ -87,7 +80,7 @@ namespace BLPPCounter.Utils.Serializable_Classes
             }
             return new CustomTarget(playerData["name"].ToString(), id, usingSS ? 0 : rank);
         }
-        public override string ToString() => $"{Name}, ID: {ID}, Rank: {Rank}";
+        public override readonly string ToString() => $"{Name}, ID: {ID}, Rank: {Rank}";
         public int CompareTo(CustomTarget other) => Rank.CompareTo(other.Rank);
     }
 }

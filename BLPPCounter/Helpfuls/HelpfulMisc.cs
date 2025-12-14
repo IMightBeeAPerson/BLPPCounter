@@ -30,66 +30,51 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="ss">The song speed to convert to a number</param>
         /// <returns>The ordered number for given song speed</returns>
-        public static int OrderSongSpeedCorrectly(SongSpeed ss)
+        public static int OrderSongSpeedCorrectly(SongSpeed ss) => ss switch
         {
-            switch (ss)
-            {
-                case SongSpeed.Slower: return 0;
-                case SongSpeed.Normal: return 1;
-                case SongSpeed.Faster: return 2;
-                case SongSpeed.SuperFast: return 3;
-                default: return -1;
-            }
-        }
-        public static SongSpeed OrderSongSpeedCorrectly(int ss)
+            SongSpeed.Slower => 0,
+            SongSpeed.Normal => 1,
+            SongSpeed.Faster => 2,
+            SongSpeed.SuperFast => 3,
+            _ => -1,
+        };
+        public static SongSpeed OrderSongSpeedCorrectly(int ss) => ss switch
         {
-            switch (ss)
-            {
-                case 0: return SongSpeed.Slower;
-                case 1: return SongSpeed.Normal;
-                case 2: return SongSpeed.Faster;
-                case 3: return SongSpeed.SuperFast;
-                default: return default;
-            }
-        }
-        public static string PPTypeToRating(PPType type)
+            0 => SongSpeed.Slower,
+            1 => SongSpeed.Normal,
+            2 => SongSpeed.Faster,
+            3 => SongSpeed.SuperFast,
+            _ => default,
+        };
+        public static string PPTypeToRating(PPType type) => type switch
         {
-            switch (type)
-            {
-                case PPType.Acc: return "accRating";
-                case PPType.Tech: return "techRating";
-                case PPType.Pass: return "passRating";
-                case PPType.Star: return TheCounter.Leaderboard == Leaderboards.Accsaber ? "complexity" : "stars";
-                default: return "";
-            }
-        }
-        public static string GetModifierShortname(SongSpeed mod)
+            PPType.Acc => "accRating",
+            PPType.Tech => "techRating",
+            PPType.Pass => "passRating",
+            PPType.Star => TheCounter.Leaderboard == Leaderboards.Accsaber ? "complexity" : "stars",
+            _ => "",
+        };
+        public static string GetModifierShortname(SongSpeed mod) => mod switch
         {
-            switch (mod)
-            {
-                case SongSpeed.SuperFast: return "sf";
-                case SongSpeed.Faster: return "fs";
-                case SongSpeed.Slower: return "ss";
-                default: return "";
-            }
-        }
-        public static SongSpeed GetModifierFromShortname(string mod)
+            SongSpeed.SuperFast => "sf",
+            SongSpeed.Faster => "fs",
+            SongSpeed.Slower => "ss",
+            _ => "",
+        };
+        public static SongSpeed GetModifierFromShortname(string mod) => mod switch
         {
-            switch (mod)
-            {
-                case "sf": return SongSpeed.SuperFast;
-                case "fs": return SongSpeed.Faster;
-                case "ss": return SongSpeed.Slower;
-                default: return SongSpeed.Normal;
-            }
-        }
+            "sf" => SongSpeed.SuperFast,
+            "fs" => SongSpeed.Faster,
+            "ss" => SongSpeed.Slower,
+            _ => SongSpeed.Normal,
+        };
         public static string AddModifier(string name, SongSpeed modifier) => 
             modifier == SongSpeed.Normal ? name : GetModifierShortname(modifier) + char.ToUpper(name[0]) + name.Substring(1);
         public static string AddModifier(string name, string modifierName) =>
             modifierName.Equals("") ? name : modifierName + char.ToUpper(name[0]) + name.Substring(1);
         public static (float accRating, float passRating, float techRating) GetRatings(JToken diffData, SongSpeed speed, float modMult = 1.0f)
         {
-            if (!(diffData["difficulty"] is null)) diffData = diffData["difficulty"];
+            if (diffData["difficulty"] is not null) diffData = diffData["difficulty"];
             if (speed != SongSpeed.Normal) diffData = diffData["modifiersRating"];
             return (
                 (float)diffData[AddModifier("accRating", speed)] * modMult,
@@ -107,21 +92,17 @@ namespace BLPPCounter.Helpfuls
             {
                 return (0, 0, 0, 0);
             }
-            if (!(diffData["difficulty"] is null)) diffData = diffData["difficulty"];
+            if (diffData["difficulty"] is not null) diffData = diffData["difficulty"];
             if (speed != SongSpeed.Normal) diffData = diffData["modifiersRating"];
             return (accRating, passRating, techRating, (float)diffData[AddModifier("stars", speed)] * modMult);
         }
         public static string ToLiteral(string input)
         {
-            using (var writer = new StringWriter())
-            {
-                using (var provider = CodeDomProvider.CreateProvider("CSharp"))
-                {
-                    provider.GenerateCodeFromExpression(new CodePrimitiveExpression(input), writer, null);
-                    string outp = writer.ToString();
-                    return Regex.Replace(outp.Substring(1, outp.Length - 2), "\"\\s*\\+\\s*\"", "");
-                }
-            }
+            using StringWriter writer = new();
+            using CodeDomProvider provider = CodeDomProvider.CreateProvider("CSharp");
+            provider.GenerateCodeFromExpression(new CodePrimitiveExpression(input), writer, null);
+            string outp = writer.ToString();
+            return Regex.Replace(outp.Substring(1, outp.Length - 2), "\"\\s*\\+\\s*\"", "");
         }
         public static short ConvertBoolsToInt16(bool[] values)
         {
@@ -188,12 +169,11 @@ namespace BLPPCounter.Helpfuls
         public static string GetKeyFromDictionary<V>(Dictionary<string, V> dict, V val) =>
             GetKeyFromDictionary<string, V>(dict, val) ?? val.ToString();
         public static PropertyInfo[] GetAllPropertiesUsingAttribute(Type theClass, Type theAttribute, BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public) =>
-            theClass.GetProperties(bindingFlags).Where(p => Attribute.IsDefined(p, theAttribute)).ToArray();
+            [.. theClass.GetProperties(bindingFlags).Where(p => Attribute.IsDefined(p, theAttribute))];
         public static FieldInfo[] GetAllFieldsUsingAttribute(Type theClass, Type theAttribute, BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public) =>
-            theClass.GetFields(bindingFlags).Where(p => Attribute.IsDefined(p, theAttribute)).ToArray();
+            [.. theClass.GetFields(bindingFlags).Where(p => Attribute.IsDefined(p, theAttribute))];
         public static MemberInfo[] GetAllVariablesUsingAttribute(Type theClass, Type theAttribute, BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public) =>
-            GetAllPropertiesUsingAttribute(theClass, theAttribute, bindingFlags).Cast<MemberInfo>()
-            .Union(GetAllFieldsUsingAttribute(theClass, theAttribute, bindingFlags)).ToArray();
+            [.. GetAllPropertiesUsingAttribute(theClass, theAttribute, bindingFlags).Cast<MemberInfo>().Union(GetAllFieldsUsingAttribute(theClass, theAttribute, bindingFlags))];
         public static bool IsNumber(Type t)
         {
             if (t is null) return false;
@@ -205,8 +185,8 @@ namespace BLPPCounter.Helpfuls
         public static string ConvertColorToHex(System.Drawing.Color c) => $"#{ToRgba(c):X8}";
         public static string ConvertColorToHex(Color c) => $"#{ToRgba(c):X8}";
         public static string ConvertColorToMarkup(System.Drawing.Color c) => $"<color={ConvertColorToHex(c)}>";
-        public static int ArgbToRgba(int argb) => (argb << 8) + (int)((uint)argb >> 24); //can't use triple shift syntax, so best I can do is casting :(
-        public static int RgbaToArgb(int rgba) => (int)((uint)rgba >> 8) + (rgba << 24);
+        public static int ArgbToRgba(int argb) => (argb << 8) + (argb >>> 24);
+        public static int RgbaToArgb(int rgba) => (rgba >>> 8) + (rgba << 24);
         public static int ToRgba(System.Drawing.Color c) => ArgbToRgba(c.ToArgb());
         public static int ToRgba(Color c) => ((int)Math.Round(c.r * 0xFF) << 24) + ((int)Math.Round(c.g * 0xFF) << 16) + ((int)Math.Round(c.b * 0xFF) << 8) + (int)Math.Round(c.a * 0xFF);
         public static Color TextToColor(string text)
@@ -949,20 +929,13 @@ namespace BLPPCounter.Helpfuls
             if (str.Length < maxLength) return str;
             return str.Substring(0, maxLength) + "...";
         }
-        public static string ToCapName(Leaderboards leaderboard)
+        public static string ToCapName(Leaderboards leaderboard) => leaderboard switch
         {
-            switch (leaderboard)
-            {
-                case Leaderboards.Beatleader:
-                    return "BeatLeader";
-                case Leaderboards.Scoresaber:
-                    return "ScoreSaber";
-                case Leaderboards.Accsaber:
-                    return "AccSaber";
-                default:
-                    return "";
-            }
-        }
+            Leaderboards.Beatleader => "BeatLeader",
+            Leaderboards.Scoresaber => "ScoreSaber",
+            Leaderboards.Accsaber => "AccSaber",
+            _ => "",
+        };
         public static float GetLineHeight(this TMP_TextInfo textInfo, int line = 0)
         {
             TMP_LineInfo lineInfo = textInfo.lineInfo[line];
@@ -1065,13 +1038,13 @@ namespace BLPPCounter.Helpfuls
         }
         public static void AddSorted<T>(this List<T> list, T toAdd, bool greatestFirst = false) where T : IComparable<T>
         {
-            int index = greatestFirst ? ReverseBinarySearch(list.ToArray(), toAdd) : Array.BinarySearch(list.ToArray(), toAdd);
+            int index = greatestFirst ? ReverseBinarySearch([.. list], toAdd) : Array.BinarySearch([.. list], toAdd);
             if (index < 0) index = -index - 1;
             list.Insert(index, toAdd);
         }
         public static void AddSorted<T>(this List<T> list, T toAdd, IComparer<T> comparer, bool greatestFirst = false)
         {
-            int index = greatestFirst ? ReverseBinarySearch(list.ToArray(), toAdd, comparer) : Array.BinarySearch(list.ToArray(), toAdd, comparer);
+            int index = greatestFirst ? ReverseBinarySearch([.. list], toAdd, comparer) : Array.BinarySearch([.. list], toAdd, comparer);
             if (index < 0) index = -index - 1;
             list.Insert(index, toAdd);
         }

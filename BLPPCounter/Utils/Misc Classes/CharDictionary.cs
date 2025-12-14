@@ -6,10 +6,10 @@ using System.Runtime.InteropServices;
 
 namespace BLPPCounter.Utils.Misc_Classes
 {
-    internal class CharDictionary<T> : IEnumerable<KeyValuePair<char, T>>
+    internal class CharDictionary<T>(params char[] keys) : IEnumerable<KeyValuePair<char, T>>
     {
-        private readonly char[] keys;
-        private readonly T[] values;
+        private readonly char[] keys = keys;
+        private readonly T[] values = new T[(int)Math.Pow(2, 8 * Marshal.SizeOf(typeof(char)))];
 
         public IEnumerable<char> Keys => keys;
 
@@ -17,11 +17,6 @@ namespace BLPPCounter.Utils.Misc_Classes
 
         public int Count => keys.Length;
 
-        public CharDictionary(params char[] keys)
-        {
-            this.keys = keys;
-            values = new T[(int)Math.Pow(2, 8 * Marshal.SizeOf(typeof(char)))];
-        }
         public CharDictionary((char key, T value)[] pairs) : this(pairs.Select(p => p.key).ToArray())
         {
             foreach (var (key, value) in pairs)

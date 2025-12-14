@@ -1,8 +1,6 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
-using BeatSaberMarkupLanguage.Components.Settings;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Helpfuls.FormatHelpers;
-using IPA.Utilities;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -81,12 +79,12 @@ namespace BLPPCounter.Utils.List_Settings
             ValFormatter = valFormat;
             //if (valFormat == null) Plugin.Log.Info($"{name} has no formatter!");
             ActualClass = givenValue.GetType();
-            if (valType == ValueType.Inferred) switch (ActualClass)
-                {
-                    case Type v when v == typeof(bool): ValType = ValueType.Toggle; break;
-                    case Type v when HelpfulMisc.IsNumber(v): ValType = ValueType.Increment; break;
-                    default: ValType = ValueType.Text; break;
-                }
+            if (valType == ValueType.Inferred) ValType = ActualClass switch
+            {
+                Type v when v == typeof(bool) => ValueType.Toggle,
+                Type v when HelpfulMisc.IsNumber(v) => ValueType.Increment,
+                _ => ValueType.Text,
+            };
             else ValType = valType;
             if (ValType == ValueType.Color) GivenValueColor = HelpfulMisc.TextToColor((string)givenValue);
             if (extraParams != null) foreach ((string, object) newVal in extraParams)
@@ -124,7 +122,7 @@ namespace BLPPCounter.Utils.List_Settings
         {
             if (oldVals is null)
             {
-                Dictionary<char, object> outp = new Dictionary<char, object>();
+                Dictionary<char, object> outp = [];
                 foreach (ValueListInfo val in arr)
                     outp[val.GivenToken] = formatted ? val.FormattedGivenValue : val.GivenValue;
                 return new FormatWrapper(outp);

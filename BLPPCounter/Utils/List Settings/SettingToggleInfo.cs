@@ -1,22 +1,19 @@
 ﻿using BeatSaberMarkupLanguage.Attributes;
-using BLPPCounter.Settings.Configs;
-using BLPPCounter.Settings.SettingHandlers;
 using System;
-using System.Collections.Generic;
 
 namespace BLPPCounter.Utils
 {
-    internal class SettingToggleInfo
+    internal class SettingToggleInfo(string text, string description, string type, int id, Action<int, bool> changeSettings)
     {
-        private bool usable;
-        private readonly int id;
-        private readonly Action<int, bool> changeSettings;
+        private bool usable = false;
+        private readonly int id = id;
+        private readonly Action<int, bool> changeSettings = changeSettings;
         [UIValue("Text")]
-        public string Text { get; private set; }
+        public string Text { get; private set; } = text;
         [UIValue("Description")]
-        public string Description { get; private set; }
+        public string Description { get; private set; } = description;
         [UIValue("Type")]
-        public string Type { get; private set; }
+        public string Type { get; private set; } = "<color=\"green\">Type of markup:</color> " + (type.Contains("-") ? type.Split('-')[0] : type);
         [UIValue("Usable")]
         public bool Usable 
         { 
@@ -26,16 +23,6 @@ namespace BLPPCounter.Utils
                 changeSettings(id, value);
                 usable = value;
             } 
-        }
-
-        public SettingToggleInfo(string text, string description, string type, int id, Action<int, bool> changeSettings)
-        {
-            Text = text; 
-            Description = description;
-            Type = "<color=\"green\">Type of markup:</color> " + (type.Contains("-") ? type.Split('-')[0] : type);
-            this.id = id;
-            usable = false;
-            this.changeSettings = changeSettings;
         }
 
         public override string ToString() 

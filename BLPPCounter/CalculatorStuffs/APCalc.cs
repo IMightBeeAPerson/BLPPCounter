@@ -9,8 +9,8 @@ namespace BLPPCounter.CalculatorStuffs
 {
     internal class APCalc : Calculator
     {
-        internal override List<(double, double)> PointList { get; } = new List<(double, double)>()
-        {
+        internal override List<(double, double)> PointList { get; } =
+        [
             ( 0, 0 ),
             ( 0.9409324581850277, 0.22864617746193472 ),
             ( 0.9421364984358537, 0.2344589535514457 ),
@@ -63,19 +63,19 @@ namespace BLPPCounter.CalculatorStuffs
             ( 0.9988016676122579, 0.8810362590039038 ),
             ( 0.9997988680153226, 1 ),
             ( 1, 1 )
-        };
+        ];
         public override Leaderboards Leaderboard => Leaderboards.Accsaber;
         public override int RatingCount => 1;
         public override bool UsesModifiers => false;
         public override string Label => "AP";
-        public override string[] StarLabels { get; } = new string[1] { "<color=#00FF00>Complexity</color>" };
-        public static readonly APCalc Instance = new APCalc();
+        public override string[] StarLabels { get; } = ["<color=#00FF00>Complexity</color>"];
+        public static readonly APCalc Instance = new();
         private APCalc()
         {
             PointList.Reverse();
         }
-        public override float[] GetPp(float acc, params float[] ratings) => new float[1] { GetCurve(acc) * (ratings[0] + 18) * 61 };
-        public override float[] SelectRatings(float[] ratings) => ratings.Take(1).ToArray();
+        public override float[] GetPp(float acc, params float[] ratings) => [GetCurve(acc) * (ratings[0] + 18) * 61];
+        public override float[] SelectRatings(float[] ratings) => [.. ratings.Take(1)];
         public override float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings)
         {
             if (deflatedPp > GetSummedPp(1.0f, ratings)) return precision < 0 ? 1.0f : 100.0f;
