@@ -138,7 +138,7 @@ namespace BLPPCounter.Helpfuls
             if (mod != SongSpeed.Normal && data["modifiersRating"] is not null) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
             string path = HelpfulMisc.AddModifier(HelpfulMisc.PPTypeToRating(type), mod);
             //Below is a workaround for how Taoh formats his data.
-            if (mod == SongSpeed.Normal && type == PPType.Star && data[path] is null) return (float)(data["star" + HelpfulMisc.ToCapName(PpInfoTabHandler.Instance.CurrentLeaderboard)] ?? 0);
+            if (mod == SongSpeed.Normal && type == PPType.Star && data[path] is null) return (float)(data[(PpInfoTabHandler.Instance.CurrentLeaderboard == Leaderboards.Accsaber ? "complexity" : "star") + HelpfulMisc.ToCapName(PpInfoTabHandler.Instance.CurrentLeaderboard)] ?? 0);
             return (float)(data[path] ?? 0);
         }
         public static float GetRating(JToken data, PPType type, string modName)

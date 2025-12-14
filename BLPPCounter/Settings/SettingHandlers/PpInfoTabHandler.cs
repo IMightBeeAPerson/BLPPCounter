@@ -615,7 +615,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 ratings = newArr;
             }
             int len = ratings.Length / 4; //divide by 4 because 3 speed mods + 1 no mod
-            //Plugin.Log.Info($"rating len: {ratings.Length}, len: {len}");
+            //Plugin.Log.Info($"rating len: {ratings.Length}, len: {len}, ratings: {ratings.Print()}");
             for (int i = 0; i < arr.Length; i++)
                 arr[i][1] = "<color=#0c0>" + valueCalc.Invoke([.. ratings.Skip(i * len).Take(len)]) + "</color>" + suffix;
             if (!Mathf.Approximately(CurrentModMultiplier, 1.0f)) for (int i = 0; i < arr.Length; i++)
