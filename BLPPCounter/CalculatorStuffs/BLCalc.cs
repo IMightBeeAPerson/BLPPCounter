@@ -109,6 +109,7 @@ namespace BLPPCounter.CalculatorStuffs
                 // Adjust x using a basic Newton's method approach
                 double derivative = 1.08 * t * Math.Exp(1.9 * x) + 34 * a * CurveDerivative(x);
                 x -= (float)(difference / derivative);
+                if (x < 0) x = Math.Abs(x); // Ensure x stays within valid bounds
 
                 // Calculate the error
                 error = Math.Abs(difference);

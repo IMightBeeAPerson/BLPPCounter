@@ -875,7 +875,7 @@ namespace BLPPCounter
 #if NEW_VERSION
             MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmapDiff.difficulty, mode, ratings, mods.songSpeed); // 1.37.0 and above
 #else
-            MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmap.difficulty, mode, ratings, mods.songSpeed); // 1.34.2 and below
+            MapSelection thisMap = new(Data[LastMap.Hash], beatmap.difficulty, mode, ratings, mods.songSpeed); // 1.34.2 and below
 #endif
             if (!thisMap.IsUsable) return false;
             //Plugin.Log.Debug($"Last Map\n-------------------\n{LastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");

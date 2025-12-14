@@ -99,30 +99,37 @@ namespace BLPPCounter.Counters
             string songId = map.MapData.songId;
             APIHandler api = GetSelectedAPI();
             mapData = api.GetScoregraph(map, ct).GetAwaiter().GetResult();
-            Array.Sort(mapData, (a, b) => (calc.UsesModifiers ? b.PP - a.PP : b.Acc - a.Acc) < 0 ? -1 : 1);
-            bool isUnranked = mapData[0].PP <= 0 || TheCounter.Leaderboard == Leaderboards.Accsaber;
-            if (calc.UsesModifiers || isUnranked)
-                for (int i = 0; i < mapData.Length; i++)
-                {
-                    if (!isUnranked && (TheCounter.Leaderboard != Leaderboards.Beatleader || mapData[i].Speed == map.MapSpeed))
-                        continue;
-                    if (TheCounter.Leaderboard == Leaderboards.Beatleader)
-                    {
-                        float[] specificPps = calc.GetPpWithSummedPp(mapData[i].Acc, HelpfulPaths.GetAllRatingsOfSpeed(map.MapData.diffData, calc, mapData[i].Speed));
-                        mapData[i].ChangePP(
-                            BLCalc.Instance.GetAccDeflatedUnsafe(specificPps[0] + specificPps[1] + specificPps[2], PC.DecimalPrecision, ratings.SelectedRatings) / 100f,
-                            (float)Math.Round(specificPps[3], PC.DecimalPrecision));
-                    }
-                    else mapData[i].ChangePP(mapData[i].Acc, (float)Math.Round(calc.Inflate(calc.GetSummedPp(mapData[i].Acc, ratings.SelectedRatings)), PC.DecimalPrecision));
-                }
-            rankArr = [.. mapData.Select(t => calc.UsesModifiers ? t.PP : t.Acc)];
-            //Plugin.Log.Debug($"[{string.Join(", ", mapData.Select(t => (t.acc, t.pp)))}]");
-            ppHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 1)
+            try
             {
-                UpdateFCEnabled = PC.PPFC,
-                UpdatePPEnabled = displayPP
-            };
-            ppHandler.UpdateFC += (fcAcc, vals, actions) => vals[1].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
+                bool isUnranked = mapData[0].PP <= 0 || TheCounter.Leaderboard == Leaderboards.Accsaber;
+                if (calc.UsesModifiers || isUnranked)
+                    for (int i = 0; i < mapData.Length; i++)
+                    {
+                        if (!isUnranked && (TheCounter.Leaderboard != Leaderboards.Beatleader || mapData[i].Speed == map.MapSpeed))
+                            continue;
+                        if (TheCounter.Leaderboard == Leaderboards.Beatleader)
+                        {
+                            float[] specificPps = calc.GetPpWithSummedPp(mapData[i].Acc, HelpfulPaths.GetAllRatingsOfSpeed(map.MapData.diffData, calc, mapData[i].Speed));
+                            mapData[i].ChangePP(
+                                BLCalc.Instance.GetAccDeflatedUnsafe(specificPps[0] + specificPps[1] + specificPps[2], PC.DecimalPrecision, ratings.SelectedRatings) / 100f,
+                                (float)Math.Round(specificPps[3], PC.DecimalPrecision));
+                        }
+                        else mapData[i].ChangePP(mapData[i].Acc, (float)Math.Round(calc.Inflate(calc.GetSummedPp(mapData[i].Acc, ratings.SelectedRatings)), PC.DecimalPrecision));
+                    }
+                Array.Sort(mapData, (a, b) => (calc.UsesModifiers ? b.PP - a.PP : b.Acc - a.Acc) < 0 ? -1 : 1);
+                //Plugin.Log.Debug($"[{string.Join(", ", mapData.Select(t => (t.Acc, t.PP)))}]");
+                rankArr = [.. mapData.Select(t => calc.UsesModifiers ? t.PP : t.Acc)];
+                ppHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 1)
+                {
+                    UpdateFCEnabled = PC.PPFC,
+                    UpdatePPEnabled = displayPP
+                };
+                ppHandler.UpdateFC += (fcAcc, vals, actions) => vals[1].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.Error($"Error setting up Rank Counter data for song {songId}: {e}");
+            }
         }
         public override void ReinitCounter(TMP_Text display, RatingContainer ratingVals)
         {
