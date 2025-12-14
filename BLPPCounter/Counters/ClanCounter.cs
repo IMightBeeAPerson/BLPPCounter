@@ -2,18 +2,19 @@
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.API_Handlers;
-using BLPPCounter.Utils.Map_Utils;
 using BLPPCounter.Utils.Containers;
+using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.Map_Utils;
+using BLPPCounter.Utils.Misc_Classes;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
-using BLPPCounter.Utils.Misc_Classes;
 
 namespace BLPPCounter.Counters
 {
@@ -228,6 +229,7 @@ namespace BLPPCounter.Counters
         private RatingContainer nmRatings;
         private float[] clanPPs;
         private PPContainer neededPPs;
+        private PPHandler weightedPPHandler;
         private float neededAcc;
         private int setupStatus;
         private string message;
@@ -254,7 +256,7 @@ namespace BLPPCounter.Counters
                     setupStatus = 2;
                     goto theEnd;
                 }
-                if (ppVals == null) { setupStatus = 3; goto theEnd; }
+                if (ppVals is null) { setupStatus = 3; goto theEnd; }
                 if (PC.MapCache > 0) mapCache.Add((map, ppVals));
             }
             neededAcc = calc.GetAcc(neededPPs.TotalPP, PC.DecimalPrecision, ratings.Ratings);
@@ -277,15 +279,29 @@ namespace BLPPCounter.Counters
                 case 4: message = PC.MessageSettings.MapUncapturableMessage; break;
             }
             showRank = PC.ShowRank && setupStatus != 1 && setupStatus != 3;
-            ppHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 2, (rating, acc, in main, ref toChange) => PPContainer.SubtractFast(in main, in neededPPs, ref toChange))
+            ppHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 2, (rating, acc, in main, ref toChange, _) => PPContainer.SubtractFast(in main, in neededPPs, ref toChange))
             {
-                UpdateFCEnabled = PC.PPFC
+                UpdateFCEnabled = PC.PPFC,
+                UpdatePPEnabled = displayPP
             };
-            ppHandler.UpdateFC += (fcAcc, vals, actions) =>
+            ppHandler.UpdateFC += (fcAcc, vals, actions, _) =>
             {
                 vals[2].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
-                actions(0, fcAcc, in vals[2], ref vals[3]);
+                actions(0, fcAcc, in vals[2], ref vals[3], _);
             };
+            if (setupStatus != 0)
+            {
+                weightedPPHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 2, (rating, acc, in main, ref toChange, weight) => PPContainer.MultiplyFast(ref toChange, weight))
+                {
+                    UpdateFCEnabled = PC.PPFC,
+                    UpdatePPEnabled = displayPP
+                };
+                weightedPPHandler.UpdateFC += (fcAcc, vals, actions, weight) =>
+                {
+                    vals[2].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
+                    actions(0, fcAcc, in vals[2], ref vals[3], weight);
+                };
+            }
         }
         public static async Task<(float[] clanPP, bool mapCaptured, string owningClan, int playerClanId)> LoadNeededPp(string mapId, int playerClanId, CancellationToken ct = default)
         {
@@ -334,8 +350,7 @@ namespace BLPPCounter.Counters
             (outp, mapCaptured, owningClan, _) = LoadNeededPp(mapId, -1, ct).GetAwaiter().GetResult(); 
             return outp;
         }
-        public override void ReinitCounter(TMP_Text display, RatingContainer ratingVals) {
-            base.ReinitCounter(display, ratingVals);
+        public override void ReinitCounter(RatingContainer ratingVals) {
             neededAcc = calc.GetAcc(neededPPs.TotalPP, PC.DecimalPrecision, ratings.Ratings);
             //Plugin.Log.Info($"Read Percent: {neededAcc}, Calc Percent: {neededAcc / 100f}");
             float[] temp = calc.GetPp(neededAcc / 100f, nmRatings.Ratings);
@@ -510,19 +525,7 @@ namespace BLPPCounter.Counters
         public static void AddToCache(MapSelection map, float[] vals) => mapCache.Add((map, vals));
         #endregion
         #region Updates
-        //public override void UpdatePP(float acc)
-        //{
-        //    calc.SetPp(acc, ppVals, 0, PC.DecimalPrecision);
-        //    for (int i = 0; i < ratingLen; i++)
-        //        ppVals[i + ratingLen] = (float)Math.Round(ppVals[i] - neededPPs[i], PC.DecimalPrecision);
-        //}
-        //public override void UpdateFCPP(float fcPercent)
-        //{
-        //    calc.SetPp(fcPercent, ppVals, ratingLen * 2, PC.DecimalPrecision);
-        //    for (int i = 0; i < ratingLen; i++)
-        //        ppVals[i + ratingLen * 3] = (float)Math.Round(ppVals[i + ratingLen * 2] - neededPPs[i], PC.DecimalPrecision);
-        //}
-        public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
+        public override void UpdateCounterInternal(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
             if (setupStatus > 0)
             {
@@ -542,51 +545,33 @@ namespace BLPPCounter.Counters
             }
             if (PC.SplitPPVals && calc.RatingCount > 1)
             {
-                string text = "";
                 for (int i = 0; i < 4; i++)
-                    text += DisplayClan(ppHandler.DisplayFC, PC.ExtraInfo && i == 3, mistakes, () => color(ppHandler[1, i]), ppHandler[1, i].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[0, i],
-                        () => color(ppHandler[3, i]), ppHandler[3, i].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[2, i], TheCounter.CurrentLabels[i], message) + "\n";
-                display.text = text;
+                    outpText.AppendLine(DisplayClan(ppHandler.DisplayFC, PC.ExtraInfo && i == 3, mistakes, () => color(ppHandler[1, i]), ppHandler[1, i].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[0, i],
+                        () => color(ppHandler[3, i]), ppHandler[3, i].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[2, i], TheCounter.CurrentLabels[i], message));
             }
             else
-                display.text = DisplayClan(ppHandler.DisplayFC, PC.ExtraInfo, mistakes, () => color(ppHandler[1, 3]), ppHandler[1, 3].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[0, 3],
-                    () => color(ppHandler[3, 3]), ppHandler[3, 3].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[2, 3], TheCounter.CurrentLabels.Last(), message) + "\n";
+                outpText.AppendLine(DisplayClan(ppHandler.DisplayFC, PC.ExtraInfo, mistakes, () => color(ppHandler[1]), ppHandler[1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[0],
+                    () => color(ppHandler[3]), ppHandler[3].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[2], TheCounter.CurrentLabels.Last(), message));
         }
         public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
         private void UpdateWeightedCounter(float acc, int mistakes, float fcPercent)
         {
             bool displayFc = PC.PPFC && mistakes > 0;
-            float[] ppVals = new float[16]; //default pass, acc, tech, total pp for 0-3, modified for 4-7. Same thing but for fc with 8-15.
-            float[] temp = calc.GetPp(acc);
-            for (int i = 0; i < temp.Length; i++)
-                ppVals[i] = temp[i];
-            ppVals[3] = calc.Inflate(ppVals[0] + ppVals[1] + ppVals[2]);
-            float weight = BLCalc.Instance.GetWeight(ppVals[3], clanPPs, out int rank);
-            for (int i = 0; i < 4; i++)
-                ppVals[i + 4] = ppVals[i] * weight;
-            if (displayFc)
-            {
-                temp = calc.GetPp(acc);
-                for (int i = 0; i < temp.Length; i++)
-                    ppVals[i + 8] = temp[i];
-                ppVals[11] = calc.Inflate(ppVals[8] + ppVals[9] + ppVals[10]);
-                for (int i = 8; i < 12; i++)
-                    ppVals[i + 4] = ppVals[i] * weight;
-            }
-            for (int i = 0; i < ppVals.Length; i++)
-                ppVals[i] = (float)Math.Round(ppVals[i], PC.DecimalPrecision);
-            string ppLabel = " Weighted PP";
+            float weight = BLCalc.Instance.GetWeight(calc.Inflate(calc.GetSummedPp(acc)), clanPPs, out int rank);
+
+            weightedPPHandler.Update(acc, mistakes, fcPercent, weight);
+
+            const string ppLabel = " Weighted PP";
+            string color = HelpfulFormatter.GetWeightedRankColor(rank);
             if (PC.SplitPPVals && calc.RatingCount > 1)
             {
-                string text = "", color = HelpfulFormatter.GetWeightedRankColor(rank);
                 for (int i = 0; i < 4; i++)
-                    text += DisplayWeighted([displayFc, PC.ExtraInfo && i == 3, showRank && i == 3], 
-                        mistakes, () => color, $"{rank}", $"{ppVals[i + 4]}", ppVals[i], $"{ppVals[i + 12]}", ppVals[i + 8], i == 3 ? ppLabel : TheCounter.CurrentLabels[i], message) + "\n";
-                display.text = text;
+                    outpText.AppendLine(DisplayWeighted([displayFc, PC.ExtraInfo && i == 3, showRank && i == 3], 
+                        mistakes, () => color, $"{rank}", $"{weightedPPHandler[1, i]}", weightedPPHandler[0, i], $"{weightedPPHandler[3, i]}", weightedPPHandler[2, i], i == 3 ? ppLabel : TheCounter.CurrentLabels[i], message));
             }
             else
-                display.text = DisplayWeighted([displayFc, PC.ExtraInfo, showRank], 
-                    mistakes, () => HelpfulFormatter.GetWeightedRankColor(rank), $"{rank}", $"{ppVals[7]}", ppVals[3], $"{ppVals[15]}", ppVals[11], ppLabel, message) + "\n";
+                outpText.AppendLine(DisplayWeighted([displayFc, PC.ExtraInfo, showRank], 
+                    mistakes, () => HelpfulFormatter.GetWeightedRankColor(rank), $"{rank}", $"{weightedPPHandler[1]}", weightedPPHandler[0], $"{weightedPPHandler[3]}", weightedPPHandler[2], ppLabel, message));
         }
     }
     #endregion

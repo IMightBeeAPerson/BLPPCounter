@@ -22,17 +22,17 @@ namespace BLPPCounter.Counters
             {
                 UpdateFCEnabled = PluginConfig.Instance.PPFC
             };
-            ppHandler.UpdateFC += (acc, extraVals, extraCalls) => extraVals[1].SetValues(calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision, ratings));
+            ppHandler.UpdateFC += (acc, extraVals, extraCalls, _) => extraVals[1].SetValues(calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision, ratings));
         }
         public override void UpdateFormat() { }
         public static bool InitFormat() => TheCounter.FormatUsable;
         public static void ResetFormat() { }
         #endregion
         #region Updates
-        public override void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
+        public override void UpdateCounterInternal(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
             ppHandler.Update(acc, mistakes, fcPercent);
-            TheCounter.UpdateText(ppHandler.DisplayFC, display, ppHandler, mistakes);
+            TheCounter.UpdateText(ppHandler.DisplayFC, outpText, ppHandler, mistakes);
         }
         public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
         #endregion

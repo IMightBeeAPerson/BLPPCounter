@@ -32,6 +32,7 @@ using System.Threading.Tasks;
 using TMPro;
 using Zenject;
 using static GameplayModifiers;
+using System.Text;
 namespace BLPPCounter
 {
 
@@ -1073,17 +1074,15 @@ namespace BLPPCounter
         }
 #endregion
         #region Updates
-        public static void UpdateText(bool displayFc, TMP_Text display, PPHandler ppVals, int mistakes)
+        public static void UpdateText(bool displayFc, StringBuilder outpText, PPHandler ppVals, int mistakes)
         {
             int num = Calculator.GetCalc(Leaderboard).DisplayRatingCount;
             string mistakeColor = $"<color={(mistakes == 0 ? "#999" : "red")}>";
             if (pc.SplitPPVals && num > 1) {
-                string outp = "";
-                for (int i = 0; i < 4; i++) 
-                    outp += DisplayFormatter(displayFc, pc.ExtraInfo && i == 3, ppVals[0, i], ppVals[1, i], mistakeColor, mistakes, CurrentLabels[i]) + "\n";
-                display.text = outp;
+                for (int i = 0; i < 4; i++)
+                    outpText.AppendLine(DisplayFormatter(displayFc, pc.ExtraInfo && i == 3, ppVals[0, i], ppVals[1, i], mistakeColor, mistakes, CurrentLabels[i]));
             } else
-                display.text = DisplayFormatter(displayFc, pc.ExtraInfo, ppVals[0, num - 1], ppVals[1, num - 1], mistakeColor, mistakes, CurrentLabels.Last());
+                outpText.AppendLine(DisplayFormatter(displayFc, pc.ExtraInfo, ppVals[0, num - 1], ppVals[1, num - 1], mistakeColor, mistakes, CurrentLabels.Last()));
         }
         //public static string GetUpdateText(bool displayFc, float[] ppVals, int mistakes)
         //{
