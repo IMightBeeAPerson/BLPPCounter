@@ -10,7 +10,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
     {
         // Tokens < SPLIT are treated as "low" (control chars/flags)
         // Tokens >= SPLIT are treated as "high" (letters, symbols, etc.)
-        private const int SPLIT = 30;
+        public static readonly int SPLIT = 30;
 
         private readonly Type[] givenTypes;
         private readonly object[] values;
@@ -215,6 +215,13 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                 throw new ArgumentException($"Stored type is {givenTypes[index].Name}, not {typeof(T).Name}.");
 
             return (T)values[index];
+        }
+        public Type GetValueType(char c)
+        {
+            int index = GetIndex(c);
+            if (index < 0)
+                throw new ArgumentException($"Character '{c}' is not part of the token set.");
+            return givenTypes[index];
         }
 
         public bool ContainsKey(char c) => GetIndex(c) >= 0;

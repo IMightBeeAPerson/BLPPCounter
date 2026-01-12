@@ -13,6 +13,8 @@ using System.Threading;
 using TMPro;
 using UnityEngine;
 using static BLPPCounter.Utils.API_Handlers.APIHandler;
+using BLPPCounter.Utils.TokenParser.Printers;
+using BLPPCounter.Utils.TokenParser;
 
 namespace BLPPCounter.Counters
 {
@@ -25,8 +27,9 @@ namespace BLPPCounter.Counters
         public static string DisplayHandler => DisplayName;
         private static PluginConfig PC => PluginConfig.Instance;
 
-        private static Func<FormatWrapper, string> displayRank;
-        private static Func<Func<FormatWrapper, string>> rankIniter;
+        private static string rankFormat;
+        private static Formatter rankFormatter;
+        private static Printer rankPrinter;
         private static FormatWrapper rankWrapper;
         private static bool displayPP;
 
@@ -133,7 +136,11 @@ namespace BLPPCounter.Counters
         }
         #endregion
         #region Helper Methods
-        public static void FormatTheFormat(string format) => rankIniter = GetTheFormat(format, out _);
+        public static void FormatTheFormat(string format)
+        {
+            rankFormat = format;
+            InitTheFormat();
+        }
         public static Func<Func<FormatWrapper, string>> GetTheFormat(string format, out string errorStr)
         {
             var outp = HelpfulFormatter.GetBasicTokenParser(format, MainAlias, DisplayName,
@@ -150,34 +157,42 @@ namespace BLPPCounter.Counters
                     if (!(bool)vals[(char)4]) HelpfulFormatter.SetText(tokensCopy, '4');
                 }, out errorStr, out HelpfulFormatter.TokenInfo[] arr);
 
-            HashSet<char> ppSymbols = ['x', 'd'];
-            displayPP = arr.Any(token => token.Usage > HelpfulFormatter.TokenUsage.Never && ppSymbols.Contains(token.Token));
+            /*HashSet<char> ppSymbols = ['x', 'd'];
+            displayPP = arr.Any(token => token.Usage > HelpfulFormatter.TokenUsage.Never && ppSymbols.Contains(token.Token));*/
 
             return outp;
         }
         public static void InitTheFormat()
         {
-            displayRank = rankIniter.Invoke();
-            rankWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(bool), (char)3), (typeof(bool), (char)4), (typeof(float), 'x'), (typeof(float), 'y'),
+            rankWrapper ??= new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(bool), (char)3), (typeof(bool), (char)4), (typeof(float), 'x'), (typeof(float), 'y'),
                 (typeof(int), 'r'), (typeof(string), 'n'), (typeof(float), 'd'), (typeof(float), 'p'), (typeof(string), 'c'), (typeof(string), 'l'));
+            rankFormatter = new(TokenParser.ParseTokens(rankFormat, MainAlias), rankWrapper);
+
+            if (!PC.ShowLbl) rankFormatter.SetTokenToConstantValue('l');
+
+            rankFormatter.SurroundToken('c', "$", "</color>");
+            rankFormatter.PromiseValueForAllTokens();
+
+            rankPrinter = rankFormatter.GetOutput();
+
+            displayPP = rankPrinter.UsedKeys.Contains('x') || rankPrinter.UsedKeys.Contains('y') || rankPrinter.UsedKeys.Contains('d');
         }
         private static string DisplayRank(bool fc, bool extraInfo, bool isNum1, float pp, float fcpp, int rank, string playername, float ppDiff, float percentDiff, string color, string label)
         {
             rankWrapper.SetValues(((char)1, fc), ((char)2, extraInfo), ((char)3, !isNum1 && extraInfo), ((char)4, isNum1 && extraInfo), ('x', pp), ('y', fcpp),
                     ('r', rank), ('n', playername), ('d', ppDiff), ('p', percentDiff), ('c', color), ('l', label));
-            return displayRank.Invoke(rankWrapper);
+            return rankPrinter.Print();
         }
         public override void UpdateFormat() => InitTheFormat();
         public static bool InitFormat()
         {
-            if (rankIniter == null) FormatTheFormat(PC.FormatSettings.RankTextFormat);
-            if (displayRank == null && rankIniter != null) InitTheFormat();
-            return displayRank != null;
+            if (rankFormatter == null) FormatTheFormat(PC.FormatSettings.RankTextFormat);
+            return rankPrinter != null;
         }
         public static void ResetFormat() 
         {
-            rankIniter = null;
-            displayRank = null;
+            rankFormatter = null;
+            rankPrinter = null;
         }
         private int GetRank(float inVal) 
         { 

@@ -1065,6 +1065,17 @@ namespace BLPPCounter.Helpfuls
             return (speed, modArr.Length > 1 || modArr.Length == 1 && modArr[0].Length > 0 ? HelpfulPaths.GetMultiAmounts(modifierData, modArr) : 1.0f);
         }
         public static bool HasNonSpeedMods(string mods, char delimiter = ',') => Regex.Replace(mods, $"(?:fs|sf|ss|nf){delimiter}?", "", RegexOptions.IgnoreCase).Length > 0;
+#nullable enable
+        public static void ChangeValuesAndAdd<T>(this List<T> target, T?[] values, int[] indexes, Func<T?, T> changeFunction)
+        {
+            for (int i = 0, count = 0; i < values.Length; i++)
+                target.Add(count < indexes.Length && i == indexes[count] ? changeFunction(values[indexes[count++]]) : values[i]!);
+        }
+        public static void ChangeValuesAndPrepend<T>(this List<T> target, T?[] values, int[] indexes, Func<T?, T> changeFunction)
+        {
+            for (int i = 0, count = 0; i < values.Length; i++)
+                target.Insert(i, count < indexes.Length && i == indexes[count] ? changeFunction(values[indexes[count++]]) : values[i]!);
+        }
         /*float[] ConvertArr(double[] arr)
         {
             float[] outp = new float[arr.Length];

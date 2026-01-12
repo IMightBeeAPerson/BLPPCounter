@@ -16,6 +16,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
+using BLPPCounter.Utils.TokenParser;
+using BLPPCounter.Utils.TokenParser.Printers;
 
 namespace BLPPCounter.Counters
 {
@@ -26,9 +28,9 @@ namespace BLPPCounter.Counters
         public static string DisplayName => "Relative";
         public static Leaderboards ValidLeaderboards => Leaderboards.All;
         public static string DisplayHandler => DisplayName;
-        //private static Func<bool, bool, int, string, string, string, string, float, string, string, float, float, string, string> displayFormatter;
-        private static Func<FormatWrapper, string> displayFormatter;
-        private static Func<Func<FormatWrapper, string>> displayIniter;
+        private static string format;
+        private static Formatter formatter;
+        private static Printer displayFormatter;
         private static FormatWrapper displayWrapper;
         private static PluginConfig PC => PluginConfig.Instance;
         public static readonly Dictionary<string, char> FormatAlias = new()
@@ -332,13 +334,12 @@ namespace BLPPCounter.Counters
         public override void UpdateFormat() => InitDefaultFormat();
         public static bool InitFormat()
         {
-            if (displayIniter == null && TheCounter.TargetUsable) FormatTheFormat(PC.FormatSettings.RelativeTextFormat);
-            if (displayFormatter == null && displayIniter != null) InitDefaultFormat();
+            if (formatter is null && TheCounter.TargetUsable) FormatTheFormat(PC.FormatSettings.RelativeTextFormat);
             return displayFormatter != null && TheCounter.TargetUsable;
         }
         public static void ResetFormat()
         {
-            displayIniter = null;
+            formatter = null;
             displayFormatter = null;
         }
         private void ResetVars()
@@ -374,27 +375,46 @@ namespace BLPPCounter.Counters
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
                 }, out errorMessage, out HelpfulFormatter.TokenInfo[] arr, applySettings);//this is one line of code lol
 
-            HashSet<char> ppSymbols = ['x', 'p'];
+            /*HashSet<char> ppSymbols = ['x', 'p'];
             if (arr is not null)
-                displayPP = arr.Any(token => token.Usage > HelpfulFormatter.TokenUsage.Never && ppSymbols.Contains(token.Token));
+                displayPP = arr.Any(token => token.Usage > HelpfulFormatter.TokenUsage.Never && ppSymbols.Contains(token.Token));*/
 
             return outp;
         }
-        public static void FormatTheFormat(string format) => displayIniter = GetTheFormat(format, out string _);
+        public static void FormatTheFormat(string format)
+        {
+            RelativeCounter.format = format;
+            InitDefaultFormat();
+        }
         public static void InitDefaultFormat()
         {
-            displayFormatter = displayIniter.Invoke();
-            displayWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(int), 'e'), (typeof(string), 'z'),
+            displayWrapper ??= new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(int), 'e'), (typeof(string), 'z'),
                 (typeof(string), 'd'), (typeof(string), 'c'), (typeof(string), 'x'), (typeof(float), 'p'),
                 (typeof(string), 'f'), (typeof(string), 'y'), (typeof(float), 'o'), (typeof(float), 'a'),
                 (typeof(string), 'l'));
+            formatter = new(TokenParser.ParseTokens(format, FormatAlias), displayWrapper);
+
+            if (!PC.ShowLbl) formatter.SetTokenToConstantValue('l');
+            if (!PC.Target.Equals(Targeter.NO_TARGET) && PC.ShowEnemy)
+            {
+                string theMods = "";
+                if (TheCounter.theCounter is RelativeCounter rc2) theMods = rc2.ReplayMods;
+                formatter.SetTokenToConstantValue('t', TheCounter.TargetFormatter(PC.Target.ClampString(PC.MaxNameLength), theMods));
+            } else formatter.SetTokenToConstantValue('t');
+
+            formatter.SurroundTokens("$", "</color>", 'c', 'f', 'z');
+            formatter.PromiseValueForAllTokens();
+
+            displayFormatter = formatter.GetOutput();
+
+            displayPP = displayFormatter.UsedKeys.Contains('p') || displayFormatter.UsedKeys.Contains('x');
         }
         private string DisplayFormatter(bool fc, bool totPp, int mistakes, string missColor, string accDiff, string color, string modPp, float regPp,
             string fcCol, string fcModPp, float fcRegPp, float acc, string label)
         {
             displayWrapper.SetValues(((char)1, fc), ((char)2, totPp), ('e', mistakes), ('d', accDiff), ('c', color), ('x', modPp), ('p', regPp),
                 ('f', fcCol), ('y', fcModPp), ('o', fcRegPp), ('a', acc), ('l', label), ('z', missColor));
-            return displayFormatter.Invoke(displayWrapper);
+            return displayFormatter.Print();
         }
         #endregion
         #region Updates

@@ -205,6 +205,7 @@
     <Compile Include="Settings\SettingHandlers\MenuViews\FormatEditorHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\MenuSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuSettingHandlers\SettingsHandler.cs" />
+    <Compile Include="Settings\SettingHandlers\MenuSettingHandlers\CounterSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\SimpleSettingsHandler.cs" />
     <Compile Include="Settings\SettingHandlers\MenuViews\SimpleMenuSettingsHandler.cs" />
     <Compile Include="Utils\API Handlers\APAPI.cs" />
@@ -239,6 +240,12 @@
     <Compile Include="Helpfuls\FormatHelpers\FormatRelation.cs" />
     <Compile Include="Utils\Map Utils\Map.cs" />
     <Compile Include="Utils\Map Utils\MapSelection.cs" />
+    <Compile Include="Utils\TokenParser\FormatTypes\Chunk.cs" />
+    <Compile Include="Utils\TokenParser\FormatTypes\Group.cs" />
+    <Compile Include="Utils\TokenParser\Printers\Formatter.cs" />
+    <Compile Include="Utils\TokenParser\Printers\Printer.cs" />
+    <Compile Include="Utils\TokenParser\TokenParser.cs" />
+    <Compile Include="Utils\TokenParser\Tokens.cs" />
     <None Include="Utils\Misc Classes\PlaylistLoader.cs" />
     <Compile Include="Utils\Misc Classes\Table.cs" />
     <Compile Include="Utils\Misc Classes\Targeter.cs" />
