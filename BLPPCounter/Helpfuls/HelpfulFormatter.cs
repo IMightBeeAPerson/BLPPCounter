@@ -65,7 +65,8 @@ namespace BLPPCounter.Helpfuls
             GLOBAL_ALIASES = new Dictionary<string, char>()
             {
                 {"Dynamic s", 's' },
-                {"Hide", 'h' }
+                {"Hide", 'h' },
+                {"Gradient", 'g' }
             };
         }
 

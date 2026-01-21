@@ -33,6 +33,8 @@ using TMPro;
 using Zenject;
 using static GameplayModifiers;
 using System.Text;
+using BLPPCounter.Utils.TokenParser.Printers;
+using BLPPCounter.Utils.TokenParser;
 namespace BLPPCounter
 {
 
@@ -69,19 +71,17 @@ namespace BLPPCounter
         public static ReadOnlyDictionary<Leaderboards, string[]> ValidDisplayNames;
         public static string[] DisplayNames => fullDisable ? ["There are none"] : ValidDisplayNames[Leaderboard];
         public static Dictionary<string, string> DisplayNameToCounter { get; private set; }
-        private static Func<FormatWrapper, string> displayFormatter;
-        private static Func<FormatWrapper, string> targetFormatter;
-        private static Func<FormatWrapper, string> percentNeededFormatter;
-        private static Func<Func<FormatWrapper, string>> displayIniter, targetIniter, percentNeededIniter;
+        private static Formatter displayFormatter, targetFormatter, percentNeededFormatter;
+        private static Printer displayPrinter, targetPrinter, percentNeededPrinter;
         private static FormatWrapper displayWrapper, targetWrapper, percentNeededWrapper;
         private static readonly ReadOnlyCollection<string> Labels = new([" Acc PP", " Pass PP", " Tech PP", " PP"]); //Ain't Nobody appending a billion "BL"s to this now :)
         public static string[] CurrentLabels { get; private set; } = null;
 
         private static bool updateFormat;
         public static bool SettingChanged = false;
-        public static bool FormatUsable => displayFormatter != null && displayIniter != null;
-        public static bool TargetUsable => targetFormatter != null && targetIniter != null;
-        public static bool PercentNeededUsable => percentNeededFormatter != null && percentNeededIniter != null;
+        public static bool FormatUsable => displayFormatter != null && displayPrinter != null;
+        public static bool TargetUsable => targetFormatter != null && targetPrinter != null;
+        public static bool PercentNeededUsable => percentNeededFormatter != null && percentNeededPrinter != null;
         public static readonly Dictionary<string, char> FormatAlias = new()
         {
             { "PP", 'x' },
@@ -176,22 +176,22 @@ namespace BLPPCounter
                 {'c', 0 },
                 {'a', 1 },
                 {'t', 2 }
-            }, new Func<object, bool, object>[3]
-            {
+            },
+            [
                 FormatRelation.CreateFuncWithWrapper("<color={0}>{0}", "<color={0}>"),
                 FormatRelation.CreateFunc("{0}%", "{0}"),
                 FormatRelation.CreateFunc("Targeting <color=red>{0}</color>")
-            }, new Dictionary<char, IEnumerable<(string, object)>>(5)
+            ], new Dictionary<char, IEnumerable<(string, object)>>(5)
             {
                 { 'a', new (string, object)[3] { ("MinVal", 0), ("MaxVal", 100), ("IncrementVal", 1.5f), } },
                 { 'x', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
                 { 'y', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
                 { 'z', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
                 { 'p', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } }
-            }, null, new (char, ValueListInfo.ValueType)[1]
-            {
+            }, null,
+            [
                 ('c', ValueListInfo.ValueType.Color)
-            });
+            ]);
         private static readonly TimeLooper TimeLooper = new();
         private static string lastTarget = Targeter.NO_TARGET;
         private static Task InitTask = Task.CompletedTask;
@@ -207,7 +207,7 @@ namespace BLPPCounter
         private bool enabled, checkedLastIndex;
         private RatingContainer ratings;
         private int notes, comboNotes, mistakes;
-        private int totalHitscore, maxHitscore, fcTotalHitscore;
+        private int totalHitscore, maxHitscore, fcTotalHitscore, fcMaxHitscore;
         private float acc, fcAcc;
         private string mode, hash;
         private NoteData currentNote;
@@ -241,14 +241,13 @@ namespace BLPPCounter
                     if (methodOutp[validTypes[i].FullName] is bool v)
                         if (!v) validTypes[i] = null;
                 }
-                ValidCounters = validTypes.Where(a => a != null).ToArray();
+                ValidCounters = [.. validTypes.Where(a => a != null)];
                 Dictionary<string, object> propertyOutp = GetPropertyFromTypes("DisplayName", ValidCounters);
-                foreach (var toCheck in GetPropertyFromTypes("DisplayHandler", ValidCounters).Where(a => (a.Value as string).Equals(DisplayName)))
-                    if (!FormatTheFormat(pc.FormatSettings.DefaultTextFormat, propertyOutp[toCheck.Key] as string))
-                    {
-                        ValidCounters[ValidCounters.IndexOf(ValidCounters.First(a => a.Name.Equals(propertyOutp[toCheck.Key] as string)))] = null;
-                        propertyOutp.Remove(toCheck.Key);
-                    }
+                //foreach (var toCheck in GetPropertyFromTypes("DisplayHandler", ValidCounters).Where(a => (a.Value as string).Equals(DisplayName)))
+                //{
+                //    ValidCounters[ValidCounters.IndexOf(ValidCounters.First(a => a.Name.Equals(propertyOutp[toCheck.Key] as string)))] = null;
+                //    propertyOutp.Remove(toCheck.Key);
+                //}
                 ValidCounters = [.. ValidCounters.Where(a => a != null)];
                 DisplayNameToCounter = [];
                 Dictionary<string, string> counterToDisplayName = [];
@@ -263,15 +262,15 @@ namespace BLPPCounter
                 var sortedOrderNumbers = propertyOrder.Keys.OrderBy(x => x);
                 foreach (int i in sortedOrderNumbers)
                         displayNames.Add(propertyOutp[propertyOrder[i]] as string);
-                Dictionary<string, Leaderboards> hold = new Dictionary<string, Leaderboards>(GetPropertyFromTypes("ValidLeaderboards", ValidCounters).Select(kvp => new KeyValuePair<string, Leaderboards>(kvp.Key, (Leaderboards)kvp.Value)));
-                Dictionary<Leaderboards, string[]> DNames = new Dictionary<Leaderboards, string[]>();
+                Dictionary<string, Leaderboards> hold = new(GetPropertyFromTypes("ValidLeaderboards", ValidCounters).Select(kvp => new KeyValuePair<string, Leaderboards>(kvp.Key, (Leaderboards)kvp.Value)));
+                Dictionary<Leaderboards, string[]> DNames = [];
                 foreach (Leaderboards l in Enum.GetValues(typeof(Leaderboards)))
-                    DNames[l] = hold.Where(kvp => (kvp.Value & l) > 0).Select(kvp => kvp.Key).ToArray();
+                    DNames[l] = [.. hold.Where(kvp => (kvp.Value & l) > 0).Select(kvp => kvp.Key)];
                 IEnumerable<Leaderboards> keys = Enum.GetValues(typeof(Leaderboards)).Cast<Leaderboards>();
                 foreach (Leaderboards l in keys)
                 {
                     HashSet<string> ls = [.. DNames[l].Select(n => counterToDisplayName[n])];
-                    DNames[l] = displayNames.Where(str => ls.Contains(str)).ToArray();
+                    DNames[l] = [.. displayNames.Where(ls.Contains)];
                 }
                 ValidDisplayNames = new ReadOnlyDictionary<Leaderboards, string[]>(DNames);
             } catch (Exception e)
@@ -304,22 +303,18 @@ namespace BLPPCounter
         }
         public static bool InitFormat()
         {
-            bool success = FormatTheFormat(pc.FormatSettings.DefaultTextFormat), hold;
-            if (success) InitDisplayFormat();
-            hold = FormatTarget(pc.MessageSettings.TargetingMessage);
-            success &= hold;
-            if (hold) InitTarget();
-            hold = FormatPercentNeeded(pc.MessageSettings.PercentNeededMessage);
-            if (hold) InitPercentNeeded();
-            return success && hold;
+            InitDisplayFormat();
+            InitTarget();
+            InitPercentNeeded();
+            return true;
         }
         public static void ResetFormat()
         {
-            displayIniter = null;
+            displayPrinter = null;
             displayFormatter = null;
-            targetIniter = null;
+            targetPrinter = null;
             targetFormatter = null;
-            percentNeededIniter = null;
+            percentNeededPrinter = null;
             percentNeededFormatter = null;
         }
         public override void CounterDestroy() {
@@ -363,7 +358,7 @@ namespace BLPPCounter
             ForceOff = () => ForceTurnOff();
             if (fullDisable || Leaderboard == default) return;
             notes = comboNotes = mistakes = 0;
-            totalHitscore = maxHitscore = fcTotalHitscore = 0;
+            totalHitscore = maxHitscore = fcTotalHitscore = fcMaxHitscore = 0;
             acc = fcAcc = 0f;
 #if !NEW_VERSION
             sliderMap = [];
@@ -416,7 +411,7 @@ namespace BLPPCounter
                     if (counterChange)
                         if ((GetPropertyFromTypes("DisplayHandler", theCounter.GetType()).Values.First() as string).Equals(DisplayName))
                             //Need to recall this one so that it implements the current counter's wants properly
-                            if (FormatTheFormat(pc.FormatSettings.DefaultTextFormat)) InitDisplayFormat();
+                            InitDisplayFormat();
                     //Plugin.Log.Info($"CounterChange = {counterChange}, SettingChanged = {SettingChanged}\nNULL CHECKS\nLast map: {LastMap.Equals(default)}, hash: {hash is null}, pc: {pc is null}, PPType: {pc?.PPType is null}, lastTarget: {lastTarget is null}, Target: {pc.Target is null}");
                     if (theCounter is null || SettingChanged || counterChange || LastMap.Equals(default) || !hash.Equals(LastMap.Hash) || !lastTarget.Equals(pc.Target))
                     {
@@ -426,7 +421,7 @@ namespace BLPPCounter
 #if NEW_VERSION
                         MapSelection ms = new(m, beatmapDiff.difficulty, mode, ratings, mods.songSpeed); // 1.37.0 and above
 #else
-                        MapSelection ms = new MapSelection(m, beatmap.difficulty, mode, ratings, mods.songSpeed); // 1.34.2 and below
+                        MapSelection ms = new(m, beatmap.difficulty, mode, ratings, mods.songSpeed); // 1.34.2 and below
 #endif
                         if (!ms.IsUsable)
                         {
@@ -497,7 +492,7 @@ namespace BLPPCounter
             finally
             {
                 if (pc.UpdateAfterTime)
-                    TimeLooper.Resume();
+                    TimeLooper?.Resume();
             }
         }
         private void OnNoteScoredInternal(ScoringElement scoringElement)
@@ -521,12 +516,13 @@ namespace BLPPCounter
             maxHitscore += maxCutScore * HelpfulMath.MultiplierForNote(notes);
             if (cutScore > 0)
             {
+                fcMaxHitscore += maxCutScore * HelpfulMath.MultiplierForNote(notes);
                 totalHitscore += cutScore * HelpfulMath.MultiplierForNote(comboNotes);
                 fcTotalHitscore += cutScore * HelpfulMath.MultiplierForNote(notes);
             }
             else OnMiss();
             acc = (float)totalHitscore / maxHitscore;
-            fcAcc = (float)fcTotalHitscore / maxHitscore;
+            fcAcc = (float)fcTotalHitscore / fcMaxHitscore;
         //Plugin.Log.Info($"Note #{notes} ({st}): {cutScore} / {maxCutScore}" + (offset != 0 ? $" (shifted max from {scoringElement.maxPossibleCutScore})" : ""));
         Finish:
             if (!InitTask.IsCompleted) return;
@@ -615,7 +611,7 @@ namespace BLPPCounter
         }
 #if !NEW_VERSION
         private static SliderKey KeyFromNoteData(NoteData nd) =>
-            new SliderKey(Mathf.RoundToInt(nd.time * 1000f), nd.lineIndex, nd.noteLineLayer, nd.colorType, nd.cutDirection);
+            new(Mathf.RoundToInt(nd.time * 1000f), nd.lineIndex, nd.noteLineLayer, nd.colorType, nd.cutDirection);
         private static SliderKey KeyFromSliderData(SliderData sd, bool useHead) => useHead ?
             new SliderKey(Mathf.RoundToInt(sd.time * 1000f), sd.headLineIndex, sd.headLineLayer, sd.colorType, sd.headCutDirection) :
             new SliderKey(Mathf.RoundToInt(sd.tailTime * 1000f), sd.tailLineIndex, sd.tailLineLayer, sd.colorType, sd.tailCutDirection);
@@ -632,7 +628,7 @@ namespace BLPPCounter
         public static void ForceLoadMaps()
         {
             if (dataLoaded) return;
-            Data = new Dictionary<string, Map>();
+            Data = [];
             InitData();
         }
         public static async Task<Map> GetMap(string hash, string mode, Leaderboards leaderboard, bool forceHunt = false, CancellationToken ct = default)
@@ -658,18 +654,12 @@ namespace BLPPCounter
             if (!SetupMapData(diffData, leaderboard, out float[] ratings, mods, quiet)) return default;
             return new MapSelection(m, diff, mode, mods?.songSpeed ?? SongSpeed.Slower, leaderboard, ratings);
         }
-        public static string SelectMode(string mainMode, Leaderboards leaderboard)
+        public static string SelectMode(string mainMode, Leaderboards leaderboard) => leaderboard switch
         {
-            switch (leaderboard)
-            {
-                case Leaderboards.Scoresaber:
-                    return Map.SS_MODE_NAME;
-                case Leaderboards.Accsaber:
-                    return Map.AP_MODE_NAME;
-                default: 
-                    return mainMode ?? "Standard";
-            }
-        }
+            Leaderboards.Scoresaber => Map.SS_MODE_NAME,
+            Leaderboards.Accsaber => Map.AP_MODE_NAME,
+            _ => mainMode ?? "Standard",
+        };
         private static Func<Func<FormatWrapper, string>> GetTheFormat(string format, out string errorStr, string counter = "") =>
             HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, counter, a => { },
                 (tokens, tokensCopy, priority, vals) => 
@@ -679,61 +669,60 @@ namespace BLPPCounter
                     if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2'); 
                 }, out errorStr, out _);
        
-        private static bool FormatTheFormat(string format, string counter = "") 
-        { 
-            displayIniter = GetTheFormat(format, out string _, counter);
-            return displayIniter != null; 
-        }
         private static Func<Func<FormatWrapper, string>> GetFormatTarget(string format, out string errorStr) =>
             HelpfulFormatter.GetBasicTokenParser(format, TargetAlias, DisplayName, a => { }, (a, b, c, d) => { }, out errorStr, out _);
-        private static bool FormatTarget(string format)
-        {
-            targetIniter = GetFormatTarget(format, out string _);
-            return targetIniter is not null;
-        }
         private static Func<Func<FormatWrapper, string>> GetFormatPercentNeeded(string format, out string errorStr) =>
             HelpfulFormatter.GetBasicTokenParser(format, PercentNeededAlias, DisplayName, a => { },
                 (tokens, tokensCopy, priority, vals) =>
                 {
                     if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<object>)vals['c']).Invoke()}", "</color>");
                 }, out errorStr, out _);
-        private static bool FormatPercentNeeded(string format)
-        {
-            percentNeededIniter = GetFormatPercentNeeded(format, out string _);
-            return percentNeededIniter is not null;
-        }
         private static void InitDisplayFormat()
         {
-            displayFormatter = displayIniter.Invoke();
-            displayWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(float), 'x'), (typeof(string), 'z'), (typeof(string), 'l'),
+            displayWrapper ??= new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(float), 'x'), (typeof(string), 'z'), (typeof(string), 'l'),
                 (typeof(float), 'y'), (typeof(int), 'e'));
+            displayFormatter = new(TokenParser.ParseTokens(pc.FormatSettings.DefaultTextFormat, FormatAlias), displayWrapper);
+
+            displayFormatter.SurroundToken('z', "$", "</color>");
+            displayFormatter.PromiseValueForTokens();
+
+            displayPrinter = displayFormatter.GetOutput();
         }
         private static string DisplayFormatter(bool fc, bool totPp, float pp, float fcpp, string mistakeColor, int mistakes, string label)
         {
             displayWrapper.SetValues(((char)1, fc), ((char)2, totPp), ('x', pp), ('z', mistakeColor), ('l', label), ('y', fcpp), ('e', mistakes));
-            return displayFormatter.Invoke(displayWrapper);
+            return displayPrinter.Print();
         }
         private static void InitTarget()
         {
-            targetFormatter = targetIniter.Invoke();
-            targetWrapper = new FormatWrapper((typeof(string), 't'), (typeof(string), 'm'));
+            targetWrapper ??= new FormatWrapper((typeof(string), 't'), (typeof(string), 'm'));
+            targetFormatter = new(TokenParser.ParseTokens(pc.MessageSettings.TargetingMessage, TargetAlias), targetWrapper);
+
+            targetFormatter.PromiseValueForTokens();
+
+            targetPrinter = targetFormatter.GetOutput();
         }
         public static string TargetFormatter(string name, string mods)
         {
             if (targetWrapper is null || targetFormatter is null) return null;
             targetWrapper.SetValues(('t', name), ('m', mods));
-            return targetFormatter.Invoke(targetWrapper);
+            return targetPrinter.Print();
         }
         private static void InitPercentNeeded()
         {
-            percentNeededFormatter = percentNeededIniter.Invoke();
-            percentNeededWrapper = new FormatWrapper((typeof(Func<string>), 'c'), (typeof(float), 'a'), (typeof(float), 'x'),
+            percentNeededWrapper ??= new FormatWrapper((typeof(string), 'c'), (typeof(float), 'a'), (typeof(float), 'x'),
                 (typeof(float), 'y'), (typeof(float), 'z'), (typeof(float), 'p'));
+            percentNeededFormatter = new(TokenParser.ParseTokens(pc.MessageSettings.PercentNeededMessage, PercentNeededAlias), percentNeededWrapper);
+
+            percentNeededFormatter.SurroundToken('c', "$", "</color>");
+            percentNeededFormatter.PromiseValueForTokens();
+
+            percentNeededPrinter = percentNeededFormatter.GetOutput();
         }
-        public static string PercentNeededFormatter(Func<string> colorFunc, float acc, float passPP, float accPP, float techPP, float pp)
+        public static string PercentNeededFormatter(string colorFunc, float acc, float passPP, float accPP, float techPP, float pp)
         {
             percentNeededWrapper.SetValues(('c', colorFunc), ('a', acc), ('x', techPP), ('y', accPP), ('z', passPP), ('p', pp));
-            return percentNeededFormatter.Invoke(percentNeededWrapper);
+            return percentNeededPrinter.Print();
         }
         private static Type[] GetValidCounters()
         {
@@ -781,13 +770,13 @@ namespace BLPPCounter
                         counters.Add(t);
                 }
             }
-            return counters.ToArray();
+            return [.. counters];
         }
         private static Dictionary<string, object> GetMethodFromTypes(string methodName, params Type[] types) =>
             GetMethodFromTypes(methodName, BindingFlags.Public | BindingFlags.Static, types);
         private static Dictionary<string, object> GetMethodFromTypes(string methodName, BindingFlags flags, params Type[] types)
         {
-            Dictionary<string, object> outp = new Dictionary<string, object>();
+            Dictionary<string, object> outp = [];
             foreach (Type t in types)
             {
                 var method = t.GetMethods(flags).First(a => a.Name.Equals(methodName));
@@ -800,7 +789,7 @@ namespace BLPPCounter
         private static Dictionary<string, object> GetPropertyFromTypes(string propertyName, BindingFlags flags, params Type[] types)
         {
             bool hasFlags = flags != 0;
-            Dictionary<string, object> outp = new Dictionary<string, object>();
+            Dictionary<string, object> outp = [];
             foreach (Type t in types)
             {
                 var method = (hasFlags ? t.GetProperties(flags) : t.GetProperties()).First(a => a.Name.Equals(propertyName));
@@ -899,7 +888,7 @@ namespace BLPPCounter
                     JEnumerable<JToken> results = JObject.Parse(File.ReadAllText(HelpfulPaths.BL_CACHE_FILE))["Entries"].Children();
                     foreach (JToken result in results)
                     {
-                        Map map = new Map(result["SongInfo"]["hash"].ToString().ToUpper(), (string)result["LeaderboardId"], result["DifficultyInfo"]);
+                        Map map = new(result["SongInfo"]["hash"].ToString().ToUpper(), (string)result["LeaderboardId"], result["DifficultyInfo"]);
                         if (Data.ContainsKey(map.Hash))
                             Data[map.Hash].Combine(map);
                         else Data[map.Hash] = map;
@@ -964,8 +953,8 @@ namespace BLPPCounter
             (bool succeeded, HttpContent content) = APIHandler.CallAPI_Static(HelpfulPaths.TAOHABLE_API).GetAwaiter().GetResult();
             if (succeeded)
                 data = content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
-            using (FileStream fs = File.OpenWrite(filePath))
-                fs.Write(data, 0, data.Length); //For some reason Stream.Write isn't implemented
+            using FileStream fs = File.OpenWrite(filePath);
+            fs.Write(data, 0, data.Length); //For some reason Stream.Write isn't implemented
         }
         private bool SetupMapData(CancellationToken ct)
         {

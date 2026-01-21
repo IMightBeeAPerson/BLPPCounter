@@ -158,9 +158,11 @@ namespace BLPPCounter.CalculatorStuffs
             rank = 0;
             if (sortedClanPps is null || sortedClanPps.Length == 0) return 1.0f;
             int count = 0;
-            while (sortedClanPps[count++] > pp && count < sortedClanPps.Length);
+            float outp = 1.0f;
+            while (sortedClanPps[count++] > pp && count < sortedClanPps.Length)
+                outp *= CLANWAR_WEIGHT_COEFFICIENT;
             rank = count;
-            return (float)Math.Pow(CLANWAR_WEIGHT_COEFFICIENT, count - 1);
+            return outp;
         }
         public float GetWeight(float pp, float[] sortedClanPps) => GetWeight(pp, sortedClanPps, out _);
         public float GetWeightedPp(float pp, float[] clanPps)

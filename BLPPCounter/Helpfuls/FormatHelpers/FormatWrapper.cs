@@ -244,14 +244,14 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             if (key < SPLIT)
             {
                 int idx = key - minTokenLow;
-                return (lookupLow.Length > 0 && idx < lookupLow.Length)
+                return (idx >= 0 && idx < lookupLow.Length)
                     ? lookupLow[idx]
                     : -1;
             }
             else
             {
                 int idx = key - minTokenHigh;
-                return (lookupHigh.Length > 0 && idx < lookupHigh.Length)
+                return (idx >= 0 && idx < lookupHigh.Length)
                     ? lookupHigh[idx]
                     : -1;
             }

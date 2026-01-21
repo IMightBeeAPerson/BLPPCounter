@@ -157,7 +157,7 @@ namespace BLPPCounter.Counters
                     if (!(bool)vals[(char)4]) HelpfulFormatter.SetText(tokensCopy, '4');
                 }, out errorStr, out HelpfulFormatter.TokenInfo[] arr);
 
-            /*HashSet<char> ppSymbols = ['x', 'd'];
+            /*HashSet<char> ppSymbols = ['x', 'y', 'd'];
             displayPP = arr.Any(token => token.Usage > HelpfulFormatter.TokenUsage.Never && ppSymbols.Contains(token.Token));*/
 
             return outp;
@@ -175,7 +175,7 @@ namespace BLPPCounter.Counters
 
             rankPrinter = rankFormatter.GetOutput();
 
-            displayPP = rankPrinter.UsedKeys.Contains('x') || rankPrinter.UsedKeys.Contains('y') || rankPrinter.UsedKeys.Contains('d');
+            displayPP = rankPrinter.UsedKeys.ContainsAny('x', 'y', 'd');
         }
         private static string DisplayRank(bool fc, bool extraInfo, bool isNum1, float pp, float fcpp, int rank, string playername, float ppDiff, float percentDiff, string color, string label)
         {

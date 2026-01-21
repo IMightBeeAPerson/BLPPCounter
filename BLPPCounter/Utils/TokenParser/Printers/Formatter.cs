@@ -18,6 +18,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
         private readonly List<(int index, Parameter p)> parameters;
         private readonly List<char> tokenOrder;
         private readonly HashSet<char> promisedTokens;
+        private readonly HashSet<char> toStringTokens;
 
         private bool chunksCombined;
 
@@ -35,6 +36,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
             parameters = [];
             tokenOrder = [];
             promisedTokens = [];
+            toStringTokens = [];
             chunksCombined = false;
             Setup();
         }
@@ -72,6 +74,11 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                 promisedTokens.Add(c);
         }
         public void PromiseValueForAllTokens() => PromiseValueForTokens(tokenOrder.Where(t => t > FormatWrapper.SPLIT));
+        public void FlagTokensForToString(params char[] tokens)
+        {
+            foreach (char c in tokens)
+                toStringTokens.Add(c);
+        }
         public void SetTokenToConstantValue(char token, string value = "")
         {
             int offset = 0;
@@ -165,6 +172,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
         }
         private void Parse(IEnumerable<Chunk> chunks)
         {
+            int index;
             foreach (Chunk c in chunks)
             {
                 if (c.GetType() == typeof(Chunk))
@@ -174,9 +182,10 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                 }
                 if (c is Token)
                 {
-                    sb.Append($"{{{tokenOrder.IndexOf(c.GetValue()[0])}}}");
+                    index = tokenOrder.IndexOf(c.GetValue()[0]);
+                    sb.Append(toStringTokens.Contains(c.GetValue()[0]) ? $"{{{index}:{HelpfulFormatter.NUMBER_TOSTRING_FORMAT}}}" : $"{{{index}}}");
                     if (c is Parameter p)
-                        parameters.Add((tokenOrder.IndexOf(c.GetValue()[0]), p));
+                        parameters.Add((index, p));
                     continue;
                 }
                 if (c is Group g)
@@ -189,7 +198,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                         continue;
                     }
                     AddChunk();
-                    int index = tokenOrder.IndexOf(g.Symbol);
+                    index = tokenOrder.IndexOf(g.Symbol);
                     if (index >= 0)
                         currentDependency.Push(index);
                     Parse(g.Chunks);

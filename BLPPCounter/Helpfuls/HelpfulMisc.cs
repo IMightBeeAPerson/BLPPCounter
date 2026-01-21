@@ -1076,6 +1076,32 @@ namespace BLPPCounter.Helpfuls
             for (int i = 0, count = 0; i < values.Length; i++)
                 target.Insert(i, count < indexes.Length && i == indexes[count] ? changeFunction(values[indexes[count++]]) : values[i]!);
         }
+        public static bool SetIfChanged<T>(ref T field, T value)
+        {
+            if (field?.Equals(value) ?? value is null)
+                return false;
+            field = value;
+            return true;
+        }
+        public static T ExplicitEnter<T>(this T token, params string[] paths) where T : JToken
+        {
+            T current = token;
+            for (int i = 0; i < paths.Length; i++)
+            {
+                string path = paths[i];
+                if (current[path] is not T next)
+                    throw new Exception($"Attempted to follow path '{string.Join(" -> ", paths)}', but '{path}' does not exist.");
+                current = next;
+            }
+            return current;
+        }
+        public static bool ContainsAny<T>(this HashSet<T> set, params T[] values)
+        {
+            foreach (T val in values)
+                if (set.Contains(val))
+                    return true;
+            return false;
+        }
         /*float[] ConvertArr(double[] arr)
         {
             float[] outp = new float[arr.Length];

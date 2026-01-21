@@ -9,16 +9,17 @@ namespace BLPPCounter.Counters
 {
     public abstract class MyCounters
     {
+#nullable enable
         private TMP_Text display;
         protected Calculator calc;
         protected RatingContainer ratings;
-        protected PPHandler ppHandler;
+        protected PPHandler? ppHandler;
         protected StringBuilder outpText;
 
         public abstract string Name { get; }
         protected TMP_Text Display { get => display; }
 
-        public MyCounters(TMP_Text display, MapSelection map, CancellationToken ct) //this is the constructor that needs to be overritten
+        public MyCounters(TMP_Text display, MapSelection map, CancellationToken ct)
         {
             this.display = display;
             calc = Calculator.GetSelectedCalc();
@@ -35,7 +36,7 @@ namespace BLPPCounter.Counters
         public void ReinitCounter(TMP_Text display)
         {//same difficulty, modifier, and map
             this.display = display;
-            ppHandler.Reset();
+            ppHandler?.Reset();
             ReinitCounter();
         }
         public virtual void ReinitCounter(RatingContainer ratingVals) { }
@@ -47,7 +48,7 @@ namespace BLPPCounter.Counters
             ratings.SetSelectedRatings();
             calc.Ratings = ratings;
             ppHandler?.SetRatings(ratings);
-            ppHandler.Reset();
+            ppHandler?.Reset();
             ReinitCounter(ratingVals);
         } 
         public void ReinitCounter(TMP_Text display, MapSelection map)

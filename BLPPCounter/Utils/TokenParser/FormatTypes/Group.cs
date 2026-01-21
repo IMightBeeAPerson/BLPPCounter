@@ -22,4 +22,18 @@ namespace BLPPCounter.Utils.TokenParser.FormatTypes
         }
         public override int GetHashCode() => Chunks.GetHashCode() + Symbol;
     }
+
+    internal class Capture(char symbol, IEnumerable<Chunk> chunks) : Group((char)(symbol - '0'), chunks) { }
+    internal class RichText(string richKey, string richVal, IEnumerable<Chunk> chunks) : Group('\0', chunks)
+    {
+        public string RichKey = richKey;
+        public string RichVal = richVal;
+
+        public override string GetValue()
+        {
+            return $"<{RichKey}={RichVal}>{base.GetValue()}</{RichKey}>";
+        }
+        public string GetStart() => $"<{RichKey}={RichVal}>";
+        public string GetEnd() => $"</{RichKey}>";
+    }
 }

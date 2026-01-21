@@ -22,21 +22,8 @@ namespace BLPPCounter.Utils.TokenParser.FormatTypes
     }
 
     internal class Token(char symbol) : Chunk(symbol.ToString()) { }
-    internal class Parameter(char symbol, params Token[] parameters) : Token(symbol)
+    internal class Parameter(char symbol, params Chunk[] parameters) : Token(symbol)
     {
-        public IReadOnlyList<Token> Parameters => parameters;
-    }
-    internal class Capture(char symbol, IEnumerable<Chunk> chunks) : Group((char)(symbol - '0'), chunks) { }
-    internal class RichText(string richKey, string richVal, IEnumerable<Chunk> chunks) : Group('\0', chunks)
-    {
-        public string RichKey = richKey;
-        public string RichVal = richVal;
-
-        public override string GetValue()
-        {
-            return $"<{RichKey}={RichVal}>{base.GetValue()}</{RichKey}>";
-        }
-        public string GetStart() => $"<{RichKey}={RichVal}>";
-        public string GetEnd() => $"</{RichKey}>";
+        public IReadOnlyList<Chunk> Parameters => parameters;
     }
 }
