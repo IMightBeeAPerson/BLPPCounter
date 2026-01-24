@@ -9,9 +9,9 @@ namespace BLPPCounter.Settings.Configs
     {
         public virtual string NumberFormat { get; set; } = "▲#;▼#;0";
         public virtual string DefaultTextFormat { get; set; } = "&'PP'<1 / &'FCPP'> &'Label'<2\n['Mistake Color'&'Mistakes'] mistake&'Dynamic s'('Mistakes')>";
-        public virtual string ClanTextFormat { get; set; } = "['PP'$ ]&[['Color'&'PP Difference']&]<1 / ['FCPP'$ ]&[['FC Color'&'FCPP Difference']&] >&'Label'<2\n&'Message'['Target'\n$]>";
+        public virtual string ClanTextFormat { get; set; } = "['PP'$ ]&[['Gradient'(x)&'PP Difference']&]<1 / ['FCPP'$ ]&[['Gradient'(y)&'FCPP Difference']&] >&'Label'<2\n&'Message'['Target'\n$]>";
         public virtual string WeightedTextFormat { get; set; } = "&'PP Difference'['PP' ($)]<1 / &'FCPP Difference'['FCPP' ($)]><3 ['Rank Color'#&'Rank']> &'Label'<2['Mistakes'\n*c,red*$* mistake&'Dynamic s'('Mistakes')]['Message'\n$]>";
-        public virtual string RelativeTextFormat { get; set; } = "['Color'&'PP Difference']['PP' ($)]<1 || ['FC Color'&'FCPP Difference']['FCPP' ($)]> &'Label'<2\n['Color'&'Accuracy']% to beat['Target'\n$]>";
+        public virtual string RelativeTextFormat { get; set; } = "['Gradient'(x)&'PP Difference']['PP' ($)]<1 || ['Gradient'(y)&'FCPP Difference']['FCPP' ($)]> &'Label'<2\n['Gradient'(x)&'Accuracy']% to beat['Target'\n$]>";
         public virtual string RankTextFormat { get; set; } = "&'PP'<1 / &'FCPP'> &'Label'<2\n['Rank Color'#&'Rank']><3\n*c,green*&'PP Difference'* PP to rank up!><4\n*c,green*&'PP Difference'*['Rank Color' PP ahead of 1st!]>";
         [UseConverter(typeof(ListConverter<ColorMatch>))]
         public virtual List<ColorMatch> WeightedRankColors { get; set; } =

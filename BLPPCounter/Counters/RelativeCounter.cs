@@ -36,11 +36,9 @@ namespace BLPPCounter.Counters
         public static readonly Dictionary<string, char> FormatAlias = new()
                 {
                     { "Acc Difference", 'd' },
-                    { "Color", 'c' },
                     { "PP Difference", 'x' },
                     { "PP", 'p' },
                     { "Label", 'l' },
-                    { "FC Color", 'f' },
                     { "FCPP Difference", 'y' },
                     { "FCPP", 'o' },
                     { "Accuracy", 'a' },
@@ -53,48 +51,36 @@ namespace BLPPCounter.Counters
             new Dictionary<char, string>()
             {
                 { 'd', "This will show the difference in percentage at the current moment between you and the replay you're comparing against" },
-                { 'c', "This is the accuracy needed to beat your or your target's previous score" },
                 { 'x', "The unmodified PP number" },
                 { 'p', "The modified PP number (plus/minus value)" },
                 { 'l', "Must use as a group value, and will color everything inside group" },
-                { 'f', "The unmodified PP number if the map was FC'ed" },
                 { 'y', "The modified PP number if the map was FC'ed" },
-                { 'o', "Must use as a group value, and will color everything inside group" },
+                { 'o', "The unmodified PP number if the map was FC'ed" },
                 { 'a', "The label (ex: PP, Tech PP, etc)" },
                 { 't', "The amount of mistakes made in the map. This includes bomb and wall hits" },
                 { 'e', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" },
                 { 'z', "Color for mistakes compared to your replay mistakes" }
-            }, str => { var hold = GetTheFormat(str, out string errorStr, false); return (hold, errorStr); },
-            new FormatWrapper(new Dictionary<char, object>(13)
+            }, FormatRelation.FormatDisplayer(SetupDefaultFormatter, FormatAlias),
+            new FormatWrapper(new Dictionary<char, object>()
             {
                 {(char)1, true },
                 {(char)2, true },
                 {'e', 1 },
                 {'d', 0.1f },
-                {'c', "green" },
                 {'x', -30.5f },
                 {'p', 543.21f },
-                {'f', "red" },
                 {'y', 21.21f },
                 {'o', 654.32f },
                 {'a', 99.54f },
                 {'l', "PP" },
                 {'t', "Person" },
                 {'z', "yellow" }
-            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(7)
+            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(2)
             {
-                {'c', 0 },
-                {'x', 1 },
-                {'f', 0 },
-                {'y', 1 },
-                {'a', 2 },
-                {'t', 3 }
+                {'a', 0 },
+                {'t', 1 }
             },
             [
-                FormatRelation.CreateFunc("<color={0}>{0}", "<color={0}>"),
-                FormatRelation.CreateFunc<float>(
-                    outp => $"<color={(outp > 0 ? "green" : "red")}>" + outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT),
-                    outp => outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT)),
                 FormatRelation.CreateFunc("{0}%", "{0}"),
                 FormatRelation.CreateFunc("Targeting <color=red>{0}</color>")
             ],
@@ -352,35 +338,6 @@ namespace BLPPCounter.Counters
         }
         #endregion
         #region Helper Functions
-        public static Func<Func<FormatWrapper, string>> GetTheFormat(string format, out string errorMessage, bool applySettings = true)
-        {
-            var outp = HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, DisplayName,
-                formattedTokens =>
-                {
-                    if (!PC.ShowLbl) formattedTokens.SetText('l');
-                    if (!PC.Target.Equals(Targeter.NO_TARGET) && PC.ShowEnemy)
-                    {
-                        string theMods = "";
-                        if (TheCounter.theCounter is RelativeCounter rc2) theMods = rc2.ReplayMods;
-                        formattedTokens.MakeTokenConstant('t', TheCounter.TargetFormatter(PC.Target.ClampString(PC.MaxNameLength), theMods));
-                    }
-                    else { formattedTokens.SetText('t'); formattedTokens.MakeTokenConstant('t'); }
-                },
-                (tokens, tokensCopy, priority, vals) =>
-                {
-                    HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{vals['c']}", "</color>");
-                    HelpfulFormatter.SurroundText(tokensCopy, 'f', $"{vals['f']}", "</color>");
-                    HelpfulFormatter.SurroundText(tokensCopy, 'z', $"{vals['z']}", "</color>");
-                    if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1');
-                    if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
-                }, out errorMessage, out HelpfulFormatter.TokenInfo[] arr, applySettings);//this is one line of code lol
-
-            /*HashSet<char> ppSymbols = ['x', 'p'];
-            if (arr is not null)
-                displayPP = arr.Any(token => token.Usage > HelpfulFormatter.TokenUsage.Never && ppSymbols.Contains(token.Token));*/
-
-            return outp;
-        }
         public static void FormatTheFormat(string format)
         {
             RelativeCounter.format = format;
@@ -388,32 +345,40 @@ namespace BLPPCounter.Counters
         }
         public static void InitDefaultFormat()
         {
-            displayWrapper ??= new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(int), 'e'), (typeof(string), 'z'),
-                (typeof(string), 'd'), (typeof(string), 'c'), (typeof(string), 'x'), (typeof(float), 'p'),
-                (typeof(string), 'f'), (typeof(string), 'y'), (typeof(float), 'o'), (typeof(float), 'a'),
-                (typeof(string), 'l'));
-            formatter = new(TokenParser.ParseTokens(format, FormatAlias), displayWrapper);
+            displayWrapper ??= GetDefaultWrapper();
 
-            if (!PC.ShowLbl) formatter.SetTokenToConstantValue('l');
+            formatter = SetupDefaultFormatter(format, displayWrapper, FormatAlias);
+
+            displayFormatter = formatter.GetOutput();
+
+            displayPP = displayFormatter.UsedKeys.ContainsAny('p', 'x');
+        }
+        public static FormatWrapper GetDefaultWrapper() => new((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(int), 'e'), (typeof(string), 'z'),
+                (typeof(string), 'd'), (typeof(float), 'x'), (typeof(float), 'p'), (typeof(float), 'y'), (typeof(float), 'o'), (typeof(float), 'a'), (typeof(string), 'l'));
+        internal static Formatter SetupDefaultFormatter(string format, FormatWrapper values = null, Dictionary<string, char> alias = null)
+        {
+            Formatter outp = new(TokenParser.ParseTokens(format, alias), values ?? GetDefaultWrapper());
+
+            if (!PC.ShowLbl) outp.SetTokenToConstantValue('l');
             if (!PC.Target.Equals(Targeter.NO_TARGET) && PC.ShowEnemy)
             {
                 string theMods = "";
                 if (TheCounter.theCounter is RelativeCounter rc2) theMods = rc2.ReplayMods;
-                formatter.SetTokenToConstantValue('t', TheCounter.TargetFormatter(PC.Target.ClampString(PC.MaxNameLength), theMods));
-            } else formatter.SetTokenToConstantValue('t');
+                outp.SetTokenToConstantValue('t', TheCounter.TargetFormatter(PC.Target.ClampString(PC.MaxNameLength), theMods));
+            }
+            else outp.SetTokenToConstantValue('t');
 
-            formatter.SurroundTokens("$", "</color>", 'c', 'f', 'z');
-            formatter.PromiseValueForAllTokens();
+            outp.SurroundTokens("$", "</color>", 'z');
+            outp.FlagTokensForToString('x', 'y', 'd');
+            outp.PromiseValueForAllTokens();
 
-            displayFormatter = formatter.GetOutput();
-
-            displayPP = displayFormatter.UsedKeys.Contains('p') || displayFormatter.UsedKeys.Contains('x');
+            return outp;
         }
-        private string DisplayFormatter(bool fc, bool totPp, int mistakes, string missColor, string accDiff, string color, string modPp, float regPp,
-            string fcCol, string fcModPp, float fcRegPp, float acc, string label)
+        private string DisplayFormatter(bool fc, bool totPp, int mistakes, string missColor, float accDiff, float modPp, float regPp,
+            float fcModPp, float fcRegPp, float acc, string label)
         {
-            displayWrapper.SetValues(((char)1, fc), ((char)2, totPp), ('e', mistakes), ('d', accDiff), ('c', color), ('x', modPp), ('p', regPp),
-                ('f', fcCol), ('y', fcModPp), ('o', fcRegPp), ('a', acc), ('l', label), ('z', missColor));
+            displayWrapper.SetValues(((char)1, fc), ((char)2, totPp), ('e', mistakes), ('d', accDiff), ('x', modPp), ('p', regPp),
+                ('y', fcModPp), ('o', fcRegPp), ('a', acc), ('l', label), ('z', missColor));
             return displayFormatter.Print();
         }
         #endregion
@@ -522,7 +487,6 @@ namespace BLPPCounter.Counters
 
             ppHandler.Update(acc, mistakes, fcPercent);
 
-            static string color(float num) => PC.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
             float accDiff = (float)Math.Round(acc * 100.0f, PC.DecimalPrecision) - accToBeat;
             if (float.IsNaN(accDiff)) accDiff = 0f;
             //else if (!useReplay) accDiff -= accToBeat;
@@ -532,12 +496,12 @@ namespace BLPPCounter.Counters
             if (PC.SplitPPVals && calc.RatingCount > 1)
             {
                 for (int i = 0; i < 4; i++)
-                    outpText.AppendLine(DisplayFormatter(ppHandler.DisplayFC, PC.ExtraInfo && i == 3, mistakes, missColor, accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppHandler[1, i]), ppHandler[1, i].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[0, i],
-                        color(ppHandler[3, i]), ppHandler[3, i].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[2, i], replayAcc, TheCounter.CurrentLabels[i]));
+                    outpText.AppendLine(DisplayFormatter(ppHandler.DisplayFC, PC.ExtraInfo && i == 3, mistakes, missColor, accDiff, ppHandler[1, i], ppHandler[0, i],
+                        ppHandler[3, i], ppHandler[2, i], replayAcc, TheCounter.CurrentLabels[i]));
             }
             else
-                outpText.AppendLine(DisplayFormatter(ppHandler.DisplayFC, PC.ExtraInfo, mistakes, missColor, accDiff.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), color(ppHandler[1]), ppHandler[1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[0],
-                    color(ppHandler[3]), ppHandler[3].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[2], replayAcc, TheCounter.CurrentLabels.Last()));
+                outpText.AppendLine(DisplayFormatter(ppHandler.DisplayFC, PC.ExtraInfo, mistakes, missColor, accDiff, ppHandler[1], ppHandler[0],
+                    ppHandler[3], ppHandler[2], replayAcc, TheCounter.CurrentLabels.Last()));
         }
         public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {

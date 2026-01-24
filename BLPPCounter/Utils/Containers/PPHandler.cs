@@ -67,19 +67,17 @@ namespace BLPPCounter.Utils.Containers
         {
             UpdateInternalStart(acc, mistakes);
 
-            if (UpdatePPEnabled)
-                for (int i = 0; i < calcOtherPPs.Length; i++)
-                    calcOtherPPs[i](ratings, acc, in ppVals[0], ref ppVals[i + 1], extraArg);
-
-            if (!isFcing)
-                UpdateFC?.Invoke(fcAcc, ppVals, UseAction, extraArg);
+            FinishPartialUpdate(acc, fcAcc, extraArg);
         }
-        public void Update(float acc, int mistakes, Func<PPContainer, float> calcExtraArg, float fcAcc = 0f)
+        public void Update(float acc, int mistakes, Func<PPContainer, float> calcExtraArg, float fcAcc = 0f) => 
+            FinishPartialUpdate(acc, fcAcc, calcExtraArg(PartialUpdate(acc, mistakes)));
+        public PPContainer PartialUpdate(float acc, int mistakes)
         {
             UpdateInternalStart(acc, mistakes);
-
-            float extraArg = calcExtraArg(ppVals[0]);
-
+            return ppVals[0];
+        }
+        public void FinishPartialUpdate(float acc, float fcAcc = 0f, float extraArg = 0f)
+        {
             if (UpdatePPEnabled)
                 for (int i = 0; i < calcOtherPPs.Length; i++)
                     calcOtherPPs[i](ratings, acc, in ppVals[0], ref ppVals[i + 1], extraArg);

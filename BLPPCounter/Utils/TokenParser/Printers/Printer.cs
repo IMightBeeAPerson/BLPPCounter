@@ -1,5 +1,6 @@
 ﻿using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Utils.TokenParser.FormatTypes;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -12,14 +13,14 @@ namespace BLPPCounter.Utils.TokenParser.Printers
         private readonly int[][] dependencies;
         private readonly StringBuilder sb;
         private readonly char[] keys;
-        private readonly (int index, Parameter p)[] parameters;
+        private readonly (int index, Func<FormatWrapper, string> paramHandler)[] parameters;
         private readonly object?[] values;
         private readonly HashSet<int> boolIndexes;
 
         public readonly FormatWrapper InputValues;
         public HashSet<char> UsedKeys;
 
-        public Printer(string[] outputChunks, int[][] dependencies, FormatWrapper InputValues, char[] keys, (int index, Parameter p)[] parameters)
+        public Printer(string[] outputChunks, int[][] dependencies, FormatWrapper InputValues, char[] keys, (int index, Func<FormatWrapper, string> paramHandler)[] parameters)
         {
             this.outputChunks = outputChunks;
             this.dependencies = dependencies;
@@ -44,7 +45,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
             {
                 if (paramIndex < parameters.Length && parameters[paramIndex].index == i)
                 {
-                    values[i] = Tokens.TryParseParameter(parameters[paramIndex].p, InputValues);
+                    values[i] = parameters[paramIndex].paramHandler(InputValues);
                     paramIndex++;
                     continue;
                 }
@@ -64,6 +65,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
         {
             sb.Clear();
             SetValues();
+            //Plugin.Log.Info($"Output Chunks: {string.Join(", ", outputChunks)}");
             //Plugin.Log.Info($"Values: {string.Join(", ", values)}");
             //Plugin.Log.Info($"Keys: {string.Join(", ", keys)}");
             for (int i = 0; i < outputChunks.Length; i++)

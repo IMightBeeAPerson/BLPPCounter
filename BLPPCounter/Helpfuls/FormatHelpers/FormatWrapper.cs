@@ -122,6 +122,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                 }
                 i++;
             }
+
             // Safely allocate lookup arrays only if the cluster exists
             lookupLow = maxTokenLow >= 0
                 ? [.. Enumerable.Repeat(-1, maxTokenLow - minTokenLow + 1)]
@@ -129,6 +130,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             lookupHigh = minTokenHigh != int.MaxValue
                 ? [.. Enumerable.Repeat(-1, maxTokenHigh - minTokenHigh + 1)]
                 : [];
+
             // Fill lookup tables
             for (i = 0; i < dict.Count; i++)
             {
@@ -213,6 +215,21 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
             if (!typeof(T).IsAssignableFrom(givenTypes[index]))
                 throw new ArgumentException($"Stored type is {givenTypes[index].Name}, not {typeof(T).Name}.");
+
+            return (T)values[index];
+        }
+        public T GetValueAsNumber<T>(char c)
+        {
+            int index = GetIndex(c);
+
+            if (index < 0)
+                throw new ArgumentException($"Character '{c}' is not part of the token set.");
+
+            if (!HelpfulMisc.IsNumber(givenTypes[index]))
+                throw new ArgumentException($"Stored type is {givenTypes[index].Name}, which is not a numeric type.");
+
+            if (!HelpfulMisc.IsNumber(typeof(T)))
+                throw new ArgumentException($"Requested type {typeof(T).Name} is not a numeric type.");
 
             return (T)values[index];
         }

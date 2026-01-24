@@ -56,7 +56,7 @@ namespace BLPPCounter.Counters
                 {'p', "The percent difference between your current acc and the person above you's acc" },
                 {'l', "The label (ex: PP, Tech PP, etc)" },
                 {'c', "The color of the rank (set in settings)" }
-            }, str => { var hold = GetTheFormat(str, out string errorStr); return (hold, errorStr); },
+            }, FormatRelation.FormatDisplayer(SetupDefaultFormatter, MainAlias),
             new FormatWrapper(new Dictionary<char, object>()
             {
                 {(char)1, true },
@@ -164,19 +164,31 @@ namespace BLPPCounter.Counters
         }
         public static void InitTheFormat()
         {
-            rankWrapper ??= new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(bool), (char)3), (typeof(bool), (char)4), (typeof(float), 'x'), (typeof(float), 'y'),
-                (typeof(int), 'r'), (typeof(string), 'n'), (typeof(float), 'd'), (typeof(float), 'p'), (typeof(string), 'c'), (typeof(string), 'l'));
-            rankFormatter = new(TokenParser.ParseTokens(rankFormat, MainAlias), rankWrapper);
-
-            if (!PC.ShowLbl) rankFormatter.SetTokenToConstantValue('l');
-
-            rankFormatter.SurroundToken('c', "$", "</color>");
-            rankFormatter.PromiseValueForAllTokens();
+            rankWrapper ??= GetDefaultWrapper();
+            
+            rankFormatter = SetupDefaultFormatter(rankFormat, rankWrapper, MainAlias);
 
             rankPrinter = rankFormatter.GetOutput();
 
             displayPP = rankPrinter.UsedKeys.ContainsAny('x', 'y', 'd');
         }
+        public static FormatWrapper GetDefaultWrapper()
+        {
+            return new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(bool), (char)3), (typeof(bool), (char)4), (typeof(float), 'x'), (typeof(float), 'y'),
+                (typeof(int), 'r'), (typeof(string), 'n'), (typeof(float), 'd'), (typeof(float), 'p'), (typeof(string), 'c'), (typeof(string), 'l'));
+        }
+        internal static Formatter SetupDefaultFormatter(string format, FormatWrapper values = null, Dictionary<string, char> alias = null)
+        {
+            Formatter outp = new(TokenParser.ParseTokens(format, alias), values ?? GetDefaultWrapper());
+
+            if (!PC.ShowLbl) outp.SetTokenToConstantValue('l');
+
+            outp.SurroundToken('c', "$", "</color>");
+            outp.PromiseValueForAllTokens();
+
+            return outp;
+        }
+
         private static string DisplayRank(bool fc, bool extraInfo, bool isNum1, float pp, float fcpp, int rank, string playername, float ppDiff, float percentDiff, string color, string label)
         {
             rankWrapper.SetValues(((char)1, fc), ((char)2, extraInfo), ((char)3, !isNum1 && extraInfo), ((char)4, isNum1 && extraInfo), ('x', pp), ('y', fcpp),

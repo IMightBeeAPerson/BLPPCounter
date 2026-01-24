@@ -1,6 +1,7 @@
 ﻿using BLPPCounter.Helpfuls;
 using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Utils.TokenParser.FormatTypes;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -15,7 +16,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
         private readonly List<string> outputChunks;
         private readonly List<int[]> dependencies;
         private readonly Stack<int> currentDependency;
-        private readonly List<(int index, Parameter p)> parameters;
+        private readonly List<(int index, Func<FormatWrapper, string> paramHandler)> parameters;
         private readonly List<char> tokenOrder;
         private readonly HashSet<char> promisedTokens;
         private readonly HashSet<char> toStringTokens;
@@ -48,6 +49,8 @@ namespace BLPPCounter.Utils.TokenParser.Printers
             foreach (char t in usedTokens)
                 tokenOrder.Add(t);
             tokenOrder.Sort((a, b) => b - a);
+            if (usedTokens.Contains('g'))
+                SurroundToken('g', "", "</color>");
         }
         private static void SetupInternal(IEnumerable<Chunk> givenChunks, HashSet<char> usedTokens)
         {
@@ -165,9 +168,13 @@ namespace BLPPCounter.Utils.TokenParser.Printers
         }
         public Printer GetOutput()
         {
+            //Plugin.Log.Info($"chunks: {chunks.Print()}");
+            //Plugin.Log.Info($"chunk types: {chunks.Select(c => c.GetType().Name).Print()}");
             CombineChunks();
             sb.Clear();
             Parse(chunks);
+            //Plugin.Log.Info($"OutputChunks: {outputChunks.Print()}");
+            //Plugin.Log.Info($"Parameters: {parameters.Print()}");
             return new([.. outputChunks], [.. dependencies], tokenValues, [.. tokenOrder], [.. parameters]);
         }
         private void Parse(IEnumerable<Chunk> chunks)
@@ -185,7 +192,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                     index = tokenOrder.IndexOf(c.GetValue()[0]);
                     sb.Append(toStringTokens.Contains(c.GetValue()[0]) ? $"{{{index}:{HelpfulFormatter.NUMBER_TOSTRING_FORMAT}}}" : $"{{{index}}}");
                     if (c is Parameter p)
-                        parameters.Add((index, p));
+                        parameters.Add((index, Tokens.PreparseParameter(p)));
                     continue;
                 }
                 if (c is Group g)
@@ -199,6 +206,11 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                     }
                     AddChunk();
                     index = tokenOrder.IndexOf(g.Symbol);
+                    if (c is GroupParameter gp)
+                    {
+                        sb.Append($"{{{index}}}");
+                        parameters.Add((index, Tokens.PreparseParameter(gp.Param)));
+                    }
                     if (index >= 0)
                         currentDependency.Push(index);
                     Parse(g.Chunks);
@@ -224,12 +236,11 @@ namespace BLPPCounter.Utils.TokenParser.Printers
             if (chunksCombined)
                 return;
             List<Chunk> combinedChunks = [];
-            int offset = 0;
-            CombineChunks_Internal(combinedChunks, chunks, ref offset);
+            CombineChunks_Internal(combinedChunks, chunks);
             chunks = [.. combinedChunks];
             chunksCombined = true;
         }
-        private void CombineChunks_Internal(List<Chunk> combinedChunks, Chunk[] arr, ref int typesOffset)
+        private void CombineChunks_Internal(List<Chunk> combinedChunks, Chunk[] arr)
         {
             Chunk? last = null;
             for (int i = 0; i < arr.Length; i++)
@@ -247,18 +258,17 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                 {
                     bool badGroup = promisedTokens.Contains(g.Symbol) || (g is not RichText && g.Symbol == '\0');
                     List<Chunk> combinedGroupChunks = [];
-                    int hold = i + typesOffset + 1;
-                    CombineChunks_Internal(combinedGroupChunks, [.. g.Chunks], ref hold);
-                    typesOffset = hold - i - 1 + g.Chunks.Count;
-                    if (badGroup)
-                        combinedChunks.AddRange(combinedGroupChunks);
-                    else
-                        g.Chunks = [.. combinedGroupChunks];
+                    if (g is GroupParameter gp)
+                        combinedGroupChunks.Add(gp.Param);
+                    CombineChunks_Internal(combinedGroupChunks, [.. g.Chunks]);
                     if (badGroup)
                     {
+                        combinedChunks.AddRange(combinedGroupChunks);
                         last = null;
                         continue;
                     }
+                    else
+                        g.Chunks = [.. combinedGroupChunks];
                 }
                 last = arr[i];
             }

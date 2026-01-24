@@ -9,6 +9,21 @@ namespace BLPPCounter.Utils.TokenParser
     {
 #nullable enable
         private static Dictionary<string, char>? aliasConverter = null;
+        internal static bool ParseTokens(string toParse, out string errorMessage, out Chunk[] tokens, Dictionary<string, char>? aliasConverter = null)
+        {
+            try
+            {
+                tokens = ParseTokens(toParse, aliasConverter);
+                errorMessage = "";
+                return true;
+            }
+            catch (Exception e)
+            {
+                tokens = [];
+                errorMessage = e.Message;
+                return false;
+            }
+        }
         internal static Chunk[] ParseTokens(string toParse, Dictionary<string, char>? aliasConverter = null)
         {
             //Plugin.Log.Info("Parsing format: " + toParse);
@@ -67,12 +82,15 @@ namespace BLPPCounter.Utils.TokenParser
             if (special == Tokens.RICH_SHORT) return ParseRichText(arr, ref index, groupSymbol, parsingRich);
             index++;
             char symbol = '\0';
+            Parameter? parameter = null;
             if (special.UsesSymbol())
             {
                 symbol = arr[index];
                 if (symbol == Tokens.ALIAS)
                     symbol = ReadAlias(arr, ref index);
                 else index++;
+                if (index < arr.Length && arr[index] == Tokens.PARAM_OPEN)
+                    parameter = ParseParameters(symbol, arr, ref index);
             }
             if (special.UsesContent())
             {
@@ -83,12 +101,13 @@ namespace BLPPCounter.Utils.TokenParser
                 if (index >= arr.Length || arr[index] != closer)
                     throw new FormatException("There are unbalanced brackets inside of this format.");
                 index++;
-                return special.ToChunk(symbol, content);
+                Chunk outp = special.ToChunk(symbol, content)!;
+                return parameter is null ? outp : new GroupParameter(symbol, parameter, (Group)outp);
             }
+            if (parameter is not null)
+                return parameter;
             if (special == Tokens.INSERT_SELF)
                 return groupSymbol == '\0' ? new Chunk($"{Tokens.INSERT_SELF}") : special.ToChunk(groupSymbol);
-            else if (special == Tokens.ESCAPE_CHAR && index < arr.Length && arr[index] == Tokens.PARAM_OPEN)
-                return ParseParameters(symbol, arr, ref index);
             return special.ToChunk(symbol);
         }
         private static Parameter ParseParameters(char symbol, char[] arr, ref int index)

@@ -36,4 +36,8 @@ namespace BLPPCounter.Utils.TokenParser.FormatTypes
         public string GetStart() => $"<{RichKey}={RichVal}>";
         public string GetEnd() => $"</{RichKey}>";
     }
+    internal class GroupParameter(char symbol, Parameter param, Group info) : Group(symbol, info.Chunks)
+    {
+        public Parameter Param = param;
+    }
 }

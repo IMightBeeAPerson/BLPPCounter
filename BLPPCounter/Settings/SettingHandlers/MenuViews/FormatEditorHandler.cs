@@ -128,7 +128,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private void UpdateFormatOptions()
         {
 #if NEW_VERSION
-            FormatNames = MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>().ToList();
+            FormatNames = [.. MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>()];
             //Plugin.Log.Info($"[{FormatNames.Aggregate("", (total, obj) => ", " + obj.ToString()).Substring(2)}]");
             ChooseFormat.Values = FormatNames; // 1.37.0 and above
 #else

@@ -35,10 +35,8 @@ namespace BLPPCounter.Counters
         {
             { "PP", 'p' },
             { "PP Difference", 'x' },
-            { "Color", 'c' },
             { "FCPP", 'o' },
             { "FCPP Difference", 'y' },
-            { "FC Color", 'f' },
             { "Label", 'l' },
             { "Mistakes", 'e' },
             { "Target", 't' },
@@ -72,43 +70,31 @@ namespace BLPPCounter.Counters
             {
                 { 'p', "The unmodified PP number" },
                 { 'x', "The modified PP number (plus/minus value)" },
-                { 'c', "Must use as a group value, and will color everything inside group" },
                 { 'o', "The unmodified PP number if the map was FC'ed" },
                 { 'y', "The modified PP number if the map was FC'ed" },
-                { 'f', "Must use as a group value, and will color everything inside group" },
                 { 'l', "The label (ex: PP, Tech PP, etc)" },
                 { 'e', "The amount of mistakes made in the map. This includes bomb and wall hits" },
                 { 't', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" },
                 { 'm', "This shows either the clan message or percent needed message depending on user settings. The idea of this message is to show what percent is needed to capture the map." }
-            }, str => { var hold = GetFormatClan(str, out string errorStr, false); return (hold, errorStr); },
+            }, FormatRelation.FormatDisplayer(SetupClanFormatter, FormatAlias),
             new FormatWrapper(new Dictionary<char, object>()
             {
                 { (char)1, true },
                 { (char)2, true },
                 { 'p', 543.21f },
                 { 'x', -69.42f },
-                { 'c', new Func<object>(() => "#0F0") },
                 { 'o', 654.32f },
                 { 'y', 42.69f },
-                { 'f', new Func<object>(() => "#F00") },
                 { 'l', " PP" },
                 { 'e', 1 },
                 { 't', "Person" },
                 { 'm', new Func<object>(() => 95.0f) }
-            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(6)
+            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(2)
             {
-                {'x', 0 },
-                {'y', 0 },
-                {'c', 1 },
-                {'f', 1 },
-                {'t', 2 },
-                {'m', 3 }
+                {'t', 0 },
+                {'m', 1 }
             },
             [
-                FormatRelation.CreateFunc<float>(
-                    outp => $"<color={(outp > 0 ? "green" : "red")}>" + outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT),
-                    outp => outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT)),
-                FormatRelation.CreateFuncWithWrapper("<color={0}>{0}", "<color={0}>"),
                 FormatRelation.CreateFunc("Targeting <color=red>{0}</color>"),
                 FormatRelation.CreateFuncWithWrapper("{0}%", "Get {0}% for ___ PP!")
             ], new Dictionary<char, IEnumerable<(string, object)>>(5)
@@ -137,7 +123,7 @@ namespace BLPPCounter.Counters
                 { 'y', "The modified PP number if the map was FC'ed" },
                 { 'o', "The unmodified PP number if the map was FC'ed" },
                 { 'm', "This will show a message if the counter is used on a map that isn't perfectly ideal for the weighted counter or that the weighted counter can't be used on." }
-            }, str => { var hold = GetFormatWeighted(str, out string errorStr, false); return (hold, errorStr); },
+            }, FormatRelation.FormatDisplayer(SetupWeightedFormatter, WeightedFormatAlias),
             new FormatWrapper(new Dictionary<char, object>(12)
             {
                 {(char)1, true },
@@ -156,16 +142,11 @@ namespace BLPPCounter.Counters
             {
                 { 'c', 0 },
                 { 'r', 1 },
-                { 'x', 2 },
-                { 'y', 2 },
             },
             [
                 FormatRelation.CreateFuncWithWrapper<int>(a => $"{HelpfulFormatter.GetWeightedRankColor(a)}{a}",
                     a => () => HelpfulFormatter.GetWeightedRankColor(a)),
                 FormatRelation.CreateFunc("#{0}", "{0}"),
-                FormatRelation.CreateFunc<float>(
-                    outp => $"<color={(outp > 0 ? "green" : "red")}>" + outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT),
-                    outp => outp.ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT))
             ], new Dictionary<char, IEnumerable<(string, object)>>(5)
             {
                 { 'c', new (string, object)[4] { ("IsInteger", true), ("MinVal", 1), ("MaxVal", 100), ("IncrementVal", 1) } },
@@ -192,7 +173,7 @@ namespace BLPPCounter.Counters
                 { 'z', "The pass PP needed" },
                 { 'p', "The total PP number needed to capture the map" },
                 { 't', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" }
-            }, str => { var hold = GetFormatCustom(str, out string errorStr, false); return (hold, errorStr); },
+            }, FormatRelation.FormatDisplayer(SetupCustomFormatter, MessageFormatAlias),
             new FormatWrapper(new Dictionary<char, object>(7)
             {
                 {'c', new Func<object>(() => "#0F0") },
@@ -249,8 +230,8 @@ namespace BLPPCounter.Counters
         {
             clanFormat = weightedFormat = customFormat = "";
 
-            clanWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(int), 'e'), (typeof(string), 'c'), (typeof(string), 'x'), (typeof(float), 'p'),
-                (typeof(string), 'l'), (typeof(string), 'f'), (typeof(string), 'y'), (typeof(float), 'o'), (typeof(string), 'm'));
+            clanWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(int), 'e'), (typeof(float), 'x'), (typeof(float), 'p'),
+                (typeof(string), 'l'), (typeof(float), 'y'), (typeof(float), 'o'), (typeof(string), 'm'));
 
             weightedWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(bool), (char)3), (typeof(int), 'e'), (typeof(string), 'c'),
                 (typeof(int), 'r'), (typeof(float), 'x'), (typeof(float), 'p'), (typeof(string), 'l'), (typeof(float), 'y'), (typeof(float), 'o'), (typeof(string), 'm'));
@@ -442,101 +423,55 @@ namespace BLPPCounter.Counters
             if (HelpfulMisc.SetIfChanged(ref customFormat, PC.MessageSettings.ClanMessage) || customFormatter is null)
                 InitCustom();
         }
-        private static Func<Func<FormatWrapper, string>> GetFormatClan(string format, out string errorMessage, bool applySettings = true)
-        {
-            var outp = HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, DisplayName,
-                formattedTokens =>
-                {
-                    if (!PC.ShowLbl) formattedTokens.SetText('l');
-                    if (!PC.Target.Equals(Targeter.NO_TARGET) && PC.ShowEnemy)
-                    {
-                        string theMods = "";
-                        if (TheCounter.theCounter is ClanCounter cc) theMods = cc.Mods;
-                        formattedTokens.MakeTokenConstant('t', TheCounter.TargetFormatter(PC.Target.ClampString(PC.MaxNameLength), theMods));
-                    }
-                    else { formattedTokens.SetText('t'); formattedTokens.MakeTokenConstant('t'); }
-                },
-                (tokens, tokensCopy, priority, vals) =>
-                {
-                    if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<object>)vals['c']).Invoke()}", "</color>");
-                    if (vals.ContainsKey('f')) HelpfulFormatter.SurroundText(tokensCopy, 'f', $"{((Func<object>)vals['f']).Invoke()}", "</color>");
-                    if (vals.ContainsKey('m')) HelpfulFormatter.SetText(tokensCopy, 'm', ((Func<object>)vals['m']).Invoke().ToString());
-                    if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1');
-                    if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
-                }, out errorMessage, out HelpfulFormatter.TokenInfo[] arr, applySettings);
-
-            /*HashSet<char> ppSymbols = ['x', 'p', 'c'];
-            displayPP = arr.Any(token => token.Usage > HelpfulFormatter.TokenUsage.Never && ppSymbols.Contains(token.Token));*/
-
-            return outp;
-        }
-        private static Func<Func<FormatWrapper, string>> GetFormatWeighted(string format, out string errorMessage, bool applySettings = true)
-        {//settings values are: 0 = displayFC, 1 = totPP, 2 = showRank
-            return HelpfulFormatter.GetBasicTokenParser(format, WeightedFormatAlias, DisplayName,
-                formattedTokens =>
-                {
-                    if (!PC.ShowLbl) formattedTokens.SetText('l');
-                },
-                (tokens, tokensCopy, priority, vals) => {
-                    if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<object>)vals['c']).Invoke()}", "</color>");
-                    if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1'); 
-                    if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2'); 
-                    if (!(bool)vals[(char)3]) HelpfulFormatter.SetText(tokensCopy, '3'); 
-                }, out errorMessage, out _, applySettings);
-        }
-        private static Func<Func<FormatWrapper, string>> GetFormatCustom(string format, out string errorMessage, bool applySettings = true)
-        {
-            return HelpfulFormatter.GetBasicTokenParser(format, MessageFormatAlias, DisplayName,
-                formattedTokens =>
-                {
-                    if (!PC.Target.Equals(Targeter.NO_TARGET) && PC.ShowEnemy)
-                        formattedTokens.SetText('t', PC.Target); 
-                        else formattedTokens.SetText('t');
-                },
-                (tokens, tokensCopy, priority, vals) =>
-                {
-                    if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<object>)vals['c']).Invoke()}", "</color>");
-                }, out errorMessage, out _, applySettings);
-        }
         private static void InitClan()
         {
-            clanFormatter = new(TokenParser.ParseTokens(clanFormat, FormatAlias), clanWrapper);
-
-            if (!PC.ShowLbl) clanFormatter.SetTokenToConstantValue('l');
-            if (!PC.Target.Equals(Targeter.NO_TARGET) && PC.ShowEnemy)
-            {
-                string theMods = "";
-                if (TheCounter.theCounter is ClanCounter cc2) theMods = cc2.Mods;
-                clanFormatter.SetTokenToConstantValue('t', TheCounter.TargetFormatter(PC.Target.ClampString(PC.MaxNameLength), theMods));
-            }
-            else clanFormatter.SetTokenToConstantValue('t');
-
-            clanFormatter.SurroundTokens("$", "</color>", 'c', 'f');
-            clanFormatter.PromiseValueForAllTokens();
+            clanFormatter = SetupClanFormatter(clanFormat, clanWrapper, FormatAlias);
 
             displayClan = clanFormatter.GetOutput();
 
             displayPP = displayClan.UsedKeys.ContainsAny('x', 'p', 'c');
         }
-        private static string DisplayClan(bool fc, bool totPp, int mistakes, string color, string modPp, float regPp,
-            string fcColor, string fcModPp, float fcRegPp, string label, Func<string> message)
+        internal static Formatter SetupClanFormatter(string format, FormatWrapper values, Dictionary<string, char>? alias = null)
+        {
+            Formatter outp = new(TokenParser.ParseTokens(format, alias), values);
+
+            if (!PC.ShowLbl) outp.SetTokenToConstantValue('l');
+            if (!PC.Target.Equals(Targeter.NO_TARGET) && PC.ShowEnemy)
+            {
+                string theMods = "";
+                if (TheCounter.theCounter is ClanCounter cc2) theMods = cc2.Mods;
+                outp.SetTokenToConstantValue('t', TheCounter.TargetFormatter(PC.Target.ClampString(PC.MaxNameLength), theMods));
+            }
+            else outp.SetTokenToConstantValue('t');
+
+            outp.FlagTokensForToString('x', 'y');
+            outp.PromiseValueForAllTokens();
+
+            return outp;
+        }
+        private static string DisplayClan(bool fc, bool totPp, int mistakes, float modPp, float regPp, float fcModPp, float fcRegPp, string label, Func<string> message)
         {
             clanWrapper.SetValues(
-                ((char)1, fc), ((char)2, totPp), ('e', mistakes), ('c', color), ('x', modPp), ('p', regPp), ('l', label), ('f', fcColor), ('y', fcModPp), ('o', fcRegPp),
-                ('m', message())
+                ((char)1, fc), ((char)2, totPp), ('e', mistakes), ('x', modPp), ('p', regPp), ('l', label), ('y', fcModPp), ('o', fcRegPp), ('m', message())
             );
             return displayClan!.Print();
         }
         private static void InitWeighted()
         {
-            weightedFormatter = new(TokenParser.ParseTokens(weightedFormat, WeightedFormatAlias), weightedWrapper);
-
-            if (!PC.ShowLbl) weightedFormatter.SetTokenToConstantValue('l');
-            weightedFormatter.PromiseValueForAllTokens();
+            weightedFormatter = SetupWeightedFormatter(weightedFormat, weightedWrapper, WeightedFormatAlias);
 
             displayWeighted = weightedFormatter.GetOutput();
 
             displayWeightedPP = displayWeighted.UsedKeys.ContainsAny('x', 'p', 'y', 'o');
+        }
+        internal static Formatter SetupWeightedFormatter(string format, FormatWrapper values, Dictionary<string, char>? alias = null)
+        {
+            Formatter outp = new(TokenParser.ParseTokens(format, alias), values);
+
+            if (!PC.ShowLbl) outp.SetTokenToConstantValue('l');
+            outp.PromiseValueForAllTokens();
+
+            return outp;
         }
         private static string DisplayWeighted(bool[] settings, int mistakes, string rankColor, int rank, float modPp, float regPp,
             float fcModPp, float fcRegPp, string label, string message)
@@ -547,15 +482,21 @@ namespace BLPPCounter.Counters
         }
         private static void InitCustom()
         {
-            customFormatter = new(TokenParser.ParseTokens(PC.MessageSettings.ClanMessage, MessageFormatAlias), customWrapper);
-
-            if (!PC.Target.Equals(Targeter.NO_TARGET) && PC.ShowEnemy)
-                customFormatter.SetTokenToConstantValue('t', PC.Target);
-            else customFormatter.SetTokenToConstantValue('t');
-            customFormatter.SurroundTokens("$", "</color>", 'c');
-            customFormatter.PromiseValueForAllTokens();
+            customFormatter = SetupCustomFormatter(customFormat, customWrapper, MessageFormatAlias);
 
             displayCustom = customFormatter.GetOutput();
+        }
+        internal static Formatter SetupCustomFormatter(string format, FormatWrapper values, Dictionary<string, char>? alias = null)
+        {
+            Formatter outp = new(TokenParser.ParseTokens(format, alias), values);
+
+            if (!PC.Target.Equals(Targeter.NO_TARGET) && PC.ShowEnemy)
+                outp.SetTokenToConstantValue('t', PC.Target);
+            else outp.SetTokenToConstantValue('t');
+            outp.SurroundTokens("$", "</color>", 'c');
+            outp.PromiseValueForAllTokens();
+
+            return outp;
         }
         private static string DisplayCustom(string color, float acc, float accPP, float passPP, float techPP, float pp)
         {
@@ -581,31 +522,31 @@ namespace BLPPCounter.Counters
             string message()
             {
                 Func<string, float, float, float, float, float, string> func = PC.ShowClanMessage ? DisplayCustom : TheCounter.PercentNeededFormatter;
-                return func.Invoke(color(ppHandler.GetPPGroup(0).TotalPP - neededPPs.TotalPP),
+                return func.Invoke(color(ppHandler!.GetPPGroup(0).TotalPP - neededPPs.TotalPP),
                 neededAcc, neededPPs.AccPP, neededPPs.PassPP, neededPPs.TechPP, neededPPs.TotalPP);
             }
             if (PC.SplitPPVals && calc.RatingCount > 1)
             {
                 for (int i = 0; i < 4; i++)
-                    outpText.AppendLine(DisplayClan(ppHandler.DisplayFC, PC.ExtraInfo && i == 3, mistakes, color(ppHandler[1, i]), ppHandler[1, i].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[0, i],
-                        color(ppHandler[3, i]), ppHandler[3, i].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[2, i], TheCounter.CurrentLabels[i], message));
+                    outpText.AppendLine(DisplayClan(ppHandler.DisplayFC, PC.ExtraInfo && i == 3, mistakes, ppHandler[1, i], ppHandler[0, i], 
+                        ppHandler[3, i], ppHandler[2, i], TheCounter.CurrentLabels[i], message));
             }
             else
-                outpText.AppendLine(DisplayClan(ppHandler.DisplayFC, PC.ExtraInfo, mistakes, color(ppHandler[1]), ppHandler[1].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[0],
-                    color(ppHandler[3]), ppHandler[3].ToString(HelpfulFormatter.NUMBER_TOSTRING_FORMAT), ppHandler[2], TheCounter.CurrentLabels.Last(), message));
+                outpText.AppendLine(DisplayClan(ppHandler.DisplayFC, PC.ExtraInfo, mistakes, ppHandler[1], ppHandler[0],
+                    ppHandler[3], ppHandler[2], TheCounter.CurrentLabels.Last(), message));
         }
         public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
         private void UpdateWeightedCounter(float acc, int mistakes, float fcPercent)
         {
-            float weight = BLCalc.Instance.GetWeight(calc.Inflate(calc.GetSummedPp(acc)), clanPPs, out int rank);
+            float weight = BLCalc.Instance.GetWeight(weightedPPHandler!.PartialUpdate(acc, mistakes).TotalPP, clanPPs, out int rank);
 
-            weightedPPHandler!.Update(acc, mistakes, fcPercent, weight);
+            weightedPPHandler!.FinishPartialUpdate(acc, fcPercent, weight);
             //Plugin.Log.Info("ppVals: " + HelpfulMisc.Print(weightedPPHandler));
 
             const string ppLabel = " Weighted PP";
-            string color = HelpfulFormatter.GetWeightedRankColor(rank);
             if (PC.SplitPPVals && calc.RatingCount > 1)
             {
+                string color = HelpfulFormatter.GetWeightedRankColor(rank);
                 for (int i = 0; i < 4; i++)
                     outpText.AppendLine(DisplayWeighted([weightedPPHandler.DisplayFC, PC.ExtraInfo && i == 3, showRank && i == 3], 
                         mistakes, color, rank, weightedPPHandler[1, i], weightedPPHandler[0, i], weightedPPHandler[3, i], weightedPPHandler[2, i], i == 3 ? ppLabel : TheCounter.CurrentLabels[i], message));

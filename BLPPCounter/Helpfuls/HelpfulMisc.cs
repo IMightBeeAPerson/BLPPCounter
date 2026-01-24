@@ -178,9 +178,21 @@ namespace BLPPCounter.Helpfuls
         {
             if (t is null) return false;
             TypeCode tc = Type.GetTypeCode(t);
-            return tc > TypeCode.Char && tc < TypeCode.DateTime;
+            return tc >= TypeCode.SByte && tc < TypeCode.DateTime;
         }
         public static bool IsNumber(object o) => IsNumber(o?.GetType());
+        public static bool IsIntType(Type t)
+        {
+            if (t is null) return false;
+            TypeCode tc = Type.GetTypeCode(t);
+            return tc >= TypeCode.SByte && tc < TypeCode.Single;
+        }
+        public static bool IsDecimalType(Type t)
+        {
+            if (t is null) return false;
+            TypeCode tc = Type.GetTypeCode(t);
+            return tc >= TypeCode.Single && tc <= TypeCode.Decimal;
+        }
         public static string SplitByUppercase(string s) => Regex.Replace(s, "(?!^)[A-Z][^A-Z]*", " $&");
         public static string ConvertColorToHex(System.Drawing.Color c) => $"#{ToRgba(c):X8}";
         public static string ConvertColorToHex(Color c) => $"#{ToRgba(c):X8}";

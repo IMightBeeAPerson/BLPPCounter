@@ -113,7 +113,7 @@ namespace BLPPCounter
                 { 'z', "The color used for the mistake count. It is gray if 0, red otherwise" },
                 { 'e', "The amount of mistakes made in the map. This includes bomb and wall hits" },
                 { 'l', "The label (ex: PP, Tech PP, etc)" }
-            }, str => { var hold = GetTheFormat(str, out string errorStr); return (hold, errorStr); },
+            }, FormatRelation.FormatDisplayer(SetupDisplayFormatter, FormatAlias),
             new FormatWrapper(new Dictionary<char, object>()
             {
                 {(char)1, true },
@@ -145,7 +145,7 @@ namespace BLPPCounter
             {
                 { 't', "The name of the person being targeted" },
                 { 'm', "The mods used by the person you are targeting" }
-            }, str => { var hold = GetFormatTarget(str, out string errorStr); return (hold, errorStr); },
+            }, FormatRelation.FormatDisplayer(SetupTargetFormatter, TargetAlias),
             new FormatWrapper(new Dictionary<char, object>()
             {
                 {'t', "Person" },
@@ -161,7 +161,7 @@ namespace BLPPCounter
                 { 'y', "The accuracy PP needed" },
                 { 'z', "The pass PP needed" },
                 { 'p', "The total PP number needed to capture the map" }
-            }, str => { var hold = GetFormatPercentNeeded(str, out string errorStr); return (hold, errorStr); },
+            }, FormatRelation.FormatDisplayer(SetupPercentNeededFormatter, PercentNeededAlias),
             new FormatWrapper(new Dictionary<char, object>()
             {
                 {'c', new Func<object>(() => "green") },
@@ -216,6 +216,12 @@ namespace BLPPCounter
 
         internal static void InitCounterStatic() 
         {
+            displayWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(float), 'x'), (typeof(string), 'z'), (typeof(string), 'l'),
+                (typeof(float), 'y'), (typeof(int), 'e'));
+            targetWrapper = new FormatWrapper((typeof(string), 'c'), (typeof(float), 'a'), (typeof(float), 'x'),
+                (typeof(float), 'y'), (typeof(float), 'z'), (typeof(float), 'p'));
+            percentNeededWrapper = new FormatWrapper((typeof(string), 't'), (typeof(string), 'm'));
+
             updateFormat = false;
             static void PropChanged(object o, PropertyChangedEventArgs args)
             {
@@ -660,33 +666,20 @@ namespace BLPPCounter
             Leaderboards.Accsaber => Map.AP_MODE_NAME,
             _ => mainMode ?? "Standard",
         };
-        private static Func<Func<FormatWrapper, string>> GetTheFormat(string format, out string errorStr, string counter = "") =>
-            HelpfulFormatter.GetBasicTokenParser(format, FormatAlias, counter, a => { },
-                (tokens, tokensCopy, priority, vals) => 
-                {
-                    HelpfulFormatter.SurroundText(tokensCopy, 'z', $"{vals['z']}", "</color>");
-                    if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1'); 
-                    if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2'); 
-                }, out errorStr, out _);
-       
-        private static Func<Func<FormatWrapper, string>> GetFormatTarget(string format, out string errorStr) =>
-            HelpfulFormatter.GetBasicTokenParser(format, TargetAlias, DisplayName, a => { }, (a, b, c, d) => { }, out errorStr, out _);
-        private static Func<Func<FormatWrapper, string>> GetFormatPercentNeeded(string format, out string errorStr) =>
-            HelpfulFormatter.GetBasicTokenParser(format, PercentNeededAlias, DisplayName, a => { },
-                (tokens, tokensCopy, priority, vals) =>
-                {
-                    if (vals.ContainsKey('c')) HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{((Func<object>)vals['c']).Invoke()}", "</color>");
-                }, out errorStr, out _);
         private static void InitDisplayFormat()
         {
-            displayWrapper ??= new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(float), 'x'), (typeof(string), 'z'), (typeof(string), 'l'),
-                (typeof(float), 'y'), (typeof(int), 'e'));
-            displayFormatter = new(TokenParser.ParseTokens(pc.FormatSettings.DefaultTextFormat, FormatAlias), displayWrapper);
-
-            displayFormatter.SurroundToken('z', "$", "</color>");
-            displayFormatter.PromiseValueForTokens();
+            displayFormatter = SetupDisplayFormatter(pc.FormatSettings.DefaultTextFormat, displayWrapper, FormatAlias);
 
             displayPrinter = displayFormatter.GetOutput();
+        }
+        internal static Formatter SetupDisplayFormatter(string format, FormatWrapper values, Dictionary<string, char> alias = null)
+        {
+            Formatter outp = new(TokenParser.ParseTokens(format, alias), values);
+
+            outp.SurroundToken('z', "$", "</color>");
+            outp.PromiseValueForTokens();
+
+            return outp;
         }
         private static string DisplayFormatter(bool fc, bool totPp, float pp, float fcpp, string mistakeColor, int mistakes, string label)
         {
@@ -695,12 +688,17 @@ namespace BLPPCounter
         }
         private static void InitTarget()
         {
-            targetWrapper ??= new FormatWrapper((typeof(string), 't'), (typeof(string), 'm'));
-            targetFormatter = new(TokenParser.ParseTokens(pc.MessageSettings.TargetingMessage, TargetAlias), targetWrapper);
-
-            targetFormatter.PromiseValueForTokens();
+            targetFormatter = SetupTargetFormatter(pc.MessageSettings.TargetingMessage, targetWrapper, TargetAlias);
 
             targetPrinter = targetFormatter.GetOutput();
+        }
+        internal static Formatter SetupTargetFormatter(string format, FormatWrapper values, Dictionary<string, char> alias = null)
+        {
+            Formatter outp = new(TokenParser.ParseTokens(format, alias), values);
+
+            outp.PromiseValueForTokens();
+
+            return outp;
         }
         public static string TargetFormatter(string name, string mods)
         {
@@ -710,14 +708,18 @@ namespace BLPPCounter
         }
         private static void InitPercentNeeded()
         {
-            percentNeededWrapper ??= new FormatWrapper((typeof(string), 'c'), (typeof(float), 'a'), (typeof(float), 'x'),
-                (typeof(float), 'y'), (typeof(float), 'z'), (typeof(float), 'p'));
-            percentNeededFormatter = new(TokenParser.ParseTokens(pc.MessageSettings.PercentNeededMessage, PercentNeededAlias), percentNeededWrapper);
-
-            percentNeededFormatter.SurroundToken('c', "$", "</color>");
-            percentNeededFormatter.PromiseValueForTokens();
+            percentNeededFormatter = SetupPercentNeededFormatter(pc.MessageSettings.PercentNeededMessage, percentNeededWrapper, PercentNeededAlias);
 
             percentNeededPrinter = percentNeededFormatter.GetOutput();
+        }
+        internal static Formatter SetupPercentNeededFormatter(string format, FormatWrapper values, Dictionary<string, char> alias = null)
+        {
+            Formatter outp = new(TokenParser.ParseTokens(format, alias), values);
+
+            outp.SurroundToken('c', "$", "</color>");
+            outp.PromiseValueForTokens();
+
+            return outp;
         }
         public static string PercentNeededFormatter(string colorFunc, float acc, float passPP, float accPP, float techPP, float pp)
         {
