@@ -89,7 +89,7 @@ namespace BLPPCounter.Counters
                 { 'e', 1 },
                 { 't', "Person" },
                 { 'm', new Func<object>(() => 95.0f) }
-            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(2)
+            }), Tokens.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(2)
             {
                 {'t', 0 },
                 {'m', 1 }
@@ -138,7 +138,7 @@ namespace BLPPCounter.Counters
                 {'y', 42.69f },
                 {'o', 654.32f },
                 {'m', "<Insert a message here>" }
-            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(4)
+            }), Tokens.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(4)
             {
                 { 'c', 0 },
                 { 'r', 1 },
@@ -183,7 +183,7 @@ namespace BLPPCounter.Counters
                 {'z', 69.42f },
                 {'p', 543.21f },
                 {'t', "Person" }
-            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(3)
+            }), Tokens.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(3)
             {
                 {'c', 0 },
                 {'a', 1 },

@@ -14,6 +14,7 @@ using TMPro;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Utils.Serializable_Classes;
+using BLPPCounter.Utils.TokenParser;
 
 #if !NEW_VERSION
 using BLPPCounter.Utils.Special_Utils;
@@ -206,7 +207,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             else AliasTable.SetValues([.. CurrentFormatInfo.Descriptions.Select(kvp => new string[3] { reversedAlias[kvp.Key], kvp.Key + "", kvp.Value })]);
             AliasTable.UpdateTable();
 #if NEW_VERSION
-            AliasNames = CurrentFormatInfo.Alias.Keys.Cast<object>().ToList();
+            AliasNames = [.. CurrentFormatInfo.Alias.Keys.Cast<object>()];
             AliasNamePicker.Values = AliasNames; // 1.37.0 and above
 #else
             AliasNameContainer = new FilledList([.. CurrentFormatInfo.Alias.Keys.Cast<object>()]);
@@ -218,10 +219,10 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private void UpdateRefs(CustomAlias ca, bool removing)
         {
             if (!PC.AutoUpdateRefs) return;
-            string toReplace = $"{HelpfulFormatter.ESCAPE_CHAR}{HelpfulFormatter.ALIAS}{(removing ? ca.AliasName : ca.OldAlias)}{HelpfulFormatter.ALIAS}";
+            string toReplace = $"{Tokens.ESCAPE_CHAR}{Tokens.ALIAS}{(removing ? ca.AliasName : ca.OldAlias)}{Tokens.ALIAS}";
             if (CurrentFormatInfo.Format.Contains(toReplace))
                 CurrentFormatInfo.Format = CurrentFormatInfo.Format.Replace(toReplace,
-                    $"{HelpfulFormatter.ESCAPE_CHAR}{HelpfulFormatter.ALIAS}{(removing ? ca.OldAlias : ca.AliasName)}{HelpfulFormatter.ALIAS}");
+                    $"{Tokens.ESCAPE_CHAR}{Tokens.ALIAS}{(removing ? ca.OldAlias : ca.AliasName)}{Tokens.ALIAS}");
             if (FormatEditorHandler.Instance.IsLoaded)
                 FormatEditorHandler.Instance.UpdateFormatDisplay();
         }

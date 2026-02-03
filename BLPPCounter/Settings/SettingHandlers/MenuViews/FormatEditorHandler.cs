@@ -145,7 +145,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             //Plugin.Log.Info($"Counter: {_Counter}, Format: {_FormatName}");
             FormatListInfo.AliasConverter = CurrentFormatInfo.Alias;
             //Plugin.Log.Info(HelpfulMisc.Print(CurrentFormatInfo.Alias));
-            foreach (KeyValuePair<string, char> item in GLOBAL_ALIASES) FormatListInfo.AliasConverter[item.Key] = item.Value;
+            foreach (KeyValuePair<string, char> item in Utils.TokenParser.Tokens.GlobalAliases) FormatListInfo.AliasConverter[item.Key] = item.Value;
             FormattedText.text = CurrentFormatInfo.GetQuickFormat();
             //This is so that ui doesn't break from a specific error.
 #if NEW_VERSION
@@ -188,15 +188,17 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             if (!forceUpdate && !PC.UpdatePreview) return;
             string outp = "", colorOutp = "";
             saveable = true;
+            List<string> errorMessages = [];
             foreach (FormatListInfo fli in FormatChunks.Cast<FormatListInfo>())
             {
                 outp += fli.GetDisplay();
                 colorOutp += fli.GetColorDisplay();
-                saveable &= fli.Updatable();
-                //if (!fli.Updatable()) Plugin.Log.Info(fli.ToString() + "\nHas Child: " + fli.HasChild);
+                bool updatable = fli.Updatable(out string error);
+                saveable &= updatable;
+                if (!updatable) errorMessages.Add($"Error = {error}, {fli.Chunk}, Has Child = {fli.HasChild}");
             }
-            PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : "Can not format.";
-            //if (!saveable) Plugin.Log.Info(CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")));
+            PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : string.Join('\n', errorMessages);
+            if (!saveable) Plugin.Log.Info(CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")));
 #if NEW_VERSION
             if (PreviewDisplay.text.Contains("\nPossible")) PreviewDisplay.text = PreviewDisplay.text.Split("\nPossible")[0]; // 1.37.0 and above
 #else
@@ -242,9 +244,12 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             lastSelectedInfo = selectedFli;
             AddAboveSelectedButton.interactable = true;
             AddBelowSelectedButton.interactable = true;
+            List<string> errorMessages = [];
             foreach (FormatListInfo fli in arr)
             {
-                saveable &= fli.Updatable();
+                bool updatable = fli.Updatable(out string error);
+                saveable &= updatable;
+                if (!updatable) errorMessages.Add($"Error = {error}, {fli.Chunk}, Has Child = {fli.HasChild}");
                 if (selectedFli.Equals(fli))
                 {
                     colorOutp += richStart + fli.GetColorDisplay() + richEnd;
@@ -259,7 +264,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                 }
             }
             if (endFli == null) colorOutp += richEnd; //if endFli is null, then this is not a saveable format, therefore outp doesn't need to be updated.
-            PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : "Can not format.";
+            PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : string.Join('\n', errorMessages);
             RawPreviewDisplay.text = colorOutp;
             //Plugin.Log.Debug(colorOutp);
             UpdateSaveButton();
@@ -344,7 +349,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         {
             CurrentFormatInfo.Format = rawFormat;
             Type counter = _Counter.Equals(TheCounter.DisplayName) ? typeof(TheCounter) : Type.GetType(TheCounter.DisplayNameToCounter[_Counter]);
-            if (counter == null) { Plugin.Log.Error("Counter is null"); return; }
+            if (counter is null) { Plugin.Log.Error("Counter is null"); return; }
             MethodInfo[] miArr = counter.GetMethods(BindingFlags.Public | BindingFlags.Static);
             miArr.First(a => a.Name.Equals("ResetFormat")).Invoke(null, null);
             miArr.First(a => a.Name.Equals("InitFormat")).Invoke(null, null);

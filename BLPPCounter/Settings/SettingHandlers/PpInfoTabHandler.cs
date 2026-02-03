@@ -26,6 +26,8 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using static GameplayModifiers;
+using BLPPCounter.Utils.TokenParser.Printers;
+using BLPPCounter.Utils.TokenParser;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -516,13 +518,11 @@ namespace BLPPCounter.Settings.SettingHandlers
         #region Relative Counter
         private static void InitFormatters()
         {
-            var simple = HelpfulFormatter.GetBasicTokenParser(PC.MessageSettings.TargetHasNoScoreMessage,
-                new Dictionary<string, char>() { { "Target", 't' } }, "TargetNoScoreMessage", null, (tokens, tokensCopy, priority, vals) =>
-                {
-                    foreach (char key in vals.Keys) if (vals[key] is null || vals[key].ToString().Length == 0) HelpfulFormatter.SetText(tokensCopy, key);
-                }, out _, out _, false).Invoke();
             NoScoreTargetWrapper = new FormatWrapper((typeof(string), 't'));
-            GetNoScoreTarget = () => { NoScoreTargetWrapper.SetValue('t', Targeter.TargetName, typeof(string)); return simple.Invoke(NoScoreTargetWrapper); };
+            Formatter f = new(TokenParser.ParseTokens(PC.MessageSettings.TargetHasNoScoreMessage, new Dictionary<string, char>() { { "Target", 't' } }), NoScoreTargetWrapper);
+            f.PromiseValueForTokens();
+            Printer simple = f.GetOutput();
+            GetNoScoreTarget = () => { NoScoreTargetWrapper.SetValue('t', Targeter.TargetName, typeof(string)); return simple.Print(); };
             GetTarget = () => TheCounter.TargetFormatter(Targeter.TargetName.ClampString(PC.MaxNameLength), "") ?? "Target formatter is null";
         }
         private float GetAccToBeatTarget()

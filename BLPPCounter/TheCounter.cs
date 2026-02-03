@@ -123,7 +123,7 @@ namespace BLPPCounter
                 {'z', "red" },
                 {'e', 2 },
                 {'l', " PP" }
-            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(1)
+            }), Tokens.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(1)
             {
                 { 'z', 0 }
             },
@@ -150,7 +150,7 @@ namespace BLPPCounter
             {
                 {'t', "Person" },
                 {'m', "SF" }
-            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, null, null, null);
+            }), Tokens.GLOBAL_PARAM_AMOUNT, null, null, null);
         internal static readonly FormatRelation PercentNeededFormatRelation = new("Percent Needed Format", DisplayName,
             pc.MessageSettings.PercentNeededMessage, str => pc.MessageSettings.PercentNeededMessage = str, PercentNeededAlias,
             new Dictionary<char, string>()
@@ -171,7 +171,7 @@ namespace BLPPCounter
                 {'z', 69.42f },
                 {'p', 543.21f },
                 {'t', "Person" }
-            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(3)
+            }), Tokens.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(3)
             {
                 {'c', 0 },
                 {'a', 1 },

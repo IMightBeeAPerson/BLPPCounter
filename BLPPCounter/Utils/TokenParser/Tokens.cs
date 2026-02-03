@@ -31,6 +31,7 @@ namespace BLPPCounter.Utils.TokenParser
             { "Hide" , 'h' },
             { "Gradient", 'g' }
         };
+        public static Func<char, int> GLOBAL_PARAM_AMOUNT = c => ParamParsers[c].MaxParams;
 
         static Tokens()
         {

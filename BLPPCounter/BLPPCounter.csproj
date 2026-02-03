@@ -35,6 +35,7 @@
     <WarningLevel>4</WarningLevel>
     <DefineConstants>NEW_VERSION</DefineConstants>
     <LangVersion>preview</LangVersion>
+    <NoWarn>IDE0057,IDE0056</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition="$(DefineConstants.Contains('CIBuild')) OR '$(NCrunch)' == '1'">
     <DisableCopyToPlugins>True</DisableCopyToPlugins>

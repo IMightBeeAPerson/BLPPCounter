@@ -71,7 +71,7 @@ namespace BLPPCounter.Counters
                 { 'p', 0.1f },
                 { 'l', "PP" },
                 { 'c', 3 }
-            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>()
+            }), Tokens.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>()
             {
                 {'r', 0 },
                 {'c', 1 }
@@ -140,27 +140,6 @@ namespace BLPPCounter.Counters
         {
             rankFormat = format;
             InitTheFormat();
-        }
-        public static Func<Func<FormatWrapper, string>> GetTheFormat(string format, out string errorStr)
-        {
-            var outp = HelpfulFormatter.GetBasicTokenParser(format, MainAlias, DisplayName,
-                formattedTokens =>
-                {
-                    if (!PC.ShowLbl) formattedTokens.SetText('l');
-                },
-                (tokens, tokensCopy, priority, vals) =>
-                {
-                    HelpfulFormatter.SurroundText(tokensCopy, 'c', $"{vals['c']}", "</color>");
-                    if (!(bool)vals[(char)1]) HelpfulFormatter.SetText(tokensCopy, '1');
-                    if (!(bool)vals[(char)2]) HelpfulFormatter.SetText(tokensCopy, '2');
-                    if (!(bool)vals[(char)3]) HelpfulFormatter.SetText(tokensCopy, '3');
-                    if (!(bool)vals[(char)4]) HelpfulFormatter.SetText(tokensCopy, '4');
-                }, out errorStr, out HelpfulFormatter.TokenInfo[] arr);
-
-            /*HashSet<char> ppSymbols = ['x', 'y', 'd'];
-            displayPP = arr.Any(token => token.Usage > HelpfulFormatter.TokenUsage.Never && ppSymbols.Contains(token.Token));*/
-
-            return outp;
         }
         public static void InitTheFormat()
         {

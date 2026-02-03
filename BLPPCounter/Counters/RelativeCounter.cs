@@ -75,7 +75,7 @@ namespace BLPPCounter.Counters
                 {'l', "PP" },
                 {'t', "Person" },
                 {'z', "yellow" }
-            }), HelpfulFormatter.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(2)
+            }), Tokens.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(2)
             {
                 {'a', 0 },
                 {'t', 1 }
