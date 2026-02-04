@@ -26,7 +26,7 @@
             </vertical>
           </modal>
         <custom-list id='FormatEditor' contents='FormatChunks' show-scrollbar='true' pref-width='100' pref-height='60' cell-size='30' select-cell='SelectedCell' clickable-cells='true'>
-            <vertical id='BGContainer' bg='round-rect-panel' bg-color='#CCC' horizontal-fit='Unconstrained' pad='2'>
+            <vertical id='BGContainer' bg='round-rect-panel' bg-color='~InitialColor' horizontal-fit='Unconstrained' pad='2'>
               <dropdown-list-setting text='Choose Type' apply-on-change='true' value='ChunkStr' options='TypesOfChunks' hover-hint='The types of chunks'/>
               <string-setting id='TextComp' text='~TextCompLabel' apply-on-change='true' value='Text' formatter='Centerer' active='~ShowTextComp'/>
               <string-setting id='Text2Comp' text='Enter Value' apply-on-change='true' value='Text2' formatter='Centerer' active='~ShowText2Comp'/>

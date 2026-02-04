@@ -176,7 +176,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 #endif
             if (lastSelectedInfo != null)
             {
-                lastSelectedInfo.Unselected();
+                lastSelectedInfo.ResetBackgroundColor();
                 lastSelectedInfo = null;
             }
             AddAboveSelectedButton.interactable = false;
@@ -188,6 +188,10 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             if (!forceUpdate && !PC.UpdatePreview) return;
             string outp = "", colorOutp = "";
             saveable = true;
+            lastSelectedInfo?.ResetBackgroundColor();
+            lastSelectedInfo = null;
+            AddAboveSelectedButton.interactable = false;
+            AddBelowSelectedButton.interactable = false;
             List<string> errorMessages = [];
             foreach (FormatListInfo fli in FormatChunks.Cast<FormatListInfo>())
             {
@@ -195,10 +199,10 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                 colorOutp += fli.GetColorDisplay();
                 bool updatable = fli.Updatable(out string error);
                 saveable &= updatable;
-                if (!updatable) errorMessages.Add($"Error = {error}, {fli.Chunk}, Has Child = {fli.HasChild}");
+                if (!updatable) errorMessages.Add($"<color=#F00>{fli.Chunk}</color>\n{error}");
             }
             PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : string.Join('\n', errorMessages);
-            if (!saveable) Plugin.Log.Info(CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")));
+            //if (!saveable) Plugin.Log.Info(CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")));
 #if NEW_VERSION
             if (PreviewDisplay.text.Contains("\nPossible")) PreviewDisplay.text = PreviewDisplay.text.Split("\nPossible")[0]; // 1.37.0 and above
 #else
@@ -239,8 +243,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                 ? selectedFli.Child : selectedFli;
             string outp = "", colorOutp = "";
             saveable = true;
-            selectedFli.Selected();
-            lastSelectedInfo?.Unselected();
+            lastSelectedInfo?.ResetBackgroundColor();
             lastSelectedInfo = selectedFli;
             AddAboveSelectedButton.interactable = true;
             AddBelowSelectedButton.interactable = true;
@@ -249,7 +252,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             {
                 bool updatable = fli.Updatable(out string error);
                 saveable &= updatable;
-                if (!updatable) errorMessages.Add($"Error = {error}, {fli.Chunk}, Has Child = {fli.HasChild}");
+                if (!updatable) errorMessages.Add($"<color=#F00>{fli.Chunk}</color>\n{error}");
                 if (selectedFli.Equals(fli))
                 {
                     colorOutp += richStart + fli.GetColorDisplay() + richEnd;
@@ -263,6 +266,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                     outp += fli.GetDisplay();
                 }
             }
+            selectedFli.Selected();
             if (endFli == null) colorOutp += richEnd; //if endFli is null, then this is not a saveable format, therefore outp doesn't need to be updated.
             PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : string.Join('\n', errorMessages);
             RawPreviewDisplay.text = colorOutp;
