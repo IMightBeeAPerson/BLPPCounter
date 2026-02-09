@@ -201,7 +201,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                 saveable &= updatable;
                 if (!updatable) errorMessages.Add($"<color=#F00>{fli.Chunk}</color>\n{error}");
             }
-            PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : string.Join('\n', errorMessages);
+            PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : string.Join("\n", errorMessages);
             //if (!saveable) Plugin.Log.Info(CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")));
 #if NEW_VERSION
             if (PreviewDisplay.text.Contains("\nPossible")) PreviewDisplay.text = PreviewDisplay.text.Split("\nPossible")[0]; // 1.37.0 and above
@@ -268,7 +268,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             }
             selectedFli.Selected();
             if (endFli == null) colorOutp += richEnd; //if endFli is null, then this is not a saveable format, therefore outp doesn't need to be updated.
-            PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : string.Join('\n', errorMessages);
+            PreviewDisplay.text = saveable ? CurrentFormatInfo.GetQuickFormat(outp.Replace("\\n", "\n")) : string.Join("\n", errorMessages);
             RawPreviewDisplay.text = colorOutp;
             //Plugin.Log.Debug(colorOutp);
             UpdateSaveButton();

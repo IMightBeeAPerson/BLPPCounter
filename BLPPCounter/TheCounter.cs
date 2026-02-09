@@ -195,6 +195,7 @@ namespace BLPPCounter
         private static readonly TimeLooper TimeLooper = new();
         private static string lastTarget = Targeter.NO_TARGET;
         private static Task InitTask = Task.CompletedTask;
+        private static bool CounterPaused;
         private static CancellationTokenSource InitTaskCanceller;
         private static CancellationToken InitTaskCancelToken;
         private static Action ForceOff;
@@ -335,6 +336,7 @@ namespace BLPPCounter
 #pragma warning disable CS4014 // Do not await this call or you deadlock the main thread you dingus
                         TimeLooper.End();
 #pragma warning restore CS4014
+                    theCounter.CounterComplete(acc, fcAcc, notes, mistakes);
                 }
                 if (!InitTask.IsCompleted)
                 {
@@ -359,7 +361,7 @@ namespace BLPPCounter
         }
         public override void CounterInit()
         {
-            enabled = checkedLastIndex = false;
+            enabled = checkedLastIndex = CounterPaused = false;
             leaderboardIndex = lastLeaderboardIndex;
             ForceOff = () => ForceTurnOff();
             if (fullDisable || Leaderboard == default) return;
@@ -531,7 +533,7 @@ namespace BLPPCounter
             fcAcc = (float)fcTotalHitscore / fcMaxHitscore;
         //Plugin.Log.Info($"Note #{notes} ({st}): {cutScore} / {maxCutScore}" + (offset != 0 ? $" (shifted max from {scoringElement.maxPossibleCutScore})" : ""));
         Finish:
-            if (!InitTask.IsCompleted) return;
+            if (!InitTask.IsCompleted || CounterPaused) return;
             theCounter.SoftUpdate(acc, notes, mistakes, fcAcc, currentNote);
             if (!pc.UpdateAfterTime) theCounter.UpdateCounter(acc, notes, mistakes, fcAcc, currentNote);
         }
@@ -879,6 +881,30 @@ namespace BLPPCounter
             else theCounter.ReinitCounter(display);
             LastMap = thisMap;
             return true;
+        }
+        internal static void ReplaceCurrentCounter(string newCounter, TMP_Text display)
+        {
+            try
+            {
+                if (pc.UpdateAfterTime) 
+                    TimeLooper.Pause();
+                CounterPaused = true;
+                MyCounters outpCounter = InitCounter(newCounter, display);
+                if (outpCounter is null)
+                {
+                    CancelCounter();
+                    Plugin.Log.Error("Error changing counter, new counter is null.");
+                    return;
+                }
+                theCounter = outpCounter;
+                CounterPaused = false;
+                if (pc.UpdateAfterTime)
+                    TimeLooper.Resume();
+            } catch (Exception e)
+            {
+                Plugin.Log.Error("Error changing counter:\n" + e);
+                CancelCounter();
+            }
         }
         private static void InitData(bool loadOnlySS = false, bool doNotLoop = false)
         {

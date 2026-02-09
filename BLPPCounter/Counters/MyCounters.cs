@@ -79,6 +79,7 @@ namespace BLPPCounter.Counters
         }
         public abstract void UpdateCounterInternal(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote);
         public abstract void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote);
+        public virtual void CounterComplete(float finalAcc, float finalFCAcc, int totalNotes, int totalMistakes) { }
 
         /*Static functions that must be created:
          public static bool InitFormat() { }

@@ -734,7 +734,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void SucceededMap(StandardLevelScenesTransitionSetupDataSO transition, LevelCompletionResults results)
         {
             ClearMapTabs();
-            TheCounter.SettingChanged = true;
+            TheCounter.ClearCounter();
             Task.Run(async () => {
 #if NEW_VERSION
                 await CompletedMap(HelpfulMisc.GetAcc(transition, results), transition.beatmapKey, transition.beatmapLevel);

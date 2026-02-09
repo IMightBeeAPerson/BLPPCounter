@@ -98,7 +98,7 @@ namespace BLPPCounter.Counters
                 ((char)2, "Is bottom of text")
             ]
             );
-        private static Task SetupTask = Task.CompletedTask;
+        private static Task<bool> SetupTask = (Task<bool>)Task.CompletedTask;
         private static bool displayPP;
 
         #endregion
@@ -115,8 +115,7 @@ namespace BLPPCounter.Counters
         private NoteEvent[] noteArray;
         private Queue<WallEvent> wallArray;
         private int bombs, replayMistakes;
-        private MyCounters backup;
-        private bool failed, useReplay;
+        private bool useReplay;
         private bool caughtUp, usingModdedAcc;
         private int catchUpNotes;
         private string missColor;
@@ -124,9 +123,7 @@ namespace BLPPCounter.Counters
         #region Init
         public RelativeCounter(TMP_Text display, MapSelection map, CancellationToken ct) : base(display, map, ct)
         {
-            failed = false;
             useReplay = PC.UseReplay;
-            //displayNum = calc.DisplayRatingCount;
             ResetVars();
         }
         private async Task<JToken> SetupReplayData(MapSelection map, CancellationToken ct = default)
@@ -242,13 +239,14 @@ namespace BLPPCounter.Counters
             Task.Run(async () =>
             {
                 SetupTask = SetupDataAsync(map, ct);
-                await SetupTask;
+                if (!await SetupTask)
+                    return;
                 CatchupBest();
                 if (catchUpNotes == 0)
                     UpdateCounter(1, 0, 0, 1, null);
             }, ct);
         }
-        private async Task SetupDataAsync(MapSelection map, CancellationToken ct)
+        private async Task<bool> SetupDataAsync(MapSelection map, CancellationToken ct)
         {
             try
             {
@@ -271,8 +269,8 @@ namespace BLPPCounter.Counters
                         ratings, PC.DecimalPrecision);
                 }
                 staticAccToBeat = accToBeat;
-                if (!failed) ResetVars();
-                return;
+                ResetVars();
+                return true;
             }
             catch (Exception e)
             {
@@ -280,43 +278,17 @@ namespace BLPPCounter.Counters
                 Plugin.Log.Warn(e.Message);
                 Plugin.Log.Debug(e);
             }
-            Failed:
+        Failed:
             Plugin.Log.Warn($"Defaulting to {PC.RelativeDefault.ToLower()} counter.");
-            failed = true;
-            if (!PC.RelativeDefault.Equals(Targeter.NO_TARGET))
-            {
-                backup = TheCounter.InitCounter(PC.RelativeDefault, Display);
-                if (catchUpNotes < 1) backup.UpdateCounter(1, 0, 0, 1, null);
-            }
-            else
+            if (PC.RelativeDefault.Equals(Targeter.NO_TARGET))
                 TheCounter.CancelCounter();
+            else 
+                TheCounter.ReplaceCurrentCounter(PC.RelativeDefault, Display);
+            return false;
         }
-        public new void ReinitCounter(TMP_Text display)
-        {
-            base.ReinitCounter(display);
-            if (failed)
-            {
-                if (backup is null)
-                    TheCounter.CancelCounter();
-                else backup.ReinitCounter(display);
-            }
-            else ResetVars();
-        }
-        public new void ReinitCounter(TMP_Text display, RatingContainer ratingVals)
-        {
-            base.ReinitCounter(display, ratingVals);
-            if (failed)
-            {
-                if (backup is null)
-                    TheCounter.CancelCounter();
-                else backup.ReinitCounter(display, ratingVals);
-            }
-            else ResetVars();
-        }
-        public override void ReinitCounter(MapSelection map)
-        { 
-            failed = false;
-        }
+        public override void ReinitCounter() => ResetVars();
+        public override void ReinitCounter(RatingContainer ratingVals) => ResetVars();
+        public override void ReinitCounter(MapSelection map) => ResetVars();
         public override void UpdateFormat() => InitDefaultFormat();
         public static bool InitFormat()
         {
@@ -354,7 +326,7 @@ namespace BLPPCounter.Counters
             displayPP = displayFormatter.UsedKeys.ContainsAny('p', 'x');
         }
         public static FormatWrapper GetDefaultWrapper() => new((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(int), 'e'), (typeof(string), 'z'),
-                (typeof(string), 'd'), (typeof(float), 'x'), (typeof(float), 'p'), (typeof(float), 'y'), (typeof(float), 'o'), (typeof(float), 'a'), (typeof(string), 'l'));
+                (typeof(float), 'd'), (typeof(float), 'x'), (typeof(float), 'p'), (typeof(float), 'y'), (typeof(float), 'o'), (typeof(float), 'a'), (typeof(string), 'l'));
         internal static Formatter SetupDefaultFormatter(string format, FormatWrapper values = null, Dictionary<string, char> alias = null)
         {
             Formatter outp = new(TokenParser.ParseTokens(format, alias), values ?? GetDefaultWrapper());
@@ -396,6 +368,7 @@ namespace BLPPCounter.Counters
                 caughtUp = true;
                 return;
             }
+            Plugin.Log.Info("Catching up replay to real time...");
             NoteEvent note;
             int notes = 1;
             for (; notes <= catchUpNotes; notes++)
@@ -471,18 +444,13 @@ namespace BLPPCounter.Counters
                     break;
 
             }
-            //Plugin.Log.Info($"Note #{notes} ({scoringType}): {BLCalc.GetCutScore(note)} / {ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore}");
+            //Plugin.Log.Info($"Note #{notes} ({scoringType}): {Calculator.GetCutScore(note)} / {ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore}");
             //Plugin.Log.Info($"Note #{notes}: {replayScore} / {maxReplayScore} ({Math.Round(replayScore / maxReplayScore * 100f, PC.DecimalPrecision)}%)");
             replayPPVals.SetValues(calc.GetPpWithSummedPp(replayScore / maxReplayScore, replayRatings));
             accToBeat = usingModdedAcc ? BLCalc.Instance.GetAccDeflatedUnsafe(replayPPVals.AccPP + replayPPVals.PassPP + replayPPVals.TechPP, PC.DecimalPrecision, ratings.SelectedRatings, accToBeat / 100.0f) : (float)Math.Round(replayScore / maxReplayScore * 100.0f, PC.DecimalPrecision);
         }
         public override void UpdateCounterInternal(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
         {
-            if (failed)
-            {
-                backup?.UpdateCounter(acc, notes, mistakes, fcPercent, currentNote);
-                return;
-            }
             if (!SetupTask.IsCompleted || !caughtUp) return;
 
             ppHandler.Update(acc, mistakes, fcPercent);
@@ -511,7 +479,11 @@ namespace BLPPCounter.Counters
                 if (!caughtUp) //This check is done twice because we are dealing with multi thread communication.
                     return;
             }
-            if (!failed) UpdateBest(notes, currentNote);
+        }
+        public override void CounterComplete(float finalAcc, float finalFCAcc, int totalNotes, int totalMistakes)
+        {
+            if (totalNotes + bombs == noteArray.Length)
+                TheCounter.ClearCounter();
         }
 #endregion
     }

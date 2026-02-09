@@ -33,7 +33,8 @@
     <OutputPath>bin\Release\</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <DefineConstants>NEW_VERSION</DefineConstants>
+    <DefineConstants>
+    </DefineConstants>
     <LangVersion>preview</LangVersion>
     <NoWarn>IDE0057,IDE0056</NoWarn>
   </PropertyGroup>
@@ -240,6 +241,8 @@
     <Compile Include="Helpfuls\FormatHelpers\FormatRelation.cs" />
     <Compile Include="Utils\Map Utils\Map.cs" />
     <Compile Include="Utils\Map Utils\MapSelection.cs" />
+    <Compile Include="Utils\TokenData\TokenHandler.cs" />
+    <Compile Include="Utils\TokenData\TokenSetup.cs" />
     <Compile Include="Utils\TokenParser\FormatTypes\Chunk.cs" />
     <Compile Include="Utils\TokenParser\FormatTypes\Group.cs" />
     <Compile Include="Utils\TokenParser\Printers\Formatter.cs" />
@@ -289,5 +292,6 @@
   <ItemGroup>
     <None Include="How_to_switch_versions.txt" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

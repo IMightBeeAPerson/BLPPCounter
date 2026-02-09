@@ -544,7 +544,7 @@ namespace BLPPCounter.Utils
             _ => "",
         };
         public string GetColorDisplay() => ColorFormatChunk(GetDisplay(), Chunk);
-        public string TokenParametersToString() => $"{PARAM_OPEN}{string.Join(DELIMITER, TokenParams.Select(p => $"{ALIAS}{p}{ALIAS}"))}{PARAM_CLOSE}";
+        public string TokenParametersToString() => $"{PARAM_OPEN}{string.Join($"{DELIMITER}", TokenParams.Select(p => $"{ALIAS}{p}{ALIAS}"))}{PARAM_CLOSE}";
         #endregion
         #region Overrides
         public override string ToString()
