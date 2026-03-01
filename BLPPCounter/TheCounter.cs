@@ -219,9 +219,9 @@ namespace BLPPCounter
         {
             displayWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(float), 'x'), (typeof(string), 'z'), (typeof(string), 'l'),
                 (typeof(float), 'y'), (typeof(int), 'e'));
-            targetWrapper = new FormatWrapper((typeof(string), 'c'), (typeof(float), 'a'), (typeof(float), 'x'),
+            percentNeededWrapper = new FormatWrapper((typeof(string), 'c'), (typeof(float), 'a'), (typeof(float), 'x'),
                 (typeof(float), 'y'), (typeof(float), 'z'), (typeof(float), 'p'));
-            percentNeededWrapper = new FormatWrapper((typeof(string), 't'), (typeof(string), 'm'));
+            targetWrapper = new FormatWrapper((typeof(string), 't'), (typeof(string), 'm'));
 
             updateFormat = false;
             static void PropChanged(object o, PropertyChangedEventArgs args)

@@ -83,6 +83,7 @@ namespace BLPPCounter.Counters
 
         /*Static functions that must be created:
          public static bool InitFormat() { }
+         public static void ResetFormat() { }
          */
 
         /*Static Fields that must be created:

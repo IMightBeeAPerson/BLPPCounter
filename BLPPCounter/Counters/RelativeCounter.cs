@@ -98,7 +98,7 @@ namespace BLPPCounter.Counters
                 ((char)2, "Is bottom of text")
             ]
             );
-        private static Task<bool> SetupTask = (Task<bool>)Task.CompletedTask;
+        private static Task<bool> SetupTask = new(() => true);
         private static bool displayPP;
 
         #endregion
@@ -325,7 +325,7 @@ namespace BLPPCounter.Counters
 
             displayPP = displayFormatter.UsedKeys.ContainsAny('p', 'x');
         }
-        public static FormatWrapper GetDefaultWrapper() => new((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(int), 'e'), (typeof(string), 'z'),
+        public static FormatWrapper GetDefaultWrapper() => new((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(int), 'e'), (typeof(string), 'z'), (typeof(string), 't'),
                 (typeof(float), 'd'), (typeof(float), 'x'), (typeof(float), 'p'), (typeof(float), 'y'), (typeof(float), 'o'), (typeof(float), 'a'), (typeof(string), 'l'));
         internal static Formatter SetupDefaultFormatter(string format, FormatWrapper values = null, Dictionary<string, char> alias = null)
         {
@@ -454,6 +454,7 @@ namespace BLPPCounter.Counters
             if (!SetupTask.IsCompleted || !caughtUp) return;
 
             ppHandler.Update(acc, mistakes, fcPercent);
+            UpdateBest(notes, currentNote);
 
             float accDiff = (float)Math.Round(acc * 100.0f, PC.DecimalPrecision) - accToBeat;
             if (float.IsNaN(accDiff)) accDiff = 0f;
