@@ -550,13 +550,13 @@ namespace BLPPCounter.Settings.SettingHandlers
             string mode = CurrentMap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName; // 1.34.2 and below
 #endif
             string hash = Sldvc.beatmapLevel.levelID.Split('_')[2];
-            JToken scoreData = await CurrentAPI.GetScoreData(
+            JObject scoreData = await CurrentAPI.GetScoreData(
                 Targeter.TargetID,
                 hash,
                 CurrentMap.difficulty.ToString().Replace("+", "Plus"),
                 mode,
                 true //Debug option, just prevents prints when the API was called.
-                ).ConfigureAwait(false);
+                ).ConfigureAwait(false) as JObject;
             TargetHasScore = scoreData is not null;
             if (!TargetHasScore) { await UpdateDiff().ConfigureAwait(false); return 0.0f; } //target doesn't have a score on this diff.
             JToken diffData = null;
@@ -569,6 +569,10 @@ namespace BLPPCounter.Settings.SettingHandlers
                     throw new Exception();
                 BeatmapID = val.MapId;
                 diffData = val.Data;
+
+                if (IsAP)
+                    scoreData.Property("accuracy").AddAfterSelf(new JProperty("complexity", (float)(diffData["complexity"] ?? diffData["complexityAccSaber"])));
+
                 TrueBeatmapID = BLAPI.CleanUpId(IsBL ? _BeatmapID : map.Get(mode ?? "Standard", CurrentMap.difficulty).MapId);
 #if NEW_VERSION
                 BeatmapName = Sldvc.beatmapLevel.songName;
@@ -581,14 +585,23 @@ namespace BLPPCounter.Settings.SettingHandlers
                 await UpdateDiff(true).ConfigureAwait(false);
                 return 0.0f;
             }
-            MapDiffText = HelpfulMisc.AddSpaces(CurrentMap.difficulty.ToString().Replace("+", "Plus"));
-            MapModeText = HelpfulMisc.AddSpaces(mode);
-            float outp = CurrentAPI.GetPP(scoreData);
-            if (outp == 0.0f && !CurrentAPI.AreRatingsNull(diffData)) //If the score set doesn't have a pp value, calculate one manually. Make sure there are ratings to do calculation, otherwise skip.
-                outp = CurrentCalculator.Inflate(CurrentCalculator.GetSummedPp(CurrentAPI.GetScore(scoreData) / (float)CurrentAPI.GetMaxScore(diffData), CurrentAPI.GetRatings(diffData)));
-            CurrentDiff = (diffData, scoreData);
-            if (UnformattedCurrentMods.Length > 0) CurrentModMultiplier = HelpfulPaths.GetMultiAmounts(diffData, UnformattedCurrentMods.Split(' '));
-            return outp;
+            try
+            {
+                MapDiffText = HelpfulMisc.AddSpaces(CurrentMap.difficulty.ToString().Replace("+", "Plus"));
+                MapModeText = HelpfulMisc.AddSpaces(mode);
+                float outp = CurrentAPI.GetPP(scoreData);
+                if (outp == 0.0f && !CurrentAPI.AreRatingsNull(diffData)) //If the score set doesn't have a pp value, calculate one manually. Make sure there are ratings to do calculation, otherwise skip.
+                    outp = CurrentCalculator.Inflate(CurrentCalculator.GetSummedPp(CurrentAPI.GetScore(scoreData) / (float)CurrentAPI.GetMaxScore(diffData), CurrentAPI.GetRatings(diffData)));
+                CurrentDiff = (diffData, scoreData);
+                if (UnformattedCurrentMods.Length > 0) CurrentModMultiplier = HelpfulPaths.GetMultiAmounts(diffData, UnformattedCurrentMods.Split(' '));
+                return outp;
+            } catch (Exception e)
+            {
+                Plugin.Log.Error($"Error while updating target PP: {e}");
+                TargetHasScore = false;
+                await UpdateDiff(true).ConfigureAwait(false);
+            }
+            return 0.0f;
         }
 #endregion
         private void BuildTable(Func<float[], string> valueCalc, TextMeshProUGUI table, ref Table tableTable,
@@ -601,7 +614,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             string[][] arr = new string[] { "<color=red>Slower</color>", "<color=#aaa>Normal</color>", "<color=#0F0>Faster</color>", "<color=#FFD700>Super Fast</color>" }.RowToColumn(3);
             //ss-sf, [star, acc, pass, tech] (selects by leaderboard)
             JToken data = IsBL ? CurrentDiff.Diffdata.TryEnter("difficulty") as JObject : CurrentDiff.Diffdata;
-            float[] ratings = [.. HelpfulPaths.GetAllRatings(data, calc).SelectMany(rating => rating.GetRatings(calc.Leaderboard)).Where(num => num > 0f)];
+            float[] ratings = UsesMods ? [.. HelpfulPaths.GetAllRatings(data, calc).SelectMany(rating => rating.GetRatings(calc.Leaderboard)).Where(num => num > 0f)] : [HelpfulPaths.GetRating(data, PPType.Star)];
             if (!UsesMods)
             {
                 float[] newArr = new float[ratings.Length * 4];
@@ -615,7 +628,13 @@ namespace BLPPCounter.Settings.SettingHandlers
                 ratings = newArr;
             }
             int len = ratings.Length / 4; //divide by 4 because 3 speed mods + 1 no mod
-            //Plugin.Log.Info($"rating len: {ratings.Length}, len: {len}");
+            /*Plugin.Log.Info($"rating len: {ratings.Length}, len: {len}");
+            if (ratings.Length == 0 || len == 0)
+            {
+                tableTable = null;
+                Plugin.Log.Info(data.ToString());
+                return;
+            }//*/
             for (int i = 0; i < arr.Length; i++)
                 arr[i][1] = "<color=#0c0>" + valueCalc.Invoke([.. ratings.Skip(i * len).Take(len)]) + "</color>" + suffix;
             if (!Mathf.Approximately(CurrentModMultiplier, 1.0f)) for (int i = 0; i < arr.Length; i++)
@@ -915,43 +934,51 @@ namespace BLPPCounter.Settings.SettingHandlers
         }
         private async Task UpdateDiff(bool mapFailed = false)
         {
+            try
+            {
 #if NEW_VERSION
             BeatmapDifficulty diff = Sldvc.beatmapKey.difficulty; // 1.37.0 and below
             string modeName = Sldvc.beatmapKey.beatmapCharacteristic.serializedName;
             string hash = Sldvc.beatmapLevel.levelID.Split('_')[2];
 #else
-            BeatmapDifficulty diff = Sldvc.selectedDifficultyBeatmap.difficulty; // 1.34.2 and above
-            string modeName = Sldvc.selectedDifficultyBeatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;
-            string hash = Sldvc.selectedDifficultyBeatmap.level.levelID.Split('_')[2];
+                BeatmapDifficulty diff = Sldvc.selectedDifficultyBeatmap.difficulty; // 1.34.2 and above
+                string modeName = Sldvc.selectedDifficultyBeatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;
+                string hash = Sldvc.selectedDifficultyBeatmap.level.levelID.Split('_')[2];
 #endif
-            string actualModeName = TheCounter.SelectMode(modeName, CurrentLeaderboard);
-            Map map = mapFailed ? null : await TheCounter.GetMap(hash, actualModeName, CurrentLeaderboard, true);
-            (string MapId, JToken Data) val = default;
-            bool failed = !(map?.TryGet(actualModeName, diff, out val) ?? false);
-            if (failed)
-            {
-                //Plugin.Log.Warn("Map failed to load. Most likely unranked.");
-                map = await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader, true);
-                if (!map.TryGet(modeName, diff, out val))
+                string actualModeName = TheCounter.SelectMode(modeName, CurrentLeaderboard);
+                Map map = mapFailed ? null : await TheCounter.GetMap(hash, actualModeName, CurrentLeaderboard, true);
+                (string MapId, JToken Data) val = default;
+                bool failed = !(map?.TryGet(actualModeName, diff, out val) ?? false);
+                if (failed)
                 {
-                    Plugin.Log.Error("Completely failed to load any map whatsoever. Either you are disconnected from the internet or beatleader is down.");
-                    return;
+                    //Plugin.Log.Warn("Map failed to load. Most likely unranked.");
+                    map = await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader, true);
+                    if (!map.TryGet(modeName, diff, out val))
+                    {
+                        Plugin.Log.Error("Completely failed to load any map whatsoever. Either you are disconnected from the internet or beatleader is down.");
+                        return;
+                    }
                 }
-            }
-            BeatmapID = val.MapId;
-            JToken tokens = val.Data;
-            TrueBeatmapID =  BLAPI.CleanUpId(IsBL || failed ? _BeatmapID : (await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader, true)).Get(modeName ?? "Standard", CurrentMap.difficulty).MapId);
-            //Plugin.Log.Info("CurrentMap\n" + map);
-            CurrentDiff = (tokens, CurrentDiff.Scoredata);
-            MapDiffText = HelpfulMisc.AddSpaces(CurrentMap.difficulty.ToString().Replace("+", "Plus"));
-            MapModeText = HelpfulMisc.AddSpaces(modeName);
+                BeatmapID = val.MapId;
+                JToken tokens = val.Data;
+                TrueBeatmapID = BLAPI.CleanUpId(IsBL || failed ? _BeatmapID : (await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader, true)).Get(modeName ?? "Standard", CurrentMap.difficulty).MapId);
+                //Plugin.Log.Info("CurrentMap\n" + map);
+                CurrentDiff = (tokens, CurrentDiff.Scoredata);
+                MapDiffText = HelpfulMisc.AddSpaces(CurrentMap.difficulty.ToString().Replace("+", "Plus"));
+                MapModeText = HelpfulMisc.AddSpaces(modeName);
 #if NEW_VERSION
             BeatmapName = Sldvc.beatmapLevel.songName;
 #else
-            BeatmapName = CurrentMap.level.songName;
+                BeatmapName = CurrentMap.level.songName;
 #endif
-            if (failed || CurrentAPI.AreRatingsNull(CurrentDiff.Diffdata))
+                if (failed || CurrentAPI.AreRatingsNull(CurrentDiff.Diffdata))
+                    CurrentDiff = (null, null);
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.Error("Error updating diff data. This likely means the map isn't ranked on the selected leaderboard, or there was an issue with the API. \nException message: " + e.Message);
                 CurrentDiff = (null, null);
+            }
         }
         private void UpdateProfile()
         {

@@ -10,21 +10,21 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using static GameplayModifiers;
+using System.Linq;
 
 namespace BLPPCounter.Utils.API_Handlers
 {
     internal class APAPI: APIHandler
     {
-        private static readonly Throttler Throttle = new(400, 60);
+        internal static readonly Throttler Throttle = new(400, 60);
         internal static APAPI Instance { get; private set; } = new APAPI();
-        private static readonly HashSet<int> UnrankedIds = [];
         private static readonly HashSet<string> UnrankedHashes = [];
         private APAPI() { }
         public override string API_HASH => HelpfulPaths.SSAPI_DIFFS;
         public override Task<(bool, HttpContent)> CallAPI(string path, bool quiet = false, bool forceNoHeader = false, int maxRetries = 3, CancellationToken ct = default)
         {
             const string LinkHeader = "https://";
-            const string LeaderboardHeader = "accsaber";
+            const string LeaderboardHeader = "api.accsaberreloaded";
             if (!forceNoHeader && !path.Substring(0, LinkHeader.Length).Equals(LinkHeader))
                 path = HelpfulPaths.APAPI + path;
             Throttler t = null;
@@ -43,17 +43,17 @@ namespace BLPPCounter.Utils.API_Handlers
         public override int GetMaxScore(JToken diffData) => (int)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, diffData["leaderboardId"] ?? diffData["scoreSaberID"], "info")).Result)["maxScore"];
         public override async Task<int> GetMaxScore(string hash, int diffNum, string modeName) => GetMaxScore(JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)).ConfigureAwait(false))["difficulty"]);
         public override JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName) => diffData;
-        public override async Task<string> GetHashData(string hash, int diffNum)
+        public override async Task<string> GetHashData(string hash, int diffNum) =>
+            await CallAPI_String(string.Format(HelpfulPaths.APAPI_HASH_DIFF, hash, HelpfulPaths.DiffNumToReloadedDiff(diffNum)), true, maxRetries: 1).ConfigureAwait(false);
+        public override async Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false, CancellationToken ct = default)
         {
-            string id = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)).ConfigureAwait(false))["id"].ToString();
-            return await CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, id), true, maxRetries: 1).ConfigureAwait(false);
+            string reloadedDiff = HelpfulPaths.DiffNumToReloadedDiff(Map.FromDiff((BeatmapDifficulty)Enum.Parse(typeof(BeatmapDifficulty), diff)));
+            return JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_SCORE, userId, hash.ToLower(), reloadedDiff)).ConfigureAwait(false));
         }
-        public override Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false, CancellationToken ct = default) => 
-            SSAPI.Instance.GetScoreData(userId, hash, diff, mode, quiet, ct);
         public override float GetPP(JToken scoreData)
         {
             float acc = (float)scoreData["accuracy"];
-            float complexity = (float)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, scoreData["id"].ToString()), true, maxRetries: 1).Result)["complexity"];
+            float complexity = (float)scoreData["complexity"];
             return APCalc.Instance.GetPp(acc, complexity)[0];
         }
         public override int GetScore(JToken scoreData) => (int)scoreData["baseScore"];
@@ -63,36 +63,45 @@ namespace BLPPCounter.Utils.API_Handlers
                 userId,
                 count,
                 path,
-                null,
+                "content",
                 true,
                 token =>
                 {
-                    string beatmapDiff = token["difficulty"].ToString().Replace("plus", "Plus");
-                    beatmapDiff = char.ToUpper(beatmapDiff[0]) + beatmapDiff.Substring(1);
+                    BeatmapDifficulty beatmapDiff = Map.FromValue(HelpfulPaths.ReloadedDiffToDiffNum(token["difficulty"].ToString()));
+                    string coverUrl = token["coverUrl"].ToString();
+                    coverUrl = coverUrl.Substring(coverUrl.IndexOf("m/") + 2);
                     return new Play(
-                    token["songName"].ToString(),
-                    token["beatsaverKey"].ToString(),
-                    (BeatmapDifficulty)Enum.Parse(typeof(BeatmapDifficulty), beatmapDiff),
-                    Profile.DEFAULT_MODE,
-                    (float)token["ap"]
-                    )
-                    {
-                        AccSaberCategory = (APCategory)Enum.Parse(typeof(APCategory), token["categoryDisplayName"].ToString().Split(' ')[0])
-                    };
+                        token["songName"].ToString(),
+                        coverUrl.Substring(0, coverUrl.Length - 4),
+                        beatmapDiff,
+                        Profile.DEFAULT_MODE,
+                        (float)token["ap"],
+                        (uint)token["rank"]
+                        )
+                        {
+                            AccSaberCategory = (APCategory)Enum.Parse(typeof(APCategory), HelpfulPaths.ReloadedCategoryToCategoryId(token["categoryId"].ToString()))
+                        };
                 },
-                Throttle
+                Throttle,
+                (data, repData) =>
+                {
+                    if (repData is null || repData.Equals(string.Empty)) return (data, data.MapKey);
+                    data.MapKey = repData;
+                    return (data, data.MapKey);
+                },
+                "id"
                 );
         }
         public override Task<Play[]> GetScores(string userId, int count) => GetScores(userId, count, HelpfulPaths.APAPI_SCORES);
         public Task<Play[]> GetScores(string userId, int count, APCategory accSaberType) =>
-            GetScores(userId, count, HelpfulPaths.APAPI_CATEGORY_SCORES.Replace("{1}", accSaberType.ToString().ToLower()));
+            GetScores(userId, count, string.Format(HelpfulPaths.APAPI_CATEGORY_SCORES, "{0}", HelpfulPaths.CategoryIdToReloadedCategory(accSaberType.ToString()), 0, count));
         public override async Task<float> GetProfilePP(string userId)
         {
             return (float)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_PLAYERID, userId)).ConfigureAwait(false))?["ap"];
         }
         public async Task<float> GetProfilePP(string userId, APCategory accSaberType)
         {
-            return (float)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_PLAYERID, userId) + "/" + accSaberType.ToString().ToLower()).ConfigureAwait(false))?["ap"];
+            return (float)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_PLAYERID_CATEGORY, userId, accSaberType.ToString().ToLower() + "_acc")).ConfigureAwait(false))?["ap"];
         }
         public override Task<ScoregraphInfo[]> GetScoregraph(MapSelection ms, CancellationToken ct = default) => SSAPI.Instance.GetScoregraph(ms, ct);
         internal override async Task AddMap(Dictionary<string, Map> Data, string hash, CancellationToken ct = default)
@@ -100,23 +109,13 @@ namespace BLPPCounter.Utils.API_Handlers
             try
             {
                 if (UnrankedHashes.Contains(hash) || ct.IsCancellationRequested) return;
-                JEnumerable<JToken> diffs = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_DIFFS, hash), ct: ct).ConfigureAwait(false)).Children();
+                JEnumerable<JToken> diffs = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_HASH, hash)))["difficulties"].Children();
                 bool anyRanked = false;
-                List<int> unrankedIdsToAdd = [];
                 foreach (JToken diff in diffs)
                 {
-                    int songId = (int)diff["leaderboardId"];
-                    if (UnrankedIds.Contains(songId)) continue;
+                    int songId = int.Parse(diff["beatsaverCode"].ToString(), System.Globalization.NumberStyles.HexNumber);
                     if (ct.IsCancellationRequested) return;
-                    string mapInfoStr = await CallAPI_String(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, songId), ct: ct).ConfigureAwait(false);
-                    if (mapInfoStr is null)
-                    {
-                        //Plugin.Log.Warn($"AP map \"{mapInfo["songName"]}\" (id {mapInfo["id"]}) cannot be added to cache as it is not ranked.");
-                        unrankedIdsToAdd.Add(songId);
-                        continue;
-                    }
-                    JToken mapInfo = JToken.Parse(mapInfoStr);
-                    Map map = Map.ConvertAPToTaoh(hash, songId.ToString(), mapInfo);
+                    Map map = Map.ConvertAPToTaoh(hash, songId.ToString(), diff);
                     if (Data.ContainsKey(hash))
                         Data[hash].Combine(map);
                     else Data[hash] = map;
@@ -124,9 +123,6 @@ namespace BLPPCounter.Utils.API_Handlers
                 }
                 if (!anyRanked)
                     UnrankedHashes.Add(hash);
-                else if (unrankedIdsToAdd.Count > 0)
-                    foreach (int id in unrankedIdsToAdd)
-                        UnrankedIds.Add(id);
             }
             catch (Exception e)
             {

@@ -639,23 +639,25 @@ namespace BLPPCounter
             Data = [];
             InitData();
         }
-        public static async Task<Map> GetMap(string hash, string mode, Leaderboards leaderboard, bool forceHunt = false, CancellationToken ct = default)
+        internal static async Task<Map> GetMap(string hash, string mode, APIHandler api = null, bool forceHunt = false, CancellationToken ct = default)
         {
             if (!dataLoaded) ForceLoadMaps();
             if (!Data.TryGetValue(hash, out Map m) || !m.GetModes().Contains(mode))
             {
-                if (!pc.HuntLoads && !forceHunt)
+                if ((!pc.HuntLoads && !forceHunt) || api is null)
                 {
                     Plugin.Log.Warn("Map not in cache.");
                     return m;
                 }
                 Plugin.Log.Warn("Map not in cache, attempting API call to get map data...");
-                await APIHandler.GetAPI(leaderboard).AddMap(Data, hash, ct);
+                await api.AddMap(Data, hash, ct);
                 if (!Data.TryGetValue(hash, out m))
                     return null;
             }
             return m;
         }
+        public static async Task<Map> GetMap(string hash, string mode, Leaderboards leaderboard, bool forceHunt = false, CancellationToken ct = default) =>
+            await GetMap(hash, mode, APIHandler.GetAPI(leaderboard), forceHunt, ct);
         public static MapSelection GetDifficulty(Map m, BeatmapDifficulty diff, Leaderboards leaderboard, string mode = "Standard", GameplayModifiers mods = null, bool quiet = false)
         {
             (_, JToken diffData) = m.Get(mode, diff);
@@ -668,6 +670,19 @@ namespace BLPPCounter
             Leaderboards.Accsaber => Map.AP_MODE_NAME,
             _ => mainMode ?? "Standard",
         };
+        public static string FindID(string mapName, string mode, BeatmapDifficulty diff)
+        {
+            if (!dataLoaded) ForceLoadMaps();
+            //Plugin.Log.Info("Hello, checking " + Data.Values.Count + " values.");
+            foreach (Map m in Data.Values)
+            {
+                if (m.TryGet(mode, diff, out var info) && (info.Data["name"]?.ToString()?.Equals(mapName) ?? false))
+                {
+                    return info.MapId;
+                }
+            }
+            return "N/A";
+        }
         private static void InitDisplayFormat()
         {
             displayFormatter = SetupDisplayFormatter(pc.FormatSettings.DefaultTextFormat, displayWrapper, FormatAlias);

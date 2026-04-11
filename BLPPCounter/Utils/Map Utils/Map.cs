@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using BLPPCounter.Helpfuls;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -83,8 +84,7 @@ namespace BLPPCounter.Utils.Map_Utils
         public static Map ConvertAPToTaoh(string hash, string songId, JToken APInfo)
         {
             //Plugin.Log.Info($"APInfo\n{APInfo}");
-            string hold = APInfo["difficulty"].ToString().ToLower();
-            int diff = FromDiff((BeatmapDifficulty)Enum.Parse(typeof(BeatmapDifficulty), char.ToUpper(hold[0]) + hold.Substring(1)));
+            int diff = HelpfulPaths.ReloadedDiffToDiffNum((string)APInfo["difficulty"]);
             JToken newToken = JToken.Parse('{' + string.Format(AP_TAOH_FORMAT, APInfo["songName"].ToString(), songId, hash, diff, "Standard", (float)APInfo["complexity"]) + '}');
             return new Map(hash, AP_MODE_NAME, FromValue(diff), songId, newToken);
         }

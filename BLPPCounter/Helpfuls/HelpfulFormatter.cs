@@ -122,13 +122,14 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="rank">The rank value to evaluate.</param>
         /// <returns>Color markup string for the selected weighted rank color.</returns>
-        public static string GetWeightedRankColor(int rank)
+        public static string GetWeightedRankColor(uint rank)
         {
             int c = -1;
             var arr = PluginConfig.Instance.FormatSettings.WeightedRankColors.ToArray();
             while (arr[++c].Rank < rank && c + 1 < arr.Length) ;
             return "<color=#" + arr[c].Color + ">";
         }
+        public static string GetWeightedRankColor(int rank) => GetWeightedRankColor((uint)rank);
 
         /// <summary>
         /// Converts a string of default formatting characters to the currently configured used characters.

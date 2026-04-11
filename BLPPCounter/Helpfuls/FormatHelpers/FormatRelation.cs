@@ -60,6 +60,25 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                 testValueParams, extraNames?.Select(a => new KeyValuePair<char, string>(a.Item1, a.Item2)), 
                 valTypes?.Select(a => new KeyValuePair<char, ValueListInfo.ValueType>(a.Item1, a.Item2)))
         { }
+        public FormatRelation(string name, string counterName, string format, Action<string> formatSetter, Func<string, FormatWrapper, string> getFormat,
+            Func<char, int> paramAmounts, Func<object, bool, object>[] testValueFormats, IEnumerable<(char, string)> extraNames,
+            params (char token, string alias, string description, object value, int testValIndex, IEnumerable<(string, object)> extraSettings)[] tokens)
+        {
+            Name = name;
+            CounterName = counterName;
+            _Format = format;
+            FormatSetter = formatSetter;
+            GetFormat = getFormat;
+            ParamAmounts = paramAmounts;
+            Alias = tokens.ToDictionary(t => t.alias, t => t.token);
+            Descriptions = tokens.ToDictionary(t => t.token, t => t.description);
+            TestValues = new FormatWrapper(tokens.ToDictionary(t => t.token, t => t.value));
+            TestValueFormatIndex = tokens.ToDictionary(t => t.token, t => t.testValIndex);
+            TestValueFormats = testValueFormats;
+            TestValueParams = tokens.ToDictionary(t => t.token, t => t.extraSettings);
+            TokenToName = new Dictionary<char, string>(tokens.Select(t => (t.token, t.alias)).Union(extraNames).Select(kvp => new KeyValuePair<char, string>(kvp.Item1, kvp.Item2)));
+        }
+
         private string GetQuickFormat(string rawFormat, bool useFormatsOnTestVals, FormatWrapper givenTestVals = null)
         {
             FormatWrapper testVals = givenTestVals ?? (useFormatsOnTestVals ? GetFormattedTestVals(false) : TestValues);

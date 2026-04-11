@@ -61,17 +61,24 @@ namespace BLPPCounter.Utils.API_Handlers
         public override string GetHash(JToken diffData) => diffData["songHash"].ToString();
         public override async Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false, CancellationToken ct = default)
         {
-            diff = Map.FromDiff((BeatmapDifficulty)Enum.Parse(typeof(BeatmapDifficulty), diff)) + "";
+            int diffNum = Map.FromDiff((BeatmapDifficulty)Enum.Parse(typeof(BeatmapDifficulty), diff));
             string name = await CallAPI_String(string.Format(HelpfulPaths.SSAPI_USERID, userId, "basic"), quiet, maxRetries: 1, ct: ct).ConfigureAwait(false);
             if (name is null || JToken.Parse(name)["name"] is null) return null;
             name = (string)JToken.Parse(name)["name"];
-            string outp = await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "scores", diff) + "&search=" + name, quiet, maxRetries: 1, ct: ct).ConfigureAwait(false);
+            string outp = await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "scores", diffNum) + "&search=" + name, quiet, maxRetries: 1, ct: ct).ConfigureAwait(false);
             if (outp is null || outp.Length == 0) return null;
+
             if (JToken.Parse(outp)["scores"].Children().FirstOrDefault(token => token["leaderboardPlayerInfo"]["name"].ToString().Equals(name)) is not JObject tokenOutp) return null;
-            JToken mapInfo = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diff), quiet, maxRetries: 1, ct: ct).ConfigureAwait(false));
+            JToken mapInfo = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum), quiet, maxRetries: 1, ct: ct).ConfigureAwait(false));
             tokenOutp.Property("id").AddAfterSelf(new JProperty("maxScore", (int)mapInfo["maxScore"]));
             tokenOutp.Property("maxScore").AddAfterSelf(new JProperty("accuracy", (float)tokenOutp["modifiedScore"] / (float)tokenOutp["maxScore"]));
-            tokenOutp["id"] = (int)mapInfo["id"];
+            int mapId = (int)mapInfo["id"];
+            tokenOutp["id"] = mapId;
+
+            JToken cachedMapData = (await TheCounter.GetMap(hash, Map.AP_MODE_NAME).ConfigureAwait(false)).Get(Map.AP_MODE_NAME, Map.FromValue(diffNum)).Data;
+            if (cachedMapData is not null && cachedMapData["complexityAccSaber"] is not null)
+                tokenOutp.Property("modifiedScore").AddAfterSelf(new JProperty("complexity", cachedMapData["complexityAccSaber"]));
+
             return tokenOutp;
         }
         public override float GetPP(JToken scoreData) => (float)scoreData["pp"];
@@ -89,7 +96,8 @@ namespace BLPPCounter.Utils.API_Handlers
                     token["leaderboard"]["songHash"].ToString(),
                     Map.FromValue((int)token["leaderboard"]["difficulty"]["difficulty"]),
                     token["leaderboard"]["difficulty"]["gameMode"].ToString().Replace("Solo", ""),
-                    (float)token["score"]["pp"]
+                    (float)token["score"]["pp"],
+                    (uint)token["score"]["rank"]
                 ),
                 Throttle,
                 (data, repData) =>

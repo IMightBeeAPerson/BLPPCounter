@@ -63,6 +63,7 @@ namespace BLPPCounter.Helpfuls
         public static readonly string SSAPI_PLAYERSCORES = "https://scoresaber.com/api/player/{0}/scores?limit={2}&sort=top&page={1}"; //user_id, page, count
         public static readonly string SSAPI_PLAYER_FILTER = "https://scoresaber.com/api/players?page={0}"; //page (count is always 50, sorted by rank)
 
+        /* accsaber.com API is currently very unstable and prone to 500 errors, so I'm not using it for now. If it becomes more stable in the future, I can add it back in. For now, the endpoints are here for reference if I want to add it back in later.
         //No documentation here, doc at https://github.com/accsaber/accsaber-plugin/blob/main/EndpointResearch/ENDPOINTS.md
         //Or find it yourself here: https://github.com/accsaber/accsaber-backend/blob/main/accsaber-api/src/main/kotlin/de/ixsen/accsaber/api/controllers/PlayerController.kt
         public static readonly string APAPI = "https://api.accsaber.com/"; 
@@ -71,6 +72,18 @@ namespace BLPPCounter.Helpfuls
         public static readonly string APAPI_SCORES = "https://api.accsaber.com/players/{0}/scores?page={1}&pageSize={2}"; //user_id, page, count
         public static readonly string APAPI_CATEGORY_SCORES = "https://api.accsaber.com/players/{0}/{1}/scores"; //user_id, accsaber category (true, standard, tech)
         public static readonly string APAPI_RECENT_SCORE = "https://api.accsaber.com/players/{0}/recent-scores?pageSize=1"; //user_id
+        //*/
+
+        //Docs: https://api.accsaberreloaded.com/v1/docs
+        // Category ID: b0000000-0000-0000-0000-000000000003 for Tech, 2 = Standard, 1 = True, none for overall.
+        public static readonly string APAPI = "https://api.accsaberreloaded.com/";
+        public static readonly string APAPI_PLAYERID = "https://api.accsaberreloaded.com/v1/users/{0}/statistics"; //user_id
+        public static readonly string APAPI_PLAYERID_CATEGORY = "https://api.accsaberreloaded.com/v1/users/{0}/statistics?category={1}"; //user_id, category (overall, true_acc, standard_acc, tech_acc)
+        public static readonly string APAPI_SCORE = "https://api.accsaberreloaded.com/v1/users/{0}/scores/by-hash/{1}?difficulty={2}&characteristic=Standard"; //user_id, hash, difficulty IN CAPS
+        public static readonly string APAPI_SCORES = "https://api.accsaberreloaded.com/v1/users/{0}/scores?page={1}&size={2}"; //user_id, page (zero indexed), count
+        public static readonly string APAPI_CATEGORY_SCORES = "https://api.accsaberreloaded.com/v1/users/{0}/scores?categoryId={1}&page={2}&size={3}"; // user_id, category_id, page (zero indexed), count
+        public static readonly string APAPI_HASH = "https://api.accsaberreloaded.com/v1/maps/hash/{0}"; //hash
+        public static readonly string APAPI_HASH_DIFF = "https://api.accsaberreloaded.com/v1/maps/hash/{0}?difficulty={1}"; //hash, difficulty IN CAPS
 
         //Docs: https://api.beatsaver.com/docs/index.html
         public static readonly string BSAPI = "https://api.beatsaver.com/";
@@ -132,14 +145,51 @@ namespace BLPPCounter.Helpfuls
         #endregion
 
         #region Json Paths
+        public static string DiffNumToReloadedDiff(int diffNum) => diffNum switch
+        {
+            1 => "EASY",
+            3 => "NORMAL",
+            5 => "HARD",
+            7 => "EXPERT",
+            9 => "EXPERT_PLUS",
+            _ => throw new ArgumentException("Invalid difficulty number. Must be one of the following: 1, 3, 5, 7, 9.")
+        };
+        public static int ReloadedDiffToDiffNum(string diff) => diff switch
+        {
+            "EASY" => 1,
+            "NORMAL" => 3,
+            "HARD" => 5,
+            "EXPERT" => 7,
+            "EXPERT_PLUS" => 9,
+            _ => throw new ArgumentException("Invalid difficulty string. Must be one of the following: EASY, NORMAL, HARD, EXPERT, EXPERT_PLUS.")
+        };
+        public static string ReloadedCategoryToCategoryId(string category) => category switch
+        {
+            "b0000000-0000-0000-0000-000000000001" => "True",
+            "b0000000-0000-0000-0000-000000000002" => "Standard",
+            "b0000000-0000-0000-0000-000000000003" => "Tech",
+            _ => null
+        };
+        public static string CategoryIdToReloadedCategory(string category) => category switch
+        {
+            "True" => "b0000000-0000-0000-0000-000000000001",
+            "Standard" => "b0000000-0000-0000-0000-000000000002",
+            "Tech" => "b0000000-0000-0000-0000-000000000003",
+            _ => null
+        };
+
         public static float GetRating(JToken data, PPType type, SongSpeed mod = SongSpeed.Normal)
         {
             if (data is null) return 0;
             if (mod != SongSpeed.Normal && data["modifiersRating"] is not null) data = data["modifiersRating"]; //only BL uses more than one rating so this will work for now.
             string path = HelpfulMisc.AddModifier(HelpfulMisc.PPTypeToRating(type), mod);
             //Below is a workaround for how Taoh formats his data.
-            if (mod == SongSpeed.Normal && type == PPType.Star && data[path] is null) return (float)(data["star" + HelpfulMisc.ToCapName(PpInfoTabHandler.Instance.CurrentLeaderboard)] ?? 0);
-            return (float)(data[path] ?? 0);
+            if (mod == SongSpeed.Normal && type == PPType.Star && data[path] is null)
+            {
+                JToken outp = data["star" + HelpfulMisc.ToCapName(PpInfoTabHandler.Instance.CurrentLeaderboard)];
+                return (float)(outp ?? data["complexityAccSaber"]);
+            }
+            return (float)data[path];
         }
         public static float GetRating(JToken data, PPType type, string modName)
         {

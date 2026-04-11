@@ -129,7 +129,8 @@ namespace BLPPCounter.Utils.API_Handlers
                         cleanMapId,
                         Map.FromValue((int)token["leaderboard"]["difficulty"]),
                         token["leaderboard"]["modeName"].ToString(),
-                        (float)token["score"]["pp"]
+                        (float)token["score"]["pp"],
+                        (uint)token["score"]["rank"]
                     );
                 },
                 Throttle,
