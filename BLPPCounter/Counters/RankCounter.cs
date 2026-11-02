@@ -156,7 +156,7 @@ namespace BLPPCounter.Counters
             return new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(bool), (char)3), (typeof(bool), (char)4), (typeof(float), 'x'), (typeof(float), 'y'),
                 (typeof(int), 'r'), (typeof(string), 'n'), (typeof(float), 'd'), (typeof(float), 'p'), (typeof(string), 'c'), (typeof(string), 'l'));
         }
-        internal static Formatter SetupDefaultFormatter(string format, FormatWrapper values = null, Dictionary<string, char> alias = null)
+        internal static Formatter SetupDefaultFormatter(string format, FormatWrapper? values = null, Dictionary<string, char>? alias = null)
         {
             Formatter outp = new(TokenParser.ParseTokens(format, alias), values ?? GetDefaultWrapper());
 

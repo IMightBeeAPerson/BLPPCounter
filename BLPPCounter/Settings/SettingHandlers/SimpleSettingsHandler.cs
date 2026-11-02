@@ -34,7 +34,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             const string resource = "BLPPCounter.Settings.BSML.MenuSettings.bsml";
             MatchCollection mc = HelpfulRegex.LoadElementsRegex.Matches(Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), resource));
 #if NEW_VERSION
-            bool loadData = PluginConfig.Instance.SimpleMenuConfig.Length == mc.Count(m => !NonSettingTags.Contains(m.Groups[1].Value) && !m.Value.Contains('~')); //1.37.0 and above
+            bool loadData = PluginConfig.Instance.SimpleMenuConfig.Length == mc.OfType<Match>().Count(m => !NonSettingTags.Contains(m.Groups[1].Value) && !m.Value.Contains('~')); //1.37.0 and above
             //Plugin.Log.Info($"Real Count: {PluginConfig.Instance.SimpleMenuConfig.Length}, counted count: {mc.Count(m => !NonSettingTags.Contains(m.Groups[1].Value) && !m.Value.Contains('~'))}");
 #else
             int count = 0;

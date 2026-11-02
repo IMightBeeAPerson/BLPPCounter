@@ -223,11 +223,7 @@ namespace BLPPCounter.Helpfuls
         {
             if (!Calculator.GetSelectedCalc().UsesModifiers) return 1.0f;
             MatchCollection mc = HelpfulRegex.JsonFloatValueGrabber.Matches(data.TryEnter("difficulty")["modifierValues"].ToString());
-#if NEW_VERSION
-            string val = mc.FirstOrDefault(m => m.Groups[1].Value.Equals(name))?.Groups[2].Value; // 1.37.0 and above
-#else
-            string val = mc.OfType<Match>().FirstOrDefault(m => m.Groups[1].Value.Equals(name))?.Groups[2].Value; // 1.34.2 and below
-#endif
+            string? val = mc.OfType<Match>().FirstOrDefault(m => m.Groups[1].Value.Equals(name))?.Groups[2].Value;
             return val is null ? 0 : float.Parse(val);
         }
         public static Dictionary<string, float> GetMultiAmounts(JToken data)

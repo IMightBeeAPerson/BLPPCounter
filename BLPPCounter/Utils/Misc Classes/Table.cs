@@ -338,11 +338,7 @@ namespace BLPPCounter.Utils.Misc_Classes
         private float GetLenWithSpacers(string str)
         {
             MatchCollection mc = Regex.Matches(str, "(?<=<space=)[^p]+"); //Too simple to move to HelpfulRegex, will leave it here.
-#if NEW_VERSION
-            float addedSpace = mc.Aggregate(0.0f, (total, match) => total + float.Parse(match.Value)); // 1.37.0 and above
-#else
             float addedSpace = mc.OfType<Match>().Aggregate(0.0f, (total, match) => total + float.Parse(match.Value)); // 1.34.2 and below
-#endif
             return GetLenWithoutRich(str) + addedSpace;
         }
         private string GetRow(int rowIndex) => FormattingUpdated ? 

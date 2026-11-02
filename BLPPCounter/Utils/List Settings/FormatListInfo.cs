@@ -241,7 +241,7 @@ namespace BLPPCounter.Utils
             (Match, ChunkType)[] outp = new (Match, ChunkType)[mc.Count];
             for (int i = 0; i < outp.Length; i++)
 #if NEW_VERSION
-                outp[i] = (mc[i], Enum.Parse<ChunkType>(mc[i].Groups.First(g => g.Success && g.Name.Contains("_")).Name));
+                outp[i] = (mc[i], Enum.Parse<ChunkType>(mc[i].Groups.OfType<Group>().First(g => g.Success && g.Name.Contains("_")).Name));
 #else
                 outp[i] = (mc[i], (ChunkType)Enum.Parse(typeof(ChunkType), mc[i].Groups.OfType<Group>().First(g => g.Success && g.Name.Contains("_")).Name));
 #endif

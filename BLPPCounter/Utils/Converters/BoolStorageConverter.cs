@@ -7,7 +7,7 @@ namespace BLPPCounter.Utils.Converters
 {
     public class BoolStorageConverter : ValueConverter<BoolStorage> 
     {
-        public override BoolStorage FromValue(Value value, object parent)
+        public override BoolStorage FromValue(Value? value, object parent)
         {
             if (value is List arr)
             {
@@ -17,7 +17,11 @@ namespace BLPPCounter.Utils.Converters
             }
             return new BoolStorage();
         }
-        public override Value ToValue(BoolStorage obj, object parent) =>
-            Value.From(obj.GetVals().Append((ulong)obj.CurrentLength).Select(current => new Integer((long)current)));
+        public override Value ToValue(BoolStorage? obj, object parent)
+        {
+            if (obj is not null)
+                return Value.From(obj.GetVals().Append((ulong)obj.CurrentLength).Select(current => new Integer((long)current)));
+            return Value.From("");
+        }
     }
 }

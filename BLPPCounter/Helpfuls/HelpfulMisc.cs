@@ -20,6 +20,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.TextCore;
 using static GameplayModifiers;
+
 namespace BLPPCounter.Helpfuls
 {
     public static class HelpfulMisc

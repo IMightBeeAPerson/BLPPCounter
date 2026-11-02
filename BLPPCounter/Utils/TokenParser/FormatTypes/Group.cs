@@ -11,7 +11,7 @@ namespace BLPPCounter.Utils.TokenParser.FormatTypes
         public void AddChunk(Chunk c) => Chunks.Add(c);
 
         public override string GetValue() => Combine(Chunks);
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (obj is null || obj is not Group other || other.Symbol != Symbol || other.Chunks.Count != Chunks.Count)
                 return false;

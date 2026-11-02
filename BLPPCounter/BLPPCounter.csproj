@@ -1,41 +1,30 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Project configuration -->
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{088A2F68-71B9-49A5-804A-88011CA55D7F}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>BLPPCounter</RootNamespace>
     <AssemblyName>BL PP Counter</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
+    <TargetFramework>net48</TargetFramework>
+    <OutputType>Library</OutputType>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>portable</DebugType>
     <LocalRefsDir Condition="Exists('..\Refs')">..\Refs</LocalRefsDir>
     <BeatSaberDir>$(LocalRefsDir)</BeatSaberDir>
     <AppOutputBase>$(MSBuildProjectDirectory)\</AppOutputBase>
-    <!--<PathMap>$(AppOutputBase)=X:\$(AssemblyName)\</PathMap>-->
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <TargetFrameworkProfile />
+    <AssemblyTitle>BL PP Counter</AssemblyTitle>
+    <Product>BL PP Counter</Product>
+    <Copyright>Copyright © 2025</Copyright>
+    <LangVersion>preview</LangVersion>
+    <Nullable>enable</Nullable>
+    <WarningsAsErrors>Nullable;IDE0057</WarningsAsErrors>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG</DefineConstants>
-    <LangVersion>preview</LangVersion>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <DefineConstants>NEW_VERSION;V40</DefineConstants>
-    <LangVersion>preview</LangVersion>
-    <NoWarn>IDE0057,IDE0056</NoWarn>
+    <DefineConstants>DEBUG</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="$(DefineConstants.Contains('CIBuild')) OR '$(NCrunch)' == '1'">
     <DisableCopyToPlugins>True</DisableCopyToPlugins>
@@ -44,52 +33,54 @@
     <DisableCopyToPlugins>True</DisableCopyToPlugins>
     <DisableZipRelease>True</DisableZipRelease>
   </PropertyGroup>
+
+  <!-- References -->
   <ItemGroup>
-    <Reference Include="BeatSaber.Settings, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
-    <Reference Include="BeatSaber.ViewSystem, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+    <Reference Include="BeatSaber.Settings">
+      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\BeatSaber.Settings.dll</HintPath>
       <Private>False</Private>
-      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\BeatSaber.ViewSystem.dll</HintPath>
-      <SpecificVersion>False</SpecificVersion>
     </Reference>
-    <Reference Include="BSML, Version=1.6.10.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
+    <Reference Include="BeatSaber.ViewSystem">
+      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\BeatSaber.ViewSystem.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="BSML">
       <HintPath>$(BeatSaberDir)\Plugins\BSML.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Counters+">
       <HintPath>$(BeatSaberDir)\Plugins\Counters+.dll</HintPath>
     </Reference>
-    <Reference Include="DataModels, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL" Condition="$(DefineConstants.Contains('NEW_VERSION')) == true">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\BSManager\BSInstances\1.40.0\Beat Saber_Data\Managed\DataModels.dll</HintPath>
+    <Reference Include="DataModels" Condition="$(DefineConstants.Contains('NEW_VERSION')) == true">
+      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\DataModels.dll</HintPath>
     </Reference>
-    <Reference Include="Interactable, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <Private>False</Private>
+    <Reference Include="Interactable">
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\Interactable.dll</HintPath>
-      <SpecificVersion>False</SpecificVersion>
-    </Reference>
-    <Reference Include="Newtonsoft.Json, Version=8.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <Private>False</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\Newtonsoft.Json.dll</HintPath>
-      <SpecificVersion>False</SpecificVersion>
-    </Reference>
-    <Reference Include="PlatformUserModel, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
-    <Reference Include="SegmentedControl, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <Private>False</Private>
-      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\SegmentedControl.dll</HintPath>
-      <SpecificVersion>False</SpecificVersion>
     </Reference>
-    <Reference Include="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+    <Reference Include="PlatformUserModel">
+      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\PlatformUserModel.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="SegmentedControl">
+      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\SegmentedControl.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System.Drawing">
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\System.Drawing.dll</HintPath>
       <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
     </Reference>
-    <Reference Include="System.Net.Http, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <SpecificVersion>True</SpecificVersion>
+    <Reference Include="UnityEngine.TextCoreFontEngineModule" Condition="$(DefineConstants.Contains('NEW_VERSION')) == true">
+      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\UnityEngine.TextCoreFontEngineModule.dll</HintPath>
     </Reference>
-    <Reference Include="UnityEngine.TextCoreFontEngineModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" Condition="$(DefineConstants.Contains('NEW_VERSION')) == true" />
-    <Reference Include="UnityEngine.TextCoreModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL" Condition="$(DefineConstants.Contains('NEW_VERSION')) == false" />
-    <Reference Include="UnityEngine.TextRenderingModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
+    <Reference Include="UnityEngine.TextCoreModule" Condition="$(DefineConstants.Contains('NEW_VERSION')) == false" />
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+    </Reference>
     <Reference Include="Zenject">
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\Zenject.dll</HintPath>
     </Reference>
@@ -170,107 +161,37 @@
       <HintPath>$(BeatSaberDir)\Plugins\BS_Utils.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="mscorlib">
+      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\mscorlib.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System">
+      <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\System.dll</HintPath>
+      <Private>False</Private>
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
   </ItemGroup>
+
+  <!-- Packages -->
   <ItemGroup>
-    <Compile Include="CalculatorStuffs\APCalc.cs" />
-    <Compile Include="CalculatorStuffs\BLCalc.cs" />
-    <Compile Include="CalculatorStuffs\Calculator.cs" />
-    <Compile Include="CalculatorStuffs\SSCalc.cs" />
-    <Compile Include="Counters\ClanCounter.cs" />
-    <Compile Include="Counters\ClanRankCounter.cs" />
-    <Compile Include="Counters\MyCounters.cs" />
-    <Compile Include="Counters\NormalCounter.cs" />
-    <Compile Include="Counters\ProgressCounter.cs" />
-    <Compile Include="Counters\RankCounter.cs" />
-    <Compile Include="Counters\RelativeCounter.cs" />
-    <Compile Include="Helpfuls\FormatHelpers\TokenKey.cs" />
-    <Compile Include="Helpfuls\HelpfulMath.cs" />
-    <Compile Include="Helpfuls\HelpfulMisc.cs" />
-    <Compile Include="Helpfuls\HelpfulPaths.cs" />
-    <Compile Include="Helpfuls\HelpfulFormatter.cs" />
-    <Compile Include="Helpfuls\HelpfulRegex.cs" />
-    <Compile Include="Patches\MenuLevelPatch.cs" />
-    <Compile Include="Patches\MenuModifierPatch.cs" />
-    <Compile Include="Patches\SoloFlowPatch.cs" />
-    <Compile Include="Patches\StupidGameplayPatch.cs" />
-    <Compile Include="Patches\TabSelectionPatch.cs" />
-    <Compile Include="Settings\Configs\MessageSettings.cs" />
-    <Compile Include="Settings\Configs\PluginConfig.cs" />
-    <Compile Include="Settings\Configs\TextFormatSettings.cs" />
-    <Compile Include="Settings\Configs\TokenFormatSettings.cs" />
-    <Compile Include="Settings\SettingHandlers\MenuSettingHandlers\LeaderboardSettingsHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\PpInfoTabHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\MenuViews\ColorSettingsHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\MenuViews\CustomAliasHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\MenuViews\FormatEditorHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\MenuViews\MenuSettingsHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\MenuSettingHandlers\SettingsHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\MenuSettingHandlers\CounterSettingsHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\SimpleSettingsHandler.cs" />
-    <Compile Include="Settings\SettingHandlers\MenuViews\SimpleMenuSettingsHandler.cs" />
-    <Compile Include="Utils\API Handlers\APAPI.cs" />
-    <Compile Include="Utils\API Handlers\BLAPI.cs" />
-    <Compile Include="Utils\API Handlers\SSAPI.cs" />
-    <Compile Include="Utils\API Handlers\Throttler.cs" />
-    <Compile Include="Utils\API Handlers\APIHandler.cs" />
-    <Compile Include="Utils\Converters\BoolStorageConverter.cs" />
-    <Compile Include="Utils\Converters\SystemColorConverter.cs" />
-    <Compile Include="Utils\Enums\APCategory.cs" />
-    <Compile Include="Utils\Enums\PPType.cs" />
-    <Compile Include="Utils\Enums\Leaderboards.cs" />
-    <Compile Include="Utils\List Settings\LeaderboardListInfo.cs" />
-    <Compile Include="Utils\List Settings\SessionListInfo.cs" />
-    <Compile Include="Utils\List Settings\TargetInfo.cs" />
-    <Compile Include="Utils\List Settings\AliasListInfo.cs" />
-    <Compile Include="Utils\List Settings\ColorListInfo.cs" />
-    <Compile Include="Utils\List Settings\FormatListInfo.cs" />
-    <Compile Include="Utils\List Settings\SettingToggleInfo.cs" />
-    <Compile Include="Utils\List Settings\ValueListInfo.cs" />
-    <Compile Include="Utils\Misc Classes\AsyncLock.cs" />
-    <Compile Include="Utils\Misc Classes\CharDictionary.cs" />
-    <Compile Include="Utils\Misc Classes\CoroutineHost.cs" />
-    <Compile Include="Utils\Misc Classes\ExtraBypasses.cs" />
-    <Compile Include="Helpfuls\FormatHelpers\FormatWrapper.cs" />
-    <Compile Include="Utils\Misc Classes\LocalReplayHandler.cs" />
-    <Compile Include="Utils\Profile Utils\Play.cs" />
-    <Compile Include="Utils\Containers\PPContainer.cs" />
-    <Compile Include="Utils\Containers\PPHandler.cs" />
-    <Compile Include="Utils\Containers\RatingContainer.cs" />
-    <Compile Include="Utils\Profile Utils\Session.cs" />
-    <Compile Include="Helpfuls\FormatHelpers\FormatRelation.cs" />
-    <Compile Include="Utils\Map Utils\Map.cs" />
-    <Compile Include="Utils\Map Utils\MapSelection.cs" />
-    <Compile Include="Utils\TokenData\TokenHandler.cs" />
-    <Compile Include="Utils\TokenData\TokenSetup.cs" />
-    <Compile Include="Utils\TokenParser\FormatTypes\Chunk.cs" />
-    <Compile Include="Utils\TokenParser\FormatTypes\Group.cs" />
-    <Compile Include="Utils\TokenParser\Printers\Formatter.cs" />
-    <Compile Include="Utils\TokenParser\Printers\Printer.cs" />
-    <Compile Include="Utils\TokenParser\TokenParser.cs" />
-    <Compile Include="Utils\TokenParser\Tokens.cs" />
-    <None Include="Utils\Misc Classes\PlaylistLoader.cs" />
-    <Compile Include="Utils\Misc Classes\Table.cs" />
-    <Compile Include="Utils\Misc Classes\Targeter.cs" />
-    <Compile Include="Utils\Misc Classes\TimeLooper.cs" />
-    <Compile Include="Utils\Profile Utils\Profile.cs" />
-    <Compile Include="Utils\Serializable Classes\ColorMatch.cs" />
-    <Compile Include="Utils\Serializable Classes\CustomAlias.cs" />
-    <Compile Include="Utils\Serializable Classes\CustomTarget.cs" />
-    <Compile Include="Utils\Special Utils\FilledList.cs" Condition="$(DefineConstants.Contains('NEW_VERSION')) == false" />
-    <Compile Include="Utils\Special Utils\SliderKey.cs" Condition="$(DefineConstants.Contains('NEW_VERSION')) == false" />
-    <Compile Include="Utils\Special Utils\BoolStorage.cs" />
-    <Compile Include="Plugin.cs" />
-    <Compile Include="BLPPCounterController.cs" />
-    <Compile Include="TheCounter.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
+    <PackageReference Include="BeatSaberModdingTools.Tasks">
+      <Version>2.0.0-beta7</Version>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
   </ItemGroup>
+
+  <!-- User-side and project files -->
+  <ItemGroup>
+    <None Include="Directory.Build.props" Condition="Exists('Directory.Build.props')" />
+    <None Include="Directory.Build.targets" Condition="Exists('Directory.Build.targets')" />
+    <None Include="BLPPCounter.csproj.user" Condition="Exists('BLPPCounter.csproj.user')" />
+  </ItemGroup>
+
+  <!-- Embedded resources -->
   <ItemGroup>
     <EmbeddedResource Include="manifest.json" />
     <EmbeddedResource Include="Images\pp.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Directory.Build.props" Condition="Exists('Directory.Build.props')" />
-    <None Include="BLPPCounter.csproj.user" Condition="Exists('BLPPCounter.csproj.user')" />
     <EmbeddedResource Include="Settings\BSML\MenuSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\Settings.bsml" />
     <EmbeddedResource Include="Settings\BSML\MainMenuSettings.bsml" />
@@ -281,16 +202,4 @@
     <EmbeddedResource Include="Settings\BSML\PpInfo.bsml" />
     <EmbeddedResource Include="Settings\BSML\VariableSettingsContainer.bsml" />
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="BeatSaberModdingTools.Tasks">
-      <Version>2.0.0-beta7</Version>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="How_to_switch_versions.txt" />
-  </ItemGroup>
-  <ItemGroup />
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

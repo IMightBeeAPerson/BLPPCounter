@@ -194,11 +194,7 @@ namespace BLPPCounter.Helpfuls
         {
             static string Converter(Match m)
             {
-#if NEW_VERSION
-                string name = m.Groups.First(g => g.Success && !char.IsDigit(g.Name[0])).Name; // 1.37.0 and above
-#else
-                string name = m.Groups.OfType<Group>().First(g => g.Success && !char.IsDigit(g.Name[0])).Name; //1.34.2 and below
-#endif
+                string name = m.Groups.OfType<Group>().First(g => g.Success && !char.IsDigit(g.Name[0])).Name;
                 return name switch
                 {
                     "Special" => ColorSpecialChar(m.Value[0]),
