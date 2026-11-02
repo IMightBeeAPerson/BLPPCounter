@@ -33,8 +33,7 @@
     <OutputPath>bin\Release\</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <DefineConstants>
-    </DefineConstants>
+    <DefineConstants>NEW_VERSION;V40</DefineConstants>
     <LangVersion>preview</LangVersion>
     <NoWarn>IDE0057,IDE0056</NoWarn>
   </PropertyGroup>

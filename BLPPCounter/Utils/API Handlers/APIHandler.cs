@@ -292,6 +292,7 @@ namespace BLPPCounter.Utils.API_Handlers
            bool zeroIndexedPages = false, int maxCountPerPage = 100, int maxConcurrency = 5) =>
             (await CalledPagedAPI_Internal(totalCount, pathParser, throttler, tokenParser, zeroIndexedPages, maxCountPerPage, maxConcurrency)).SelectMany(r => r.Results);
 
+        public abstract float GetStarRating(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1);
         public abstract float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1);
         public abstract bool MapIsUsable(JToken diffData);
         public abstract bool AreRatingsNull(JToken diffData);
@@ -300,13 +301,15 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract string GetLeaderboardId(JToken diffData);
         public abstract int GetMaxScore(JToken diffData);
         public abstract Task<int> GetMaxScore(string hash, int diffNum, string modeName);
-        public abstract float[] GetRatings(JToken diffData);
         public abstract JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName);
         public abstract Task<string> GetHashData(string hash, int diffNum);
         public abstract string GetHash(JToken diffData);
         public abstract Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false, CancellationToken ct = default);
         public abstract float GetPP(JToken scoreData);
         public abstract int GetScore(JToken scoreData);
+        public abstract int GetRank(JToken scoreData);
+        public abstract string GetPlayerName(JToken scoreData);
+        public abstract float GetAcc(JToken scoreData);
         public abstract Task<ScoregraphInfo[]> GetScoregraph(MapSelection ms, CancellationToken ct = default);
         public abstract Task<Play[]> GetScores(string userId, int count);
         protected async Task<Play[]> GetScores(

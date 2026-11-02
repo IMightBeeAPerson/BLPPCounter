@@ -9,8 +9,6 @@ using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Patches;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
-using BLPPCounter.Utils.Profile_Utils;
-using BLPPCounter.Utils.Map_Utils;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.Misc_Classes;
@@ -26,8 +24,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using static GameplayModifiers;
-using BLPPCounter.Utils.TokenParser.Printers;
-using BLPPCounter.Utils.TokenParser;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
@@ -105,6 +101,12 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIComponent(nameof(MainTabSelector))] internal TabSelector MainTabSelector;
         [UIComponent(nameof(SaveLeaderboardButton))] private Button SaveLeaderboardButton;
         [UIComponent(nameof(CalcSelector))] internal ListSetting CalcSelector;
+
+#if DEBUG
+        [UIValue(nameof(Testing))] private bool Testing => true;
+#else
+        [UIValue(nameof(Testing))] private bool Testing => false;
+#endif
 
         [UIValue(nameof(ShowTrueID))] private bool ShowTrueID
         {
@@ -366,14 +368,19 @@ namespace BLPPCounter.Settings.SettingHandlers
             if (profilePp[0] == '-') profilePp = "Unknown";
             ProfilePPTextValue.SetText("<color=purple>" + profilePp + "</color> " + GetPPLabel());
         }
-        /*[UIAction(nameof(DoTestThing))]
+        [UIAction(nameof(DoTestThing))]
         private void DoTestThing()
         {
             //CurrentProfile.AddPlay(ProfilePPSlider.Value);
             UpdateProfilePP();
             UpdateProfile();
-            CompletedMap(0.990f, Sldvc.selectedDifficultyBeatmap);
-        }*/
+            const float acc = 0.999f;
+#if NEW_VERSION
+            CompletedMap(acc, Sldvc.beatmapKey, Sldvc.beatmapLevel);
+#else
+            CompletedMap(acc, Sldvc.selectedDifficultyBeatmap);
+#endif
+        }
         [UIAction(nameof(RefreshProfilePP))]
         private void RefreshProfilePP() => Task.Run(RefreshProfileScores);
         private async Task RefreshProfileScores()
@@ -675,7 +682,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                     }
                     else
                     {
-                        BuildTable(ratings => CurrentCalculator.GetSummedPp(TestAcc / 100.0f, PC.DecimalPrecision, ratings) + "", PPTable, ref PPTableTable, " pp", accLbl: "<color=#0D0>PP</color>");
+                        BuildTable(ratings => CurrentCalculator.GetSummedPp(TestAcc / 100.0f, PC.DecimalPrecision, ratings) + "", PPTable, ref PPTableTable, $" {GetPPLabel()}", accLbl: $"<color=#0D0>{GetPPLabel().ToUpper()}</color>");
                         PPTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
                     }
                     break;
@@ -881,7 +888,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             const string Delimiter = "\n";
             const string LineHeight = "80";
             PrefixLabels.SetText($"<line-height={LineHeight}%>" + CurrentCalculator.StarLabels.Aggregate((total, current) => total + Delimiter + current));
-            if (CurrentDiff.Diffdata != null && CurrentAPI.MapIsUsable(CurrentDiff.Diffdata))
+            if (CurrentDiff.Diffdata is not null && CurrentAPI.MapIsUsable(CurrentDiff.Diffdata))
             {
                 const char Star = (char)9733;
                 switch (CurrentLeaderboard) 
@@ -967,7 +974,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 MapDiffText = HelpfulMisc.AddSpaces(CurrentMap.difficulty.ToString().Replace("+", "Plus"));
                 MapModeText = HelpfulMisc.AddSpaces(modeName);
 #if NEW_VERSION
-            BeatmapName = Sldvc.beatmapLevel.songName;
+                BeatmapName = Sldvc.beatmapLevel.songName;
 #else
                 BeatmapName = CurrentMap.level.songName;
 #endif
@@ -977,6 +984,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             catch (Exception e)
             {
                 Plugin.Log.Error("Error updating diff data. This likely means the map isn't ranked on the selected leaderboard, or there was an issue with the API. \nException message: " + e.Message);
+                Plugin.Log.Debug("Stack trace: " + e.StackTrace);
                 CurrentDiff = (null, null);
             }
         }

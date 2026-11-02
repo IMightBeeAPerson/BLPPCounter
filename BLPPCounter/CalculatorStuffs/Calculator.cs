@@ -54,7 +54,7 @@ namespace BLPPCounter.CalculatorStuffs
         /// <summary>
         /// The acc curve for a given leaderboard. Set to internal so that no outside programs modifies the curve.
         /// </summary>
-        internal abstract List<(double, double)> PointList { get; }
+        internal abstract List<(float, float)> PointList { get; }
         #endregion
 
         /// <summary>
@@ -195,21 +195,21 @@ namespace BLPPCounter.CalculatorStuffs
             Leaderboards.Accsaber => APCalc.Instance,
             _ => null,
         };
-        public static float GetCurve(float acc, List<(double, double)> curve)
+        public static float GetCurve(float acc, List<(float, float)> curve)
         {
             int i = 1;
             while (i < curve.Count && curve[i].Item1 > acc) i++;
             double middle_dis = (acc - curve[i - 1].Item1) / (curve[i].Item1 - curve[i - 1].Item1);
             return (float)(curve[i - 1].Item2 + middle_dis * (curve[i].Item2 - curve[i - 1].Item2));
         }
-        public static float GetInvertCurve(double curveOutput, List<(double, double)> curve)
+        public static float GetInvertCurve(double curveOutput, List<(float, float)> curve)
         {
             int i = 1;
             while (i < curve.Count && curve[i].Item2 > curveOutput) i++;
             double middle_dis = (curveOutput - curve[i - 1].Item2) / (curve[i].Item2 - curve[i - 1].Item2);
             return (float)(curve[i - 1].Item1 + middle_dis * (curve[i].Item1 - curve[i - 1].Item1));
         }
-        public static float GetCurveDerivative(double acc, List<(double, double)> curve)
+        public static float GetCurveDerivative(double acc, List<(float, float)> curve)
         {
             int i = 1;
             while (i < curve.Count && curve[i].Item1 > acc) i++;

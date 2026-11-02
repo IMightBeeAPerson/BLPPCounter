@@ -37,12 +37,13 @@ namespace BLPPCounter.Utils.Map_Utils
         public readonly void FixRates(Leaderboards currentLeaderboard, params float[] ratings) => Ratings.SetRatings(currentLeaderboard, ratings);
         private void GetSongSpeed()
         {
-            if (!Calculator.GetSelectedCalc().UsesModifiers) //No modifiers, so no speed changes.
+            Calculator calc = Calculator.GetCalc(Ratings.ValidLeaderboards);
+            if (!calc.UsesModifiers) //No modifiers, so no speed changes.
             {
                 MapSpeed = SongSpeed.Normal;
                 return;
             }
-            RatingContainer[] arr = HelpfulPaths.GetAllRatings(MapData.diffData, Calculator.GetSelectedCalc());
+            RatingContainer[] arr = HelpfulPaths.GetAllRatings(MapData.diffData, calc);
             for (int i = 0; i < arr.Length; i++)
             {
                 if (arr[i] == Ratings)
@@ -51,7 +52,7 @@ namespace BLPPCounter.Utils.Map_Utils
                     return;
                 }
             }
-            throw new Exception("There is no ratings matching the ones in this mapSelection. Something is very wrong.");
+            throw new Exception("There is no ratings matching the ones in this mapSelection. Something is very wrong.\nRatings = " + Ratings + "\nRatingContainers = " + HelpfulMisc.Print(arr));
         }
         public readonly (bool, bool) GetDifference(MapSelection other)
         {

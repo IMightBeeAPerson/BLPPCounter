@@ -1,6 +1,5 @@
 ﻿using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
-using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.Profile_Utils;
 using BLPPCounter.Utils.Map_Utils;
 using Newtonsoft.Json.Linq;
@@ -31,9 +30,15 @@ namespace BLPPCounter.Utils.API_Handlers
                 t = Throttle;
             return await CallAPI_Static(path, t, quiet, maxRetries, ct).ConfigureAwait(false);
         }
+        public override float GetStarRating(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1)
+        {
+            diffData = diffData.TryEnter("difficulty");
+            if (speed != SongSpeed.Normal) diffData = diffData["modifiersRating"];
+            return (float)diffData[HelpfulMisc.AddModifier("stars", speed)] * modMult;
+        }
         public override float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1)
         {
-            diffData = diffData["difficulty"];
+            diffData = diffData.TryEnter("difficulty");
             if (speed != SongSpeed.Normal) diffData = diffData["modifiersRating"];
             return [
                 (float)diffData[HelpfulMisc.AddModifier("accRating", speed)] * modMult,
@@ -48,11 +53,13 @@ namespace BLPPCounter.Utils.API_Handlers
         public override int GetMaxScore(JToken diffData) => (int)(diffData["difficulty"]?["maxScore"] ?? diffData["maxScore"]);
         public override async Task<int> GetMaxScore(string hash, int diffNum, string modeName) => 
             GetMaxScore(SelectSpecificDiff(JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash)).ConfigureAwait(false)), diffNum, modeName));
-        public override float[] GetRatings(JToken diffData)
+        public override int GetRank(JToken scoreData) => (int)scoreData["rank"];
+        public override string GetPlayerName(JToken scoreData)
         {
-            if (diffData["difficulty"] is not null) diffData = diffData["difficulty"];
-            return [(float)diffData["accRating"], (float)diffData["passRating"], (float)diffData["techRating"]];
+            JToken outp = scoreData["player"];
+            return outp is JValue ? outp.ToString() : outp["name"].ToString();
         }
+        public override float GetAcc(JToken scoreData) => (float)scoreData["accuracy"];
         public override JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName)
         {
             //Plugin.Log.Info(diffData.ToString());
@@ -143,10 +150,9 @@ namespace BLPPCounter.Utils.API_Handlers
                 "metadata", "songName"
             ).ConfigureAwait(false);
         }
-        public override async Task<float> GetProfilePP(string userId)
-        {
-            return (float)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.BLAPI_USERID, userId)).ConfigureAwait(false))?["pp"];
-        }
+        public override async Task<float> GetProfilePP(string userId) =>
+            (float)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.BLAPI_USERID, userId)).ConfigureAwait(false))?["pp"];
+
         internal override async Task AddMap(Dictionary<string, Map> Data, string hash, CancellationToken ct = default)
         {
             try

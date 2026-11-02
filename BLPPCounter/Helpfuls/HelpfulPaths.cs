@@ -41,6 +41,7 @@ namespace BLPPCounter.Helpfuls
         #region API Paths
         public static readonly string BLAPI = "https://api.beatleader.com/";
         public static readonly string BLAPI_HASH = "https://api.beatleader.com/leaderboards/hash/{0}"; //hash
+        public static readonly string BLAPI_HASH_FULL = "https://api.beatleader.com/v5/scores/{0}/{1}/{2}?page={3}&count={4}"; //hash, diff, mode, page, count
         public static readonly string BLAPI_USERID = "https://api.beatleader.com/player/{0}?stats=false"; //user_id
         public static readonly string BLAPI_USERID_FULL = "https://api.beatleader.com/player/{0}"; //user_id
         public static readonly string BLAPI_CLAN = "https://api.beatleader.com/leaderboard/clanRankings/{0}"; //clan_id
@@ -55,8 +56,10 @@ namespace BLPPCounter.Helpfuls
         public static readonly string SSAPI = "https://scoresaber.com/api/";
         //UNRANKED: https://scoresaber.com/api/leaderboard/by-hash/bdacecbf446f0f066f4189c7fe1a81c6d3664b90/info?difficulty=5
         //RANKED: https://scoresaber.com/api/leaderboard/by-hash/7c44cdc1e33e2f5f929867b29ceb3860c3716ddc/info?difficulty=5
+        //Score: https://scoresaber.com/api/player/76561198306905129/scores?limit=1&sort=top&page=1
         /// <summary>Format in the order: hash value, "info" or "scores", diff number.</summary>
         public static readonly string SSAPI_HASH = "https://scoresaber.com/api/leaderboard/by-hash/{0}/{1}?difficulty={2}"; //hash, either "info" or "scores", diff_number
+        public static readonly string SSAPI_HASH_PAGED = "https://scoresaber.com/api/leaderboard/by-hash/{0}/{1}?difficulty={2}&page={3}"; //hash, either "info" or "scores", diff_number, page
         public static readonly string SSAPI_USERID = "https://scoresaber.com/api/player/{0}/{1}"; //user_id, either "basic", "full", or "scores"
         public static readonly string SSAPI_DIFFS = "https://scoresaber.com/api/leaderboard/get-difficulties/{0}"; //hash
         public static readonly string SSAPI_LEADERBOARDID = "https://scoresaber.com/api/leaderboard/by-id/{0}/{1}"; //leaderboard_id, either "info" or "scores"
@@ -76,6 +79,8 @@ namespace BLPPCounter.Helpfuls
 
         //Docs: https://api.accsaberreloaded.com/v1/docs
         // Category ID: b0000000-0000-0000-0000-000000000003 for Tech, 2 = Standard, 1 = True, none for overall.
+        // Score endpoint example: https://api.accsaberreloaded.com/v1/users/76561198306905129/scores/by-hash/2a579bb1a3efa58af7640f9663c972ee84fea44a?difficulty=EXPERT&characteristic=Standard
+        // Diff endpoint example: https://api.accsaberreloaded.com/v1/maps/hash/2A579BB1A3EFA58AF7640F9663C972EE84FEA44A?difficulty=EXPERT
         public static readonly string APAPI = "https://api.accsaberreloaded.com/";
         public static readonly string APAPI_PLAYERID = "https://api.accsaberreloaded.com/v1/users/{0}/statistics"; //user_id
         public static readonly string APAPI_PLAYERID_CATEGORY = "https://api.accsaberreloaded.com/v1/users/{0}/statistics?category={1}"; //user_id, category (overall, true_acc, standard_acc, tech_acc)
@@ -84,6 +89,7 @@ namespace BLPPCounter.Helpfuls
         public static readonly string APAPI_CATEGORY_SCORES = "https://api.accsaberreloaded.com/v1/users/{0}/scores?categoryId={1}&page={2}&size={3}"; // user_id, category_id, page (zero indexed), count
         public static readonly string APAPI_HASH = "https://api.accsaberreloaded.com/v1/maps/hash/{0}"; //hash
         public static readonly string APAPI_HASH_DIFF = "https://api.accsaberreloaded.com/v1/maps/hash/{0}?difficulty={1}"; //hash, difficulty IN CAPS
+        public static readonly string APAPI_LEADERBOARD_DIFF = "https://api.accsaberreloaded.com/v1/maps/difficulties/{0}/scores?page={1}&size={2}"; //diff_id, page (zero indexed), count
 
         //Docs: https://api.beatsaver.com/docs/index.html
         public static readonly string BSAPI = "https://api.beatsaver.com/";
@@ -186,10 +192,10 @@ namespace BLPPCounter.Helpfuls
             //Below is a workaround for how Taoh formats his data.
             if (mod == SongSpeed.Normal && type == PPType.Star && data[path] is null)
             {
-                JToken outp = data["star" + HelpfulMisc.ToCapName(PpInfoTabHandler.Instance.CurrentLeaderboard)];
-                return (float)(outp ?? data["complexityAccSaber"]);
+                JToken outp = data["star" + HelpfulMisc.ToCapName(PpInfoTabHandler.Instance.CurrentLeaderboard)] ?? data["complexityAccSaber"] ?? data["complexity"];
+                return (float)(outp ?? 0.0f);
             }
-            return (float)data[path];
+            return (float)(data[path] ?? 0.0f);
         }
         public static float GetRating(JToken data, PPType type, string modName)
         {
@@ -205,7 +211,9 @@ namespace BLPPCounter.Helpfuls
         public static RatingContainer GetAllRatingsOfSpeed(JToken data, SongSpeed mod = SongSpeed.Normal) => GetAllRatingsOfSpeed(data, null, mod);
         public static RatingContainer[] GetAllRatings(JToken data, Calculator calc)
         {
-            List<RatingContainer> outp = new(4); //length of the SongSpeed Enum.
+            Plugin.Log.Info("Getting all ratings of all speeds for data:\n" + data);
+            if (!calc.UsesModifiers) return [GetAllRatingsOfSpeed(data, calc)];
+            List<RatingContainer> outp = new(HelpfulMisc.OrderedSpeeds.Length);
             foreach (SongSpeed s in HelpfulMisc.OrderedSpeeds)
                 outp.Add(GetAllRatingsOfSpeed(data, calc, s));
             return [.. outp];

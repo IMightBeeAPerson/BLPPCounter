@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Reflection;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
@@ -148,6 +149,7 @@ namespace BLPPCounter.Utils.Profile_Utils
         {
             try
             {
+                if (Ranks.Length != Scores.Length) throw new Exception($"Ranks array length does not equal the Scores array length\nRanks length: {Ranks.Length} || Scores Length: {Scores.Length}");
                 ActualScoreDiffs = HelpfulMisc.UncompressEnums<BeatmapDifficulty>(ScoreDiffs);
                 if (ActualScoreDiffs.Length != Scores.Length) throw new Exception($"ScoreDiffs array length does not equal the Scores array length\nActualScoreDiffs length: {ActualScoreDiffs.Length} || Scores Length: {Scores.Length}");
                 if (UnusualModes is null) throw new Exception($"Modes are not found! (UnusualModes is null)");
@@ -183,7 +185,7 @@ namespace BLPPCounter.Utils.Profile_Utils
                 "<color=#4AF>Key</color>",
                 "<color=#FF0>Rank</color>"
             ];
-            if (IsAP) names = [.. names, "<color=#777>Catagory</color>"];
+            if (IsAP) names = [.. names, "<color=#777>Category</color>"];
 
             //Value setup
             string[][] values = GetTableValues();
@@ -380,17 +382,23 @@ namespace BLPPCounter.Utils.Profile_Utils
                         float[] ratings = calc.SelectRatings(TheCounter.GetDifficulty(await TheCounter.GetMap(hash, currentMode, current), mapDiff, current, currentMode, mods, true));
                         float pp = calc.Inflate(calc.GetSummedPp(acc, ratings));
                         if (current != Leaderboards.Accsaber)
-                            goodScore |= GetProfile(current, userID).AddPlay(pp, mapName, mapKey, mapDiff, mode);
+                            goodScore |= GetProfile(current, userID).AddPlay(pp, mapName, hash, mapKey, mapDiff, mode);
                         else
                         {
                             //(_, HttpContent data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(mapDiff)), SSAPI.Throttle);
                             //(_, data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, JToken.Parse(await data.ReadAsStringAsync())["id"].ToString()));
                             //APCategory accSaberCategory = (APCategory)Enum.Parse(typeof(APCategory), JToken.Parse(await data.ReadAsStringAsync())["categoryDisplayName"].ToString().Split(' ')[0]);
                             
-                            Map m = TheCounter.GetMap(hash, currentMode).GetAwaiter().GetResult();
+                            Map m = await TheCounter.GetMap(hash, currentMode);
                             APCategory accSaberCategory;
                             if (m is not null)
-                                accSaberCategory = (APCategory)Enum.Parse(typeof(APCategory), HelpfulPaths.ReloadedCategoryToCategoryId(m.Get(Map.AP_MODE_NAME, mapDiff).Data["categoryId"].ToString()));
+                            {
+                                JToken diffData = m.Get(Map.AP_MODE_NAME, mapDiff).Data, test = diffData["songCategory"];
+                                if (test is not null)
+                                    accSaberCategory = (APCategory)Math.Log((int)test & 0xE, 2);
+                                else 
+                                    accSaberCategory = (APCategory)Enum.Parse(typeof(APCategory), HelpfulPaths.ReloadedCategoryToCategoryId(diffData["categoryId"].ToString()));
+                            }
                             else
                             {
                                 JToken mapInfo = JToken.Parse(await (await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.APAPI_HASH_DIFF, hash,
@@ -398,7 +406,7 @@ namespace BLPPCounter.Utils.Profile_Utils
                                 accSaberCategory = (APCategory)Enum.Parse(typeof(APCategory), HelpfulPaths.ReloadedCategoryToCategoryId(mapInfo["difficulties"].Children().First()["categoryId"].ToString()));
                             }
 
-                            goodScore |= GetProfile(current, userID, accSaberCategory).AddPlay(pp, mapName, mapKey, mapDiff, mode);
+                            goodScore |= GetProfile(current, userID, accSaberCategory).AddPlay(pp, mapName, hash, mapKey, mapDiff, mode);
                         }
                     }
                     catch (Exception e)
@@ -602,11 +610,12 @@ namespace BLPPCounter.Utils.Profile_Utils
         /// </summary>
         /// <param name="rawPP">The raw pp value to add to this <see cref="Profile"/>.</param>
         /// <param name="mapName">The name of the map this was set on.</param>
+        /// <param name="hash">The hash for the map this was set on.</param>
         /// <param name="mapKey">The beatsaver key for the map.</param>
         /// <param name="diff">The difficulty of the map that this score set on.</param>
         /// <param name="mode">The BeatmapCharacteristic of the map.</param>
         /// <returns>Returns whether or not the score was good enough to enter the <see cref="Scores"/> array.</returns>
-        public bool AddPlay(float rawPP, string mapName, string mapKey, BeatmapDifficulty diff, string mode, bool ignoreSession = false)
+        public bool AddPlay(float rawPP, string mapName, string hash, string mapKey, BeatmapDifficulty diff, string mode, bool ignoreSession = false)
         {
             Plugin.Log.Info($"{Leaderboard}{(Leaderboard == Leaderboards.Accsaber ? $" ({AccSaberType})" : "")}: {HelpfulMisc.Print(new object[] { rawPP, mapName, diff })}");
             if (float.IsNaN(rawPP) || Scores[Scores.Length - 1] > rawPP) return false;
@@ -623,6 +632,7 @@ namespace BLPPCounter.Utils.Profile_Utils
                 HelpfulMisc.SiftUp(ActualScoreDiffs, dupeIndex);
                 HelpfulMisc.SiftUp(ScoreIDs, dupeIndex);
                 HelpfulMisc.SiftUp(WeightedScores, dupeIndex);
+                HelpfulMisc.SiftUp(Ranks, dupeIndex);
                 WeightScores();
                 TotalPP -= current - WeightedScores.Aggregate(0.0f, (total, current) => total + current);
             }
@@ -632,13 +642,15 @@ namespace BLPPCounter.Utils.Profile_Utils
             float profilePP = GetProfilePP(GetWeightedPP(rawPP), index + 1);
             float oldScore = ScoreIDs.IndexOf(mapKey);
             oldScore = oldScore >= 0 ? Scores[(int)oldScore] : 0;
-            if (!ignoreSession) CurrentSession.AddPlay(mapName, mapKey, diff, mode, rawPP, 0, profilePP, oldScore);
+            
             if (profilePP > 0) TotalPP += profilePP;
+            if (!ignoreSession) Task.Run(() => AddSessionPlay(mapName, hash, mapKey, diff, mode, rawPP, profilePP, oldScore, index));
 
             HelpfulMisc.SiftDown(Scores, index, rawPP);
             HelpfulMisc.SiftDown(ScoreNames, index, mapName);
             HelpfulMisc.SiftDown(ActualScoreDiffs, index, diff);
             HelpfulMisc.SiftDown(ScoreIDs, index, mapKey);
+            HelpfulMisc.SiftDown(Ranks, index, 0u);
             WeightScores();
 
             PlusOne = CalculatePlusOne();
@@ -647,11 +659,18 @@ namespace BLPPCounter.Utils.Profile_Utils
             if (Leaderboard == Leaderboards.Accsaber && AccSaberType != APCategory.All)
             {
                 Profile p = GetProfile(Leaderboards.Accsaber, UserID, APCategory.All);
-                p.AddPlay(rawPP, mapName, mapKey, diff, mode, true);
-                p.CurrentSession.AddPlay(mapName, mapKey, diff, mode, rawPP, 0, profilePP, oldScore);
+                p.AddPlay(rawPP, mapName, hash, mapKey, diff, mode, true);
+                Task.Run(() => p.AddSessionPlay(mapName, hash, mapKey, diff, mode, rawPP, profilePP, oldScore, index));
             }
             ReloadTableValues();
             return true;
+        }
+        private async Task AddSessionPlay(string mapName, string hash, string mapKey, BeatmapDifficulty diff, string mode, float rawPP, float profilePP, float oldScore, int index)
+        {
+            uint rank = await CurrentSession.AddPlay(mapName, hash, mapKey, diff, mode, rawPP, 0, profilePP, oldScore);
+            Plugin.Log.Info($"Setting rank at index {index} to {rank}");
+            Ranks[index] = rank;
+            ReloadTableValues();
         }
         private (bool IsDupe, bool IsBetter) CheckForDupePlay(float rawPP, string mapKey, BeatmapDifficulty diff, string mode, out int dupeIndex)
         {

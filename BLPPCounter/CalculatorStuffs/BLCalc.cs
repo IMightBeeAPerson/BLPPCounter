@@ -6,46 +6,14 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using static GameplayModifiers;
+using System.Threading.Tasks;
 
 namespace BLPPCounter.CalculatorStuffs
 {
     /* This is all ripped from the beatleader github and changed to work with my stuffs.*/
     public class BLCalc: Calculator
     {
-        internal override List<(double, double)> PointList { get; } = [
-                (1.0, 7.424),
-                (0.999, 6.241),
-                (0.9975, 5.158),
-                (0.995, 4.010),
-                (0.9925, 3.241),
-                (0.99, 2.700),
-                (0.9875, 2.303),
-                (0.985, 2.007),
-                (0.9825, 1.786),
-                (0.98, 1.618),
-                (0.9775, 1.490),
-                (0.975, 1.392),
-                (0.9725, 1.315),
-                (0.97, 1.256),
-                (0.965, 1.167),
-                (0.96, 1.094),
-                (0.955, 1.039),
-                (0.95, 1.000),
-                (0.94, 0.931),
-                (0.93, 0.867),
-                (0.92, 0.813),
-                (0.91, 0.768),
-                (0.9, 0.729),
-                (0.875, 0.650),
-                (0.85, 0.581),
-                (0.825, 0.522),
-                (0.8, 0.473),
-                (0.75, 0.404),
-                (0.7, 0.345),
-                (0.65, 0.296),
-                (0.6, 0.256),
-                (0.0, 0.000)
-        ];
+        internal override List<(float, float)> PointList { get; } = [];
         private readonly float CLANWAR_WEIGHT_COEFFICIENT = 0.8f;
         public static BLCalc Instance { get; private set; } = new BLCalc();
         private BLCalc() { }
@@ -55,19 +23,14 @@ namespace BLPPCounter.CalculatorStuffs
         public override string Label => "BL";
         public override string[] StarLabels { get; } = ["<color=blue>Acc</color> Stars","<color=red>Pass</color> Stars","<color=green>Tech</color> Stars","<color=yellow>Total</color> Stars"];
         public override bool UsesModifiers => true;
-        public float GetPassPp(float passRating) => 15.2f * Mathf.Exp(Mathf.Pow(passRating, 1 / 2.62f)) - 30f;
-        public float GetAccPp(float acc, float accRating) => GetCurve(acc) * accRating * 34f;
-        public float GetTechPp(float acc, float techRating) => Mathf.Exp(1.9f * acc) * 1.08f * techRating;
+        public float GetPassPp(float passRating) => 0f;
+        public float GetAccPp(float acc) => GetCurve(acc);
+        public float GetTechPp(float acc, float techRating) => 0f;
         public override float[] GetPp(float acc, params float[] ratings) //ratings order: acc pass tech
         {
             if (float.IsNaN(acc)) acc = 0;
             else acc = Mathf.Max(0, Mathf.Min(1, acc));
-            var (accRating, passRating, techRating) = (ratings[0], ratings[1], ratings[2]);
-            float passPP = GetPassPp(passRating);
-            if (float.IsInfinity(passPP) || float.IsNaN(passPP) || passPP < 0) passPP = 0;
-            return [GetAccPp(acc, accRating), passPP, GetTechPp(acc, techRating)];
-            //Plugin.Log.Info($"acc = {acc}, ratings = {HelpfulMisc.Print(ratings)}, pp = {HelpfulMisc.Print(outp)}, total pp = {Inflate(outp[0] + outp[1] + outp[2])}");
-            //return outp;
+            return [GetCurve(acc), 0, 0];
         }
         public override float[] SelectRatings(float[] ratings) => [.. ratings.Skip(1)];
         public override float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings) //ratings order: acc pass tech
@@ -90,8 +53,32 @@ namespace BLPPCounter.CalculatorStuffs
             deflatedPp -= GetPassPp(passRating);
             return (float)Math.Round(CalculateX(deflatedPp, techRating, accRating, initGuess, maxIterations: maxIterations) * 100.0f, precision);
         }
-        public override float Inflate(float pp) => 650f * (float)Math.Pow(pp, 1.3f) / (float)Math.Pow(650f, 1.3f);
-        public override float Deflate(float pp) => (float)Math.Pow(pp * (float)Math.Pow(650f, 1.3f) / 650f, 1.0f / 1.3f);
+        public override float Inflate(float pp) => pp;
+        public override float Deflate(float pp) => pp;
+
+        public async Task SetCurve(string leaderboardId, SongSpeed songSpeed)
+        {
+            string mod = songSpeed switch
+            {
+                SongSpeed.Slower => "SS",
+                SongSpeed.Faster => "FS",
+                SongSpeed.SuperFast => "SF",
+                _ => ""
+            };
+
+            var (Success, Content) = await APIHandler.CallAPI_Static(string.Format(
+                $"https://api.beatleader.com/pp/curve?leaderboardId={{0}}{(string.IsNullOrEmpty(mod) ? "" : "&modifiers=")}{{1}}", leaderboardId, mod));
+
+            if (!Success)
+                return;
+
+            IEnumerable<(float, float)> newPoints = JObject.Parse(await Content.ReadAsStringAsync())["points"].Children().Select(arr => ((float)arr[0], (float)arr[1]));
+
+            PointList.Clear();
+            PointList.AddRange(newPoints);
+            PointList.Reverse();
+        }
+
         private float CalculateX(float y, float t, float a, float initialGuess = 1.0f, float tolerance = 0.0001f, int maxIterations = 100)
         {
             float x = initialGuess;

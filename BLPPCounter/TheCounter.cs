@@ -444,6 +444,9 @@ namespace BLPPCounter
                             goto Failed;
                         }
                         SettingChanged = false;
+
+                        if (Leaderboard == Leaderboards.Beatleader)
+                            await BLCalc.Instance.SetCurve(LastMap.MapData.songId, LastMap.MapSpeed);
                     }
                     else if (!APIAvoidanceMode())
                         goto Failed;
@@ -882,7 +885,7 @@ namespace BLPPCounter
         {
             Plugin.Log.Debug("API Avoidance mode is active.");
 #if NEW_VERSION
-            MapSelection thisMap = new MapSelection(Data[LastMap.Hash], beatmapDiff.difficulty, mode, ratings, mods.songSpeed); // 1.37.0 and above
+            MapSelection thisMap = new(Data[LastMap.Hash], beatmapDiff.difficulty, mode, ratings, mods.songSpeed); // 1.37.0 and above
 #else
             MapSelection thisMap = new(Data[LastMap.Hash], beatmap.difficulty, mode, ratings, mods.songSpeed); // 1.34.2 and below
 #endif
@@ -890,6 +893,10 @@ namespace BLPPCounter
             //Plugin.Log.Debug($"Last Map\n-------------------\n{LastMap}\n-------------------\nThis Map\n-------------------\n{thisMap}\n-------------------");
             bool ratingDiff, diffDiff;
             (ratingDiff, diffDiff) = thisMap.GetDifference(LastMap);
+
+            if (Leaderboard == Leaderboards.Beatleader && (ratingDiff || diffDiff))
+                BLCalc.Instance.SetCurve(LastMap.MapData.songId, LastMap.MapSpeed).GetAwaiter().GetResult();
+
             //Plugin.Log.Debug($"DID CHANGE || Rating: {ratingDiff}, Difficulty: {diffDiff}");
             if (diffDiff) theCounter.ReinitCounter(display, thisMap);
             else if (ratingDiff) theCounter.ReinitCounter(display, ratings);

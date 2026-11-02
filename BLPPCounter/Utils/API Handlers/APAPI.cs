@@ -32,30 +32,31 @@ namespace BLPPCounter.Utils.API_Handlers
                 t = Throttle;
             return CallAPI_Static(path, t, quiet, maxRetries, ct);
         }
-        public override float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1) => [(float)(diffData["complexity"] ?? diffData["complexityAccSaber"])];
-        public override float[] GetRatings(JToken diffData) => [(float)(diffData["complexity"] ?? diffData["complexityAccSaber"])];
+        public override float GetStarRating(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1) => (float)(diffData["complexity"] ?? diffData["complexityAccSaber"] ?? 0f);
+        public override float[] GetRatings(JToken diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1) => [GetStarRating(diffData)];
         public override string GetSongName(JToken diffData) => diffData["songName"].ToString();
         public override string GetDiffName(JToken diffData) => diffData["difficulty"].ToString();
         public override string GetLeaderboardId(JToken diffData) => diffData["leaderboardId"].ToString();
         public override string GetHash(JToken diffData) => diffData["songHash"].ToString();
         public override bool MapIsUsable(JToken diffData) => diffData is not null && GetRatings(diffData)[0] > 0;
         public override bool AreRatingsNull(JToken diffData) => (diffData["complexity"] ?? diffData["complexityAccSaber"]) is null;
-        public override int GetMaxScore(JToken diffData) => (int)JToken.Parse(CallAPI_String(string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, diffData["leaderboardId"] ?? diffData["scoreSaberID"], "info")).Result)["maxScore"];
-        public override async Task<int> GetMaxScore(string hash, int diffNum, string modeName) => GetMaxScore(JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)).ConfigureAwait(false))["difficulty"]);
+        public override int GetMaxScore(JToken diffData) => GetAPI(Leaderboards.Scoresaber).GetMaxScore(diffData);
+        public override int GetRank(JToken scoreData) => (int)scoreData["rank"];
+        public override string GetPlayerName(JToken scoreData) => scoreData["userName"].ToString();
+        public override float GetAcc(JToken scoreData) => (float)scoreData["accuracy"];
+        public override async Task<int> GetMaxScore(string hash, int diffNum, string modeName) =>
+            (int)JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_HASH_DIFF, hash, HelpfulPaths.DiffNumToReloadedDiff(diffNum))))["difficulties"].Children().First()["maxScore"];
         public override JToken SelectSpecificDiff(JToken diffData, int diffNum, string modeName) => diffData;
         public override async Task<string> GetHashData(string hash, int diffNum) =>
             await CallAPI_String(string.Format(HelpfulPaths.APAPI_HASH_DIFF, hash, HelpfulPaths.DiffNumToReloadedDiff(diffNum)), true, maxRetries: 1).ConfigureAwait(false);
         public override async Task<JToken> GetScoreData(string userId, string hash, string diff, string mode, bool quiet = false, CancellationToken ct = default)
         {
             string reloadedDiff = HelpfulPaths.DiffNumToReloadedDiff(Map.FromDiff((BeatmapDifficulty)Enum.Parse(typeof(BeatmapDifficulty), diff)));
-            return JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_SCORE, userId, hash.ToLower(), reloadedDiff)).ConfigureAwait(false));
+            string dataStr = await CallAPI_String(string.Format(HelpfulPaths.APAPI_SCORE, userId, hash.ToLower(), reloadedDiff), ct: ct).ConfigureAwait(false);
+            if (dataStr is null || dataStr.Equals(string.Empty)) return null;
+            return JToken.Parse(dataStr);
         }
-        public override float GetPP(JToken scoreData)
-        {
-            float acc = (float)scoreData["accuracy"];
-            float complexity = (float)scoreData["complexity"];
-            return APCalc.Instance.GetPp(acc, complexity)[0];
-        }
+        public override float GetPP(JToken scoreData) => (float)scoreData["ap"];
         public override int GetScore(JToken scoreData) => (int)scoreData["baseScore"];
         private Task<Play[]> GetScores(string userId, int count, string path)
         {
@@ -68,11 +69,9 @@ namespace BLPPCounter.Utils.API_Handlers
                 token =>
                 {
                     BeatmapDifficulty beatmapDiff = Map.FromValue(HelpfulPaths.ReloadedDiffToDiffNum(token["difficulty"].ToString()));
-                    string coverUrl = token["coverUrl"].ToString();
-                    coverUrl = coverUrl.Substring(coverUrl.IndexOf("m/") + 2);
                     return new Play(
                         token["songName"].ToString(),
-                        coverUrl.Substring(0, coverUrl.Length - 4),
+                        token["songHash"].ToString(),
                         beatmapDiff,
                         Profile.DEFAULT_MODE,
                         (float)token["ap"],
@@ -109,8 +108,14 @@ namespace BLPPCounter.Utils.API_Handlers
             try
             {
                 if (UnrankedHashes.Contains(hash) || ct.IsCancellationRequested) return;
-                JEnumerable<JToken> diffs = JToken.Parse(await CallAPI_String(string.Format(HelpfulPaths.APAPI_HASH, hash)))["difficulties"].Children();
-                bool anyRanked = false;
+                string dataStr = await CallAPI_String(string.Format(HelpfulPaths.APAPI_HASH, hash), ct: ct).ConfigureAwait(false);
+                if (dataStr is null || dataStr.Equals(string.Empty))
+                {
+                    UnrankedHashes.Add(hash);
+                    Plugin.Log.Warn($"No AP data found for hash {hash}, marking as unranked.");
+                    return;
+                }
+                JEnumerable<JToken> diffs = JToken.Parse(dataStr)["difficulties"].Children();
                 foreach (JToken diff in diffs)
                 {
                     int songId = int.Parse(diff["beatsaverCode"].ToString(), System.Globalization.NumberStyles.HexNumber);
@@ -119,10 +124,7 @@ namespace BLPPCounter.Utils.API_Handlers
                     if (Data.ContainsKey(hash))
                         Data[hash].Combine(map);
                     else Data[hash] = map;
-                    anyRanked = true;
                 }
-                if (!anyRanked)
-                    UnrankedHashes.Add(hash);
             }
             catch (Exception e)
             {

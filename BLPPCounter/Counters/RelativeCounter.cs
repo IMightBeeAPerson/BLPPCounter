@@ -124,6 +124,7 @@ namespace BLPPCounter.Counters
         public RelativeCounter(TMP_Text display, MapSelection map, CancellationToken ct) : base(display, map, ct)
         {
             useReplay = PC.UseReplay;
+            //Plugin.Log.Info("useReplay = " + useReplay.ToString());
             ResetVars();
         }
         private async Task<JToken> SetupReplayData(MapSelection map, CancellationToken ct = default)
@@ -453,14 +454,14 @@ namespace BLPPCounter.Counters
         {
             if (!SetupTask.IsCompleted || !caughtUp) return;
 
-            ppHandler.Update(acc, mistakes, fcPercent);
             UpdateBest(notes, currentNote);
+            ppHandler.Update(acc, mistakes, fcPercent);
 
             float accDiff = (float)Math.Round(acc * 100.0f, PC.DecimalPrecision) - accToBeat;
             if (float.IsNaN(accDiff)) accDiff = 0f;
             //else if (!useReplay) accDiff -= accToBeat;
             float replayAcc = PC.DynamicAcc && useReplay ? accToBeat : staticAccToBeat;
-            //Plugin.Log.Info("ppVals: " + HelpfulMisc.Print(ppHandler));
+            //Plugin.Log.Info("ppVals: " + ppHandler.Print() + " || " + replayPPVals.ToEnumerable().Print());
             if (float.IsNaN(replayAcc)) replayAcc = 0f;
             if (PC.SplitPPVals && calc.RatingCount > 1)
             {
