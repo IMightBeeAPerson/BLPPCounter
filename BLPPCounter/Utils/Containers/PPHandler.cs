@@ -1,18 +1,31 @@
-﻿using BLPPCounter.CalculatorStuffs;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using BLPPCounter.CalculatorStuffs;
 
 namespace BLPPCounter.Utils.Containers
 {
     public class PPHandler : IEnumerable<float>
     {
-        public delegate void FCUpdateDelegate(RatingContainer ratings, float acc, in PPContainer main, ref PPContainer toChange, float extraArg);
-        public delegate void ChooseActionDelegate(int index, float acc, in PPContainer main, ref PPContainer toChange, float extraArg);
+        public delegate void FCUpdateDelegate(
+            RatingContainer ratings,
+            float acc,
+            in PPContainer main,
+            ref PPContainer toChange,
+            float extraArg
+        );
+        public delegate void ChooseActionDelegate(
+            int index,
+            float acc,
+            in PPContainer main,
+            ref PPContainer toChange,
+            float extraArg
+        );
 
         private RatingContainer ratings;
         private readonly Calculator calc;
+
         /// <summary>
         /// Array of functions to calculate other PP values. The parameters are: ratings, accuracy, main PPContainer, target PPContainer (this one should be modified).
         /// </summary>
@@ -29,9 +42,16 @@ namespace BLPPCounter.Utils.Containers
         public event Action<int> UpdateMistakes;
         public event Action<float, PPContainer[], ChooseActionDelegate, float> UpdateFC;
 
-        public PPHandler(RatingContainer ratings, Calculator calc, int precision = -1, int extraPPVals = 0, params FCUpdateDelegate[] calcOtherPPs)
+        public PPHandler(
+            RatingContainer ratings,
+            Calculator calc,
+            int precision = -1,
+            int extraPPVals = 0,
+            params FCUpdateDelegate[] calcOtherPPs
+        )
         {
-            if (calcOtherPPs is null) throw new ArgumentNullException(nameof(calcOtherPPs));
+            if (calcOtherPPs is null)
+                throw new ArgumentNullException(nameof(calcOtherPPs));
 
             this.ratings = ratings;
             this.calc = calc;
@@ -52,6 +72,7 @@ namespace BLPPCounter.Utils.Containers
         {
             calcOtherPPs[index](ratings, acc, in main, ref toChange, extraArg);
         }
+
         public void Update(float acc, int mistakes, float fcAcc = 0f)
         {
             UpdateInternalStart(acc, mistakes);
@@ -63,19 +84,23 @@ namespace BLPPCounter.Utils.Containers
             if (!isFcing)
                 UpdateFC?.Invoke(fcAcc, ppVals, UseAction, 0);
         }
+
         public void Update(float acc, int mistakes, float fcAcc = 0f, float extraArg = 0f)
         {
             UpdateInternalStart(acc, mistakes);
 
             FinishPartialUpdate(acc, fcAcc, extraArg);
         }
-        public void Update(float acc, int mistakes, Func<PPContainer, float> calcExtraArg, float fcAcc = 0f) => 
+
+        public void Update(float acc, int mistakes, Func<PPContainer, float> calcExtraArg, float fcAcc = 0f) =>
             FinishPartialUpdate(acc, fcAcc, calcExtraArg(PartialUpdate(acc, mistakes)));
+
         public PPContainer PartialUpdate(float acc, int mistakes)
         {
             UpdateInternalStart(acc, mistakes);
             return ppVals[0];
         }
+
         public void FinishPartialUpdate(float acc, float fcAcc = 0f, float extraArg = 0f)
         {
             if (UpdatePPEnabled)
@@ -85,27 +110,33 @@ namespace BLPPCounter.Utils.Containers
             if (!isFcing)
                 UpdateFC?.Invoke(fcAcc, ppVals, UseAction, extraArg);
         }
+
         private void UpdateInternalStart(float acc, int mistakes)
         {
             if (mistakes != this.mistakes)
             {
                 this.mistakes = mistakes;
-                if (isFcing && UpdateFCEnabled) isFcing = false;
+                if (isFcing && UpdateFCEnabled)
+                    isFcing = false;
                 UpdateMistakes?.Invoke(mistakes);
             }
 
             if (UpdatePPEnabled)
                 ppVals[0].SetValues(calc.GetPpWithSummedPp(acc, precision, ratings));
         }
+
         public void Reset()
         {
             mistakes = 0;
             isFcing = true;
         }
+
         public void SetRatings(RatingContainer ratings) => this.ratings = ratings;
+
         public ref PPContainer GetPPGroup(int group) => ref ppVals[group];
 
         public IEnumerator<float> GetEnumerator() => ppVals.SelectMany(vals => vals.ToEnumerable()).GetEnumerator();
+
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();

@@ -1,4 +1,4 @@
-﻿using CountersPlus.ConfigModels;
+using CountersPlus.ConfigModels;
 
 namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
 {

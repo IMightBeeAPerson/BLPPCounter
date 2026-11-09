@@ -1,337 +1,925 @@
-﻿using BLPPCounter.Helpfuls;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Utils.API_Handlers;
-using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.Safety;
 using BLPPCounter.Utils.Serializable_Classes;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
-using UnityEngine;
+using Zenject;
 
 namespace BLPPCounter.Utils.Misc_Classes
 {
-    public static class Targeter
+    internal sealed class Targeter : ITargeter, IInitializable, IDisposable
     {
-        public static readonly string NO_TARGET = "None";
-        public static readonly int MAX_LIST_LENGTH = 100;
-        private static PluginConfig PC => PluginConfig.Instance;
-        private static readonly object CustomRefreshLock = new();
-        //These store the ids, not the names.
-        private static List<(string ID, int Rank)> _clanTargets = null, _followerTargets = null, _customTargets = null;
-        internal static readonly HashSet<long> UsedIDs = [];
-        public static IReadOnlyList<(string ID, int Rank)> ClanTargets => _clanTargets;
-        public static IReadOnlyList<(string ID, int Rank)> FollowerTargets => _followerTargets;
-        public static IReadOnlyList<(string ID, int Rank)> CustomTargets => _customTargets;
-        public static Dictionary<string, string> IDtoNames;
-        public static string PlayerID { get; private set; }
-        public static string PlayerName { get; private set; }
-        public static string TargetID => PC.TargetID < 0 ? PlayerID : PC.TargetID.ToString();
-        public static string TargetName => PC.Target.Equals(NO_TARGET) ? PlayerName : PC.Target;
+        public const string NO_TARGET = "None";
+        public const int MAX_LIST_LENGTH = 100;
 
-        public static async Task GenerateTargets()
+        private readonly PluginConfig _config;
+        private readonly BLAPI _beatLeaderApi;
+        private readonly IMainThreadDispatcher _dispatcher;
+        private readonly IBackgroundTaskRunner _taskRunner;
+        private readonly CancellationTokenSource _lifetimeSource = new();
+        private readonly object _stateLock = new();
+
+        private readonly List<CustomTarget> _clanSource = [];
+        private readonly List<CustomTarget> _followerSource = [];
+
+        private Task _initializationTask = Task.CompletedTask;
+        private TargeterInfo? _target;
+        private bool _initializationStarted;
+        private int _disposed;
+
+        public Targeter(
+            PluginConfig config,
+            BLAPI beatLeaderApi,
+            IMainThreadDispatcher dispatcher,
+            IBackgroundTaskRunner taskRunner
+        )
         {
-            string clanInfo = "";
-            PlayerID = (await BS_Utils.Gameplay.GetUserInfo.GetUserAsync()).platformUserId;
-            bool showWarnings = PluginConfig.Instance.TargeterStartupWarnings;
+            _config = config ?? throw new ArgumentNullException(nameof(config));
 
-            try
-            {
-                clanInfo = await RequestClan(PlayerID);
-            } catch (Exception ex)
-            {
-                Plugin.Log.Error($"Error getting clan info: {ex}");
-            }
-            if (clanInfo.Length == 0)
-            {
-                _clanTargets = [];
-                goto _followerTargets;
-            }
-            JEnumerable<JToken> clanStuffs = JToken.Parse(clanInfo)["data"].Children();
-            _clanTargets = new List<(string ID, int Rank)>(clanStuffs.Count());
-            IDtoNames = [];
-            foreach (JToken person in clanStuffs) {
-                long id = (long)person["id"];
-                if (UsedIDs.Contains(id))
-                {
-                    if (showWarnings) Plugin.Log.Warn($"There is a duplicate id \"{id}\" inside of your home clan.");
-                    continue;
-                }
-                UsedIDs.Add(id);
-                string playerName = person["name"].ToString();
-                //ResolveDupes(IDtoNames, ref playerName);
-                _clanTargets.Add((id.ToString(), (int)person["rank"]));
-                IDtoNames.Add(id.ToString(), playerName);
-            }
+            _beatLeaderApi = beatLeaderApi ?? throw new ArgumentNullException(nameof(beatLeaderApi));
 
-        _followerTargets:
-            try
-            {
-                if (!File.Exists(HelpfulPaths.TARGET_DATA))
-                {
-                    await LoadFollowers();
-                    goto _customTargets;
-                }
-                JsonSerializer serializer = new();
-                IEnumerable<CustomTarget> followerData;
-                using (StreamReader reader = File.OpenText(HelpfulPaths.TARGET_DATA))
-                    followerData = serializer.Deserialize(reader, typeof(IEnumerable<CustomTarget>)) as IEnumerable<CustomTarget>;
-                _followerTargets = new List<(string ID, int Rank)>(followerData.Count());
-                foreach (CustomTarget target in followerData)
-                {
-                    _followerTargets.Add((target.ID.ToString(), target.Rank));
-                    IDtoNames.Add(target.ID.ToString(), target.Name);
-                }
-            }
-            catch (Exception e)
-            {
-                Plugin.Log.Error("Followers failed to load!");
-                if (e is JsonSerializationException)
-                {
-                    Plugin.Log.Error($"The {HelpfulPaths.TARGET_DATA} file has bad json data in it. Deleting it.");
-                    File.Delete(HelpfulPaths.TARGET_DATA);
-                }
-                Plugin.Log.Error(e);
-            }
+            _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
 
-        _customTargets:
-            List<CustomTarget> cts = PC.CustomTargets;
-            _customTargets = new List<(string ID, int Rank)>(cts.Count);
-            List<(int RepIndex, CustomTarget NewCustomTarget)> toReplace = [];
-            List<int> toRemove = [];
-            for (int i = 0; i < cts.Count; i++)
+            _taskRunner = taskRunner ?? throw new ArgumentNullException(nameof(taskRunner));
+        }
+
+        public event Action? Initialized;
+
+        public event Action? TargetListReloaded;
+
+        public bool IsInitialized
+        {
+            get
             {
-                CustomTarget ct = cts[i];
-                string playerName = ct.Name;
-                if (UsedIDs.Contains(ct.ID))
+                lock (_stateLock)
+                    return _target is not null;
+            }
+        }
+
+        public TargeterInfo Target
+        {
+            get
+            {
+                lock (_stateLock)
                 {
-                    if (showWarnings) Plugin.Log.Warn($"There is a duplicate id \"{ct.ID}\" inside your custom targets list.");
-                    toRemove.Add(i);
-                    continue;
+                    return _target ?? throw new InvalidOperationException("Targeter has not completed initialization.");
                 }
-                UsedIDs.Add(ct.ID);
-                if (IDtoNames.TryAdd(ct.ID.ToString(), playerName))
+            }
+        }
+
+        public Task InitializationTask
+        {
+            get
+            {
+                lock (_stateLock)
                 {
-                    if (ct.Rank > 0 || ct.Rank == -2)
-                        _customTargets.Add((ct.ID.ToString(), ct.Rank));
-                    else
+                    if (!_initializationStarted)
                     {
-                        (bool success, HttpContent content) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.BLAPI_USERID, ct.ID), BLAPI.Throttle);
-                        if (success)
-                        {
-                            JToken profileData = JToken.Parse(await content.ReadAsStringAsync().ConfigureAwait(false));
-                            ct = new CustomTarget(ct.Name, ct.ID, (int)profileData["rank"]);
-                            _customTargets.Add((ct.ID.ToString(), ct.Rank));
-                            toReplace.Add((i, ct));
-                        }
-                        else _customTargets.Add((ct.ID.ToString(), -2));
+                        throw new InvalidOperationException("Targeter.Initialize has not been called.");
                     }
-                }
-            }
-            _customTargets.Sort((a, b) => a.Rank.CompareTo(b.Rank));
-            foreach (var (RepIndex, NewCustomTarget) in toReplace)
-                PC.CustomTargets[RepIndex] = NewCustomTarget;
-            for (int i = toRemove.Count - 1; i >= 0; i--)
-                PC.CustomTargets.RemoveRange(toRemove[i], 1);
-            PC.CustomTargets.Sort((a, b) => a.Rank.CompareTo(b.Rank));
 
-            if (!IDtoNames.TryGetValue(PC.TargetID.ToString(), out string val) || !val.Equals(PC.Target))
-            {
-                if (PC.TargetID > -1)
-                    AddTarget(await CustomTarget.ConvertToId(PC.TargetID));
-                else
-                    PC.Target = NO_TARGET;
-            }
-            SettingsHandler.Instance.SetSelectedTargetRelation();
-        }
-        internal static void ReloadCustomPlayers()
-        {
-            List<CustomTarget> temp = PC.CustomTargets;
-            ReloadTargetList(ref temp, ref _customTargets);
-            foreach (CustomTarget t in temp)
-                UsedIDs.Add(t.ID);
-            PC.CustomTargets = temp;
-        }
-        internal static void ReloadFollowers()
-        {
-            foreach (var (ID, Rank) in _followerTargets)
-            {
-                UsedIDs.Remove(long.Parse(ID));
-                IDtoNames.Remove(ID);
-            }
-            LoadFollowers().GetAwaiter().GetResult();
-            List<CustomTarget> targets = [.. _followerTargets.Select(token => new CustomTarget(IDtoNames[token.ID], long.Parse(token.ID), token.Rank))];
-            ReloadTargetList(ref targets, ref _followerTargets);
-        }
-        internal static void ReloadTargetList(ref List<CustomTarget> listVar, ref List<(string ID, int Rank)> displayListVar)
-        {
-            if (Monitor.TryEnter(CustomRefreshLock))
-            {
-                try
-                {
-                    (listVar, displayListVar) = ReloadTargetListInternal(listVar).GetAwaiter().GetResult();
-                    static IEnumerator WaitThenUpdate()
-                    {
-                        yield return new WaitForEndOfFrame();
-                        SettingsHandler.Instance.UpdateTargetLists();
-                    }
-                    WaitThenUpdate().AsTask(CoroutineHost.Instance).GetAwaiter().GetResult();
-                }
-                catch (Exception ex)
-                {
-                    Plugin.Log.Error("Error reloading custom players\n" + ex);
-                }
-                finally
-                {
-                    Monitor.Exit(CustomRefreshLock);
+                    return _initializationTask;
                 }
             }
-        } 
-        private static async Task<(List<CustomTarget>, List<(string ID, int Rank)>)> ReloadTargetListInternal(List<CustomTarget> list)
-        {
-            List<CustomTarget> outpList = new(list.Count);
-            List<(string ID, int Rank)> outpDisplayList;
-            foreach (CustomTarget ct in list)
-            {
-                var (Success, Content) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.BLAPI_USERID, ct.ID), BLAPI.Throttle);
-                if (!Success) continue;
-                string data = await Content.ReadAsStringAsync().ConfigureAwait(false);
-                if (data is null || data.Length == 0) continue;
-                JToken playerData = JToken.Parse(data);
-                outpList.Add(new CustomTarget(playerData["name"].ToString(), ct.ID, (int)playerData["rank"]));
-            }
-            outpList.Sort((a, b) => a.Rank.CompareTo(b.Rank));
-            outpDisplayList = [.. outpList.Select(token => (token.ID.ToString(), token.Rank))];
-            return (outpList, outpDisplayList);
         }
-        public static void AddTarget(string name, string id, int rank)
+
+        public void Initialize()
         {
-            IDtoNames[id] = name;
-            _customTargets.AddSorted((id, rank), (first, second) => first.Item2.CompareTo(second.Item2));
-            UsedIDs.Add(long.Parse(id));
-        }
-        public static void AddTarget(CustomTarget target) => AddTarget(target.Name, target.ID.ToString(), target.Rank);
-        public static void SetTarget(string name, long id)
-        {
-            PC.Target = name;
-            PC.TargetID = id;
-        }
-        public static void SetTarget(CustomTarget target) => SetTarget(target.Name, target.ID);
-        public static bool DeleteTarget(string id)
-        {
-            var element = _customTargets.FirstOrDefault(token => token.ID.Equals(id));
-            CustomTarget pcElement = PC.CustomTargets.FirstOrDefault(token => token.ID.ToString().Equals(id));
-            if (element == default || pcElement.CompareTo(default) == 0) return false;
-            _customTargets.Remove(element);
-            PC.CustomTargets.Remove(pcElement);
-            return true;
-        }
-        public static async Task<string> RequestClan(string playerID)
-        {
-            try
+            ThrowIfDisposed();
+
+            lock (_stateLock)
             {
-                (bool success, HttpContent data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.BLAPI_USERID, playerID), BLAPI.Throttle);
-                if (!success) return "";
-                JToken playerData = JToken.Parse(await data.ReadAsStringAsync().ConfigureAwait(false));
-                PlayerName = playerData["name"].ToString();
-                string clan = playerData["clanOrder"].ToString().Split(',')[0];
-                (success, data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.BLAPI_CLAN_PLAYERS, clan, MAX_LIST_LENGTH), BLAPI.Throttle);
-                if (!success) return "";
-                return await data.ReadAsStringAsync().ConfigureAwait(false);
+                if (_initializationStarted)
+                    return;
+
+                _initializationStarted = true;
+                _initializationTask = InitializeAsync(_lifetimeSource.Token);
             }
-            catch (HttpRequestException e)
-            {
-                Plugin.Log.Warn("There was an error when doing the API requests for clan data: " + e.Message);
-                Plugin.Log.Debug(e);
-            }
-            return "";
+
+            _taskRunner.Forget(_initializationTask, "Initialize target information");
         }
-        public static async Task<IEnumerable<CustomTarget>> RequestFollowers(string playerID)
+
+        public async Task WaitUntilInitializedAsync(CancellationToken cancellationToken = default)
         {
-            List<CustomTarget> outp = null;
-            try
+            Task initializationTask = InitializationTask;
+
+            if (!cancellationToken.CanBeCanceled)
             {
-                async Task<IEnumerable<CustomTarget>> PageHandler(string token) => 
-                    await Task.Run(() => 
-                JToken.Parse(token).Children().Select(t => new CustomTarget(t["name"].ToString(), (long)t["id"], -1)));
-                outp = [.. (await APIHandler.CalledPagedAPIFlat(MAX_LIST_LENGTH, (page, count) => string.Format(HelpfulPaths.BLAPI_FOLLOWERS, playerID, page, count), BLAPI.Throttle, PageHandler))];
-                if (PC.UseSteamFriends)
-                {
-                    IReadOnlyList<string> friends = await BS_Utils.Gameplay.GetUserInfo.GetPlatformUserModel().GetUserFriendsUserIds(false).ConfigureAwait(false);
-                    if (friends is not null)
-                        foreach (string id in friends)
-                        {
-                            if (outp.Any(token => token.ID.ToString().Equals(id))) continue;
-                            string str = await APIHandler.GetAPI(Leaderboards.Beatleader).CallAPI_String(string.Format(HelpfulPaths.BLAPI_USERID, id));
-                            if (str is null) continue;
-                            JToken player = JToken.Parse(str);
-                            if (((int)player["rank"]) == 0) continue;
-                            outp.Add(new CustomTarget(player["name"].ToString(), long.Parse(player["id"].ToString()), (int)player["rank"]));
-                            //Plugin.Log.Info("Added player id \"" + outp.Last() + '"');
-                        }
-                }
-                return outp;
-            }
-            catch (HttpRequestException e)
-            {
-                Plugin.Log.Warn("There was an error when doing the API requests for follower data: " + e.Message);
-                Plugin.Log.Debug(e);
-            }
-            return outp;
-        }
-        internal static void SaveAll()
-        {
-            IEnumerable<JToken> toSave = FollowerTargets.Where(token => token.Rank >= 0)
-                .Select(token => JToken.FromObject(new CustomTarget(IDtoNames[token.ID], long.Parse(token.ID), token.Rank)));
-            using StreamWriter sw = new(HelpfulPaths.TARGET_DATA);
-            JsonSerializer serializer = new();
-            serializer.Serialize(sw, toSave, typeof(CustomTarget));
-        }
-        private static async Task LoadFollowers()
-        {
-            IEnumerable<CustomTarget> data = null;
-            try
-            {
-                data = await RequestFollowers(PlayerID);
-            }
-            catch (Exception ex)
-            {
-                Plugin.Log.Error($"Error getting follower info: {ex}");
-            }
-            if (data is null)
-            {
-                _followerTargets = [];
+                await initializationTask.ConfigureAwait(false);
                 return;
             }
-            _followerTargets = new List<(string ID, int Rank)>(data.Count());
-            foreach (CustomTarget target in data)
+
+            TaskCompletionSource<object?> cancellationSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            using CancellationTokenRegistration registration = cancellationToken.Register(() =>
+                cancellationSource.TrySetCanceled(cancellationToken)
+            );
+
+            Task completedTask = await Task.WhenAny(initializationTask, cancellationSource.Task).ConfigureAwait(false);
+
+            await completedTask.ConfigureAwait(false);
+        }
+
+        public async Task ReloadCustomPlayersAsync(CancellationToken cancellationToken = default)
+        {
+            ThrowIfDisposed();
+
+            await WaitUntilInitializedAsync(cancellationToken).ConfigureAwait(false);
+
+            CustomTarget[] currentTargets = await _dispatcher
+                .InvokeAsync(() => _config.CustomTargets.ToArray(), cancellationToken)
+                .ConfigureAwait(false);
+
+            List<CustomTarget> refreshed = await ResolveTargetRanksAsync(
+                    currentTargets,
+                    preserveExistingOnFailure: true,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            await _dispatcher
+                .InvokeAsync(
+                    () =>
+                    {
+                        _config.CustomTargets = refreshed;
+                        PublishSnapshot();
+                        TargetListReloaded?.Invoke();
+                    },
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+        }
+
+        public async Task ReloadFollowersAsync(CancellationToken cancellationToken = default)
+        {
+            ThrowIfDisposed();
+
+            await WaitUntilInitializedAsync(cancellationToken).ConfigureAwait(false);
+
+            TargeterInfo current = Target;
+
+            bool useSteamFriends = await _dispatcher
+                .InvokeAsync(() => _config.UseSteamFriends, cancellationToken)
+                .ConfigureAwait(false);
+
+            List<CustomTarget>? followers = await FetchFollowersAsync(
+                    current.PlayerID,
+                    useSteamFriends,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            if (followers is null)
             {
-                if (UsedIDs.Contains(target.ID))
-                {
-                    if (PC.TargeterStartupWarnings) Plugin.Log.Warn($"There is a duplicate id \"{target.ID}\" inside your follower list.");
-                    continue;
-                }
-                else UsedIDs.Add(target.ID);
-                if (IDtoNames.TryAdd(target.ID.ToString(), target.Name))
-                    _followerTargets.Add((target.ID.ToString(), target.Rank));
+                Plugin.Log.Warn("Follower refresh failed; retaining the existing list.");
+
+                return;
+            }
+
+            await _dispatcher
+                .InvokeAsync(
+                    () =>
+                    {
+                        _followerSource.Clear();
+                        _followerSource.AddRange(followers);
+
+                        PublishSnapshot();
+                        TargetListReloaded?.Invoke();
+                    },
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+        }
+
+        public async Task SaveAllAsync(CancellationToken cancellationToken = default)
+        {
+            ThrowIfDisposed();
+
+            await WaitUntilInitializedAsync(cancellationToken).ConfigureAwait(false);
+
+            List<CustomTarget> followers = await _dispatcher
+                .InvokeAsync(CreateFollowerPersistenceSnapshot, cancellationToken)
+                .ConfigureAwait(false);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                string? directory = Path.GetDirectoryName(HelpfulPaths.TARGET_DATA);
+
+                if (!BetterString.IsNullOrWhiteSpace(directory))
+                    Directory.CreateDirectory(directory);
+
+                using StreamWriter writer = new(HelpfulPaths.TARGET_DATA);
+
+                JsonSerializer serializer = new();
+                serializer.Serialize(writer, followers);
+            }
+            catch (Exception exception)
+            {
+                Plugin.Log.Error($"Failed to save follower targets:\n{exception}");
             }
         }
-        /*private static void ResolveDupes<T>(Dictionary<string, T> dict, ref string name) 
+
+        public async Task AddTargetAsync(CustomTarget target, CancellationToken cancellationToken = default)
         {
-            if (dict.ContainsKey(name))
+            ThrowIfDisposed();
+
+            await WaitUntilInitializedAsync(cancellationToken).ConfigureAwait(false);
+
+            await _dispatcher
+                .InvokeAsync(
+                    () =>
+                    {
+                        int existingIndex = _config.CustomTargets.FindIndex(existing => existing.ID == target.ID);
+
+                        if (existingIndex >= 0)
+                            _config.CustomTargets[existingIndex] = target;
+                        else
+                            _config.CustomTargets.Add(target);
+
+                        SortTargets(_config.CustomTargets);
+
+                        PublishSnapshot();
+                        TargetListReloaded?.Invoke();
+                    },
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+        }
+
+        public Task AddTargetAsync(string name, string id, int rank, CancellationToken cancellationToken = default)
+        {
+            if (!long.TryParse(id, out long parsedId))
             {
-                name += " (2)";
-                int c = 3;
-                while (dict.ContainsKey(name))
-                    name = name.Substring(0, name.Length - 4 - (int)Math.Floor(Math.Log(c, 10))) + $" ({c++})";
+                throw new ArgumentException($"\"{id}\" is not a valid player ID.", nameof(id));
             }
-        }*/
+
+            return AddTargetAsync(new CustomTarget(name, parsedId, rank), cancellationToken);
+        }
+
+        public async Task<bool> DeleteTargetAsync(string id, CancellationToken cancellationToken = default)
+        {
+            ThrowIfDisposed();
+
+            await WaitUntilInitializedAsync(cancellationToken).ConfigureAwait(false);
+
+            if (!long.TryParse(id, out long parsedId))
+                return false;
+
+            return await _dispatcher
+                .InvokeAsync(
+                    () =>
+                    {
+                        int index = _config.CustomTargets.FindIndex(target => target.ID == parsedId);
+
+                        if (index < 0)
+                            return false;
+
+                        _config.CustomTargets.RemoveAt(index);
+
+                        if (_config.TargetID == parsedId)
+                            ResetTarget();
+
+                        PublishSnapshot();
+                        TargetListReloaded?.Invoke();
+
+                        return true;
+                    },
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+        }
+
+        public void SetTarget(string name, long id)
+        {
+            ThrowIfDisposed();
+            MainThreadDispatcher.AssertOnMainThread();
+
+            if (BetterString.IsNullOrWhiteSpace(name))
+            {
+                throw new ArgumentException("A target name is required.", nameof(name));
+            }
+
+            if (id <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(id), id, "A target ID must be positive.");
+            }
+
+            _config.Target = name;
+            _config.TargetID = id;
+
+            PublishSnapshot();
+        }
+
+        public void SetTarget(CustomTarget target)
+        {
+            SetTarget(target.Name, target.ID);
+        }
+
+        public void ResetTarget()
+        {
+            ThrowIfDisposed();
+            MainThreadDispatcher.AssertOnMainThread();
+
+            _config.Target = NO_TARGET;
+            _config.TargetID = -1;
+
+            PublishSnapshot();
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                return;
+
+            _lifetimeSource.Cancel();
+            _lifetimeSource.Dispose();
+        }
+
+        private async Task InitializeAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                string playerId = await GetCurrentPlayerIdAsync(cancellationToken).ConfigureAwait(false);
+
+                (string clanJson, string playerName) = await RequestClanAsync(playerId, cancellationToken)
+                    .ConfigureAwait(false);
+
+                List<CustomTarget> clanTargets = ParseClanTargets(clanJson);
+
+                List<CustomTarget>? cachedFollowers = TryLoadCachedFollowers();
+
+                bool useSteamFriends = await _dispatcher
+                    .InvokeAsync(() => _config.UseSteamFriends, cancellationToken)
+                    .ConfigureAwait(false);
+
+                List<CustomTarget> followers =
+                    cachedFollowers
+                    ?? await FetchFollowersAsync(playerId, useSteamFriends, cancellationToken).ConfigureAwait(false)
+                    ?? [];
+
+                CustomTarget[] configuredTargets = await _dispatcher
+                    .InvokeAsync(() => _config.CustomTargets.ToArray(), cancellationToken)
+                    .ConfigureAwait(false);
+
+                List<CustomTarget> customTargets = await ResolveTargetRanksAsync(
+                        configuredTargets,
+                        preserveExistingOnFailure: false,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
+
+                await _dispatcher
+                    .InvokeAsync(
+                        () =>
+                        {
+                            _clanSource.Clear();
+                            _clanSource.AddRange(clanTargets);
+
+                            _followerSource.Clear();
+                            _followerSource.AddRange(followers);
+
+                            _config.CustomTargets = customTargets;
+
+                            PublishSnapshot(playerId, playerName);
+
+                            Initialized?.Invoke();
+                        },
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
+
+                await EnsureConfiguredTargetExistsAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                Plugin.Log.Debug("Target initialization was cancelled.");
+
+                throw;
+            }
+            catch (Exception exception)
+            {
+                Plugin.Log.Error($"Failed to initialize Targeter:\n{exception}");
+
+                throw;
+            }
+        }
+
+        private async Task EnsureConfiguredTargetExistsAsync(CancellationToken cancellationToken)
+        {
+            (long Id, string Name) = await _dispatcher
+                .InvokeAsync(() => (_config.TargetID, _config.Target), cancellationToken)
+                .ConfigureAwait(false);
+
+            if (Id < 0)
+            {
+                await _dispatcher.InvokeAsync(ResetTarget, cancellationToken).ConfigureAwait(false);
+
+                return;
+            }
+
+            TargeterInfo current = Target;
+            string id = Id.ToString();
+
+            if (
+                current.IDtoNames.TryGetValue(id, out string? knownName)
+                && string.Equals(knownName, Name, StringComparison.Ordinal)
+            )
+            {
+                return;
+            }
+
+            CustomTarget? resolved = await ResolveTargetAsync(Id, cancellationToken).ConfigureAwait(false);
+
+            if (resolved is null)
+            {
+                Plugin.Log.Warn($"Could not resolve saved target ID " + $"\"{Id}\".");
+
+                await _dispatcher.InvokeAsync(ResetTarget, cancellationToken).ConfigureAwait(false);
+
+                return;
+            }
+
+            await AddTargetAsync(resolved.Value, cancellationToken).ConfigureAwait(false);
+
+            await _dispatcher.InvokeAsync(() => SetTarget(resolved.Value), cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task<CustomTarget?> ResolveTargetAsync(long id, CancellationToken cancellationToken)
+        {
+            string? json = await _beatLeaderApi
+                .CallAPI_String(
+                    string.Format(HelpfulPaths.BLAPI_USERID, id),
+                    quiet: true,
+                    maxRetries: 1,
+                    ct: cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            if (BetterString.IsNullOrWhiteSpace(json))
+                return null;
+
+            JToken player = JToken.Parse(json!);
+
+            long playerId = player.Value<long?>("id") ?? id;
+            int rank = player.Value<int?>("rank") ?? -1;
+            string name = player.Value<string>("name") ?? playerId.ToString();
+
+            return new CustomTarget(name, playerId, rank);
+        }
+
+        private async Task<List<CustomTarget>> ResolveTargetRanksAsync(
+            IEnumerable<CustomTarget> targets,
+            bool preserveExistingOnFailure,
+            CancellationToken cancellationToken
+        )
+        {
+            List<CustomTarget> resolved = [];
+
+            foreach (CustomTarget target in targets)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!preserveExistingOnFailure && target.Rank is > 0 or -2)
+                {
+                    resolved.Add(target);
+                    continue;
+                }
+
+                try
+                {
+                    CustomTarget? refreshed = await ResolveTargetAsync(target.ID, cancellationToken)
+                        .ConfigureAwait(false);
+
+                    if (refreshed is not null)
+                    {
+                        resolved.Add(refreshed.Value);
+                        continue;
+                    }
+
+                    resolved.Add(preserveExistingOnFailure ? target : new CustomTarget(target.Name, target.ID, -2));
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    Plugin.Log.Warn($"Could not refresh custom target " + $"\"{target.ID}\": {exception.Message}");
+
+                    resolved.Add(preserveExistingOnFailure ? target : new CustomTarget(target.Name, target.ID, -2));
+                }
+            }
+
+            SortTargets(resolved);
+            return resolved;
+        }
+
+        private async Task<List<CustomTarget>?> FetchFollowersAsync(
+            string playerId,
+            bool useSteamFriends,
+            CancellationToken cancellationToken
+        )
+        {
+            try
+            {
+                List<CustomTarget> followers = await RequestFollowersAsync(playerId, cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (useSteamFriends)
+                {
+                    IReadOnlyList<string> steamFriendIds = await GetSteamFriendIdsAsync(cancellationToken)
+                        .ConfigureAwait(false);
+
+                    HashSet<long> existingIds = [.. followers.Select(target => target.ID)];
+
+                    foreach (string id in steamFriendIds)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        if (!long.TryParse(id, out long parsedId) || existingIds.Contains(parsedId))
+                        {
+                            continue;
+                        }
+
+                        CustomTarget? target = await ResolveTargetAsync(parsedId, cancellationToken)
+                            .ConfigureAwait(false);
+
+                        if (target is null || target.Value.Rank == 0)
+                        {
+                            continue;
+                        }
+
+                        followers.Add(target.Value);
+                        existingIds.Add(parsedId);
+                    }
+                }
+
+                SortTargets(followers);
+                return followers;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                Plugin.Log.Error($"Failed to retrieve follower information:\n" + exception);
+
+                return null;
+            }
+        }
+
+        private async Task<List<CustomTarget>> RequestFollowersAsync(
+            string playerId,
+            CancellationToken cancellationToken
+        )
+        {
+            List<CustomTarget> followers = [];
+
+            int page = 1;
+
+            while (followers.Count < MAX_LIST_LENGTH)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                int remaining = MAX_LIST_LENGTH - followers.Count;
+
+                string? json = await _beatLeaderApi
+                    .CallAPI_String(
+                        string.Format(HelpfulPaths.BLAPI_FOLLOWERS, playerId, page, remaining),
+                        quiet: true,
+                        ct: cancellationToken
+                    )
+                    .ConfigureAwait(false);
+
+                if (BetterString.IsNullOrWhiteSpace(json))
+                    break;
+
+                JToken root = JToken.Parse(json!);
+                JToken? data = root["data"] ?? root;
+
+                List<CustomTarget> pageTargets =
+                [
+                    .. data.Children()
+                        .Select(player => new CustomTarget(
+                            player.Value<string>("name") ?? "Unknown",
+                            player.Value<long?>("id") ?? 0,
+                            player.Value<int?>("rank") ?? -1
+                        ))
+                        .Where(target => target.ID > 0),
+                ];
+
+                if (pageTargets.Count == 0)
+                    break;
+
+                followers.AddRange(pageTargets);
+                page++;
+            }
+
+            return [.. followers.GroupBy(target => target.ID).Select(group => group.First()).Take(MAX_LIST_LENGTH)];
+        }
+
+        private async Task<(string Data, string PlayerName)> RequestClanAsync(
+            string playerId,
+            CancellationToken cancellationToken
+        )
+        {
+            try
+            {
+                string? playerJson = await _beatLeaderApi
+                    .CallAPI_String(string.Format(HelpfulPaths.BLAPI_USERID, playerId), ct: cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (BetterString.IsNullOrWhiteSpace(playerJson))
+                    return ("", "");
+
+                JToken player = JToken.Parse(playerJson!);
+
+                string playerName = player.Value<string>("name") ?? "";
+
+                string? clan = player.Value<string>("clanOrder")?.Split(',').FirstOrDefault();
+
+                if (BetterString.IsNullOrWhiteSpace(clan))
+                    return ("", playerName);
+
+                string? clanJson = await _beatLeaderApi
+                    .CallAPI_String(
+                        string.Format(HelpfulPaths.BLAPI_CLAN_PLAYERS, clan, MAX_LIST_LENGTH),
+                        ct: cancellationToken
+                    )
+                    .ConfigureAwait(false);
+
+                return (clanJson ?? "", playerName);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                Plugin.Log.Warn("An error occurred while retrieving clan data: " + exception.Message);
+
+                Plugin.Log.Debug(exception);
+                return ("", "");
+            }
+        }
+
+        private async Task<IReadOnlyList<string>> GetSteamFriendIdsAsync(CancellationToken cancellationToken)
+        {
+            Task<IReadOnlyList<string>> operation = await _dispatcher
+                .InvokeAsync(
+                    () => BS_Utils.Gameplay.GetUserInfo.GetPlatformUserModel().GetUserFriendsUserIds(false),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            IReadOnlyList<string>? friends = await operation.ConfigureAwait(false);
+
+            return friends ?? [];
+        }
+
+        private async Task<string> GetCurrentPlayerIdAsync(CancellationToken cancellationToken)
+        {
+            Task<UserInfo> operation = await _dispatcher
+                .InvokeAsync(BS_Utils.Gameplay.GetUserInfo.GetUserAsync, cancellationToken)
+                .ConfigureAwait(false);
+
+            UserInfo user = await operation.ConfigureAwait(false);
+
+            if (BetterString.IsNullOrWhiteSpace(user.platformUserId))
+            {
+                throw new InvalidOperationException("The current platform user has no player ID.");
+            }
+
+            return user.platformUserId;
+        }
+
+        private static List<CustomTarget> ParseClanTargets(string clanJson)
+        {
+            if (BetterString.IsNullOrWhiteSpace(clanJson))
+                return [];
+
+            try
+            {
+                JToken root = JToken.Parse(clanJson);
+                JToken? data = root["data"] ?? root;
+
+                List<CustomTarget> targets =
+                [
+                    .. data.Children()
+                        .Select(player => new CustomTarget(
+                            player.Value<string>("name") ?? "Unknown",
+                            player.Value<long?>("id") ?? 0,
+                            player.Value<int?>("rank") ?? -1
+                        ))
+                        .Where(target => target.ID > 0),
+                ];
+
+                SortTargets(targets);
+                return targets;
+            }
+            catch (Exception exception)
+            {
+                Plugin.Log.Error($"Failed to parse clan target data:\n" + exception);
+
+                return [];
+            }
+        }
+
+        private List<CustomTarget>? TryLoadCachedFollowers()
+        {
+            if (!File.Exists(HelpfulPaths.TARGET_DATA))
+                return null;
+
+            try
+            {
+                using StreamReader reader = File.OpenText(HelpfulPaths.TARGET_DATA);
+
+                JsonSerializer serializer = new();
+
+                if (serializer.Deserialize(reader, typeof(List<CustomTarget>)) is not List<CustomTarget> targets)
+                {
+                    throw new JsonSerializationException("Follower cache deserialized as null.");
+                }
+
+                SortTargets(targets);
+                return targets;
+            }
+            catch (Exception exception)
+            {
+                Plugin.Log.Error("Failed to load cached follower targets.");
+
+                Plugin.Log.Error(exception);
+
+                if (exception is JsonSerializationException)
+                {
+                    Plugin.Log.Error($"Deleting malformed file " + $"\"{HelpfulPaths.TARGET_DATA}\".");
+
+                    File.Delete(HelpfulPaths.TARGET_DATA);
+                }
+
+                return null;
+            }
+        }
+
+        private List<CustomTarget> CreateFollowerPersistenceSnapshot()
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+            return
+            [
+                .. _followerSource
+                    .Where(target => target.Rank >= 0)
+                    .Select(target => new CustomTarget(target.Name, target.ID, target.Rank)),
+            ];
+        }
+
+        private void PublishSnapshot(string? playerId = null, string? playerName = null)
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+            TargeterInfo? previous;
+
+            lock (_stateLock)
+                previous = _target;
+
+            playerId ??= previous?.PlayerID ?? "";
+            playerName ??= previous?.PlayerName ?? "";
+
+            Dictionary<long, CustomTarget> uniqueTargets = [];
+
+            AddUniqueTargets(uniqueTargets, _clanSource);
+            AddUniqueTargets(uniqueTargets, _followerSource);
+            AddUniqueTargets(uniqueTargets, _config.CustomTargets);
+
+            Dictionary<string, string> idToNames = uniqueTargets.Values.ToDictionary(
+                target => target.ID.ToString(),
+                target => target.Name
+            );
+
+            HashSet<long> usedIds = [.. uniqueTargets.Keys];
+
+            TargetPair[] clanTargets = BuildTargetPairs(_clanSource);
+
+            TargetPair[] followerTargets = BuildTargetPairs(_followerSource);
+
+            TargetPair[] customTargets = BuildTargetPairs(_config.CustomTargets);
+
+            TargeterInfo snapshot = new(
+                playerId,
+                playerName,
+                _config.TargetID,
+                _config.Target,
+                clanTargets,
+                followerTargets,
+                customTargets,
+                usedIds,
+                new ReadOnlyDictionary<string, string>(idToNames)
+            );
+
+            lock (_stateLock)
+                _target = snapshot;
+        }
+
+        private static void AddUniqueTargets(
+            IDictionary<long, CustomTarget> destination,
+            IEnumerable<CustomTarget> targets
+        )
+        {
+            foreach (CustomTarget target in targets)
+            {
+                if (target.ID <= 0)
+                    continue;
+
+                destination[target.ID] = target;
+            }
+        }
+
+        private static TargetPair[] BuildTargetPairs(IEnumerable<CustomTarget> targets)
+        {
+            return
+            [
+                .. targets
+                    .Where(target => target.ID > 0)
+                    .GroupBy(target => target.ID)
+                    .Select(group => group.First())
+                    .OrderBy(target => target.Rank)
+                    .Select(target => new TargetPair(target.ID.ToString(), target.Rank)),
+            ];
+        }
+
+        private static void SortTargets(List<CustomTarget> targets)
+        {
+            targets.Sort((first, second) => first.Rank.CompareTo(second.Rank));
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                throw new ObjectDisposedException(nameof(Targeter));
+            }
+        }
     }
+
+    internal sealed class TargeterInfo
+    {
+        internal TargeterInfo(
+            string playerId,
+            string playerName,
+            long configuredTargetId,
+            string configuredTargetName,
+            IReadOnlyList<TargetPair> clanTargets,
+            IReadOnlyList<TargetPair> followerTargets,
+            IReadOnlyList<TargetPair> customTargets,
+            IReadOnlyCollection<long> usedIds,
+            IReadOnlyDictionary<string, string> idToNames
+        )
+        {
+            PlayerID = playerId;
+            PlayerName = playerName;
+            ConfiguredTargetID = configuredTargetId;
+            ConfiguredTargetName = configuredTargetName;
+            ClanTargets = clanTargets;
+            FollowerTargets = followerTargets;
+            CustomTargets = customTargets;
+            UsedIDs = usedIds;
+            IDtoNames = idToNames;
+        }
+
+        public string PlayerID { get; }
+
+        public string PlayerName { get; }
+
+        public long ConfiguredTargetID { get; }
+
+        public string ConfiguredTargetName { get; }
+
+        public IReadOnlyList<TargetPair> ClanTargets { get; }
+
+        public IReadOnlyList<TargetPair> FollowerTargets { get; }
+
+        public IReadOnlyList<TargetPair> CustomTargets { get; }
+
+        public IReadOnlyCollection<long> UsedIDs { get; }
+
+        public IReadOnlyDictionary<string, string> IDtoNames { get; }
+
+        public string TargetID => ConfiguredTargetID < 0 ? PlayerID : ConfiguredTargetID.ToString();
+
+        public string TargetName => ConfiguredTargetName == Targeter.NO_TARGET ? PlayerName : ConfiguredTargetName;
+    }
+
+    internal readonly record struct TargetPair(string Id, int Rank);
 }

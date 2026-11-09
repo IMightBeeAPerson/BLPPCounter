@@ -1,690 +1,775 @@
-﻿using BLPPCounter.CalculatorStuffs;
-using BLPPCounter.Helpfuls;
-using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils.API_Handlers;
-using BLPPCounter.Utils.Enums;
-using BLPPCounter.Utils.Map_Utils;
-using BLPPCounter.Utils.Misc_Classes;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
-using TMPro;
-using UnityEngine;
+using BLPPCounter.Helpfuls;
+using BLPPCounter.Settings.Configs;
+using BLPPCounter.Utils.Enums;
 
 namespace BLPPCounter.Utils.Profile_Utils
 {
-    internal class Profile
+    internal sealed class Profile
     {
-        #region Static Variables
-        public static readonly string DEFAULT_MODE = "Standard";
-        private static readonly float[] AccsaberConsts;
-        private static readonly Dictionary<string, Profile> LoadedProfiles = [];
-        internal static TextMeshProUGUI TextContainer 
+        public const string DEFAULT_MODE = "Standard";
+        public const int PLAYS_TO_SHOW = 10;
+
+        private static readonly float[] AccSaberConstants = CreateAccSaberConstants();
+
+        private readonly object _stateLock = new();
+        private readonly PluginConfig _config;
+        private readonly ISessionFactory _sessionFactory;
+
+        private List<Play> _scores;
+        private float[] _weightedScores;
+        private float _totalPp;
+        private float _plusOne;
+        private int _pageNumber = 1;
+
+        internal Profile(
+            ProfileKey key,
+            IEnumerable<Play> scores,
+            float totalPp,
+            PluginConfig config,
+            ISessionFactory sessionFactory
+        )
         {
-            private get => textContainer;
-            set
+            Key = key;
+
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+
+            _sessionFactory = sessionFactory ?? throw new ArgumentNullException(nameof(sessionFactory));
+
+            _scores =
+            [
+                .. (scores ?? throw new ArgumentNullException(nameof(scores)))
+                    .OrderByDescending(play => play.Pp)
+                    .Take(GetPlusOneCount(key.Leaderboard)),
+            ];
+
+            _totalPp = totalPp;
+            _weightedScores = CreateWeightedScores(_scores);
+
+            _plusOne = CalculatePlusOneInternal();
+
+            CurrentSession = _sessionFactory.Create(key.Leaderboard, key.UserId, totalPp);
+        }
+
+        public event Action? Changed;
+
+        public ProfileKey Key { get; }
+
+        public Leaderboards Leaderboard => Key.Leaderboard;
+
+        public string UserId => Key.UserId;
+
+        public APCategory AccSaberCategory => Key.AccSaberCategory;
+
+        public bool IsAccSaberOverall => Leaderboard == Leaderboards.Accsaber && AccSaberCategory == APCategory.All;
+
+        public Session CurrentSession { get; private set; }
+
+        public float TotalPp
+        {
+            get
             {
-                bool doUpdate = textContainer is null;
-                textContainer = value;
-                if (doUpdate)
-                    foreach (Profile profile in LoadedProfiles.Values)
-                        profile.InitTable();
+                lock (_stateLock)
+                    return _totalPp;
             }
         }
-        private static TextMeshProUGUI textContainer = null;
-        private static bool Deserializing = false;
-        #endregion
-        #region Variables
-        [JsonIgnore] private const int PlaysToShow = 10;
-        [JsonIgnore] private string ID => GetID(Leaderboard, UserID, AccSaberType);
-        [JsonIgnore] private bool IsAP => Leaderboard == Leaderboards.Accsaber && AccSaberType == APCategory.All;
 
-        [JsonIgnore] private BeatmapDifficulty[] ActualScoreDiffs;
-        [JsonIgnore] private APCategory[] ActualAPCategories;
-        [JsonIgnore] private float[] WeightedScores;
-        [JsonIgnore] private HashSet<int> UnusualModeIndexes;
-
-        [JsonProperty(nameof(Leaderboard), Required = Required.DisallowNull)] private readonly Leaderboards Leaderboard;
-        [JsonProperty(nameof(AccSaberType), Required = Required.DisallowNull)] private readonly APCategory AccSaberType;
-        [JsonProperty(nameof(Scores), Required = Required.DisallowNull)] private float[] Scores;
-        [JsonProperty(nameof(ScoreNames), Required = Required.DisallowNull)] private string[] ScoreNames;
-        [JsonProperty(nameof(ScoreDiffs), Required = Required.DisallowNull)] private ulong[] ScoreDiffs;
-        [JsonProperty(nameof(ScoreIDs), Required = Required.DisallowNull)] private string[] ScoreIDs;
-        [JsonProperty(nameof(Ranks), Required = Required.DisallowNull)] private uint[] Ranks;
-        [JsonProperty(nameof(APCategories), Required = Required.AllowNull)] private ulong[] APCategories;
-        [JsonProperty(nameof(UnusualModes), Required = Required.DisallowNull)] private List<(int Index, string Mode)> UnusualModes; //Defaults to "Standard" if not in this list.
-        [JsonProperty(nameof(TotalPP), Required = Required.DisallowNull)] private float TotalPP = -1.0f;
-        [JsonProperty(nameof(UserID), Required = Required.DisallowNull)] private readonly string UserID;
-        [JsonProperty(nameof(PlusOne), Required = Required.DisallowNull)] public float PlusOne { get; private set; } = -1.0f;
-
-        [JsonIgnore] public Table PlayTable { get; private set; }
-        [JsonIgnore] private int PageNumber;
-        [JsonIgnore] public Session CurrentSession { get; private set; }
-        #endregion
-        #region Init
-        static Profile()
+        public float PlusOne
         {
-            const float y1 = 0.1f, x1 = 15, k = 0.4f;
-            AccsaberConsts = new float[4];
-            AccsaberConsts[0] = -Mathf.Log((1 - y1) / (y1 * Mathf.Exp(k * x1) - 1)) / k; //x0, equal to about 9.44418879333
-            AccsaberConsts[1] = 1 + Mathf.Exp(-k * AccsaberConsts[0]); //the base exponental decay function, equal to about 1.02287580408
-            AccsaberConsts[2] = 1 / AccsaberConsts[1] * (Mathf.Exp(k) - 1); //A number to go to the next weight without big exponents, equal to about 0.480825429323
-            AccsaberConsts[3] = 1 / AccsaberConsts[1] * (Mathf.Exp(-k) - 1); //Same function as the last number, just to go to the previous weight. Equal to about -0.322306923919
-        }
-        [JsonConstructor]
-        public Profile(Leaderboards leaderboard, string userID, APCategory accSaberType)
-        {
-            Leaderboard = leaderboard;
-            UserID = userID;
-            AccSaberType = accSaberType;
-            PageNumber = 1;
-            InitScores();
-        }
-        public Profile(Leaderboards leaderboard, string userID) : this(leaderboard, userID, leaderboard == Leaderboards.Accsaber ? APCategory.All : APCategory.None)
-        { }
-        private void InitScores()
-        {
-            if (Deserializing) return;
-            if (TotalPP < 0)
+            get
             {
-                APIHandler api = APIHandler.GetAPI(Leaderboard);
-                bool usingAP = Leaderboard == Leaderboards.Accsaber && AccSaberType != APCategory.All;
-                Play[] scoreData = (usingAP ?
-                    (api as APAPI).GetScores(UserID, GetPlusOneCount(), AccSaberType) : api.GetScores(UserID, GetPlusOneCount()))?
-                    .GetAwaiter().GetResult();
-                UnusualModeIndexes = [];
-                UnusualModes = [];
-                if (scoreData is null)
+                lock (_stateLock)
+                    return _plusOne;
+            }
+        }
+
+        public int ScoreCount
+        {
+            get
+            {
+                lock (_stateLock)
+                    return _scores.Count;
+            }
+        }
+
+        public int PageNumber
+        {
+            get
+            {
+                lock (_stateLock)
+                    return _pageNumber;
+            }
+        }
+
+        public string PpLabel => Leaderboard == Leaderboards.Accsaber ? "AP" : "PP";
+
+        public Play[] GetScoresSnapshot()
+        {
+            lock (_stateLock)
+                return [.. _scores];
+        }
+
+        public ProfileSnapshot GetSnapshot()
+        {
+            lock (_stateLock)
+            {
+                return new ProfileSnapshot(Key, _totalPp, _plusOne, _pageNumber, _scores.ToArray());
+            }
+        }
+
+        public Play[] GetCurrentPageSnapshot()
+        {
+            lock (_stateLock)
+            {
+                ClampPageNumber();
+
+                int start = (_pageNumber - 1) * PLAYS_TO_SHOW;
+
+                if (start >= _scores.Count)
+                    return [];
+
+                return [.. _scores.Skip(start).Take(PLAYS_TO_SHOW)];
+            }
+        }
+
+        public void PageUp()
+        {
+            lock (_stateLock)
+            {
+                _pageNumber--;
+                ClampPageNumber();
+            }
+
+            NotifyChanged();
+        }
+
+        public void PageDown()
+        {
+            lock (_stateLock)
+            {
+                _pageNumber++;
+                ClampPageNumber();
+            }
+
+            NotifyChanged();
+        }
+
+        public void PageTop()
+        {
+            lock (_stateLock)
+                _pageNumber = 1;
+
+            NotifyChanged();
+        }
+
+        public float GetWeightedPp(float rawPp)
+        {
+            lock (_stateLock)
+            {
+                if (float.IsNaN(rawPp))
+                    return -1f;
+
+                if (_scores.Count > 0 && _scores[^1].Pp > rawPp)
                 {
-                    float[] value = [0.0f];
-                    Scores = value;
-                    ScoreNames = ["No Scores"];
-                    ActualScoreDiffs = [BeatmapDifficulty.Normal];
-                    ScoreDiffs = [1UL];
-                    ScoreIDs = ["12345"];
-                    Ranks = [0U];
-                    ActualAPCategories = null;
+                    return -1f;
+                }
+
+                int index = FindInsertionIndex(rawPp);
+
+                return Round(GetWeight(index + 1) * rawPp);
+            }
+        }
+
+        public float GetProfilePp(float weightedPp)
+        {
+            lock (_stateLock)
+            {
+                int index = FindWeightedInsertionIndex(weightedPp);
+
+                return GetProfilePpInternal(weightedPp, index + 1);
+            }
+        }
+
+        public float GetProfilePpRaw(float rawPp)
+        {
+            lock (_stateLock)
+            {
+                if (float.IsNaN(rawPp))
+                    return -1f;
+
+                if (_scores.Count > 0 && _scores[^1].Pp > rawPp)
+                {
+                    return -1f;
+                }
+
+                int index = FindInsertionIndex(rawPp);
+                float weightedPp = GetWeight(index + 1) * rawPp;
+
+                return GetProfilePpInternal(weightedPp, index + 1);
+            }
+        }
+
+        public async Task<bool> AddPlayAsync(
+            float rawPp,
+            string mapName,
+            string hash,
+            string mapKey,
+            BeatmapDifficulty difficulty,
+            string mode,
+            APCategory accSaberCategory = APCategory.None,
+            bool addToSession = true,
+            CancellationToken cancellationToken = default
+        )
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (float.IsNaN(rawPp))
+                return false;
+
+            if (BetterString.IsNullOrWhiteSpace(mapName))
+            {
+                throw new ArgumentException("A map name is required.", nameof(mapName));
+            }
+
+            if (BetterString.IsNullOrWhiteSpace(hash))
+            {
+                throw new ArgumentException("A map hash is required.", nameof(hash));
+            }
+
+            if (BetterString.IsNullOrWhiteSpace(mapKey))
+            {
+                throw new ArgumentException("A map key is required.", nameof(mapKey));
+            }
+
+            mode = BetterString.IsNullOrWhiteSpace(mode) ? DEFAULT_MODE : mode;
+
+            float profilePpGained;
+            float oldPp;
+            Play insertedPlay;
+
+            lock (_stateLock)
+            {
+                int duplicateIndex = FindPlayIndex(mapKey, difficulty, mode);
+
+                if (duplicateIndex >= 0 && _scores[duplicateIndex].Pp >= rawPp)
+                {
+                    return false;
+                }
+
+                if (duplicateIndex < 0 && _scores.Count >= GetPlusOneCount(Leaderboard) && _scores[^1].Pp > rawPp)
+                {
+                    return false;
+                }
+
+                oldPp = duplicateIndex >= 0 ? _scores[duplicateIndex].Pp : 0f;
+
+                if (duplicateIndex >= 0)
+                {
+                    float weightedBefore = _weightedScores.Sum();
+
+                    _scores.RemoveAt(duplicateIndex);
+
+                    _weightedScores = CreateWeightedScores(_scores);
+
+                    float weightedAfter = _weightedScores.Sum();
+
+                    _totalPp -= weightedBefore - weightedAfter;
+                }
+
+                int insertIndex = FindInsertionIndex(rawPp);
+
+                float weightedPp = GetWeight(insertIndex + 1) * rawPp;
+
+                profilePpGained = GetProfilePpInternal(weightedPp, insertIndex + 1);
+
+                if (profilePpGained > 0f)
+                    _totalPp += profilePpGained;
+
+                insertedPlay = new Play(
+                    mapName,
+                    mapKey,
+                    difficulty,
+                    mode,
+                    Round(rawPp),
+                    0,
+                    Round(profilePpGained),
+                    Round(oldPp)
+                )
+                {
+                    AccSaberCategory = accSaberCategory,
+                };
+
+                _scores.Insert(insertIndex, insertedPlay);
+
+                int maximumScores = GetPlusOneCount(Leaderboard);
+
+                if (_scores.Count > maximumScores)
+                {
+                    _scores.RemoveRange(maximumScores, _scores.Count - maximumScores);
+                }
+
+                _weightedScores = CreateWeightedScores(_scores);
+
+                _plusOne = CalculatePlusOneInternal();
+
+                ClampPageNumber();
+            }
+
+            NotifyChanged();
+
+            if (!addToSession)
+                return true;
+
+            uint rank = await CurrentSession
+                .AddPlayAsync(
+                    mapName,
+                    hash,
+                    mapKey,
+                    difficulty,
+                    mode,
+                    rawPp,
+                    0,
+                    profilePpGained,
+                    oldPp,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            if (rank == 0)
+                return true;
+
+            bool rankUpdated;
+
+            lock (_stateLock)
+            {
+                int playIndex = FindPlayIndex(mapKey, difficulty, mode);
+
+                rankUpdated = playIndex >= 0 && ApproximatelyEqual(_scores[playIndex].Pp, insertedPlay.Pp);
+
+                if (rankUpdated)
+                {
+                    Play updatedPlay = _scores[playIndex];
+
+                    updatedPlay.Rank = rank;
+
+                    _scores[playIndex] = updatedPlay;
+                }
+            }
+
+            if (rankUpdated)
+                NotifyChanged();
+
+            return true;
+        }
+
+        internal void ReplaceData(IEnumerable<Play> scores, float totalPp)
+        {
+            if (scores is null)
+            {
+                throw new ArgumentNullException(nameof(scores));
+            }
+
+            Session newSession;
+
+            lock (_stateLock)
+            {
+                _scores = [.. scores.OrderByDescending(play => play.Pp).Take(GetPlusOneCount(Leaderboard))];
+
+                _totalPp = totalPp;
+
+                _weightedScores = CreateWeightedScores(_scores);
+
+                _plusOne = CalculatePlusOneInternal();
+
+                _pageNumber = 1;
+
+                newSession = _sessionFactory.Create(Leaderboard, UserId, totalPp);
+
+                CurrentSession = newSession;
+            }
+
+            NotifyChanged();
+        }
+
+        internal ProfilePersistenceData CreatePersistenceData()
+        {
+            lock (_stateLock)
+            {
+                BeatmapDifficulty[] difficulties = [.. _scores.Select(play => play.Difficulty)];
+
+                APCategory[] categories = [.. _scores.Select(play => play.AccSaberCategory)];
+
+                List<ProfileUnusualModeData> unusualModes = [];
+
+                for (int index = 0; index < _scores.Count; index++)
+                {
+                    string mode = _scores[index].Mode;
+
+                    if (string.Equals(mode, DEFAULT_MODE, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    unusualModes.Add(new ProfileUnusualModeData(index, mode));
+                }
+
+                return new ProfilePersistenceData
+                {
+                    Leaderboard = Leaderboard,
+                    AccSaberType = AccSaberCategory,
+                    Scores = [.. _scores.Select(play => play.Pp)],
+                    ScoreNames = [.. _scores.Select(play => play.MapName)],
+                    ScoreDiffs = HelpfulMisc.CompressEnums(difficulties),
+                    ScoreIDs = [.. _scores.Select(play => play.MapKey)],
+                    Ranks = [.. _scores.Select(play => play.Rank)],
+                    APCategories = IsAccSaberOverall ? HelpfulMisc.CompressEnums(categories) : null,
+                    UnusualModes = unusualModes,
+                    TotalPP = _totalPp,
+                    UserID = UserId,
+                    PlusOne = _plusOne,
+                };
+            }
+        }
+
+        internal static Play[] CreatePlaysFromPersistenceData(ProfilePersistenceData data)
+        {
+            if (data is null)
+            {
+                throw new ArgumentNullException(nameof(data));
+            }
+
+            data.Validate();
+
+            BeatmapDifficulty[] difficulties = HelpfulMisc.UncompressEnums<BeatmapDifficulty>(data.ScoreDiffs);
+
+            APCategory[]? categories = null;
+
+            if (data.APCategories is not null && data.APCategories.Length > 0)
+            {
+                categories = HelpfulMisc.UncompressEnums<APCategory>(data.APCategories);
+            }
+
+            Dictionary<int, string> unusualModes = data.UnusualModes.ToDictionary(
+                value => value.Index,
+                value => value.Mode
+            );
+
+            Play[] plays = new Play[data.Scores.Length];
+
+            for (int index = 0; index < plays.Length; index++)
+            {
+                plays[index] = new Play(
+                    data.ScoreNames[index],
+                    data.ScoreIDs[index],
+                    difficulties[index],
+                    unusualModes.TryGetValue(index, out string? mode) ? mode : DEFAULT_MODE,
+                    data.Scores[index],
+                    data.Ranks[index]
+                )
+                {
+                    AccSaberCategory =
+                        categories is not null && index < categories.Length ? categories[index] : APCategory.None,
+                };
+            }
+
+            return plays;
+        }
+
+        internal static int GetPlusOneCount(Leaderboards leaderboard)
+        {
+            return leaderboard switch
+            {
+                Leaderboards.Beatleader or Leaderboards.Scoresaber or Leaderboards.Accsaber => 100,
+
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(leaderboard),
+                    leaderboard,
+                    "A supported leaderboard is required."
+                ),
+            };
+        }
+
+        private int FindPlayIndex(string mapKey, BeatmapDifficulty difficulty, string mode)
+        {
+            for (int index = 0; index < _scores.Count; index++)
+            {
+                Play play = _scores[index];
+
+                if (!string.Equals(play.MapKey, mapKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (play.Difficulty != difficulty)
+                    continue;
+
+                if (string.Equals(play.Mode, mode, StringComparison.Ordinal))
+                {
+                    return index;
+                }
+            }
+
+            return -1;
+        }
+
+        private int FindInsertionIndex(float rawPp)
+        {
+            int low = 0;
+            int high = _scores.Count;
+
+            while (low < high)
+            {
+                int middle = low + (high - low) / 2;
+
+                if (_scores[middle].Pp >= rawPp)
+                    low = middle + 1;
+                else
+                    high = middle;
+            }
+
+            return low;
+        }
+
+        private int FindWeightedInsertionIndex(float weightedPp)
+        {
+            int low = 0;
+            int high = _weightedScores.Length;
+
+            while (low < high)
+            {
+                int middle = low + (high - low) / 2;
+
+                if (_weightedScores[middle] >= weightedPp)
+                {
+                    low = middle + 1;
                 }
                 else
                 {
-                    Scores = new float[scoreData.Length];
-                    ScoreNames = new string[scoreData.Length];
-                    ActualScoreDiffs = new BeatmapDifficulty[scoreData.Length];
-                    ScoreIDs = new string[scoreData.Length];
-                    Ranks = new uint[scoreData.Length];
-                    if (IsAP) ActualAPCategories = new APCategory[scoreData.Length];
-                    else ActualAPCategories = null;
-                    for (int i = 0; i < scoreData.Length; i++)
-                    {
-                        Scores[i] = scoreData[i].Pp;
-                        ScoreNames[i] = scoreData[i].MapName;
-                        ActualScoreDiffs[i] = scoreData[i].Difficulty;
-                        ScoreIDs[i] = scoreData[i].MapKey;
-                        Ranks[i] = scoreData[i].Rank;
-                        if (IsAP) ActualAPCategories[i] = scoreData[i].AccSaberCategory;
-                        if (!scoreData[i].Mode.Equals(DEFAULT_MODE))
-                        {
-                            UnusualModes.Add((i, scoreData[i].Mode));
-                            UnusualModeIndexes.Add(i);
-                        }
-                    }
-                    ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
-                    if (IsAP) APCategories = HelpfulMisc.CompressEnums(ActualAPCategories);
+                    high = middle;
                 }
-                TotalPP = (usingAP ? (api as APAPI).GetProfilePP(UserID, AccSaberType) : api.GetProfilePP(UserID)).GetAwaiter().GetResult();
-                CurrentSession ??= new Session(Leaderboard, UserID, TotalPP);
-                InitTable();
             }
-            WeightScores();
-            if (PlusOne < 0)
-                PlusOne = CalculatePlusOne();
+
+            return low;
         }
-        private void PostInit()
+
+        private float[] CreateWeightedScores(IReadOnlyList<Play> scores)
         {
-            try
+            float[] weightedScores = new float[scores.Count];
+
+            float weight = GetWeight(1);
+
+            for (int index = 0; index < scores.Count; index++)
             {
-                if (Ranks.Length != Scores.Length) throw new Exception($"Ranks array length does not equal the Scores array length\nRanks length: {Ranks.Length} || Scores Length: {Scores.Length}");
-                ActualScoreDiffs = HelpfulMisc.UncompressEnums<BeatmapDifficulty>(ScoreDiffs);
-                if (ActualScoreDiffs.Length != Scores.Length) throw new Exception($"ScoreDiffs array length does not equal the Scores array length\nActualScoreDiffs length: {ActualScoreDiffs.Length} || Scores Length: {Scores.Length}");
-                if (UnusualModes is null) throw new Exception($"Modes are not found! (UnusualModes is null)");
-                UnusualModeIndexes = new HashSet<int>(UnusualModes.Count);
-                foreach ((int i, _) in UnusualModes)
-                    UnusualModeIndexes.Add(i);
-                if (APCategories is not null && APCategories.Length != 0)
-                    ActualAPCategories = HelpfulMisc.UncompressEnums<APCategory>(APCategories);
-                WeightScores();
-                CurrentSession ??= new Session(Leaderboard, UserID, TotalPP);
-                //CurrentSession.AddPlay(ScoreNames[0], ScoreIDs[0], ActualScoreDiffs[0], "Standard", Scores[0], 20f); //For debugging
+                weightedScores[index] = weight * scores[index].Pp;
+
+                weight = GetNextWeight(weight);
             }
-            catch (Exception e)
+
+            return weightedScores;
+        }
+
+        private float GetProfilePpInternal(float weightedPp, int scoreNumber, int ignoredScore = -1)
+        {
+            int index = scoreNumber - 1;
+
+            if (index < 0 || index >= _weightedScores.Length)
             {
-                Plugin.Log.Error(e);
-                Plugin.Log.Warn("Json file missing important data for loading, using APIs to load instead.");
-                Deserializing = false;
-                ReloadScores();
-                Deserializing = true;
+                return -1f;
             }
-        }
-        private void InitTable()
-        {
-            //Null check
-            if (TextContainer is null || PlayTable is not null) return;
 
-            //Label setup
-            string[] names = [ 
-                "<color=#FA0>Score #</color>",
-                "Beatmap Name",
-                "<color=#0F0>D</color><color=#CC0>i</color><color=#F70>f</color><color=#C16>f</color>",
-                $"<color=purple>{(IsAP ? "AP" : "PP")}</color>",
-                "<color=#4AF>Key</color>",
-                "<color=#FF0>Rank</color>"
-            ];
-            if (IsAP) names = [.. names, "<color=#777>Category</color>"];
+            float result;
 
-            //Value setup
-            string[][] values = GetTableValues();
-
-            //PlayTable setup
-            PlayTable = new Table(TextContainer, values, names)
+            if (Leaderboard == Leaderboards.Accsaber)
             {
-                HasEndColumn = true
-            };
-        }
+                float offset = 0f;
+                float currentWeight = GetWeight(index + 2);
 
-        #endregion
-        #region Reload Functions
-        public void ReloadScores()
-        {
-            TotalPP = -1;
-            PlusOne = -1;
-            InitScores();
-            ReloadTableValues();
-        }
-        public void ReloadTableValues()
-        {
-            if (PlayTable is null) return;
-            PlayTable.SetValues(GetTableValues());
-        }
-        private string[][] GetTableValues()
-        {
-            //Plugin.Log.Info($"Null Checks: {HelpfulMisc.Print(new object[] { Scores is null, ScoreNames is null, ActualScoreDiffs is null, ScoreIDs is null, IsAP && ActualAPCategories is null })}");
-            //Page number clamping
-            if (PageNumber * PlaysToShow > Scores.Length) PageNumber = Scores.Length / PlaysToShow;
-            if (PageNumber <= 0) PageNumber = 1;
+                for (int currentIndex = index; currentIndex < _weightedScores.Length; currentIndex++)
+                {
+                    if (currentIndex != ignoredScore)
+                    {
+                        offset += _weightedScores[currentIndex] - _scores[currentIndex].Pp * currentWeight;
+                    }
 
-            //Value setup
-            string[][] values = new string[Math.Min(PlaysToShow, Scores.Length - (PageNumber - 1) * PlaysToShow)][];
-            for (int i = 0, j = (PageNumber - 1) * PlaysToShow; i < values.Length; i++, j++)
-            {
-                values[i] = [
-                $"<color=#FA0>#{j + 1}</color>",
-                ScoreNames[j].ClampString(40),
-                ColorizeDiff(ActualScoreDiffs[j]),
-                $"<color=purple>{Math.Round(Scores[j], PluginConfig.Instance.DecimalPrecision)}</color> {(IsAP ? "AP" : "PP")}",
-                $"<color=#4AF>{ScoreIDs[j]}</color>",
-                $"{HelpfulFormatter.GetWeightedRankColor(Ranks[j])}#{Ranks[j]}</color>"
-                ];
-                if (IsAP) values[i] = [.. values[i], $"<color=#CCC>{ActualAPCategories[j]}</color>"];
+                    currentWeight = GetNextWeight(currentWeight);
+                }
+
+                result = Round(weightedPp - offset);
             }
-            return values;
-        }
-        #endregion
-        #region Static Functions
-        private static string ColorizeDiff(BeatmapDifficulty diff) => diff switch
-            {
-                BeatmapDifficulty.Easy => "<color=#0F0>Easy</color>",
-                BeatmapDifficulty.Normal => "<color=#CC0>Normal</color>",
-                BeatmapDifficulty.Hard => "<color=#F70>Hard</color>",
-                BeatmapDifficulty.Expert => "<color=#C16>Expert</color>",
-                BeatmapDifficulty.ExpertPlus => "<color=#F0F>Expert+</color>",
-                _ => null,
-            };
-        internal static int GetPlusOneCount(Leaderboards leaderboard) => leaderboard switch
-            {
-                Leaderboards.Beatleader or Leaderboards.Scoresaber or Leaderboards.Accsaber => 100,
-                _ => 0,
-            };
-
-        /// <summary>
-        /// Saves the given <paramref name="profile"/> to the <see cref="LoadedProfiles"/> dictionary.
-        /// </summary>
-        /// <param name="profile">The <see cref="Profile"/> to save.</param>
-        public static void SaveProfile(Profile profile)
-        {
-            if (LoadedProfiles.ContainsKey(profile.ID))
-                LoadedProfiles[profile.ID] = profile;
             else
-                LoadedProfiles.Add(profile.ID, profile);
+            {
+                float weightedSum = _totalPp;
+
+                for (int currentIndex = 0; currentIndex < index; currentIndex++)
+                {
+                    weightedSum -= _weightedScores[currentIndex];
+                }
+
+                result = Round(weightedPp - (1f - GetWeight(2)) * weightedSum);
+            }
+
+            return result < 0f ? 0f : result;
         }
-        /// <summary>
-        /// Saves all profiles loaded in the <see cref="LoadedProfiles"/> dictionary to the file at the path <see cref="HelpfulPaths.PROFILE_DATA"/>.
-        /// </summary>
-        internal static void SaveAllProfiles()
+
+        private float CalculatePlusOneInternal()
         {
-            if (LoadedProfiles.Count == 0) return;
-            IEnumerable<JToken> data = LoadedProfiles.Select(p => JToken.FromObject(p.Value));
-            using StreamWriter sw = new(HelpfulPaths.PROFILE_DATA);
-            JsonSerializer serializer = new();
-            serializer.Serialize(sw, data, typeof(Profile));
+            if (_scores.Count == 0)
+                return 1f;
+
+            if (Leaderboard == Leaderboards.Accsaber)
+            {
+                return CalculateAccSaberPlusOne();
+            }
+
+            int index = 0;
+            float shiftWeight = 1f - GetWeight(2);
+
+            float weightedSum = _totalPp;
+
+            while (index < _weightedScores.Length && _weightedScores[index] - shiftWeight * weightedSum >= 1f)
+            {
+                weightedSum -= _weightedScores[index];
+
+                index++;
+            }
+
+            if (index >= _weightedScores.Length)
+            {
+                return 0f;
+            }
+
+            return Round((1f + shiftWeight * weightedSum) / GetWeight(index + 1));
         }
-        /// <summary>
-        /// Loads all profiles from the file at the path <see cref="HelpfulPaths.PROFILE_DATA"/> and saves it to the dictionary <see cref="LoadedProfiles"/>.
-        /// </summary>
-        internal static void LoadAllProfiles()
+
+        private float CalculateAccSaberPlusOne()
         {
-            if (!File.Exists(HelpfulPaths.PROFILE_DATA)) return;
-            Task.Run(() =>
+            if (_scores.Count == 0)
+                return 1f;
+
+            float savedTotal = _weightedScores.Sum();
+
+            float totalOffset =
+                (_totalPp - savedTotal) * (GetWeight(_scores.Count) * _scores[0].Pp * 100f > 1f ? GetWeight(2) : 0f);
+
+            float currentWeight = GetWeight(_scores.Count + 1);
+
+            int index = _scores.Count - 1;
+
+            for (; index > 0; index--)
+            {
+                totalOffset += _weightedScores[index] - _scores[index].Pp * currentWeight;
+
+                currentWeight = GetPreviousWeight(currentWeight);
+
+                if (_scores[index - 1].Pp * currentWeight - totalOffset >= 1f)
+                {
+                    break;
+                }
+            }
+
+            return Round((1f + totalOffset) / currentWeight);
+        }
+
+        private float GetWeight(int scoreNumber)
+        {
+            int index = scoreNumber - 1;
+
+            return Leaderboard switch
+            {
+                Leaderboards.Beatleader or Leaderboards.Scoresaber => (float)Math.Pow(0.965d, index),
+
+                Leaderboards.Accsaber => AccSaberConstants[1]
+                    / (1f + (float)Math.Exp(0.4d * (index - AccSaberConstants[0]))),
+
+                _ => 1f,
+            };
+        }
+
+        private float GetNextWeight(float lastWeight)
+        {
+            return Leaderboard switch
+            {
+                Leaderboards.Beatleader or Leaderboards.Scoresaber => lastWeight * 0.965f,
+
+                Leaderboards.Accsaber => 1f / (1.49182469764f / lastWeight - AccSaberConstants[2]),
+
+                _ => lastWeight,
+            };
+        }
+
+        private float GetPreviousWeight(float lastWeight)
+        {
+            return Leaderboard switch
+            {
+                Leaderboards.Beatleader or Leaderboards.Scoresaber => lastWeight / 0.965f,
+
+                Leaderboards.Accsaber => 1f / (1f / (1.49182469764f * lastWeight) - AccSaberConstants[3]),
+
+                _ => lastWeight,
+            };
+        }
+
+        private void ClampPageNumber()
+        {
+            int maximumPage = Math.Max(1, (_scores.Count + PLAYS_TO_SHOW - 1) / PLAYS_TO_SHOW);
+
+            if (_pageNumber < 1)
+                _pageNumber = 1;
+            else if (_pageNumber > maximumPage)
+                _pageNumber = maximumPage;
+        }
+
+        private float Round(float value)
+        {
+            return (float)Math.Round(value, _config.DecimalPrecision);
+        }
+
+        private void NotifyChanged()
+        {
+            Action? handler = Changed;
+
+            if (handler is null)
+                return;
+
+            foreach (Action subscriber in handler.GetInvocationList())
             {
                 try
                 {
-                    Deserializing = true;
-                    JsonSerializer serializer = new();
-                    IEnumerable<Profile> profiles;
-                    using (StreamReader reader = File.OpenText(HelpfulPaths.PROFILE_DATA))
-                        profiles = serializer.Deserialize(reader, typeof(IEnumerable<Profile>)) as IEnumerable<Profile>;
-                    foreach (Profile profile in profiles)
-                    {
-                        profile.PostInit();
-                        LoadedProfiles.Add(profile.ID, profile);
-                    }
+                    subscriber();
                 }
-                catch (Exception e)
+                catch (Exception exception)
                 {
-                    Plugin.Log.Error("Profiles failed to load!");
-                    if (e is JsonSerializationException)
-                    {
-                        Plugin.Log.Error($"The {HelpfulPaths.PROFILE_DATA} file has bad json data in it. Deleting it.");
-                        File.Delete(HelpfulPaths.PROFILE_DATA);
-                    }
-                    Plugin.Log.Error(e);
+                    Plugin.Log.Error("A profile change subscriber failed:\n" + exception);
                 }
-                finally
-                {
-                    Deserializing = false;
-                }
-            });
-            //Plugin.Log.Info("Profiles have been loaded.");
-        }
-        /// <summary>
-        /// Gets a profile using the given <paramref name="leaderboard"/> and <paramref name="userID"/> from the <see cref="LoadedProfiles"/> dictionary.
-        /// If the <see cref="Profile"/> is not found in the dictionary, then this function will create a new one, add it to the dictionary, and return it.
-        /// </summary>
-        /// <param name="leaderboard">The leaderboard to use.</param>
-        /// <param name="userID">The user ID (Steam ID) to use.</param>
-        /// <returns>The <see cref="Profile"/> either from the <see cref="LoadedProfiles"/> dictionary or newly made. This will never return null.</returns>
-        public static Profile GetProfile(Leaderboards leaderboard, string userID, APCategory accSaberType = APCategory.None)
-        {
-            if (LoadedProfiles.TryGetValue(GetID(leaderboard, userID, accSaberType), out Profile profile))
-                return profile;
-            else
-            {
-                profile = leaderboard == Leaderboards.Accsaber ? new Profile(leaderboard, userID, accSaberType) : new Profile(leaderboard, userID);
-                SaveProfile(profile);
-                return profile;
             }
         }
-        /// <summary>
-        /// Attempts to get a <see cref="Profile"/> using the given <paramref name="leaderboard"/> and <paramref name="userID"/>.
-        /// </summary>
-        /// <param name="leaderboard">The leaderboard to use.</param>
-        /// <param name="userID">The user ID (Steam ID) to use.</param>
-        /// <returns>Either the <see cref="Profile"/> from the dictionary or, if it is not found, null.</returns>
-        public static Profile TryGetProfile(Leaderboards leaderboard, string userID, APCategory accSaberType = APCategory.None) => 
-            LoadedProfiles.ContainsKey(GetID(leaderboard, userID, accSaberType)) ? LoadedProfiles[GetID(leaderboard, userID, accSaberType)] : null;
-        /// <summary>
-        /// Converts a given <paramref name="leaderboard"/> and <paramref name="userID"/> into an ID string used as the key in the <see cref="LoadedProfiles"/> dictionary.
-        /// There may also be an <paramref name="accSaberType"/> given when the <paramref name="leaderboard"/> is <see cref="Leaderboards.Accsaber"/>.
-        /// </summary>
-        /// <param name="leaderboard">The leaderboard to use.</param>
-        /// <param name="userID">The user ID (Steam ID) to use.</param>
-        /// <param name="accSaberType">The type of accSaber plays to track.</param>
-        /// <returns>A string containing the <paramref name="userID"/> and <paramref name="leaderboard"/> (leaderboard as an int).
-        /// If <paramref name="accSaberType"/> is given, then there is also a third int representing the <paramref name="accSaberType"/>.</returns>
-        public static string GetID(Leaderboards leaderboard, string userID, APCategory accSaberType = APCategory.None) => 
-            $"{userID}_{(int)leaderboard}{(accSaberType != APCategory.None ? "_" + (int)accSaberType : "")}";
-        /// <summary>
-        /// Adds a given play to all leaderboards that the play is ranked on.
-        /// </summary>
-        /// <param name="userID">The player who set the score.</param>
-        /// <param name="hash">The hash of the map the score was set on.</param>
-        /// <param name="acc">The accuracy the player set for the score.</param>
-        /// <param name="mapName">The name of the map the score was set on.</param>
-        /// <param name="mapDiff">The difficulty of the map that the score was set on.</param>
-        /// <param name="mode">The mode of the play (BeatmapCharacteristic). Defaults to <see cref="DEFAULT_MODE"/> if none is given.</param>
-        /// <returns>Whether or not the score was good enough to enter any leaderboard's <see cref="Scores"/> array.</returns>
-        public static async Task<bool> AddPlay(string userID, string hash, float acc, string mapName, BeatmapDifficulty mapDiff, string mode = "")
-        {
-            if (mode.Length == 0) mode = DEFAULT_MODE;
-            int currentNum = 1;
-            Leaderboards current;
-            (Leaderboards allowed, string mapKey) = await APIHandler.GetRankedLeaderboardsAndMapKey(hash, mapDiff, mode);
-            if (allowed == Leaderboards.None) return false;
-            int leaderCount = (int)Math.Log((int)Leaderboards.All + 1, 2);
-            string currentMode;
-            GameplayModifiers mods = TheCounter.LastMods;
-            bool goodScore = false;
-            for (int i = 0; i < leaderCount; i++)
-            {
-                current = (Leaderboards)currentNum;
-                //Plugin.Log.Info($"Allowed: {allowed} || Current: {current}");
-                if ((allowed & current) != Leaderboards.None)
-                {
-                    try
-                    {
-                        currentMode = TheCounter.SelectMode(mode, current);
-                        Calculator calc = Calculator.GetCalc(current);
-                        float[] ratings = calc.SelectRatings(TheCounter.GetDifficulty(await TheCounter.GetMap(hash, currentMode, current), mapDiff, current, currentMode, mods, true));
-                        float pp = calc.Inflate(calc.GetSummedPp(acc, ratings));
-                        if (current != Leaderboards.Accsaber)
-                            goodScore |= GetProfile(current, userID).AddPlay(pp, mapName, hash, mapKey, mapDiff, mode);
-                        else
-                        {
-                            //(_, HttpContent data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", Map.FromDiff(mapDiff)), SSAPI.Throttle);
-                            //(_, data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.APAPI_LEADERBOARDID, JToken.Parse(await data.ReadAsStringAsync())["id"].ToString()));
-                            //APCategory accSaberCategory = (APCategory)Enum.Parse(typeof(APCategory), JToken.Parse(await data.ReadAsStringAsync())["categoryDisplayName"].ToString().Split(' ')[0]);
-                            
-                            Map m = await TheCounter.GetMap(hash, currentMode);
-                            APCategory accSaberCategory;
-                            if (m is not null)
-                            {
-                                JToken diffData = m.Get(Map.AP_MODE_NAME, mapDiff).Data, test = diffData["songCategory"];
-                                if (test is not null)
-                                    accSaberCategory = (APCategory)Math.Log((int)test & 0xE, 2);
-                                else 
-                                    accSaberCategory = (APCategory)Enum.Parse(typeof(APCategory), HelpfulPaths.ReloadedCategoryToCategoryId(diffData["categoryId"].ToString()));
-                            }
-                            else
-                            {
-                                JToken mapInfo = JToken.Parse(await (await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.APAPI_HASH_DIFF, hash,
-                                    HelpfulPaths.DiffNumToReloadedDiff(Map.FromDiff(mapDiff))), APAPI.Throttle)).Content.ReadAsStringAsync());
-                                accSaberCategory = (APCategory)Enum.Parse(typeof(APCategory), HelpfulPaths.ReloadedCategoryToCategoryId(mapInfo["difficulties"].Children().First()["categoryId"].ToString()));
-                            }
 
-                            goodScore |= GetProfile(current, userID, accSaberCategory).AddPlay(pp, mapName, hash, mapKey, mapDiff, mode);
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        Plugin.Log.Error($"There was an issue adding play for leaderboard {current}!\n{e}");
-                    }
-                }
-                currentNum <<= 1;
-            }
-            return goodScore;
-        }
-        #endregion
-        #region Misc Functions
-        public void PageUp()
+        private static bool ApproximatelyEqual(float left, float right)
         {
-            PageNumber--;
-            ReloadTableValues();
+            return Math.Abs(left - right) <= 0.0001f;
         }
-        public void PageDown()
-        {
-            PageNumber++;
-            ReloadTableValues();
-        }
-        public void PageTop()
-        {
-            PageNumber = 1;
-            ReloadTableValues();
-        }
-        private string GetMode(int index)
-        {
-            if (index < 0 || index > Scores.Length) throw new ArgumentOutOfRangeException("index");
-            if (!UnusualModeIndexes.Contains(index)) return DEFAULT_MODE;
-            var (Index, Mode) = UnusualModes.FirstOrDefault(vals => vals.Index >= index);
-            return Index == index ? Mode : null;
-        }
-        /// <summary>
-        /// Given the <paramref name="scoreNum"/> (NOT zero indexed, starts at 1), returns what weight that score will have.
-        /// </summary>
-        /// <param name="scoreNum">The number score to weight (NOT zero indexed, starts at 1).</param>
-        /// <returns>The weight for the given score index.</returns>
-        private float GetWeight(int scoreNum)
-        {
-            scoreNum--; //Makes it zero indexed.
-            switch (Leaderboard)
-            {
-                case Leaderboards.Beatleader:
-                case Leaderboards.Scoresaber:
-                    return Mathf.Pow(0.965f, scoreNum);
-                case Leaderboards.Accsaber:
-                    const float k = 0.4f;
-                    return AccsaberConsts[1] / (1 + Mathf.Exp(k * (scoreNum - AccsaberConsts[0])));
-                default:
-                    return 1;
-            }
-        }
-        /// <summary>
-        /// Given the weight of a score, this will find the weight of the next score (ex: Given the weight of score #5, it finds the weight for score #6).
-        /// </summary>
-        /// <param name="lastWeight">The weight of a score.</param>
-        /// <returns>The weight of a score directly after <paramref name="lastWeight"/>.</returns>
-        private float GetNextWeight(float lastWeight)
-        {
-            switch (Leaderboard)
-            {
-                case Leaderboards.Beatleader:
-                case Leaderboards.Scoresaber:
-                    return lastWeight * 0.965f;
-                case Leaderboards.Accsaber:
-                    const float e = 1.49182469764f; //e^k
-                    return 1 / (e / lastWeight - AccsaberConsts[2]);
-                default:
-                    return lastWeight;
-            }
-        }
-        /// <summary>
-        /// Given the weight of a score, this will find the weight of the previous score (ex: Given the weight of score #5, it will find the weight for score #4).
-        /// </summary>
-        /// <param name="lastWeight">The weight of the score.</param>
-        /// <returns>The weight directly before <paramref name="lastWeight"/>.</returns>
-        private float GetPreviousWeight(float lastWeight)
-        {
-            switch (Leaderboard)
-            {
-                case Leaderboards.Beatleader:
-                case Leaderboards.Scoresaber:
-                    return lastWeight / 0.965f;
-                case Leaderboards.Accsaber:
-                    const float e = 1.49182469764f; //e^k
-                    return 1 / (1 / (e * lastWeight) - AccsaberConsts[3]);
-                default:
-                    return lastWeight;
-            }
-        }
-        /// <summary>
-        /// Populates the <see cref="WeightedScores"/> array using the <see cref="Scores"/> array by weighting each value.
-        /// </summary>
-        private void WeightScores()
-        {
-            if (WeightedScores is null || WeightedScores.Length != Scores.Length) WeightedScores = new float[Scores.Length];
-            float weight = GetWeight(1);
-            for (int i = 0; i < WeightedScores.Length; i++)
-            {
-                WeightedScores[i] = weight * Scores[i];
-                weight = GetNextWeight(weight);
-            }
-            //Plugin.Log.Info($"Scores: {HelpfulMisc.Print(Scores)}\nWeighted Scores: {HelpfulMisc.Print(WeightedScores)}");
-        }
-        /// <summary>
-        /// Simple switch statement for how many scores to ask the API for so that we can accurately calculate <see cref="PlusOne"/>.
-        /// </summary>
-        /// <returns>The number of scores needed to calculate <see cref="PlusOne"/>.</returns>
-        private int GetPlusOneCount() => GetPlusOneCount(Leaderboard);
-        /// <summary>
-        /// Given <paramref name="rawPP"/>, finds what the weighted value is.
-        /// </summary>
-        /// <param name="rawPP">The raw pp value.</param>
-        /// <returns>Either the weighted value of <paramref name="rawPP"/>, or -1. This returns -1 when <paramref name="rawPP"/> is lower than the
-        /// lowest score in the <see cref="Scores"/> array.</returns>
-        public float GetWeightedPP(float rawPP)
-        {
-            if (Scores[Scores.Length - 1] > rawPP) return -1;
-            return (float)Math.Round(GetWeight(HelpfulMisc.ReverseBinarySearch(Scores, rawPP) + 1) * rawPP, PluginConfig.Instance.DecimalPrecision);
-        }
-        /// <summary>
-        /// Given <paramref name="weightedPP"/>, calculate how much pp this will gain to the profile of the player.
-        /// </summary>
-        /// <param name="weightedPP">The weighted pp value.</param>
-        /// <returns>The profile PP gained.</returns>
-        public float GetProfilePP(float weightedPP) => GetProfilePP(weightedPP, HelpfulMisc.ReverseBinarySearch(WeightedScores, weightedPP) + 1);
-        /// <summary>
-        /// Given <paramref name="rawPP"/>, calculate how much pp this will gain to the profile of the player.
-        /// </summary>
-        /// <param name="rawPP">The raw pp value.</param>
-        /// <returns>The profile PP gained.</returns>
-        public float GetProfilePPRaw(float rawPP) => GetProfilePP(GetWeightedPP(rawPP), HelpfulMisc.ReverseBinarySearch(Scores, rawPP) + 1);
-        /// <summary>
-        /// The main profile PP calculator function.
-        /// </summary>
-        /// <param name="pp">The weighted pp value.</param>
-        /// <param name="scores">The loaded weighted pp values in an array.</param>
-        /// <param name="index">The score number (NOT zero index, starts at 1).</param>
-        /// <returns>The profile pp gained from such a score.</returns>
-        private float GetProfilePP(float weightedPp, int index, int ignoredScore = -1)
-        {
-            float weightedSum = TotalPP;
-            if (index-- >= WeightedScores.Length)
-                return -1;
-            float outp;
-            if (Leaderboard == Leaderboards.Accsaber)
-            {//Gotta do things a bit different with accsaber due to the way they weight stuff
-                float offset = 0, currentWeight = GetWeight(index + 2);
-                for (; index < WeightedScores.Length; index++)
-                {
-                    if (index != ignoredScore)
-                        offset += WeightedScores[index] - Scores[index] * currentWeight;
-                    currentWeight = GetNextWeight(currentWeight);
-                }
-                outp = (float)Math.Round(weightedPp - offset, PluginConfig.Instance.DecimalPrecision);
-            }
-            else
-            {
-                for (int j = 0; j < index; weightedSum -= WeightedScores[j], j++) ;
-                outp = (float)Math.Round(weightedPp - (1.0f - GetWeight(2)) * weightedSum, PluginConfig.Instance.DecimalPrecision);
-            }
-            return outp < 0 ? 0 : outp;
-        }
-        /// <summary>
-        /// Calculates the plus one value using internal variables.
-        /// </summary>
-        /// <returns>What raw pp score is needed to gain one profile pp.</returns>
-        public float CalculatePlusOne()
-        {
-            if (Leaderboard == Leaderboards.Accsaber) return MyPlusOne();
-            int i = 0;
-            float shiftWeight = 1.0f - GetWeight(2);
-            float weightedSum = TotalPP;
-            for (; i < WeightedScores.Length && WeightedScores[i] - shiftWeight * weightedSum >= 1.0f; weightedSum -= WeightedScores[i], i++) ;
-            return i < WeightedScores.Length ?
-                (float)Math.Round((1 + shiftWeight * weightedSum) / GetWeight(i + 1), PluginConfig.Instance.DecimalPrecision) : 0;
-        }
-        public float MyPlusOne()
-        {
-            float savedTotal = WeightedScores.Aggregate(0.0f, (total, current) => total + current);
-            //I do a check below for if there is any significance to weights past the scores stored. If there is, account for it, otherwise pretend there isn't anything past what is stored. 
-            float totalOffset = (TotalPP - savedTotal) * (GetWeight(Scores.Length) * Scores[0] * 100 > 1 ? GetWeight(2) : 0);
-            //Plugin.Log.Info($"Given: {TotalPP} || Calculated: {savedTotal} || Start offset {totalOffset}");
-            float currentWeight = GetWeight(Scores.Length + 1);
-            int i = Scores.Length - 1;
-            for (; i > 0; i--)
-            {
-                totalOffset += WeightedScores[i] - Scores[i] * currentWeight;
-                currentWeight = GetPreviousWeight(currentWeight);
-                //Plugin.Log.Info($"#{i}: Testing: {Scores[i - 1] * currentWeight} || CurrentOffset: {totalOffset}");
-                if (Scores[i - 1] * currentWeight - totalOffset >= 1.0f) break;
-            }
-            //Plugin.Log.Info("Index: " + i);
-            return (float)Math.Round((1.0f + totalOffset) / currentWeight, PluginConfig.Instance.DecimalPrecision);
-        }
-        /// <summary>
-        /// Adds a play to the <see cref="Scores"/> array.
-        /// </summary>
-        /// <param name="rawPP">The raw pp value to add to this <see cref="Profile"/>.</param>
-        /// <param name="mapName">The name of the map this was set on.</param>
-        /// <param name="hash">The hash for the map this was set on.</param>
-        /// <param name="mapKey">The beatsaver key for the map.</param>
-        /// <param name="diff">The difficulty of the map that this score set on.</param>
-        /// <param name="mode">The BeatmapCharacteristic of the map.</param>
-        /// <returns>Returns whether or not the score was good enough to enter the <see cref="Scores"/> array.</returns>
-        public bool AddPlay(float rawPP, string mapName, string hash, string mapKey, BeatmapDifficulty diff, string mode, bool ignoreSession = false)
-        {
-            Plugin.Log.Info($"{Leaderboard}{(Leaderboard == Leaderboards.Accsaber ? $" ({AccSaberType})" : "")}: {HelpfulMisc.Print(new object[] { rawPP, mapName, diff })}");
-            if (float.IsNaN(rawPP) || Scores[Scores.Length - 1] > rawPP) return false;
-            //Plugin.Log.Debug($"Recieved score: " + rawPP);
-            //Plugin.Log.Debug("AddPlay Index: " +  index);
-            (bool isDupe, bool isBetter) = CheckForDupePlay(rawPP, mapKey, diff, mode, out int dupeIndex);
-            if (isDupe && !isBetter) return false;
 
-            if (isDupe)
-            {
-                float current = WeightedScores.Aggregate(0.0f, (total, current) => total + current);
-                HelpfulMisc.SiftUp(Scores, dupeIndex);
-                HelpfulMisc.SiftUp(ScoreNames, dupeIndex);
-                HelpfulMisc.SiftUp(ActualScoreDiffs, dupeIndex);
-                HelpfulMisc.SiftUp(ScoreIDs, dupeIndex);
-                HelpfulMisc.SiftUp(WeightedScores, dupeIndex);
-                HelpfulMisc.SiftUp(Ranks, dupeIndex);
-                WeightScores();
-                TotalPP -= current - WeightedScores.Aggregate(0.0f, (total, current) => total + current);
-            }
-
-            int index = HelpfulMisc.ReverseBinarySearch(Scores, rawPP);
-            if (index >= Scores.Length) return false;
-            float profilePP = GetProfilePP(GetWeightedPP(rawPP), index + 1);
-            float oldScore = ScoreIDs.IndexOf(mapKey);
-            oldScore = oldScore >= 0 ? Scores[(int)oldScore] : 0;
-            
-            if (profilePP > 0) TotalPP += profilePP;
-            if (!ignoreSession) Task.Run(() => AddSessionPlay(mapName, hash, mapKey, diff, mode, rawPP, profilePP, oldScore, index));
-
-            HelpfulMisc.SiftDown(Scores, index, rawPP);
-            HelpfulMisc.SiftDown(ScoreNames, index, mapName);
-            HelpfulMisc.SiftDown(ActualScoreDiffs, index, diff);
-            HelpfulMisc.SiftDown(ScoreIDs, index, mapKey);
-            HelpfulMisc.SiftDown(Ranks, index, 0u);
-            WeightScores();
-
-            PlusOne = CalculatePlusOne();
-            if (index != dupeIndex)
-                ScoreDiffs = HelpfulMisc.CompressEnums(ActualScoreDiffs);
-            if (Leaderboard == Leaderboards.Accsaber && AccSaberType != APCategory.All)
-            {
-                Profile p = GetProfile(Leaderboards.Accsaber, UserID, APCategory.All);
-                p.AddPlay(rawPP, mapName, hash, mapKey, diff, mode, true);
-                Task.Run(() => p.AddSessionPlay(mapName, hash, mapKey, diff, mode, rawPP, profilePP, oldScore, index));
-            }
-            ReloadTableValues();
-            return true;
-        }
-        private async Task AddSessionPlay(string mapName, string hash, string mapKey, BeatmapDifficulty diff, string mode, float rawPP, float profilePP, float oldScore, int index)
+        private static float[] CreateAccSaberConstants()
         {
-            uint rank = await CurrentSession.AddPlay(mapName, hash, mapKey, diff, mode, rawPP, 0, profilePP, oldScore);
-            Plugin.Log.Info($"Setting rank at index {index} to {rank}");
-            Ranks[index] = rank;
-            ReloadTableValues();
+            const double y1 = 0.1d;
+            const double x1 = 15d;
+            const double k = 0.4d;
+
+            float[] constants = new float[4];
+
+            constants[0] = (float)(-Math.Log((1d - y1) / (y1 * Math.Exp(k * x1) - 1d)) / k);
+
+            constants[1] = 1f + (float)Math.Exp(-k * constants[0]);
+
+            constants[2] = 1f / constants[1] * ((float)Math.Exp(k) - 1f);
+
+            constants[3] = 1f / constants[1] * ((float)Math.Exp(-k) - 1f);
+
+            return constants;
         }
-        private (bool IsDupe, bool IsBetter) CheckForDupePlay(float rawPP, string mapKey, BeatmapDifficulty diff, string mode, out int dupeIndex)
-        {
-            int index = Array.IndexOf(ScoreIDs, mapKey);
-            while (index >= 0 && index + 1 < ScoreIDs.Length)
-            {
-                //Plugin.Log.Info($"Checking index {index} ({mapKey})");
-                dupeIndex = index;
-                if (ActualScoreDiffs[index] == diff && mode.Equals(GetMode(index))) return (true, rawPP > Scores[index]);
-                index = Array.IndexOf(ScoreIDs, mapKey, index + 1);
-            }
-            dupeIndex = -1;
-            return (false, false);
-        }
-        #endregion
     }
 }

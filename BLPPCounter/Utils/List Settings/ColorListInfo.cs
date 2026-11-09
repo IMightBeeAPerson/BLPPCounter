@@ -1,58 +1,131 @@
-﻿using BeatSaberMarkupLanguage.Attributes;
+using System;
+using System.Reflection;
+using BeatSaberMarkupLanguage.Attributes;
 using BeatSaberMarkupLanguage.Components.Settings;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
-using System;
-using System.ComponentModel;
-using System.Reflection;
+using BLPPCounter.Utils.Safety;
+using UnityEngine;
+using Zenject;
 
 namespace BLPPCounter.Utils.List_Settings
 {
-    internal class ColorListInfo: INotifyPropertyChanged
-    {//Intentionally not importing color so that it stays clear which color struct I am using.
-#pragma warning disable IDE0044
-        private static PluginConfig PC => PluginConfig.Instance;
-        internal static Action UpdateSaveButton;
+    internal sealed class ColorListInfo : SafeNotifyPropertyChanged
+    {
+        private readonly PluginConfig _config;
+        private readonly PropertyInfo _property;
+        private readonly Action _changed;
 
-#pragma warning disable CS0649
-        [UIComponent(nameof(ColorBox))] private ColorSetting ColorBox;
-#pragma warning restore CS0649
-        [UIValue(nameof(ColorValue))] private UnityEngine.Color ColorValue
+        private Color _colorValue;
+        private Color _savedValue;
+
+        internal ColorListInfo(PluginConfig config, PropertyInfo property, Action changed)
         {
-            get => _ColorValue;
-            set { _ColorValue = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ColorValue))); }
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+
+            _property = property ?? throw new ArgumentNullException(nameof(property));
+
+            _changed = changed ?? throw new ArgumentNullException(nameof(changed));
+
+            if (_property.PropertyType != typeof(System.Drawing.Color))
+            {
+                throw new ArgumentException(
+                    $"{_property.Name} is not a " + $"{nameof(System.Drawing.Color)} property.",
+                    nameof(property)
+                );
+            }
+
+            if (!_property.CanRead || !_property.CanWrite)
+            {
+                throw new ArgumentException($"{_property.Name} must be readable and writable.", nameof(property));
+            }
+
+            System.Drawing.Color configuredColor =
+                (System.Drawing.Color?)_property.GetValue(_config)
+                ?? throw new InvalidOperationException($"{_property.Name} returned null.");
+
+            _colorValue = HelpfulMisc.ConvertColor(configuredColor);
+
+            _savedValue = _colorValue;
         }
-        private UnityEngine.Color _ColorValue;
-        [UIValue(nameof(ColorName))] private string ColorName;
-        [UIValue(nameof(AlphaValue))] private int AlphaValue
+
+        [UIComponent(nameof(ColorBox))]
+        private ColorSetting ColorBox = null!;
+
+        [UIValue(nameof(ColorName))]
+        private string ColorName => HelpfulMisc.SplitByUppercase(_property.Name);
+
+        [UIValue(nameof(ColorValue))]
+        private Color ColorValue
         {
-            get => (int)Math.Round(ColorValue.a * 255.0f);
-            set 
-            { 
-                _ColorValue.a = value / 255.0f; ColorBox.CurrentColor = _ColorValue;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AlphaValue)));
+            get => _colorValue;
+            set
+            {
+                if (_colorValue == value)
+                    return;
+
+                _colorValue = value;
+
+                NotifyPropertyChanged();
+                NotifyPropertyChanged(nameof(AlphaValue));
+
+                _changed();
             }
         }
-        public bool HasChanges => ColorValue != CurrentRefVal;
-        private readonly PropertyInfo pcVarRef;
-        private UnityEngine.Color CurrentRefVal;
 
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        internal ColorListInfo(PropertyInfo colorRef)
+        [UIValue(nameof(AlphaValue))]
+        private int AlphaValue
         {
-            pcVarRef = colorRef;
-            ColorName = HelpfulMisc.SplitByUppercase(colorRef.Name);
-            _ColorValue = HelpfulMisc.ConvertColor((System.Drawing.Color)colorRef.GetValue(PC));
-            CurrentRefVal = _ColorValue;
-            PropertyChanged += (a, b) => UpdateSaveButton.Invoke(); 
+            get => Mathf.RoundToInt(_colorValue.a * 255f);
+            set
+            {
+                float alpha = Mathf.Clamp(value, 0, 255) / 255f;
+
+                if (Mathf.Approximately(_colorValue.a, alpha))
+                {
+                    return;
+                }
+
+                _colorValue.a = alpha;
+
+                ColorBox?.CurrentColor = _colorValue;
+
+                NotifyPropertyChanged();
+                NotifyPropertyChanged(nameof(ColorValue));
+
+                _changed();
+            }
         }
 
-        internal void UpdateReferenceValue()
+        internal bool HasChanges => _colorValue != _savedValue;
+
+        internal void Save()
         {
-            if (CurrentRefVal == ColorValue) return;
-            pcVarRef.SetValue(PC, HelpfulMisc.ConvertColor(_ColorValue));
-            CurrentRefVal = _ColorValue;
+            if (!HasChanges)
+                return;
+
+            _property.SetValue(_config, HelpfulMisc.ConvertColor(_colorValue));
+
+            _savedValue = _colorValue;
+            _changed();
         }
+
+        internal void Reset()
+        {
+            if (!HasChanges)
+                return;
+
+            _colorValue = _savedValue;
+
+            ColorBox?.CurrentColor = _colorValue;
+
+            NotifyPropertyChanged(nameof(ColorValue));
+
+            NotifyPropertyChanged(nameof(AlphaValue));
+
+            _changed();
+        }
+
+        internal sealed class Factory : PlaceholderFactory<PropertyInfo, Action, ColorListInfo> { }
     }
 }

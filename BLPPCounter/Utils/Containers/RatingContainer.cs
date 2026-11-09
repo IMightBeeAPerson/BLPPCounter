@@ -1,6 +1,6 @@
-﻿using BLPPCounter.CalculatorStuffs;
-using BLPPCounter.Utils.Enums;
 using System;
+using BLPPCounter.CalculatorStuffs;
+using BLPPCounter.Utils.Enums;
 using UnityEngine;
 
 namespace BLPPCounter.Utils.Containers
@@ -11,10 +11,19 @@ namespace BLPPCounter.Utils.Containers
         public readonly float[] Ratings => GetRatings(TheCounter.Leaderboard);
         public float[] SelectedRatings { get; private set; }
 
-        private float StarRating, AccRating, PassRating, TechRating;
+        private float StarRating,
+            AccRating,
+            PassRating,
+            TechRating;
         private Leaderboards StarRatingLeader;
 
-        private RatingContainer(Leaderboards starRatingLeader, float starRating, float accRating = default, float passRating = default, float techRating = default)
+        private RatingContainer(
+            Leaderboards starRatingLeader,
+            float starRating,
+            float accRating = default,
+            float passRating = default,
+            float techRating = default
+        )
         {
             StarRatingLeader = starRatingLeader;
             StarRating = starRating;
@@ -32,8 +41,11 @@ namespace BLPPCounter.Utils.Containers
                 throw new ArgumentException("The given leaderboard is not valid for this container.");
             return Calculator.GetCalc(leaderboard).SelectRatings(StarRating, AccRating, PassRating, TechRating);
         }
+
         public void SetSelectedRatings(Leaderboards leaderboard) => SelectedRatings = GetRatings(leaderboard);
+
         public void SetSelectedRatings() => SelectedRatings = GetRatings(TheCounter.Leaderboard);
+
         public void MultiplyRatings(float multiplier)
         {
             StarRating *= multiplier;
@@ -41,7 +53,9 @@ namespace BLPPCounter.Utils.Containers
             PassRating *= multiplier;
             TechRating *= multiplier;
         }
+
         public readonly float[] GetAllRatings() => [StarRating, AccRating, PassRating, TechRating];
+
         /// <summary>
         /// Changes the ratings values of this container.
         /// </summary>
@@ -52,7 +66,7 @@ namespace BLPPCounter.Utils.Containers
         ///     <item>
         ///         <term><see cref="Leaderboards.Beatleader"/></term>
         ///         <description>
-        ///             Requires at least 3 ratings. 
+        ///             Requires at least 3 ratings.
         ///             If 3 ratings are given, it should be in the order accRating, passRating, techRating.
         ///             If 4 or more ratings are given, then only the first 4 will be used. They should be in the order of starRating, accRating, passRating, techRating.
         ///         </description>
@@ -79,8 +93,12 @@ namespace BLPPCounter.Utils.Containers
         /// <exception cref="ArgumentException">Thrown if the ratings given do not match the requirements for a given <paramref name="leaderboard"/>.</exception>
         public void SetRatings(Leaderboards leaderboard, params float[] ratings)
         {
-            if (ratings is null) throw new ArgumentNullException("ratings");
-            if (ratings.Length < 1) throw new ArgumentException("Invalid rating length given. There must be at least one rating given. If you wish to initialize an empty RatingContainer, use the default constructor.");
+            if (ratings is null)
+                throw new ArgumentNullException("ratings");
+            if (ratings.Length < 1)
+                throw new ArgumentException(
+                    "Invalid rating length given. There must be at least one rating given. If you wish to initialize an empty RatingContainer, use the default constructor."
+                );
             switch (leaderboard)
             {
                 case Leaderboards.Beatleader:
@@ -108,7 +126,9 @@ namespace BLPPCounter.Utils.Containers
                     throw new ArgumentException($"The leaderboard \"{leaderboard}\" is not valid for this function.");
             }
             if (ratings.Length < 4)
-                throw new ArgumentException($"Invalid rating length given. Expected >= 4, instead given {ratings.Length}.");
+                throw new ArgumentException(
+                    $"Invalid rating length given. Expected >= 4, instead given {ratings.Length}."
+                );
             StarRatingLeader = leaderboard;
             StarRating = ratings[0];
             AccRating = ratings[1];
@@ -116,10 +136,15 @@ namespace BLPPCounter.Utils.Containers
             TechRating = ratings[3];
             ValidLeaderboards = GetValidLeaderboards();
         }
+
         private readonly Leaderboards GetValidLeaderboards()
         {
             Leaderboards outp = StarRatingLeader;
-            if (!Mathf.Approximately(AccRating, default) && !Mathf.Approximately(PassRating, default) && !Mathf.Approximately(TechRating, default))
+            if (
+                !Mathf.Approximately(AccRating, default)
+                && !Mathf.Approximately(PassRating, default)
+                && !Mathf.Approximately(TechRating, default)
+            )
                 outp |= Leaderboards.Beatleader;
             return outp;
         }
@@ -134,7 +159,7 @@ namespace BLPPCounter.Utils.Containers
         ///     <item>
         ///         <term><see cref="Leaderboards.Beatleader"/></term>
         ///         <description>
-        ///             Requires at least 3 ratings. 
+        ///             Requires at least 3 ratings.
         ///             If 3 ratings are given, it should be in the order accRating, passRating, techRating.
         ///             If 4 or more ratings are given, then only the first 4 will be used. They should be in the order of starRating, accRating, passRating, techRating.
         ///         </description>
@@ -163,8 +188,12 @@ namespace BLPPCounter.Utils.Containers
         /// <exception cref="ArgumentNullException">Thrown if the ratings array given is null.</exception>
         public static RatingContainer GetContainer(Leaderboards leaderboard, params float[] ratings)
         {
-            if (ratings is null) throw new ArgumentNullException("ratings");
-            if (ratings.Length < 1) throw new ArgumentException("Invalid rating length given. There must be at least one rating given. If you wish to initialize an empty RatingContainer, use the default constructor.");
+            if (ratings is null)
+                throw new ArgumentNullException("ratings");
+            if (ratings.Length < 1)
+                throw new ArgumentException(
+                    "Invalid rating length given. There must be at least one rating given. If you wish to initialize an empty RatingContainer, use the default constructor."
+                );
             switch (leaderboard)
             {
                 case Leaderboards.Beatleader:
@@ -180,15 +209,28 @@ namespace BLPPCounter.Utils.Containers
                     break;
             }
             if (ratings.Length < 4)
-                throw new ArgumentException($"Invalid rating length given. Expected >= 4, instead given {ratings.Length}.");
+                throw new ArgumentException(
+                    $"Invalid rating length given. Expected >= 4, instead given {ratings.Length}."
+                );
             return new RatingContainer(leaderboard, ratings[0], ratings[1], ratings[2], ratings[3]);
         }
+
         #region Overrides
         public override readonly bool Equals(object obj) => obj is RatingContainer rc && Equals(rc);
-        public readonly bool Equals(RatingContainer other) => Mathf.Approximately(StarRating, other.StarRating) && Mathf.Approximately(AccRating, other.AccRating) && Mathf.Approximately(PassRating, other.PassRating) && Mathf.Approximately(TechRating, other.TechRating);
+
+        public readonly bool Equals(RatingContainer other) =>
+            Mathf.Approximately(StarRating, other.StarRating)
+            && Mathf.Approximately(AccRating, other.AccRating)
+            && Mathf.Approximately(PassRating, other.PassRating)
+            && Mathf.Approximately(TechRating, other.TechRating);
+
         public static bool operator ==(RatingContainer left, RatingContainer right) => left.Equals(right);
+
         public static bool operator !=(RatingContainer left, RatingContainer right) => !(left == right);
-        public override readonly string ToString() => $"StarRating: {StarRating}\nAccRating: {AccRating}\nPassRating: {PassRating}\nTechRating {TechRating}";
+
+        public override readonly string ToString() =>
+            $"StarRating: {StarRating}\nAccRating: {AccRating}\nPassRating: {PassRating}\nTechRating {TechRating}";
+
         public override readonly int GetHashCode()
         {
             return base.GetHashCode();

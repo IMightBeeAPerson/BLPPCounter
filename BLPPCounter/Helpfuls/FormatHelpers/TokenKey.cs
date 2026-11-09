@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace BLPPCounter.Helpfuls.FormatHelpers
 {
@@ -9,7 +9,10 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
         public override int GetHashCode()
         {
-            unchecked { return (Symbol * 397) ^ Priority; }
+            unchecked
+            {
+                return (Symbol * 397) ^ Priority;
+            }
         }
 
         public override bool Equals(object obj)
@@ -27,5 +30,4 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             return $"({Symbol}, {Priority})";
         }
     }
-
 }

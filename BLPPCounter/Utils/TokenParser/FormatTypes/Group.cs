@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace BLPPCounter.Utils.TokenParser.FormatTypes
@@ -11,6 +11,7 @@ namespace BLPPCounter.Utils.TokenParser.FormatTypes
         public void AddChunk(Chunk c) => Chunks.Add(c);
 
         public override string GetValue() => Combine(Chunks);
+
         public override bool Equals(object? obj)
         {
             if (obj is null || obj is not Group other || other.Symbol != Symbol || other.Chunks.Count != Chunks.Count)
@@ -20,10 +21,12 @@ namespace BLPPCounter.Utils.TokenParser.FormatTypes
                     return false;
             return true;
         }
+
         public override int GetHashCode() => Chunks.GetHashCode() + Symbol;
     }
 
     internal class Capture(char symbol, IEnumerable<Chunk> chunks) : Group((char)(symbol - '0'), chunks) { }
+
     internal class RichText(string richKey, string richVal, IEnumerable<Chunk> chunks) : Group('\0', chunks)
     {
         public string RichKey = richKey;
@@ -33,9 +36,12 @@ namespace BLPPCounter.Utils.TokenParser.FormatTypes
         {
             return $"<{RichKey}={RichVal}>{base.GetValue()}</{RichKey}>";
         }
+
         public string GetStart() => $"<{RichKey}={RichVal}>";
+
         public string GetEnd() => $"</{RichKey}>";
     }
+
     internal class GroupParameter(char symbol, Parameter param, Group info) : Group(symbol, info.Chunks)
     {
         public Parameter Param = param;

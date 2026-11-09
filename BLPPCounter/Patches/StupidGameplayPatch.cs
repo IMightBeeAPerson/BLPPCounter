@@ -1,4 +1,4 @@
-﻿using BeatSaberMarkupLanguage.GameplaySetup;
+using BeatSaberMarkupLanguage.GameplaySetup;
 using HarmonyLib;
 using JetBrains.Annotations;
 

@@ -1,24 +1,45 @@
-﻿using BeatSaberMarkupLanguage.Attributes;
+using System;
+using BeatSaberMarkupLanguage.Attributes;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Utils.Enums;
-using System;
+using Zenject;
 
 namespace BLPPCounter.Utils.List_Settings
 {
-    internal class LeaderboardListInfo(Leaderboards leaderboard)
+    internal sealed class LeaderboardListInfo
     {
+        private readonly LeaderboardSettingsHandler _handler;
+
+        public LeaderboardListInfo(Leaderboards leaderboard, LeaderboardSettingsHandler handler)
+        {
+            Leaderboard = leaderboard;
+
+            _handler = handler ?? throw new ArgumentNullException(nameof(handler));
+        }
+
         [UIValue(nameof(Leaderboard))]
         public string LeaderboardStr => Leaderboard.ToString();
-        public Leaderboards Leaderboard = leaderboard;
 
-        public LeaderboardListInfo(string leaderboard) : this((Leaderboards)Enum.Parse(typeof(Leaderboards), leaderboard))
-        { }
+        public Leaderboards Leaderboard { get; }
 
         [UIAction(nameof(RemoveLeaderboard))]
-        private void RemoveLeaderboard() => LeaderboardSettingsHandler.Instance.RemoveCell(Leaderboard);
+        private void RemoveLeaderboard()
+        {
+            _handler.RemoveCell(Leaderboard);
+        }
+
         [UIAction(nameof(SwapUp))]
-        private void SwapUp() => LeaderboardSettingsHandler.Instance.SwapUp(Leaderboard);
+        private void SwapUp()
+        {
+            _handler.SwapUp(Leaderboard);
+        }
+
         [UIAction(nameof(SwapDown))]
-        private void SwapDown() => LeaderboardSettingsHandler.Instance.SwapDown(Leaderboard);
+        private void SwapDown()
+        {
+            _handler.SwapDown(Leaderboard);
+        }
+
+        internal sealed class Factory : PlaceholderFactory<Leaderboards, LeaderboardListInfo> { }
     }
 }

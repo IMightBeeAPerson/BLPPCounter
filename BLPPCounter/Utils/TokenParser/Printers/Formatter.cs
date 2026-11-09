@@ -1,10 +1,10 @@
-﻿using BLPPCounter.Helpfuls;
-using BLPPCounter.Helpfuls.FormatHelpers;
-using BLPPCounter.Utils.TokenParser.FormatTypes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using BLPPCounter.Helpfuls;
+using BLPPCounter.Helpfuls.FormatHelpers;
+using BLPPCounter.Utils.TokenParser.FormatTypes;
 
 namespace BLPPCounter.Utils.TokenParser.Printers
 {
@@ -52,6 +52,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
             if (usedTokens.Contains('g'))
                 SurroundToken('g', "", "</color>");
         }
+
         private static void SetupInternal(IEnumerable<Chunk> givenChunks, HashSet<char> usedTokens)
         {
             foreach (Chunk c in givenChunks)
@@ -70,24 +71,30 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                 }
             }
         }
+
         public void PromiseValueForTokens(params char[] tokens) => PromiseValueForTokens((IEnumerable<char>)tokens);
+
         public void PromiseValueForTokens(IEnumerable<char> tokens)
         {
             foreach (char c in tokens)
                 promisedTokens.Add(c);
         }
+
         public void PromiseValueForAllTokens() => PromiseValueForTokens(tokenOrder.Where(t => t > FormatWrapper.SPLIT));
+
         public void FlagTokensForToString(params char[] tokens)
         {
             foreach (char c in tokens)
                 toStringTokens.Add(c);
         }
+
         public void SetTokenToConstantValue(char token, string value = "")
         {
             int offset = 0;
             SetTokenToConstantValue_Internal(token, value, chunks, ref offset);
             tokenOrder.Remove(token);
         }
+
         private void SetTokenToConstantValue_Internal(char token, string value, Chunk[] arr, ref int typesOffset)
         {
             for (int i = 0; i < arr.Length; i++)
@@ -109,13 +116,16 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                 }
             }
         }
+
         public void SurroundToken(char token, string start, string end) => SurroundTokens(start, end, token);
+
         public void SurroundTokens(string start, string end, params char[] tokens)
         {
-            var (startChunks, startPlaceholders) = QuickParse(start);
-            var (endChunks, endPlaceholders) = QuickParse(end);
+            (Chunk?[]? startChunks, int[]? startPlaceholders) = QuickParse(start);
+            (Chunk?[]? endChunks, int[]? endPlaceholders) = QuickParse(end);
             SurroundToken_Internal([.. tokens], startChunks, endChunks, startPlaceholders, endPlaceholders, ref chunks);
         }
+
         private static (Chunk?[] chunks, int[] placeholders) QuickParse(string s)
         {
             List<Chunk?> outp = [];
@@ -134,7 +144,15 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                 outp.Add(new Chunk(s));
             return ([.. outp], [.. placeholders]);
         }
-        private static void SurroundToken_Internal(HashSet<char> tokens, Chunk?[] start, Chunk?[] end, int[] startPlaceholders, int[] endPlaceholders, ref Chunk[] arr)
+
+        private static void SurroundToken_Internal(
+            HashSet<char> tokens,
+            Chunk?[] start,
+            Chunk?[] end,
+            int[] startPlaceholders,
+            int[] endPlaceholders,
+            ref Chunk[] arr
+        )
         {
             List<Chunk> outp = [];
             for (int i = 0; i < arr.Length; i++)
@@ -166,6 +184,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
             }
             arr = [.. outp];
         }
+
         public Printer GetOutput()
         {
             //Plugin.Log.Info($"chunks: {chunks.Print()}");
@@ -177,6 +196,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
             //Plugin.Log.Info($"Parameters: {parameters.Print()}");
             return new([.. outputChunks], [.. dependencies], tokenValues, [.. tokenOrder], [.. parameters]);
         }
+
         private void Parse(IEnumerable<Chunk> chunks)
         {
             int index;
@@ -190,7 +210,11 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                 if (c is Token)
                 {
                     index = tokenOrder.IndexOf(c.GetValue()[0]);
-                    sb.Append(toStringTokens.Contains(c.GetValue()[0]) ? $"{{{index}:{HelpfulFormatter.NUMBER_TOSTRING_FORMAT}}}" : $"{{{index}}}");
+                    sb.Append(
+                        toStringTokens.Contains(c.GetValue()[0])
+                            ? $"{{{index}:{HelpfulFormatter.NUMBER_TOSTRING_FORMAT}}}"
+                            : $"{{{index}}}"
+                    );
                     if (c is Parameter p)
                         parameters.Add((index, Tokens.PreparseParameter(p)));
                     continue;
@@ -223,6 +247,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
             if (sb.Length != 0)
                 AddChunk();
         }
+
         private void AddChunk()
         {
             if (sb.Length == 0)
@@ -231,6 +256,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
             dependencies.Add(currentDependency.Count > 0 ? [.. currentDependency] : [-1]);
             sb.Clear();
         }
+
         private void CombineChunks()
         {
             if (chunksCombined)
@@ -240,6 +266,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
             chunks = [.. combinedChunks];
             chunksCombined = true;
         }
+
         private void CombineChunks_Internal(List<Chunk> combinedChunks, Chunk[] arr)
         {
             Chunk? last = null;
@@ -253,7 +280,8 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                     continue;
                 }
             end:
-                if (last is not null) combinedChunks.Add(last);
+                if (last is not null)
+                    combinedChunks.Add(last);
                 if (arr[i] is Group g)
                 {
                     bool badGroup = promisedTokens.Contains(g.Symbol) || (g is not RichText && g.Symbol == '\0');
@@ -272,7 +300,8 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                 }
                 last = arr[i];
             }
-            if (last is not null) combinedChunks.Add(last);
+            if (last is not null)
+                combinedChunks.Add(last);
         }
     }
 }

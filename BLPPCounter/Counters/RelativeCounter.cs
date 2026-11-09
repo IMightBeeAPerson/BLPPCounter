@@ -1,492 +1,811 @@
-﻿using BeatLeader.Models.Replay;
-using BLPPCounter.CalculatorStuffs;
-using BLPPCounter.Helpfuls;
-using BLPPCounter.Helpfuls.FormatHelpers;
-using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils.Enums;
-using BLPPCounter.Utils.API_Handlers;
-using BLPPCounter.Utils.Misc_Classes;
-using BLPPCounter.Utils.Map_Utils;
-using BLPPCounter.Utils.Containers;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using TMPro;
-using BLPPCounter.Utils.TokenParser;
-using BLPPCounter.Utils.TokenParser.Printers;
+using BeatLeader.Models.Replay;
+using BLPPCounter.CalculatorStuffs;
+using BLPPCounter.Helpfuls;
+using BLPPCounter.Helpfuls.FormatHelpers;
+using BLPPCounter.Utils;
+using BLPPCounter.Utils.API_Handlers;
+using BLPPCounter.Utils.Containers;
+using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.LangAddons;
+using BLPPCounter.Utils.Map_Utils;
+using BLPPCounter.Utils.Misc_Classes;
+using BLPPCounter.Utils.Profile_Utils;
+using BLPPCounter.Utils.Safety;
+using Newtonsoft.Json.Linq;
+using Zenject;
+using static GameplayModifiers;
 
 namespace BLPPCounter.Counters
 {
-    public class RelativeCounter: MyCounters
+    public sealed class RelativeCounter : MyCounters
     {
-        #region Static Variables
-        public static int OrderNumber => 2;
-        public static string DisplayName => "Relative";
-        public static Leaderboards ValidLeaderboards => Leaderboards.All;
-        public static string DisplayHandler => DisplayName;
-        private static string format;
-        private static Formatter formatter;
-        private static Printer displayFormatter;
-        private static FormatWrapper displayWrapper;
-        private static PluginConfig PC => PluginConfig.Instance;
-        public static readonly Dictionary<string, char> FormatAlias = new()
-                {
-                    { "Acc Difference", 'd' },
-                    { "PP Difference", 'x' },
-                    { "PP", 'p' },
-                    { "Label", 'l' },
-                    { "FCPP Difference", 'y' },
-                    { "FCPP", 'o' },
-                    { "Accuracy", 'a' },
-                    { "Target", 't' },
-                    { "Mistakes", 'e' },
-                    { "Mistake Color", 'z' }
-                };
-        internal static readonly FormatRelation DefaultFormatRelation = new("Main Format", DisplayName,
-            PC.FormatSettings.RelativeTextFormat, str => PC.FormatSettings.RelativeTextFormat = str, FormatAlias,
-            new Dictionary<char, string>()
-            {
-                { 'd', "This will show the difference in percentage at the current moment between you and the replay you're comparing against" },
-                { 'x', "The unmodified PP number" },
-                { 'p', "The modified PP number (plus/minus value)" },
-                { 'l', "Must use as a group value, and will color everything inside group" },
-                { 'y', "The modified PP number if the map was FC'ed" },
-                { 'o', "The unmodified PP number if the map was FC'ed" },
-                { 'a', "The label (ex: PP, Tech PP, etc)" },
-                { 't', "The amount of mistakes made in the map. This includes bomb and wall hits" },
-                { 'e', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" },
-                { 'z', "Color for mistakes compared to your replay mistakes" }
-            }, FormatRelation.FormatDisplayer(SetupDefaultFormatter, FormatAlias),
-            new FormatWrapper(new Dictionary<char, object>()
-            {
-                {(char)1, true },
-                {(char)2, true },
-                {'e', 1 },
-                {'d', 0.1f },
-                {'x', -30.5f },
-                {'p', 543.21f },
-                {'y', 21.21f },
-                {'o', 654.32f },
-                {'a', 99.54f },
-                {'l', "PP" },
-                {'t', "Person" },
-                {'z', "yellow" }
-            }), Tokens.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(2)
-            {
-                {'a', 0 },
-                {'t', 1 }
-            },
-            [
-                FormatRelation.CreateFunc("{0}%", "{0}"),
-                FormatRelation.CreateFunc("Targeting <color=red>{0}</color>")
-            ],
-            new Dictionary<char, IEnumerable<(string, object)>>(6)
-            { //default values: IsInteger = false, MinVal = -1.0f, MaxVal = -1.0f, IncrementVal = -1.0f
-                { 'd', new (string, object)[3] { ("MinVal", 0), ("MaxVal", 50), ("IncrementVal", 1.5f), } },
-                { 'x', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 10), } },
-                { 'p', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } },
-                { 'y', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 10), } },
-                { 'o', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } },
-                { 'a', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 100), ("IncrementVal", 0.5f), } }
-            },
-            [
-                ((char)1, "Has a miss"),
-                ((char)2, "Is bottom of text")
-            ]
-            );
-        private static Task<bool> SetupTask = new(() => true);
-        private static bool displayPP;
-
-        #endregion
         #region Variables
+        public static int OrderNumber => 2;
+
+        public static string DisplayName => "Relative";
+
+        public static Leaderboards ValidLeaderboards => Leaderboards.All;
+
+        public static string DisplayHandler => DisplayName;
+
+        private BLAPI _beatLeaderApi = null!;
+        private ILeaderboardApiProvider _apiProvider = null!;
+        private ITargeter _targeter = null!;
+        private IRelativeCounterFormattingService _formatting = null!;
+        private IMainCounterFormattingService _mainFormatting = null!;
+        private IBackgroundTaskRunner _taskRunner = null!;
+        private PathUtils _pathUtils = null!;
+        private BLCalc _beatLeaderCalculator = null!;
+        private ILocalReplayService _localReplayService = null!;
+
+        private Task<bool> _setupTask = Task.FromResult(false);
+
+        private float _accuracyToBeat;
+        private float _staticAccuracyToBeat;
+        private PPContainer _replayPpValues;
+        private RatingContainer _replayRatings;
+
+        private float _replayScore;
+        private float _maximumReplayScore;
+
+        private int _replayCombo;
+        private int _bombs;
+        private int _replayMistakes;
+        private int _catchUpNotes;
+
+        private Replay? _bestReplay;
+        private NoteEvent[]? _noteArray;
+        private Queue<WallEvent>? _wallArray;
+
+        private bool _useReplay;
+        private bool _caughtUp;
+        private bool _usingModifiedAccuracy;
+
+        private string _mistakeColor = "";
+
         public override string Name => DisplayName;
+
         public string ReplayMods { get; private set; } = "";
 
-        private float accToBeat, staticAccToBeat;
-        private PPContainer replayPPVals;
-        private RatingContainer replayRatings;
-        private float replayScore, maxReplayScore;
-        private int replayCombo;
-        private Replay bestReplay;
-        private NoteEvent[] noteArray;
-        private Queue<WallEvent> wallArray;
-        private int bombs, replayMistakes;
-        private bool useReplay;
-        private bool caughtUp, usingModdedAcc;
-        private int catchUpNotes;
-        private string missColor;
         #endregion
         #region Init
-        public RelativeCounter(TMP_Text display, MapSelection map, CancellationToken ct) : base(display, map, ct)
-        {
-            useReplay = PC.UseReplay;
-            //Plugin.Log.Info("useReplay = " + useReplay.ToString());
-            ResetVars();
-        }
-        private async Task<JToken> SetupReplayData(MapSelection map, CancellationToken ct = default)
-        {
-            string mode = calc.Leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard";
-            byte[] replayData = null;
-            JToken data = null;
 
-            if (PC.LocalReplays) {
+        [Inject]
+        private void ConstructRelativeCounter(
+            BLAPI beatLeaderApi,
+            ILeaderboardApiProvider apiProvider,
+            ITargeter targeter,
+            IRelativeCounterFormattingService formatting,
+            IMainCounterFormattingService mainFormatting,
+            IBackgroundTaskRunner taskRunner,
+            PathUtils pathUtils,
+            BLCalc beatLeaderCalculator,
+            ILocalReplayService localReplayService
+        )
+        {
+            _beatLeaderApi = beatLeaderApi ?? throw new ArgumentNullException(nameof(beatLeaderApi));
+
+            _apiProvider = apiProvider ?? throw new ArgumentNullException(nameof(apiProvider));
+
+            _targeter = targeter ?? throw new ArgumentNullException(nameof(targeter));
+
+            _formatting = formatting ?? throw new ArgumentNullException(nameof(formatting));
+
+            _mainFormatting = mainFormatting ?? throw new ArgumentNullException(nameof(mainFormatting));
+
+            _taskRunner = taskRunner ?? throw new ArgumentNullException(nameof(taskRunner));
+
+            _pathUtils = pathUtils ?? throw new ArgumentNullException(nameof(pathUtils));
+
+            _beatLeaderCalculator =
+                beatLeaderCalculator ?? throw new ArgumentNullException(nameof(beatLeaderCalculator));
+
+            _localReplayService = localReplayService ?? throw new ArgumentNullException(nameof(localReplayService));
+        }
+
+        public RelativeCounter()
+        {
+            ResetReplayState();
+        }
+
+        private async Task<JToken?> SetupReplayDataAsync(MapSelection map, CancellationToken cancellationToken)
+        {
+            string mode = CurrentLeaderboard == Leaderboards.Beatleader ? map.Mode : Profile.DEFAULT_MODE;
+
+            byte[]? replayData = null;
+            JToken? scoreData = null;
+
+            if (pc.LocalReplays)
+            {
                 try
                 {
-                    string replayName = LocalReplayHandler.GetReplayName(Targeter.TargetID, map.Map.Hash, mode, map.Difficulty.ToString());
-                    if (replayName is not null)
+                    string? replayName = await _localReplayService
+                        .GetReplayNameAsync(
+                            _targeter.Target.TargetID,
+                            map.Hash,
+                            mode,
+                            map.Difficulty.ToString(),
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
+
+                    if (!BetterString.IsNullOrWhiteSpace(replayName))
                     {
-                        //Plugin.Log.Info($"Loading local replay for player {Targeter.TargetName} at path: {replayName}");
-                        string path = LocalReplayHandler.GetReplayPath(replayName) ?? throw new Exception("The local file found in header does not exist.");
-                        replayData = File.ReadAllBytes(path);
-                        if (!PC.LocalReplaysOnly)
+                        string path =
+                            _localReplayService.GetReplayPath(replayName)
+                            ?? throw new InvalidOperationException(
+                                "The replay header references a " + "missing local file."
+                            );
+
+                        replayData = await ReadFileAsync(path, cancellationToken).ConfigureAwait(false);
+
+                        if (!pc.LocalReplaysOnly)
                         {
-                            //check if the replay is outdated
-                            if (int.TryParse(await BLAPI.Instance.CallAPI_String(string.Format(HelpfulPaths.BLAPI_SCOREVALUE, Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), mode), ct: ct), out int score) &&
-                                ReplayDecoder.TryDecodeReplayInfo(replayData, out ReplayInfo info) &&
-                                info.score < score)
+                            string? scoreValue = await _beatLeaderApi
+                                .CallAPI_String(
+                                    string.Format(
+                                        HelpfulPaths.BLAPI_SCOREVALUE,
+                                        _targeter.Target.TargetID,
+                                        map.Hash,
+                                        map.Difficulty,
+                                        mode
+                                    ),
+                                    quiet: true,
+                                    ct: cancellationToken
+                                )
+                                .ConfigureAwait(false);
+
+                            if (
+                                int.TryParse(scoreValue, out int onlineScore)
+                                && ReplayDecoder.TryDecodeReplayInfo(replayData, out ReplayInfo? replayInfo)
+                                && replayInfo is not null
+                                && replayInfo.score < onlineScore
+                            )
                             {
-                                Plugin.Log.Warn("Local replay is outdated compared to online score, using online replay instead.");
+                                Plugin.Log.Warn(
+                                    "The local replay is older than the " + "online score. Using the online replay."
+                                );
+
                                 replayData = null;
-                                goto skip; //outdated replay, use online one instead
                             }
                         }
-                        ReplayDecoder.TryDecodeReplay(replayData, out bestReplay);
-                        //Plugin.Log.Info("Non speed mods: " + HelpfulMisc.HasNonSpeedMods(bestReplay.info.modifiers));
-                        if (!HelpfulMisc.HasNonSpeedMods(bestReplay.info.modifiers))
+
+                        if (
+                            replayData is not null
+                            && ReplayDecoder.TryDecodeReplay(replayData, out Replay? localReplay)
+                            && localReplay is not null
+                        )
                         {
-                            float acc = (float)bestReplay.info.score / HelpfulMath.GetMaxScoreFromNotes(bestReplay.notes);
-                            data = new JObject
+                            _bestReplay = localReplay;
+
+                            if (!HelpfulMisc.HasNonSpeedMods(localReplay.info.modifiers))
                             {
-                                { "accuracy", acc },
-                                { "pp", calc.Inflate(calc.GetSummedPp(acc)) },
-                                { "modifiers", bestReplay.info.modifiers }
-                            };
-                        } 
+                                int maximumScore = HelpfulMath.GetMaxScoreFromNotes(localReplay.notes);
+
+                                if (maximumScore > 0)
+                                {
+                                    float accuracy = localReplay.info.score / (float)maximumScore;
+
+                                    scoreData = new JObject
+                                    {
+                                        { "accuracy", accuracy },
+                                        { "pp", calc.Inflate(calc.GetSummedPp(accuracy)) },
+                                        { "modifiers", localReplay.info.modifiers },
+                                    };
+                                }
+                            }
+                        }
                     }
                 }
-                catch (Exception e)
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
                 {
                     Plugin.Log.Warn("There was an error loading the local replay.");
-                    Plugin.Log.Warn(e.Message);
-                    Plugin.Log.Debug(e);
+
+                    Plugin.Log.Debug(exception);
+
+                    replayData = null;
+                    _bestReplay = null;
                 }
             }
-        skip:
-            if (PC.LocalReplaysOnly && (data is null || replayData is null))
+
+            if (pc.LocalReplaysOnly && (scoreData is null || replayData is null))
             {
-                useReplay = false;
+                _useReplay = false;
                 return null;
             }
 
-            data ??= await BLAPI.Instance.GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), mode, true, ct);
+            scoreData ??= await _beatLeaderApi
+                .GetScoreData(
+                    _targeter.Target.TargetID,
+                    map.Hash,
+                    map.Difficulty.ToString(),
+                    mode,
+                    quiet: true,
+                    ct: cancellationToken
+                )
+                .ConfigureAwait(false);
+
             if (replayData is null)
             {
-                if (data is null)
+                if (scoreData is null)
                 {
-                    useReplay = false;
+                    _useReplay = false;
                     return null;
                 }
-                replayData = await BLAPI.Instance.CallAPI_Bytes(data["replay"].ToString(), true, ct: ct) ?? throw new Exception("The replay link from the API is bad! (replay link failed to return data)");
-                ReplayDecoder.TryDecodeReplay(replayData, out bestReplay);
+
+                string? replayUrl = scoreData.Value<string>("replay");
+
+                if (BetterString.IsNullOrWhiteSpace(replayUrl))
+                {
+                    Plugin.Log.Warn("BeatLeader returned no replay URL.");
+
+                    _useReplay = false;
+                    return null;
+                }
+
+                replayData = await _beatLeaderApi
+                    .CallAPI_Bytes(replayUrl, quiet: true, ct: cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (replayData is null || !ReplayDecoder.TryDecodeReplay(replayData, out _bestReplay))
+                {
+                    Plugin.Log.Warn("The online replay could not be decoded.");
+
+                    _useReplay = false;
+                    return null;
+                }
             }
 
-            noteArray = [.. bestReplay.notes];
-
-            //Plugin.Log.Info($"Replay Score: {bestReplay.info.score}, Max Score: {HelpfulMath.MaxScoreForNotes(bestReplay.notes.Count)}, Accuracy: {(float)bestReplay.info.score / HelpfulMath.MaxScoreForNotes(bestReplay.notes.Count) * 100f}%\n{new string('-', 30)}");
-            //Plugin.Log.Info($"Calculated Replay Score: {HelpfulMath.GetTotalScoreFromNotes(noteArray)}, Calculated Max Score: {HelpfulMath.GetMaxScoreFromNotes(noteArray)}, Calculated Accuracy: {HelpfulMath.GetAccuracyFromNotes(noteArray)}");
-
-            wallArray = new Queue<WallEvent>(bestReplay.walls);
-            ReplayMods = bestReplay.info.modifiers.ToUpper();
-            usingModdedAcc = false;
-            if (calc.Leaderboard == Leaderboards.Beatleader)
+            if (
+                _bestReplay is null
+                && (!ReplayDecoder.TryDecodeReplay(replayData, out _bestReplay) || _bestReplay is null)
+            )
             {
-                var (mod, replayMult) = HelpfulMisc.ParseModifiers(ReplayMods, map.MapData.diffData);
-                //replayRatings = RatingContainer.GetContainer(leaderboard, HelpfulPaths.GetAllRatingsOfSpeed(data, calc, mod).Select(num => num * replayMult).ToArray());
-                replayRatings = HelpfulPaths.GetAllRatingsOfSpeed(map.MapData.diffData, calc, mod);
-                replayRatings.MultiplyRatings(replayMult);
-                usingModdedAcc = PC.ReplayMods && !ratings.Equals(replayRatings);
+                _useReplay = false;
+                return null;
+            }
+
+            _noteArray = [.. _bestReplay.notes];
+
+            _wallArray = new Queue<WallEvent>(_bestReplay.walls);
+
+            ReplayMods = _bestReplay.info.modifiers.ToUpperInvariant();
+
+            _usingModifiedAccuracy = false;
+
+            if (CurrentLeaderboard == Leaderboards.Beatleader)
+            {
+                SongSpeed speed = HelpfulMisc.GetSongSpeed(ReplayMods);
+
+                _replayRatings = _pathUtils.GetAllRatingsOfSpeed(map.MapData.Data, Leaderboards.Beatleader, speed);
+
+                string[] modifierNames =
+                [
+                    .. ReplayMods
+                        .ToLowerInvariant()
+                        .Split([',', ' '], StringSplitOptions.RemoveEmptyEntries)
+                        .Where(modifier => modifier is not "fs" and not "sf" and not "ss" and not "nf"),
+                ];
+
+                float modifierMultiplier = _pathUtils.GetMultiAmounts(map.MapData.Data, modifierNames);
+
+                _replayRatings.MultiplyRatings(modifierMultiplier);
+
+                _usingModifiedAccuracy = pc.ReplayMods && !ratings.Equals(_replayRatings);
             }
             else
-                replayRatings = ratings;
-            //Plugin.Log.Info($"Replay Ratings: \n{replayRatings}");
-            replayPPVals = new PPContainer(calc.DisplayRatingCount, 0f, precision: PC.DecimalPrecision);
-            return data;
+            {
+                _replayRatings = ratings;
+            }
+
+            _replayPpValues = new PPContainer(calc.DisplayRatingCount, 0f, precision: pc.DecimalPrecision);
+
+            return scoreData;
         }
-        #endregion
-        #region Overrides
-        public override void SetupData(MapSelection map, CancellationToken ct)
+
+        private async Task<bool> SetupAndCatchUpAsync(MapSelection map, CancellationToken cancellationToken)
         {
-            caughtUp = false;
-            catchUpNotes = 0;
-            ppHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 2, (rating, acc, in main, ref toChange, _) => PPContainer.SubtractFast(in main, in replayPPVals, ref toChange))
-            {
-                UpdateFCEnabled = PC.PPFC,
-                UpdatePPEnabled = displayPP
-            };
-            ppHandler.UpdateFC += (fcAcc, vals, actions, _) =>
-            {
-                vals[2].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
-                actions(0, fcAcc, in vals[2], ref vals[3], _);
-            };
-            ppHandler.UpdateMistakes += (mistakes) =>
-            {
-                missColor = HelpfulFormatter.NumberToColor(replayMistakes - mistakes);
-            };
-            missColor = HelpfulFormatter.NumberToColor(1);
-            Task.Run(async () =>
-            {
-                SetupTask = SetupDataAsync(map, ct);
-                if (!await SetupTask)
-                    return;
-                CatchupBest();
-                if (catchUpNotes == 0)
-                    UpdateCounter(1, 0, 0, 1, null);
-            }, ct);
+            bool initialized = await SetupDataAsync(map, cancellationToken).ConfigureAwait(false);
+
+            if (!initialized)
+                return false;
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            CatchUpReplay();
+            return true;
         }
-        private async Task<bool> SetupDataAsync(MapSelection map, CancellationToken ct)
+
+        private async Task<bool> SetupDataAsync(MapSelection map, CancellationToken cancellationToken)
         {
             try
             {
-                //Plugin.Log.Info($"Data: {HelpfulMisc.Print(new object[] { Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), calc.Leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true })}");
-                JToken playerData = PC.UseReplay ? 
-                    await SetupReplayData(map, ct) :
-                    await APIHandler.GetSelectedAPI().GetScoreData(Targeter.TargetID, map.Map.Hash, map.Difficulty.ToString(), calc.Leaderboard == Leaderboards.Beatleader ? map.Mode : "Standard", true).ConfigureAwait(false);
+                await _targeter.WaitUntilInitializedAsync(cancellationToken).ConfigureAwait(false);
+
+                JToken? playerData = pc.UseReplay
+                    ? await SetupReplayDataAsync(map, cancellationToken).ConfigureAwait(false)
+                    : await _apiProvider
+                        .Get(CurrentLeaderboard)
+                        .GetScoreData(
+                            _targeter.Target.TargetID,
+                            map.Hash,
+                            map.Difficulty.ToString(),
+                            CurrentLeaderboard == Leaderboards.Beatleader
+                                ? map.Mode
+                                : Utils.Profile_Utils.Profile.DEFAULT_MODE,
+                            quiet: true,
+                            ct: cancellationToken
+                        )
+                        .ConfigureAwait(false);
+
                 if (playerData is null)
                 {
-                    Plugin.Log.Warn("Relative counter cannot be loaded due to the player never having played this map before! (API didn't return the corrent status and/or local replay doesn't exist)");
-                    goto Failed;
+                    Plugin.Log.Warn(
+                        "Relative counter cannot load because the " + "target has no score or replay for this map."
+                    );
+
+                    return FailSetup();
                 }
-                if ((float)playerData["pp"] is float thePP && thePP > 0)
-                    accToBeat = calc.GetAcc(thePP, ratings, PC.DecimalPrecision);
+
+                float targetPp = playerData.Value<float?>("pp") ?? playerData.Value<float?>("ap") ?? 0f;
+
+                if (targetPp > 0f)
+                {
+                    _accuracyToBeat = calc.GetAcc(targetPp, ratings, pc.DecimalPrecision);
+                }
                 else
                 {
-                    accToBeat = calc.GetAccDeflated(calc.GetSummedPp((float)playerData["accuracy"],
-                        calc.Leaderboard == Leaderboards.Beatleader ?
-                        HelpfulPaths.GetAllRatingsOfSpeed(map.MapData.diffData, HelpfulMisc.GetSongSpeed(playerData["modifiers"].ToString())) : ratings),
-                        ratings, PC.DecimalPrecision);
+                    float? accuracy = playerData.Value<float?>("accuracy");
+
+                    if (accuracy is null)
+                    {
+                        Plugin.Log.Warn("Relative counter score data contains " + "neither PP nor accuracy.");
+
+                        return FailSetup();
+                    }
+
+                    RatingContainer sourceRatings =
+                        CurrentLeaderboard == Leaderboards.Beatleader
+                            ? _pathUtils.GetAllRatingsOfSpeed(
+                                map.MapData.Data,
+                                Leaderboards.Beatleader,
+                                HelpfulMisc.GetSongSpeed(playerData.Value<string>("modifiers"))
+                            )
+                            : ratings;
+
+                    float sourcePp = calc.GetSummedPp(accuracy.Value, sourceRatings);
+
+                    _accuracyToBeat = calc.GetAccDeflated(sourcePp, ratings, pc.DecimalPrecision);
                 }
-                staticAccToBeat = accToBeat;
-                ResetVars();
+
+                _staticAccuracyToBeat = _accuracyToBeat;
+
+                ResetReplayProgress();
                 return true;
             }
-            catch (Exception e)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                Plugin.Log.Warn("There was an error loading the replay of the player.");
-                Plugin.Log.Warn(e.Message);
-                Plugin.Log.Debug(e);
+                throw;
             }
-        Failed:
-            Plugin.Log.Warn($"Defaulting to {PC.RelativeDefault.ToLower()} counter.");
-            if (PC.RelativeDefault.Equals(Targeter.NO_TARGET))
-                TheCounter.CancelCounter();
-            else 
-                TheCounter.ReplaceCurrentCounter(PC.RelativeDefault, Display);
-            return false;
+            catch (Exception exception)
+            {
+                Plugin.Log.Warn("There was an error loading the target's " + $"replay:\n{exception}");
+
+                return FailSetup();
+            }
         }
-        public override void ReinitCounter() => ResetVars();
-        public override void ReinitCounter(RatingContainer ratingVals) => ResetVars();
-        public override void ReinitCounter(MapSelection map) => ResetVars();
-        public override void UpdateFormat() => InitDefaultFormat();
-        public static bool InitFormat()
+        #endregion
+        #region Overrides
+        public override void SetupData(MapSelection map, CancellationToken cancellationToken)
         {
-            if (formatter is null && TheCounter.TargetUsable) FormatTheFormat(PC.FormatSettings.RelativeTextFormat);
-            return displayFormatter != null && TheCounter.TargetUsable;
+            cancellationToken.ThrowIfCancellationRequested();
+
+            _useReplay = pc.UseReplay;
+            _caughtUp = false;
+            _catchUpNotes = 0;
+
+            ResetReplayState();
+
+            ppHandler = new PPHandler(
+                ratings,
+                calc,
+                pc.DecimalPrecision,
+                2,
+                (rating, accuracy, in main, ref toChange, _) =>
+                    PPContainer.SubtractFast(in main, in _replayPpValues, ref toChange)
+            )
+            {
+                UpdateFCEnabled = pc.PPFC,
+                UpdatePPEnabled = _formatting.UsesPpValues,
+            };
+
+            ppHandler.UpdateFC += (fullComboAccuracy, values, actions, multiplier) =>
+            {
+                values[2].SetValues(calc.GetPpWithSummedPp(fullComboAccuracy, pc.DecimalPrecision));
+
+                actions(0, fullComboAccuracy, in values[2], ref values[3], multiplier);
+            };
+
+            ppHandler.UpdateMistakes += mistakes =>
+                _mistakeColor = HelpfulFormatter.NumberToColor(_replayMistakes - mistakes);
+
+            _mistakeColor = HelpfulFormatter.NumberToColor(1);
+
+            _setupTask = SetupAndCatchUpAsync(map, cancellationToken);
+
+            _taskRunner.Forget(_setupTask, "Initialize relative counter replay");
         }
-        public static void ResetFormat()
+
+        public override void ReinitCounter()
         {
-            formatter = null;
-            displayFormatter = null;
+            ResetReplayProgress();
         }
-        private void ResetVars()
+
+        public override void ReinitCounter(RatingContainer ratingValues)
         {
-            bombs = 0;
-            replayMistakes = 0;
-            replayScore = 0;
-            replayCombo = 0;
-            maxReplayScore = 0;
+            ResetReplayProgress();
         }
+
+        public override void ReinitCounter(MapSelection map)
+        {
+            ResetReplayProgress();
+        }
+
+        public override void UpdateFormat()
+        {
+            ppHandler.UpdatePPEnabled = _formatting.UsesPpValues;
+        }
+
         #endregion
         #region Helper Functions
-        public static void FormatTheFormat(string format)
+        private void ResetReplayState()
         {
-            RelativeCounter.format = format;
-            InitDefaultFormat();
+            _replayPpValues = default;
+            _replayRatings = default;
+
+            _bestReplay = null;
+            _noteArray = null;
+            _wallArray = null;
+
+            ReplayMods = "";
+
+            ResetReplayProgress();
         }
-        public static void InitDefaultFormat()
+
+        #endregion
+        #region Helper Functions
+
+        private static async Task<byte[]> ReadFileAsync(string path, CancellationToken cancellationToken)
         {
-            displayWrapper ??= GetDefaultWrapper();
+            const int bufferSize = 81920;
 
-            formatter = SetupDefaultFormatter(format, displayWrapper, FormatAlias);
+            using FileStream stream = new(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize,
+                useAsync: true
+            );
 
-            displayFormatter = formatter.GetOutput();
+            byte[] data = new byte[stream.Length];
 
-            displayPP = displayFormatter.UsedKeys.ContainsAny('p', 'x');
-        }
-        public static FormatWrapper GetDefaultWrapper() => new((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(int), 'e'), (typeof(string), 'z'), (typeof(string), 't'),
-                (typeof(float), 'd'), (typeof(float), 'x'), (typeof(float), 'p'), (typeof(float), 'y'), (typeof(float), 'o'), (typeof(float), 'a'), (typeof(string), 'l'));
-        internal static Formatter SetupDefaultFormatter(string format, FormatWrapper values = null, Dictionary<string, char> alias = null)
-        {
-            Formatter outp = new(TokenParser.ParseTokens(format, alias), values ?? GetDefaultWrapper());
+            int offset = 0;
 
-            if (!PC.ShowLbl) outp.SetTokenToConstantValue('l');
-            if (!PC.Target.Equals(Targeter.NO_TARGET) && PC.ShowEnemy)
+            while (offset < data.Length)
             {
-                string theMods = "";
-                if (TheCounter.theCounter is RelativeCounter rc2) theMods = rc2.ReplayMods;
-                outp.SetTokenToConstantValue('t', TheCounter.TargetFormatter(PC.Target.ClampString(PC.MaxNameLength), theMods));
+                int read = await stream
+                    .ReadAsync(data, offset, data.Length - offset, cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (read == 0)
+                    break;
+
+                offset += read;
             }
-            else outp.SetTokenToConstantValue('t');
 
-            outp.SurroundTokens("$", "</color>", 'z');
-            outp.FlagTokensForToString('x', 'y', 'd');
-            outp.PromiseValueForAllTokens();
+            if (offset == data.Length)
+                return data;
 
-            return outp;
+            Array.Resize(ref data, offset);
+
+            return data;
         }
-        private string DisplayFormatter(bool fc, bool totPp, int mistakes, string missColor, float accDiff, float modPp, float regPp,
-            float fcModPp, float fcRegPp, float acc, string label)
+
+        private void ResetReplayProgress()
         {
-            displayWrapper.SetValues(((char)1, fc), ((char)2, totPp), ('e', mistakes), ('d', accDiff), ('x', modPp), ('p', regPp),
-                ('y', fcModPp), ('o', fcRegPp), ('a', acc), ('l', label), ('z', missColor));
-            return displayFormatter.Print();
+            _bombs = 0;
+            _replayMistakes = 0;
+            _replayScore = 0f;
+            _replayCombo = 0;
+            _maximumReplayScore = 0f;
         }
+
+        private bool FailSetup()
+        {
+            Plugin.Log.Warn($"Relative counter setup failed. Configured " + $"fallback counter: {pc.RelativeDefault}.");
+
+            // Counter replacement will move behind an injected gameplay
+            // runtime service when TheCounter's remaining static control
+            // methods are removed.
+            TheCounter.CancelCounter();
+
+            return false;
+        }
+
         #endregion
         #region Updates
-        private void CatchupBest()
+        private void CatchUpReplay()
         {
-            if (catchUpNotes == 0)
+            if (_catchUpNotes == 0)
             {
-                caughtUp = true;
+                _caughtUp = true;
                 return;
             }
-            if (!useReplay)
+
+            if (!_useReplay || _noteArray is null)
             {
-                replayPPVals.SetValues(calc.GetPpWithSummedPp(accToBeat / 100.0f));
-                caughtUp = true;
+                _replayPpValues.SetValues(calc.GetPpWithSummedPp(_accuracyToBeat / 100f));
+
+                _caughtUp = true;
                 return;
             }
-            Plugin.Log.Info("Catching up replay to real time...");
-            NoteEvent note;
-            int notes = 1;
-            for (; notes <= catchUpNotes; notes++)
+
+            Plugin.Log.Info("Catching the target replay up to real time.");
+
+            int notesToProcess = Math.Min(_catchUpNotes, _noteArray.Length);
+
+            for (int notes = 1; notes <= notesToProcess; notes++)
             {
-                note = noteArray[notes + bombs - 1];
-                switch (note.eventType)
+                int index = notes + _bombs - 1;
+
+                if (index < 0 || index >= _noteArray.Length)
+                {
+                    break;
+                }
+
+                NoteEvent replayNote = _noteArray[index];
+
+                switch (replayNote.eventType)
                 {
                     case NoteEventType.good:
-                        maxReplayScore += notes < 14 ? Calculator.GetMaxCutScore(note) * HelpfulMath.ClampedMultiplierForNote(notes) : Calculator.GetMaxCutScore(note);
-                        replayCombo++;
-                        replayScore += Calculator.GetCutScore(note) * HelpfulMath.ClampedMultiplierForNote(replayCombo);
-                        break;
-                    case NoteEventType.bomb:
-                        replayCombo = HelpfulMath.DecreaseMultiplier(replayCombo);
-                        bombs++;
-                        replayMistakes++;
-                        notes--;
-                        continue;
-                    default:
-                        maxReplayScore += notes < 14 ? Calculator.GetMaxCutScore(note) * HelpfulMath.ClampedMultiplierForNote(notes) : Calculator.GetMaxCutScore(note); 
-                        replayCombo = HelpfulMath.DecreaseMultiplier(replayCombo);
-                        replayMistakes++;
+                        _maximumReplayScore +=
+                            Calculator.GetMaxCutScore(replayNote) * HelpfulMath.ClampedMultiplierForNote(notes);
+
+                        _replayCombo++;
+
+                        _replayScore +=
+                            Calculator.GetCutScore(replayNote) * HelpfulMath.ClampedMultiplierForNote(_replayCombo);
+
                         break;
 
+                    case NoteEventType.bomb:
+                        _replayCombo = HelpfulMath.DecreaseMultiplier(_replayCombo);
+
+                        _bombs++;
+                        _replayMistakes++;
+                        notes--;
+                        break;
+
+                    default:
+                        _maximumReplayScore +=
+                            Calculator.GetMaxCutScore(replayNote) * HelpfulMath.ClampedMultiplierForNote(notes);
+
+                        _replayCombo = HelpfulMath.DecreaseMultiplier(_replayCombo);
+
+                        _replayMistakes++;
+                        break;
                 }
             }
-            replayPPVals.SetValues(calc.GetPpWithSummedPp(replayScore / maxReplayScore, replayRatings));
-            if (catchUpNotes > notes)
+
+            if (_maximumReplayScore > 0f)
             {
-                Plugin.Log.Info($"Catch up too slow, trying again (notes = {notes}, catchUpNotes = {catchUpNotes}");
-                CatchupBest();
+                _replayPpValues.SetValues(calc.GetPpWithSummedPp(_replayScore / _maximumReplayScore, _replayRatings));
             }
-            caughtUp = true;
+
+            _caughtUp = true;
         }
+
         private void UpdateBest(int notes, NoteData noteData)
         {
-            if (!useReplay)
+            if (!_useReplay)
             {
-                if (notes <= 1) //this value is constant, no need to update every note hit.
-                    replayPPVals.SetValues(calc.GetPpWithSummedPp(accToBeat / 100.0f));
-                return;
-            } //Past here will be treating it as if the leaderboard selected is beatleader, as that is the source of the replay.
-            if (notes < 1 || notes + bombs - 1 >= noteArray.Length) return;
-            NoteEvent note = noteArray[notes + bombs - 1];
-            while (wallArray.Count() > 0 && wallArray.Peek().spawnTime < note.spawnTime)
-                if (wallArray.Dequeue().energy < 1.0f)
+                if (notes <= 1)
                 {
-                    replayCombo = HelpfulMath.DecreaseMultiplier(replayCombo);
-                    replayMistakes++;
+                    _replayPpValues.SetValues(calc.GetPpWithSummedPp(_accuracyToBeat / 100f));
                 }
+
+                return;
+            }
+
+            if (notes < 1 || _noteArray is null || notes + _bombs - 1 >= _noteArray.Length)
+            {
+                return;
+            }
+
+            NoteEvent replayNote = _noteArray[notes + _bombs - 1];
+
+            while (_wallArray is not null && _wallArray.Count > 0 && _wallArray.Peek().spawnTime < replayNote.spawnTime)
+            {
+                if (_wallArray.Dequeue().energy < 1f)
+                {
+                    _replayCombo = HelpfulMath.DecreaseMultiplier(_replayCombo);
+
+                    _replayMistakes++;
+                }
+            }
+
 #if NEW_VERSION
             NoteData.ScoringType scoringType = TheCounter.HandleWeirdNoteBehaviour(noteData);
 #else
             NoteData.ScoringType scoringType = noteData.scoringType;
 #endif
-            switch (note.eventType)
+
+            switch (replayNote.eventType)
             {
                 case NoteEventType.good:
-                    maxReplayScore += notes < 14 ? Calculator.GetNoteScoreDefinition(scoringType).maxCutScore * HelpfulMath.ClampedMultiplierForNote(notes) : Calculator.GetNoteScoreDefinition(scoringType).maxCutScore;
-                    replayCombo++;
-                    replayScore += Calculator.GetCutScore(note) * HelpfulMath.ClampedMultiplierForNote(replayCombo);
-                    break;
-                case NoteEventType.bomb:
-                    replayCombo = HelpfulMath.DecreaseMultiplier(replayCombo);
-                    bombs++;
-                    replayMistakes++;
-                    UpdateBest(notes, noteData);
-                    return;
-                default:
-                    maxReplayScore += notes < 14 ? Calculator.GetNoteScoreDefinition(scoringType).maxCutScore * HelpfulMath.ClampedMultiplierForNote(notes) : Calculator.GetNoteScoreDefinition(scoringType).maxCutScore;
-                    replayCombo = HelpfulMath.DecreaseMultiplier(replayCombo);
-                    replayMistakes++;
+                    _maximumReplayScore +=
+                        notes < 14
+                            ? Calculator.GetNoteScoreDefinition(scoringType).maxCutScore
+                                * HelpfulMath.ClampedMultiplierForNote(notes)
+                            : Calculator.GetNoteScoreDefinition(scoringType).maxCutScore;
+
+                    _replayCombo++;
+
+                    _replayScore +=
+                        Calculator.GetCutScore(replayNote) * HelpfulMath.ClampedMultiplierForNote(_replayCombo);
+
                     break;
 
+                case NoteEventType.bomb:
+                    _replayCombo = HelpfulMath.DecreaseMultiplier(_replayCombo);
+
+                    _bombs++;
+                    _replayMistakes++;
+
+                    UpdateBest(notes, noteData);
+
+                    return;
+
+                default:
+                    _maximumReplayScore +=
+                        notes < 14
+                            ? Calculator.GetNoteScoreDefinition(scoringType).maxCutScore
+                                * HelpfulMath.ClampedMultiplierForNote(notes)
+                            : Calculator.GetNoteScoreDefinition(scoringType).maxCutScore;
+
+                    _replayCombo = HelpfulMath.DecreaseMultiplier(_replayCombo);
+
+                    _replayMistakes++;
+                    break;
             }
-            //Plugin.Log.Info($"Note #{notes} ({scoringType}): {Calculator.GetCutScore(note)} / {ScoreModel.GetNoteScoreDefinition(scoringType).maxCutScore}");
-            //Plugin.Log.Info($"Note #{notes}: {replayScore} / {maxReplayScore} ({Math.Round(replayScore / maxReplayScore * 100f, PC.DecimalPrecision)}%)");
-            replayPPVals.SetValues(calc.GetPpWithSummedPp(replayScore / maxReplayScore, replayRatings));
-            accToBeat = usingModdedAcc ? BLCalc.Instance.GetAccDeflatedUnsafe(replayPPVals.AccPP + replayPPVals.PassPP + replayPPVals.TechPP, PC.DecimalPrecision, ratings.SelectedRatings, accToBeat / 100.0f) : (float)Math.Round(replayScore / maxReplayScore * 100.0f, PC.DecimalPrecision);
+
+            if (_maximumReplayScore <= 0f)
+                return;
+
+            _replayPpValues.SetValues(calc.GetPpWithSummedPp(_replayScore / _maximumReplayScore, _replayRatings));
+
+            _accuracyToBeat = _usingModifiedAccuracy
+                ? _beatLeaderCalculator.GetAccDeflatedUnsafe(
+                    _replayPpValues.AccPP + _replayPpValues.PassPP + _replayPpValues.TechPP,
+                    pc.DecimalPrecision,
+                    ratings.SelectedRatings,
+                    _accuracyToBeat / 100f
+                )
+                : (float)Math.Round(_replayScore / _maximumReplayScore * 100f, pc.DecimalPrecision);
         }
-        public override void UpdateCounterInternal(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
+
+        public override void UpdateCounterInternal(
+            float accuracy,
+            int notes,
+            int mistakes,
+            float fullComboAccuracy,
+            NoteData? currentNote
+        )
         {
-            if (!SetupTask.IsCompleted || !caughtUp) return;
+            if (!_setupTask.IsCompletedSuccessfully || !_caughtUp || currentNote is null)
+            {
+                return;
+            }
 
             UpdateBest(notes, currentNote);
-            ppHandler.Update(acc, mistakes, fcPercent);
 
-            float accDiff = (float)Math.Round(acc * 100.0f, PC.DecimalPrecision) - accToBeat;
-            if (float.IsNaN(accDiff)) accDiff = 0f;
-            //else if (!useReplay) accDiff -= accToBeat;
-            float replayAcc = PC.DynamicAcc && useReplay ? accToBeat : staticAccToBeat;
-            //Plugin.Log.Info("ppVals: " + ppHandler.Print() + " || " + replayPPVals.ToEnumerable().Print());
-            if (float.IsNaN(replayAcc)) replayAcc = 0f;
-            if (PC.SplitPPVals && calc.RatingCount > 1)
+            ppHandler.Update(accuracy, mistakes, fullComboAccuracy);
+
+            float accuracyDifference = (float)Math.Round(accuracy * 100f, pc.DecimalPrecision) - _accuracyToBeat;
+
+            if (float.IsNaN(accuracyDifference))
+                accuracyDifference = 0f;
+
+            float replayAccuracy = pc.DynamicAcc && _useReplay ? _accuracyToBeat : _staticAccuracyToBeat;
+
+            if (float.IsNaN(replayAccuracy))
+                replayAccuracy = 0f;
+
+            string target =
+                pc.ShowEnemy && _targeter.IsInitialized && pc.Target != Targeter.NO_TARGET
+                    ? _mainFormatting.FormatTarget(
+                        _targeter.Target.TargetName.ClampString(pc.MaxNameLength),
+                        ReplayMods
+                    )
+                    : "";
+
+            if (pc.SplitPPVals && calc.RatingCount > 1)
             {
-                for (int i = 0; i < 4; i++)
-                    outpText.AppendLine(DisplayFormatter(ppHandler.DisplayFC, PC.ExtraInfo && i == 3, mistakes, missColor, accDiff, ppHandler[1, i], ppHandler[0, i],
-                        ppHandler[3, i], ppHandler[2, i], replayAcc, TheCounter.CurrentLabels[i]));
+                int count = Math.Min(calc.DisplayRatingCount, CurrentLabels.Count);
+
+                for (int index = 0; index < count; index++)
+                {
+                    outpText.AppendLine(
+                        _formatting.Format(
+                            ppHandler.DisplayFC,
+                            pc.ExtraInfo && index == count - 1,
+                            mistakes,
+                            _mistakeColor,
+                            accuracyDifference,
+                            ppHandler[1, index],
+                            ppHandler[0, index],
+                            ppHandler[3, index],
+                            ppHandler[2, index],
+                            replayAccuracy,
+                            CurrentLabels[index],
+                            target
+                        )
+                    );
+                }
+
+                return;
             }
-            else
-                outpText.AppendLine(DisplayFormatter(ppHandler.DisplayFC, PC.ExtraInfo, mistakes, missColor, accDiff, ppHandler[1], ppHandler[0],
-                    ppHandler[3], ppHandler[2], replayAcc, TheCounter.CurrentLabels.Last()));
+
+            string label = CurrentLabels.Count == 0 ? "" : CurrentLabels[CurrentLabels.Count - 1];
+
+            outpText.AppendLine(
+                _formatting.Format(
+                    ppHandler.DisplayFC,
+                    pc.ExtraInfo,
+                    mistakes,
+                    _mistakeColor,
+                    accuracyDifference,
+                    ppHandler[1],
+                    ppHandler[0],
+                    ppHandler[3],
+                    ppHandler[2],
+                    replayAccuracy,
+                    label,
+                    target
+                )
+            );
         }
-        public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
+
+        public override void SoftUpdate(
+            float accuracy,
+            int notes,
+            int mistakes,
+            float fullComboAccuracy,
+            NoteData? currentNote
+        )
         {
-            if (!SetupTask.IsCompleted || !caughtUp)
-            {
-                catchUpNotes = notes;
-                if (!caughtUp) //This check is done twice because we are dealing with multi thread communication.
-                    return;
-            }
+            if (_setupTask.IsCompletedSuccessfully)
+                return;
+
+            _catchUpNotes = notes;
         }
+
         public override void CounterComplete(float finalAcc, float finalFCAcc, int totalNotes, int totalMistakes)
         {
-            if (totalNotes + bombs == noteArray.Length)
+            if (totalNotes + _bombs == _noteArray?.Length)
                 TheCounter.ClearCounter();
         }
-#endregion
+        #endregion
     }
 }

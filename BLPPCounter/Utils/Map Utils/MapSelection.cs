@@ -1,74 +1,109 @@
-﻿using BLPPCounter.CalculatorStuffs;
-using BLPPCounter.Helpfuls;
+using System;
+using System.Diagnostics.CodeAnalysis;
+using BLPPCounter.Models.MapModels;
 using BLPPCounter.Utils.Containers;
 using BLPPCounter.Utils.Enums;
-using Newtonsoft.Json.Linq;
-using System;
+using BLPPCounter.Utils.LangAddons;
 using static GameplayModifiers;
 
 namespace BLPPCounter.Utils.Map_Utils
 {
 #pragma warning disable CS0659
-    public struct MapSelection
+    public readonly struct MapSelection : IEquatable<MapSelection>
     {
-        public Map Map { get; private set; }
-        public BeatmapDifficulty Difficulty { get; private set; }
-        public string Mode { get; private set; }
-        public SongSpeed MapSpeed { get; private set; }
-        public RatingContainer Ratings { get; private set; }
-        public readonly (string songId, JToken diffData) MapData => Map.Get(Mode, Difficulty);
-        public readonly bool IsUsable => HelpfulMisc.StatusIsUsable(this);
-        public readonly string Hash => Map.Hash;
-
-        public MapSelection(Map map, BeatmapDifficulty diff, string mode, RatingContainer ratings, SongSpeed mapSpeed = SongSpeed.Slower)
+        public MapSelection(
+            Map map,
+            BeatmapDifficulty difficulty,
+            string mode,
+            RatingContainer ratings,
+            SongSpeed mapSpeed = SongSpeed.Normal
+        )
         {
+            Map = map ?? throw new ArgumentNullException(nameof(map));
+
+            if (BetterString.IsNullOrWhiteSpace(mode))
+            {
+                throw new ArgumentException("A map mode is required.", nameof(mode));
+            }
+
+            if (!map.TryGet(mode, difficulty, out MapDiffModel? mapData))
+            {
+                throw new ArgumentException($"Map {map.Hash} does not contain " + $"{mode} {difficulty}.", nameof(map));
+            }
+
             Map = map;
-            Difficulty = diff;
+            Difficulty = difficulty;
             Mode = mode;
             Ratings = ratings;
             MapSpeed = mapSpeed;
+            MapData = mapData;
+        }
 
-            if (mapSpeed == SongSpeed.Slower)
-                GetSongSpeed(); //This is not a super common mod, plus even if it is used this should be a quick check.
-        }
-        public MapSelection(Map map, BeatmapDifficulty diff, string mode, SongSpeed mapSpeed = SongSpeed.Slower, Leaderboards currentLeaderboard = Leaderboards.None, params float[] ratings) :
-        this(map, diff, mode, RatingContainer.GetContainer(currentLeaderboard == Leaderboards.None ? TheCounter.Leaderboard : currentLeaderboard, ratings), mapSpeed) { }
+        public MapSelection(
+            Map map,
+            BeatmapDifficulty difficulty,
+            string mode,
+            SongSpeed mapSpeed,
+            Leaderboards leaderboard,
+            params float[] ratings
+        )
+            : this(map, difficulty, mode, RatingContainer.GetContainer(leaderboard, ratings), mapSpeed) { }
 
-        public readonly void FixRates(Leaderboards currentLeaderboard, params float[] ratings) => Ratings.SetRatings(currentLeaderboard, ratings);
-        private void GetSongSpeed()
+        public Map Map { get; }
+
+        public BeatmapDifficulty Difficulty { get; }
+
+        public string Mode { get; }
+
+        public SongSpeed MapSpeed { get; }
+
+        public RatingContainer Ratings { get; }
+
+        public MapDiffModel MapData { get; }
+
+        public string Hash => Map.Hash;
+
+        [MemberNotNullWhen(true, nameof(Map), nameof(MapData))]
+        public bool IsUsable =>
+            Map is not null && MapData is not null && MapData.Data is not null && Ratings.SelectedRatings is not null;
+
+        public void FixRates(Leaderboards leaderboard, params float[] ratings)
         {
-            Calculator calc = Calculator.GetCalc(Ratings.ValidLeaderboards);
-            if (!calc.UsesModifiers) //No modifiers, so no speed changes.
+            Ratings.SetRatings(leaderboard, ratings);
+        }
+
+        public (bool RatingDifference, bool DifficultyDifference) GetDifference(MapSelection other)
+        {
+            bool ratingDifference = other.MapSpeed != MapSpeed || !Ratings.Equals(other.Ratings);
+
+            bool difficultyDifference =
+                other.Difficulty != Difficulty || !string.Equals(other.Mode, Mode, StringComparison.Ordinal);
+
+            return (ratingDifference, difficultyDifference);
+        }
+
+        public bool Equals(MapSelection other)
+        {
+            if (Map is null || other.Map is null)
             {
-                MapSpeed = SongSpeed.Normal;
-                return;
+                return Map is null && other.Map is null;
             }
-            RatingContainer[] arr = HelpfulPaths.GetAllRatings(MapData.diffData, calc);
-            for (int i = 0; i < arr.Length; i++)
-            {
-                if (arr[i] == Ratings)
-                {
-                    MapSpeed = HelpfulMisc.OrderedSpeeds[i];
-                    return;
-                }
-            }
-            throw new Exception("There is no ratings matching the ones in this mapSelection. Something is very wrong.\nRatings = " + Ratings + "\nRatingContainers = " + HelpfulMisc.Print(arr));
+
+            return string.Equals(Map.Hash, other.Map.Hash, StringComparison.OrdinalIgnoreCase)
+                && Difficulty == other.Difficulty
+                && string.Equals(Mode, other.Mode, StringComparison.Ordinal);
         }
-        public readonly (bool, bool) GetDifference(MapSelection other)
+
+        public override bool Equals(object? obj)
         {
-            bool ratingDiff = other.MapSpeed != MapSpeed || !Ratings.Equals(other.Ratings);
-            bool diffDiff = !Difficulty.Equals(other.Difficulty) || !Mode.Equals(other.Mode);
-            return (ratingDiff, diffDiff);
+            return obj is MapSelection other && Equals(other);
         }
-        public override readonly string ToString()
+
+        public override string ToString()
         {
-            string mapHash = Map is null ? "null" : Map.Hash;
-            return $"Map: {mapHash}\nDifficulty: {Difficulty}\nMode: {Mode}\n{Ratings}";
+            return Map is null
+                ? "Map: null"
+                : $"Map: {Map.Hash}\n" + $"Difficulty: {Difficulty}\n" + $"Mode: {Mode}\n" + Ratings;
         }
-        public readonly bool Equals(MapSelection other) {
-            if (other.Map is null || Map is null) return base.Equals(other);
-            return other.Map.Hash.Equals(Map.Hash) && other.Difficulty.Equals(Difficulty) && other.Mode.Equals(Mode);
-        }
-        public override readonly bool Equals(object obj) => obj is MapSelection selection && Equals(selection);
     }
 }

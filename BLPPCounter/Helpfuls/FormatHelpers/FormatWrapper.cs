@@ -1,12 +1,12 @@
-﻿using System;
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Collections.Generic;
-using System.Collections;
 
 namespace BLPPCounter.Helpfuls.FormatHelpers
 {
-    public class FormatWrapper: IEnumerable<KeyValuePair<char, object>>
+    public class FormatWrapper : IEnumerable<KeyValuePair<char, object>>
     {
         // Tokens < SPLIT are treated as "low" (control chars/flags)
         // Tokens >= SPLIT are treated as "high" (letters, symbols, etc.)
@@ -14,8 +14,10 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
         private readonly Type[] givenTypes;
         private readonly object[] values;
-        private readonly int[] lookupLow, lookupHigh;
-        private readonly int minTokenLow, minTokenHigh;
+        private readonly int[] lookupLow,
+            lookupHigh;
+        private readonly int minTokenLow,
+            minTokenHigh;
         private readonly char[] tokensChars;
 
         public IEnumerable<char> Keys => tokensChars;
@@ -34,35 +36,37 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             // Initialize min/max for each cluster
             minTokenLow = SPLIT;
             minTokenHigh = int.MaxValue;
-            int maxTokenLow = -1, maxTokenHigh = SPLIT;
+            int maxTokenLow = -1,
+                maxTokenHigh = SPLIT;
 
             // Partition tokens into low/high ranges and record type info
             for (int i = 0; i < tokens.Length; i++)
             {
-                var (type, token) = tokens[i];
+                (Type? type, char token) = tokens[i];
                 givenTypes[i] = type;
                 tokensChars[i] = token;
 
                 if (token < SPLIT)
                 {
-                    if (minTokenLow > token) minTokenLow = token;
-                    if (maxTokenLow < token) maxTokenLow = token;
+                    if (minTokenLow > token)
+                        minTokenLow = token;
+                    if (maxTokenLow < token)
+                        maxTokenLow = token;
                 }
                 else
                 {
-                    if (minTokenHigh > token) minTokenHigh = token;
-                    if (maxTokenHigh < token) maxTokenHigh = token;
+                    if (minTokenHigh > token)
+                        minTokenHigh = token;
+                    if (maxTokenHigh < token)
+                        maxTokenHigh = token;
                 }
             }
 
             // Safely allocate lookup arrays only if the cluster exists
-            lookupLow = maxTokenLow >= 0
-                ? [.. Enumerable.Repeat(-1, maxTokenLow - minTokenLow + 1)]
-                : [];
+            lookupLow = maxTokenLow >= 0 ? [.. Enumerable.Repeat(-1, maxTokenLow - minTokenLow + 1)] : [];
 
-            lookupHigh = minTokenHigh != int.MaxValue
-                ? [.. Enumerable.Repeat(-1, maxTokenHigh - minTokenHigh + 1)]
-                : [];
+            lookupHigh =
+                minTokenHigh != int.MaxValue ? [.. Enumerable.Repeat(-1, maxTokenHigh - minTokenHigh + 1)] : [];
 
             // Fill lookup tables
             for (int i = 0; i < tokens.Length; i++)
@@ -74,12 +78,14 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                     lookupHigh[token - minTokenHigh] = i;
             }
         }
+
         public FormatWrapper(params (char token, object value)[] tokens)
             : this(tokens.Select(t => (t.value.GetType(), t.token)).ToArray())
         {
             for (int i = 0; i < tokens.Length; i++)
                 values[i] = tokens[i].value;
         }
+
         public FormatWrapper(FormatWrapper other)
         {
             givenTypes = other.givenTypes;
@@ -91,6 +97,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             minTokenHigh = other.minTokenHigh;
             tokensChars = other.tokensChars;
         }
+
         public FormatWrapper(Dictionary<char, object> dict)
         {
             if (dict is null || dict.Count < 1)
@@ -101,9 +108,10 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             // Initialize min/max for each cluster
             minTokenLow = SPLIT;
             minTokenHigh = int.MaxValue;
-            int maxTokenLow = -1, maxTokenHigh = SPLIT;
+            int maxTokenLow = -1,
+                maxTokenHigh = SPLIT;
             int i = 0;
-            foreach (var kvp in dict)
+            foreach (KeyValuePair<char, object> kvp in dict)
             {
                 char token = kvp.Key;
                 object value = kvp.Value;
@@ -112,24 +120,25 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                 tokensChars[i] = token;
                 if (token < SPLIT)
                 {
-                    if (minTokenLow > token) minTokenLow = token;
-                    if (maxTokenLow < token) maxTokenLow = token;
+                    if (minTokenLow > token)
+                        minTokenLow = token;
+                    if (maxTokenLow < token)
+                        maxTokenLow = token;
                 }
                 else
                 {
-                    if (minTokenHigh > token) minTokenHigh = token;
-                    if (maxTokenHigh < token) maxTokenHigh = token;
+                    if (minTokenHigh > token)
+                        minTokenHigh = token;
+                    if (maxTokenHigh < token)
+                        maxTokenHigh = token;
                 }
                 i++;
             }
 
             // Safely allocate lookup arrays only if the cluster exists
-            lookupLow = maxTokenLow >= 0
-                ? [.. Enumerable.Repeat(-1, maxTokenLow - minTokenLow + 1)]
-                : [];
-            lookupHigh = minTokenHigh != int.MaxValue
-                ? [.. Enumerable.Repeat(-1, maxTokenHigh - minTokenHigh + 1)]
-                : [];
+            lookupLow = maxTokenLow >= 0 ? [.. Enumerable.Repeat(-1, maxTokenLow - minTokenLow + 1)] : [];
+            lookupHigh =
+                minTokenHigh != int.MaxValue ? [.. Enumerable.Repeat(-1, maxTokenHigh - minTokenHigh + 1)] : [];
 
             // Fill lookup tables
             for (i = 0; i < dict.Count; i++)
@@ -162,6 +171,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
             values[index] = value;
         }
+
         public void SetValue(char c, object value, Type valType)
         {
             if (valType is null)
@@ -173,6 +183,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                 throw new ArgumentException($"Expected {givenTypes[index].Name}, got {valType.Name}.");
             values[index] = value;
         }
+
         public bool TrySetValue<T>(char c, T value)
         {
             int index = GetIndex(c);
@@ -183,6 +194,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             values[index] = value;
             return true;
         }
+
         public void SetValueAndType(char c, object value, Type valType)
         {
             if (valType is null)
@@ -193,6 +205,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             givenTypes[index] = valType;
             values[index] = value;
         }
+
         public void SetValueAndType<T>(char c, T value)
         {
             int index = GetIndex(c);
@@ -201,9 +214,10 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             givenTypes[index] = typeof(T);
             values[index] = value;
         }
+
         public void SetValues(params (char c, object value)[] vals)
         {
-            foreach (var (c, value) in vals)
+            foreach ((char c, object? value) in vals)
                 SetValue(c, value, value?.GetType());
         }
 
@@ -218,6 +232,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
             return (T)values[index];
         }
+
         public T GetValueAsNumber<T>(char c)
         {
             int index = GetIndex(c);
@@ -233,6 +248,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
             return (T)values[index];
         }
+
         public Type GetValueType(char c)
         {
             int index = GetIndex(c);
@@ -261,23 +277,21 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             if (key < SPLIT)
             {
                 int idx = key - minTokenLow;
-                return (idx >= 0 && idx < lookupLow.Length)
-                    ? lookupLow[idx]
-                    : -1;
+                return (idx >= 0 && idx < lookupLow.Length) ? lookupLow[idx] : -1;
             }
             else
             {
                 int idx = key - minTokenHigh;
-                return (idx >= 0 && idx < lookupHigh.Length)
-                    ? lookupHigh[idx]
-                    : -1;
+                return (idx >= 0 && idx < lookupHigh.Length) ? lookupHigh[idx] : -1;
             }
         }
+
         public object this[char c]
         {
             get => GetValue<object>(c);
             set => SetValue(c, value, value.GetType());
         }
+
         public IEnumerator<KeyValuePair<char, object>> GetEnumerator()
         {
             for (int i = 0; i < tokensChars.Length; i++)

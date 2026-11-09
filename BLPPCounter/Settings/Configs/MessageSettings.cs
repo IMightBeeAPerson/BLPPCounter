@@ -1,4 +1,3 @@
-﻿
 namespace BLPPCounter.Settings.Configs
 {
     public class MessageSettings

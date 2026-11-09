@@ -1,96 +1,207 @@
-﻿using BLPPCounter.CalculatorStuffs;
-using BLPPCounter.Utils.Containers;
-using BLPPCounter.Utils.Map_Utils;
+using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading;
+using BLPPCounter.CalculatorStuffs;
+using BLPPCounter.Helpfuls.FormatHelpers;
+using BLPPCounter.Settings.Configs;
+using BLPPCounter.Utils.Containers;
+using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.Map_Utils;
 using TMPro;
+using Zenject;
 
 namespace BLPPCounter.Counters
 {
     public abstract class MyCounters
     {
-#nullable enable
-        private TMP_Text display;
-        protected Calculator calc;
+        private ICalculatorProvider _calculatorProvider = null!;
+
+        private ICounterLabelProvider _labelProvider = null!;
+
+        private TMP_Text _display = null!;
+        private bool _initialized;
+
+        protected Calculator calc = null!;
+        private protected PluginConfig pc = null!;
         protected RatingContainer ratings;
-        protected PPHandler? ppHandler;
-        protected StringBuilder outpText;
+        protected PPHandler ppHandler = null!;
+        protected StringBuilder outpText = new();
+        private protected IMainCounterFormattingService MainFormatting = null!;
 
         public abstract string Name { get; }
-        protected TMP_Text Display { get => display; }
 
-        public MyCounters(TMP_Text display, MapSelection map, CancellationToken ct)
+        protected TMP_Text Display => _display;
+
+        protected Leaderboards CurrentLeaderboard { get; private set; }
+
+        protected IReadOnlyList<string> CurrentLabels => _labelProvider.GetLabels(calc, CurrentLeaderboard);
+
+        [Inject]
+        private void Construct(
+            PluginConfig config,
+            ICalculatorProvider calculatorProvider,
+            ICounterLabelProvider labelProvider,
+            IMainCounterFormattingService mainFormatting
+        )
         {
-            this.display = display;
-            calc = Calculator.GetSelectedCalc();
+            pc = config ?? throw new ArgumentNullException(nameof(config));
+
+            _calculatorProvider = calculatorProvider ?? throw new ArgumentNullException(nameof(calculatorProvider));
+
+            _labelProvider = labelProvider ?? throw new ArgumentNullException(nameof(labelProvider));
+
+            MainFormatting = mainFormatting ?? throw new ArgumentNullException(nameof(mainFormatting));
+        }
+
+        internal void Initialize(
+            TMP_Text display,
+            MapSelection map,
+            Leaderboards leaderboard,
+            CancellationToken cancellationToken
+        )
+        {
+            if (_initialized)
+            {
+                throw new InvalidOperationException($"{GetType().Name} has already been initialized.");
+            }
+
+            _display = display ?? throw new ArgumentNullException(nameof(display));
+
+            CurrentLeaderboard = leaderboard;
+
+            calc = _calculatorProvider.Get(leaderboard);
+
             ratings = map.Ratings;
             ratings.SetSelectedRatings();
             calc.Ratings = ratings;
-            ppHandler = null;
-            outpText = new();
-            SetupData(map, ct);
+
+            outpText = new StringBuilder();
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            SetupData(map, cancellationToken);
+
             if (ppHandler is null)
-                Plugin.Log.Critical("PPHandler is null in counter constructor!");
+            {
+                throw new InvalidOperationException(
+                    $"{GetType().Name}.{nameof(SetupData)} " + $"did not initialize {nameof(ppHandler)}."
+                );
+            }
+
+            _initialized = true;
         }
+
         public virtual void ReinitCounter() { }
+
         public void ReinitCounter(TMP_Text display)
-        {//same difficulty, modifier, and map
-            this.display = display;
-            ppHandler?.Reset();
+        {
+            EnsureInitialized();
+
+            _display = display ?? throw new ArgumentNullException(nameof(display));
+
+            ppHandler.Reset();
             ReinitCounter();
         }
-        public virtual void ReinitCounter(RatingContainer ratingVals) { }
-        public void ReinitCounter(TMP_Text display, RatingContainer ratingVals)
-        {//same map, different modifiers
-            this.display = display;
-            calc = Calculator.GetSelectedCalc();
-            ratings = ratingVals;
+
+        public virtual void ReinitCounter(RatingContainer ratingValues) { }
+
+        public void ReinitCounter(TMP_Text display, RatingContainer ratingValues)
+        {
+            EnsureInitialized();
+
+            _display = display ?? throw new ArgumentNullException(nameof(display));
+
+            calc = _calculatorProvider.Get(CurrentLeaderboard);
+
+            ratings = ratingValues;
             ratings.SetSelectedRatings();
             calc.Ratings = ratings;
-            ppHandler?.SetRatings(ratings);
-            ppHandler?.Reset();
-            ReinitCounter(ratingVals);
-        } 
+
+            ppHandler.SetRatings(ratings);
+            ppHandler.Reset();
+
+            ReinitCounter(ratingValues);
+        }
+
         public void ReinitCounter(TMP_Text display, MapSelection map)
-        {//same map, different difficulty/mode
-            this.display = display;
-            calc = Calculator.GetSelectedCalc();
+        {
+            EnsureInitialized();
+
+            _display = display ?? throw new ArgumentNullException(nameof(display));
+
+            calc = _calculatorProvider.Get(CurrentLeaderboard);
+
             ratings = map.Ratings;
             ratings.SetSelectedRatings();
             calc.Ratings = ratings;
-            ppHandler?.SetRatings(ratings);
-            // Provide a default CancellationToken for callers that don't have one
+
+            ppHandler.SetRatings(ratings);
+
             SetupData(map, CancellationToken.None);
+
             ReinitCounter(map);
         }
+
         public virtual void ReinitCounter(MapSelection map) { }
-        // Backwards-compatible overload used by existing callers that don't provide a CancellationToken
-        public virtual void SetupData(MapSelection map)
+
+        public void SetupData(MapSelection map)
         {
             SetupData(map, CancellationToken.None);
         }
-        public abstract void SetupData(MapSelection map, CancellationToken ct);
+
+        public abstract void SetupData(MapSelection map, CancellationToken cancellationToken);
+
         public abstract void UpdateFormat();
-        public void UpdateCounter(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
+
+        public void UpdateCounter(
+            float accuracy,
+            int notes,
+            int mistakes,
+            float fullComboAccuracy,
+            NoteData? currentNote
+        )
         {
+            EnsureInitialized();
+
             outpText.Clear();
-            UpdateCounterInternal(acc, notes, mistakes, fcPercent, currentNote);
-            display.text = outpText.ToString();
+
+            UpdateCounterInternal(accuracy, notes, mistakes, fullComboAccuracy, currentNote);
+
+            _display.text = outpText.ToString();
         }
-        public abstract void UpdateCounterInternal(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote);
-        public abstract void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote);
-        public virtual void CounterComplete(float finalAcc, float finalFCAcc, int totalNotes, int totalMistakes) { }
 
-        /*Static functions that must be created:
-         public static bool InitFormat() { }
-         public static void ResetFormat() { }
-         */
+        public abstract void UpdateCounterInternal(
+            float accuracy,
+            int notes,
+            int mistakes,
+            float fullComboAccuracy,
+            NoteData? currentNote
+        );
 
-        /*Static Fields that must be created:
-         public static int OrderNumber;
-         public static string DisplayName;
-         public static string DisplayHandler;
-         public static Leaderboards ValidLeaderboards;
-         */
+        public abstract void SoftUpdate(
+            float accuracy,
+            int notes,
+            int mistakes,
+            float fullComboAccuracy,
+            NoteData? currentNote
+        );
+
+        public virtual void CounterComplete(
+            float finalAccuracy,
+            float finalFullComboAccuracy,
+            int totalNotes,
+            int totalMistakes
+        ) { }
+
+        private void EnsureInitialized()
+        {
+            if (!_initialized)
+            {
+                throw new InvalidOperationException(
+                    $"{GetType().Name} has not been " + "initialized by the counter factory."
+                );
+            }
+        }
     }
 }

@@ -1,7 +1,7 @@
-﻿using IPA.Config.Stores.Attributes;
-using IPA.Config.Stores.Converters;
-using BLPPCounter.Utils.Serializable_Classes;
 using System.Collections.Generic;
+using BLPPCounter.Utils.Serializable_Classes;
+using IPA.Config.Stores.Attributes;
+using IPA.Config.Stores.Converters;
 
 namespace BLPPCounter.Settings.Configs
 {
@@ -20,10 +20,9 @@ namespace BLPPCounter.Settings.Configs
         public virtual char NicknameIndicator { get; set; } = '\'';
 
         [UseConverter(typeof(DictionaryConverter<string>))]
-        public virtual Dictionary<string, string> RichShorthands { get; set; } = new Dictionary<string, string>()
-        {
-            {"c", "color" }
-        };
+        public virtual Dictionary<string, string> RichShorthands { get; set; } =
+            new Dictionary<string, string>() { { "c", "color" } };
+
         [UseConverter(typeof(ListConverter<CustomAlias>))]
         public virtual List<CustomAlias> TokenAliases { get; set; } = [];
     }

@@ -1,12 +1,12 @@
-﻿using BLPPCounter.Helpfuls;
-using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils.API_Handlers;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using BLPPCounter.Helpfuls;
+using BLPPCounter.Settings.Configs;
+using BLPPCounter.Utils.API_Handlers;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace BLPPCounter.Utils.Serializable_Classes
 {
@@ -14,8 +14,10 @@ namespace BLPPCounter.Utils.Serializable_Classes
     {
         [JsonProperty(nameof(Name), Required = Required.DisallowNull)]
         public string Name = name;
+
         [JsonProperty(nameof(ID), Required = Required.DisallowNull)]
         public long ID = id;
+
         [JsonProperty(nameof(Rank), Required = Required.DisallowNull)]
         public int Rank = rank; //For now this is only gonna store BL rank.
 
@@ -25,19 +27,25 @@ namespace BLPPCounter.Utils.Serializable_Classes
                 return await ConvertToId(id);
             return await ConvertToIdAlias(str.ToString());
         }
+
         public static async Task<CustomTarget> ConvertToId(long id)
         {
-            
-            (bool succeeded, HttpContent data) = await APIHandler.CallAPI_Static($"{HelpfulPaths.BLAPI}player/{id}", BLAPI.Throttle).ConfigureAwait(false);
-            if (!succeeded) throw new ArgumentException("The ID provided does not exist.");
+            (bool succeeded, HttpContent data) = await APIHandler
+                .CallAPI_Static($"{HelpfulPaths.BLAPI}player/{id}", BLAPI.Throttle)
+                .ConfigureAwait(false);
+            if (!succeeded)
+                throw new ArgumentException("The ID provided does not exist.");
             JObject playerData = JObject.Parse(await data.ReadAsStringAsync().ConfigureAwait(false));
             if (!int.TryParse(playerData["rank"].ToString(), out int rank))
                 throw new ArgumentException($"Rank in api is incorrect, \"{playerData["rank"]}\" is not a number.");
             return new CustomTarget(playerData["name"].ToString(), id, rank);
         }
+
         private static async Task<CustomTarget> ConvertToIdAlias(string str)
         {
-            (bool succeeded, HttpContent data) = await APIHandler.CallAPI_Static($"{HelpfulPaths.BLAPI}player/{str.ToLower()}", BLAPI.Throttle).ConfigureAwait(false);
+            (bool succeeded, HttpContent data) = await APIHandler
+                .CallAPI_Static($"{HelpfulPaths.BLAPI}player/{str.ToLower()}", BLAPI.Throttle)
+                .ConfigureAwait(false);
             if (succeeded)
             {
                 string strData = await data.ReadAsStringAsync().ConfigureAwait(false);
@@ -50,6 +58,7 @@ namespace BLPPCounter.Utils.Serializable_Classes
             }
             throw new ArgumentException("String given is not an ID or alias.");
         }
+
         public static async Task<CustomTarget> ConvertFromRank(string rankStr)
         {
             if (!int.TryParse(rankStr, out int rank))
@@ -58,19 +67,29 @@ namespace BLPPCounter.Utils.Serializable_Classes
             bool usingSS = PluginConfig.Instance.UseSSRank;
             int page = rank / MaxCountPerPage + (rank == MaxCountPerPage ? 0 : 1);
             int index = rank % MaxCountPerPage - (rank == MaxCountPerPage ? 0 : 1);
-            (bool succeeded, HttpContent data) = await APIHandler.CallAPI_Static(
-                usingSS ? string.Format(HelpfulPaths.SSAPI_PLAYER_FILTER, page) :
-                string.Format(HelpfulPaths.BLAPI_PLAYER_FILTER, page, MaxCountPerPage),
-                usingSS ? SSAPI.Throttle : BLAPI.Throttle
-                ).ConfigureAwait(false);
+            (bool succeeded, HttpContent data) = await APIHandler
+                .CallAPI_Static(
+                    usingSS
+                        ? string.Format(HelpfulPaths.SSAPI_PLAYER_FILTER, page)
+                        : string.Format(HelpfulPaths.BLAPI_PLAYER_FILTER, page, MaxCountPerPage),
+                    usingSS ? SSAPI.Throttle : BLAPI.Throttle
+                )
+                .ConfigureAwait(false);
             if (!succeeded)
                 throw new ArgumentException($"Rank #{rank} is not found.");
-            JToken playerData = JToken.Parse(await data.ReadAsStringAsync().ConfigureAwait(false))[usingSS ? "players" : "data"].Children().Skip(index).First();
+            JToken playerData = JToken
+                .Parse(await data.ReadAsStringAsync().ConfigureAwait(false))[usingSS ? "players" : "data"]
+                .Children()
+                .Skip(index)
+                .First();
             if (!long.TryParse(playerData["id"].ToString(), out long id))
                 throw new ArgumentException($"Id in api is incorrect, \"{playerData["id"]}\" is not a number.");
             if (usingSS)
             {
-                (succeeded, data) = await APIHandler.CallAPI_Static(string.Format(HelpfulPaths.BLAPI_USERID, id), BLAPI.Throttle);
+                (succeeded, data) = await APIHandler.CallAPI_Static(
+                    string.Format(HelpfulPaths.BLAPI_USERID, id),
+                    BLAPI.Throttle
+                );
                 if (succeeded)
                 {
                     playerData = JToken.Parse(await data.ReadAsStringAsync().ConfigureAwait(false));
@@ -80,7 +99,9 @@ namespace BLPPCounter.Utils.Serializable_Classes
             }
             return new CustomTarget(playerData["name"].ToString(), id, usingSS ? 0 : rank);
         }
+
         public override readonly string ToString() => $"{Name}, ID: {ID}, Rank: {Rank}";
+
         public int CompareTo(CustomTarget other) => Rank.CompareTo(other.Rank);
     }
 }

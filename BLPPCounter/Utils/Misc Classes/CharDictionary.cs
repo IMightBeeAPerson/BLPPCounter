@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,29 +17,35 @@ namespace BLPPCounter.Utils.Misc_Classes
 
         public int Count => keys.Length;
 
-        public CharDictionary((char key, T value)[] pairs) : this(pairs.Select(p => p.key).ToArray())
+        public CharDictionary((char key, T value)[] pairs)
+            : this(pairs.Select(p => p.key).ToArray())
         {
-            foreach (var (key, value) in pairs)
+            foreach ((char key, T? value) in pairs)
                 values[key] = value;
         }
 
         public bool ContainsKey(char key) => !values[key].Equals(default(T));
+
         public IEnumerator<KeyValuePair<char, T>> GetEnumerator()
         {
-            foreach (var key in keys)
+            foreach (char key in keys)
                 yield return new KeyValuePair<char, T>(key, values[key]);
         }
+
         public bool TryGetValue(char key, out T value)
         {
             value = values[key];
             return !value.Equals(default(T));
         }
+
         public void SetValue(char key, T value) => values[key] = value;
+
         public T this[char key]
         {
             get => values[key];
             set => SetValue(key, value);
         }
+
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();

@@ -1,10 +1,6 @@
-﻿using HarmonyLib;
-using JetBrains.Annotations;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using HarmonyLib;
+using JetBrains.Annotations;
 
 namespace BLPPCounter.Patches
 {
@@ -12,7 +8,8 @@ namespace BLPPCounter.Patches
     internal class SoloFlowPatch
     {
 #pragma warning disable IDE0051
-        public static Action EnteredMainMenu;
+        public static Action? EnteredMainMenu;
+
         [UsedImplicitly]
         private static void Postfix()
         {

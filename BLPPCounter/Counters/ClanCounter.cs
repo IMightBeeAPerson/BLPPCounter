@@ -1,560 +1,462 @@
-﻿using BLPPCounter.CalculatorStuffs;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Helpfuls.FormatHelpers;
-using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils.API_Handlers;
+using BLPPCounter.Utils;
 using BLPPCounter.Utils.Containers;
 using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.Map_Utils;
 using BLPPCounter.Utils.Misc_Classes;
-using BLPPCounter.Utils.TokenParser;
-using BLPPCounter.Utils.TokenParser.Printers;
-using Newtonsoft.Json.Linq;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-//using System.Runtime.Serialization;
-using System.Threading;
-using System.Threading.Tasks;
-using TMPro;
+using BLPPCounter.Utils.Safety;
+using Zenject;
+using static GameplayModifiers;
 
 namespace BLPPCounter.Counters
 {
-    public class ClanCounter : MyCounters
+    public sealed class ClanCounter : MyCounters
     {
-#nullable enable
-        #region Static Variables
-        private static int playerClanId = -1;
-        private static readonly List<(MapSelection, float[])> mapCache = []; //Map, clan pp vals, acc vals
-        private static PluginConfig PC => PluginConfig.Instance;
-        private static string clanFormat, weightedFormat, customFormat;
-        private static Printer? displayClan, displayWeighted, displayCustom;
-        private static Formatter? clanFormatter, weightedFormatter, customFormatter;
-        private static readonly FormatWrapper clanWrapper, weightedWrapper, customWrapper;
-        public static readonly Dictionary<string, char> FormatAlias = new()
-        {
-            { "PP", 'p' },
-            { "PP Difference", 'x' },
-            { "FCPP", 'o' },
-            { "FCPP Difference", 'y' },
-            { "Label", 'l' },
-            { "Mistakes", 'e' },
-            { "Target", 't' },
-            { "Message", 'm' }
-        };
-        public static readonly Dictionary<string, char> WeightedFormatAlias = new()
-        {
-            { "Mistakes", 'e' },
-            { "Rank Color", 'c' },
-            { "Rank", 'r' },
-            { "Weighted PP", 'x' },
-            { "PP", 'p' },
-            { "Label", 'l' },
-            { "Weighted FCPP", 'y' },
-            { "FCPP", 'o' },
-            { "Message", 'm' }
-        };
-        public static readonly Dictionary<string, char> MessageFormatAlias = new()
-        {
-            {"Color", 'c' },
-            {"Accuracy", 'a' },
-            {"Tech PP", 'x' },
-            {"Acc PP", 'y' },
-            {"Pass PP", 'z' },
-            {"PP", 'p' },
-            { "Target", 't' }
-        };
-        internal static readonly FormatRelation ClanFormatRelation = new("Main Format", DisplayName,
-            PC.FormatSettings.ClanTextFormat, str => PC.FormatSettings.ClanTextFormat = str, FormatAlias,
-            new Dictionary<char, string>()
-            {
-                { 'p', "The unmodified PP number" },
-                { 'x', "The modified PP number (plus/minus value)" },
-                { 'o', "The unmodified PP number if the map was FC'ed" },
-                { 'y', "The modified PP number if the map was FC'ed" },
-                { 'l', "The label (ex: PP, Tech PP, etc)" },
-                { 'e', "The amount of mistakes made in the map. This includes bomb and wall hits" },
-                { 't', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" },
-                { 'm', "This shows either the clan message or percent needed message depending on user settings. The idea of this message is to show what percent is needed to capture the map." }
-            }, FormatRelation.FormatDisplayer(SetupClanFormatter, FormatAlias),
-            new FormatWrapper(new Dictionary<char, object>()
-            {
-                { (char)1, true },
-                { (char)2, true },
-                { 'p', 543.21f },
-                { 'x', -69.42f },
-                { 'o', 654.32f },
-                { 'y', 42.69f },
-                { 'l', " PP" },
-                { 'e', 1 },
-                { 't', "Person" },
-                { 'm', new Func<object>(() => 95.0f) }
-            }), Tokens.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(2)
-            {
-                {'t', 0 },
-                {'m', 1 }
-            },
-            [
-                FormatRelation.CreateFunc("Targeting <color=red>{0}</color>"),
-                FormatRelation.CreateFuncWithWrapper("{0}%", "Get {0}% for ___ PP!")
-            ], new Dictionary<char, IEnumerable<(string, object)>>(5)
-            {
-                { 'p', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
-                { 'o', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
-                { 'x', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
-                { 'y', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
-                { 'm', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 100), ("IncrementVal", 1) } }
-            },
-            [
-                ((char)1, "Has a miss"),
-                ((char)2, "Is bottom of text")
-            ]
-            );
-        internal static readonly FormatRelation WeightedFormatRelation = new("Weighted Format", DisplayName,
-            PC.FormatSettings.WeightedTextFormat, str => PC.FormatSettings.WeightedTextFormat = str, WeightedFormatAlias,
-            new Dictionary<char, string>()
-            {
-                { 'e', "The amount of mistakes made in the map. This includes bomb and wall hits" },
-                { 'c', "The color based off of what rank you are out of your clan, must be used inside of a group and will color everything in the group" },
-                { 'r', "The rank you are in the clan at that current moment" },
-                { 'x', "The modified PP number if the map was FC'ed" },
-                { 'p', "The unmodified PP number" },
-                { 'l', "The label (ex: PP, Tech PP, etc)" },
-                { 'y', "The modified PP number if the map was FC'ed" },
-                { 'o', "The unmodified PP number if the map was FC'ed" },
-                { 'm', "This will show a message if the counter is used on a map that isn't perfectly ideal for the weighted counter or that the weighted counter can't be used on." }
-            }, FormatRelation.FormatDisplayer(SetupWeightedFormatter, WeightedFormatAlias),
-            new FormatWrapper(new Dictionary<char, object>(12)
-            {
-                {(char)1, true },
-                {(char)2, true },
-                {(char)3, true },
-                {'e', 1 },
-                {'c', new Func<object>(() => 3) },
-                {'r', 3 },
-                {'x', -69.42f },
-                {'p', 543.21f },
-                {'l', " PP" },
-                {'y', 42.69f },
-                {'o', 654.32f },
-                {'m', "<Insert a message here>" }
-            }), Tokens.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(4)
-            {
-                { 'c', 0 },
-                { 'r', 1 },
-            },
-            [
-                FormatRelation.CreateFuncWithWrapper<int>(a => $"{HelpfulFormatter.GetWeightedRankColor(a)}{a}",
-                    a => () => HelpfulFormatter.GetWeightedRankColor(a)),
-                FormatRelation.CreateFunc("#{0}", "{0}"),
-            ], new Dictionary<char, IEnumerable<(string, object)>>(5)
-            {
-                { 'c', new (string, object)[4] { ("IsInteger", true), ("MinVal", 1), ("MaxVal", 100), ("IncrementVal", 1) } },
-                { 'r', new (string, object)[4] { ("IsInteger", true), ("MinVal", 1), ("MaxVal", 100), ("IncrementVal", 1) } },
-                { 'p', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
-                { 'o', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10) } },
-                { 'x', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
-                { 'y', new (string, object)[3] { ("MinVal", -100), ("MaxVal", 100), ("IncrementVal", 5) } },
-            },
-            [
-                ((char)1, "Has a miss"),
-                ((char)2, "Is bottom of text"),
-                ((char)3, "Show Rank Info")
-            ]
-            );
-        internal static readonly FormatRelation MessageFormatRelation = new("Custom Message Format", DisplayName,
-            PC.MessageSettings.ClanMessage, str => PC.MessageSettings.ClanMessage = str, MessageFormatAlias,
-            new Dictionary<char, string>()
-            {
-                { 'c', "Must use as a group value, and will color everything inside group" },
-                { 'a', "The accuracy needed to capture the map" },
-                { 'x', "The tech PP needed" },
-                { 'y', "The accuracy PP needed" },
-                { 'z', "The pass PP needed" },
-                { 'p', "The total PP number needed to capture the map" },
-                { 't', "This will either be the targeting message or nothing, depending on if the user has enabled show enemies and has selected a target" }
-            }, FormatRelation.FormatDisplayer(SetupCustomFormatter, MessageFormatAlias),
-            new FormatWrapper(new Dictionary<char, object>(7)
-            {
-                {'c', new Func<object>(() => "#0F0") },
-                {'a', 95.85 },
-                {'x', 114.14f },
-                {'y', 321.23f },
-                {'z', 69.42f },
-                {'p', 543.21f },
-                {'t', "Person" }
-            }), Tokens.GLOBAL_PARAM_AMOUNT, new Dictionary<char, int>(3)
-            {
-                {'c', 0 },
-                {'a', 1 },
-                {'t', 2 }
-            },
-            [
-                FormatRelation.CreateFuncWithWrapper("<color={0}>{0}", "<color={0}>"),
-                FormatRelation.CreateFunc("{0}%", "{0}"),
-                FormatRelation.CreateFunc("Targeting <color=red>{0}</color>", "{0}")
-            ], new Dictionary<char, IEnumerable<(string, object)>>(5)
-            {
-                { 'a', new (string, object)[3] { ("MinVal", 0), ("MaxVal", 100), ("IncrementVal", 1.5f), } },
-                { 'x', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
-                { 'y', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
-                { 'z', new (string, object)[3] { ("MinVal", 10), ("MaxVal", 1000), ("IncrementVal", 10), } },
-                { 'p', new (string, object)[3] { ("MinVal", 100), ("MaxVal", 1000), ("IncrementVal", 10), } }
-            }
-            );
-        private static bool displayPP, displayWeightedPP;
-        #endregion
-        #region Variables
+        private IClanService _clanService = null!;
+        private IClanCounterFormattingService _formatting = null!;
+
+        private IMainCounterFormattingService _mainFormatting = null!;
+
+        private ITargeter _targeter = null!;
+        private IBackgroundTaskRunner _taskRunner = null!;
+        private PathUtils _pathUtils = null!;
+        private BLCalc _beatLeaderCalculator = null!;
+
+        private Task _setupTask = Task.CompletedTask;
+
+        private RatingContainer _normalRatings;
+        private float[] _clanPpValues = [];
+
+        private PPContainer _neededPpValues;
+        private PPHandler? _weightedPpHandler;
+
+        private float _neededAccuracy;
+        private string _message = "";
+        private bool _showRank;
+
+        private ClanCounterMode _mode = ClanCounterMode.Loading;
+
         public static string DisplayName => "Clan";
+
         public static string DisplayHandler => DisplayName;
+
         public static int OrderNumber => 3;
+
         public static Leaderboards ValidLeaderboards => Leaderboards.Beatleader;
+
         public override string Name => DisplayName;
-        public string Mods { get; private set; }
-        private RatingContainer nmRatings;
-        private float[] clanPPs;
-        private PPContainer neededPPs;
-        private PPHandler? weightedPPHandler;
-        private float neededAcc;
-        private int setupStatus;
-        private string message;
-        private bool showRank;
-        #endregion
-        #region Init & Overrides
-        public ClanCounter(TMP_Text display, MapSelection map, CancellationToken ct) : base(display, map, ct)
+
+        public string Mods { get; private set; } = "";
+
+        [Inject]
+        private void ConstructClanCounter(
+            IClanService clanService,
+            IClanCounterFormattingService formatting,
+            IMainCounterFormattingService mainFormatting,
+            ITargeter targeter,
+            IBackgroundTaskRunner taskRunner,
+            PathUtils pathUtils,
+            BLCalc beatLeaderCalculator
+        )
         {
-            Mods = message = "";
-            clanPPs = [];
+            _clanService = clanService ?? throw new ArgumentNullException(nameof(clanService));
+
+            _formatting = formatting ?? throw new ArgumentNullException(nameof(formatting));
+
+            _mainFormatting = mainFormatting ?? throw new ArgumentNullException(nameof(mainFormatting));
+
+            _targeter = targeter ?? throw new ArgumentNullException(nameof(targeter));
+
+            _taskRunner = taskRunner ?? throw new ArgumentNullException(nameof(taskRunner));
+
+            _pathUtils = pathUtils ?? throw new ArgumentNullException(nameof(pathUtils));
+
+            _beatLeaderCalculator =
+                beatLeaderCalculator ?? throw new ArgumentNullException(nameof(beatLeaderCalculator));
         }
-        static ClanCounter()
+
+        public override void SetupData(MapSelection map, CancellationToken cancellationToken)
         {
-            clanFormat = weightedFormat = customFormat = "";
+            cancellationToken.ThrowIfCancellationRequested();
 
-            clanWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(int), 'e'), (typeof(float), 'x'), (typeof(float), 'p'),
-                (typeof(string), 'l'), (typeof(float), 'y'), (typeof(float), 'o'), (typeof(string), 'm'));
-
-            weightedWrapper = new FormatWrapper((typeof(bool), (char)1), (typeof(bool), (char)2), (typeof(bool), (char)3), (typeof(int), 'e'), (typeof(string), 'c'),
-                (typeof(int), 'r'), (typeof(float), 'x'), (typeof(float), 'p'), (typeof(string), 'l'), (typeof(float), 'y'), (typeof(float), 'o'), (typeof(string), 'm'));
-
-            customWrapper = new FormatWrapper((typeof(string), 'c'), (typeof(float), 'a'), (typeof(float), 'x'), (typeof(float), 'y'), (typeof(float), 'z'), (typeof(float), 'p'));
-        }
-        public override void SetupData(MapSelection map, CancellationToken ct)
-        { //setupStatus key: 0 = success, 1 = Map not ranked, 2 = Map already captured, 3 = load failed, 4 = map too hard to capture
-            setupStatus = 0;
-            JToken mapData = map.MapData.diffData;
-            int status = int.Parse(mapData["status"]?.ToString() ?? "0");
-            if (status == 0 || !HelpfulMisc.StatusIsUsable(status)) { setupStatus = 1; goto theEnd; }
-            string songId = map.MapData.songId;
             Mods = "";
-            nmRatings = HelpfulPaths.GetAllRatingsOfSpeed(mapData, calc);
-            neededPPs = new PPContainer(calc.DisplayRatingCount, GetCachedPP(map), precision: PC.DecimalPrecision);
-            if (neededPPs.TotalPP <= 0)
+            _message = "";
+            _showRank = false;
+            _mode = ClanCounterMode.Loading;
+            _clanPpValues = [];
+
+            _normalRatings = _pathUtils.GetAllRatingsOfSpeed(
+                map.MapData.Data,
+                Leaderboards.Beatleader,
+                SongSpeed.Normal
+            );
+
+            _neededPpValues = new PPContainer(calc.DisplayRatingCount, 0f, precision: pc.DecimalPrecision);
+
+            InitializeMainHandler();
+            InitializeWeightedHandler();
+
+            _setupTask = InitializeAsync(map, cancellationToken);
+
+            _taskRunner.Forget(_setupTask, "Initialize clan counter");
+        }
+
+        public override void ReinitCounter(RatingContainer ratingValues)
+        {
+            if (_mode != ClanCounterMode.Capture || _neededPpValues.TotalPP <= 0f)
             {
-                float[]? ppVals = LoadNeededPp(songId, out bool mapCaptured, out _, ref playerClanId);
-                if (ppVals is null) { setupStatus = 3; goto theEnd; }
-                neededPPs.TotalPP = ppVals[0];
-                clanPPs = [.. ppVals.Skip(1)];
-                if (mapCaptured)
+                return;
+            }
+
+            CalculateNeededAccuracy();
+        }
+
+        public override void ReinitCounter(MapSelection map)
+        {
+            _normalRatings = _pathUtils.GetAllRatingsOfSpeed(
+                map.MapData.Data,
+                Leaderboards.Beatleader,
+                SongSpeed.Normal
+            );
+        }
+
+        public override void UpdateFormat()
+        {
+            ppHandler.UpdatePPEnabled = _formatting.UsesMainPpValues;
+
+            _weightedPpHandler?.UpdatePPEnabled = _formatting.UsesWeightedPpValues;
+        }
+
+        public override void UpdateCounterInternal(
+            float accuracy,
+            int notes,
+            int mistakes,
+            float fullComboAccuracy,
+            NoteData? currentNote
+        )
+        {
+            if (_setupTask.Status != TaskStatus.RanToCompletion || _mode == ClanCounterMode.Loading)
+            {
+                return;
+            }
+
+            if (_mode != ClanCounterMode.Capture)
+            {
+                UpdateWeightedCounter(accuracy, mistakes, fullComboAccuracy);
+
+                return;
+            }
+
+            ppHandler.Update(accuracy, mistakes, fullComboAccuracy);
+
+            string message = CreateCaptureMessage();
+
+            string target = CreateTargetMessage();
+
+            if (pc.SplitPPVals && calc.RatingCount > 1)
+            {
+                int count = Math.Min(calc.DisplayRatingCount, CurrentLabels.Count);
+
+                for (int index = 0; index < count; index++)
                 {
-                    Plugin.Log.Debug("Map already captured! No need to do anything else.");
-                    setupStatus = 2;
-                    goto theEnd;
+                    outpText.AppendLine(
+                        _formatting.FormatMain(
+                            ppHandler.DisplayFC,
+                            pc.ExtraInfo && index == count - 1,
+                            mistakes,
+                            ppHandler[1, index],
+                            ppHandler[0, index],
+                            ppHandler[3, index],
+                            ppHandler[2, index],
+                            CurrentLabels[index],
+                            target,
+                            message
+                        )
+                    );
                 }
-                if (PC.MapCache > 0) mapCache.Add((map, ppVals));
+
+                return;
             }
-            neededAcc = calc.GetAcc(neededPPs.TotalPP, PC.DecimalPrecision, ratings.Ratings);
-            float[] temp = calc.GetPp(neededAcc / 100f, nmRatings.Ratings);
-            neededPPs.AccPP = temp[0];
-            neededPPs.PassPP = temp[1];
-            neededPPs.TechPP = temp[2];
-            if (mapCache.Count > PC.MapCache)
-            {
-                Plugin.Log.Debug("Cache full! Making room...");
-                do mapCache.RemoveAt(0); while (mapCache.Count > PC.MapCache);
-            }
-            if (PC.CeilEnabled && neededAcc >= PC.ClanPercentCeil) setupStatus = 4;
-        theEnd:
-            switch (setupStatus)
-            {
-                case 1: message = PC.MessageSettings.MapUnrankedMessage; break;
-                case 2: message = PC.MessageSettings.MapCapturedMessage; break;
-                case 3: message = PC.MessageSettings.LoadFailedMessage; break;
-                case 4: message = PC.MessageSettings.MapUncapturableMessage; break;
-            }
-            showRank = PC.ShowRank && setupStatus != 1 && setupStatus != 3;
-            ppHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 2, (rating, acc, in main, ref toChange, _) => PPContainer.SubtractFast(in main, in neededPPs, ref toChange))
-            {
-                UpdateFCEnabled = PC.PPFC,
-                UpdatePPEnabled = displayPP
-            };
-            ppHandler.UpdateFC += (fcAcc, vals, actions, _) =>
-            {
-                vals[2].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
-                actions(0, fcAcc, in vals[2], ref vals[3], _);
-            };
-            if (setupStatus != 0)
-            {
-                weightedPPHandler = new PPHandler(ratings, calc, PC.DecimalPrecision, 2, (rating, acc, in main, ref toChange, weight) => PPContainer.MultiplyFast(ref toChange, weight))
-                {
-                    UpdateFCEnabled = PC.PPFC,
-                    UpdatePPEnabled = displayWeightedPP
-                };
-                weightedPPHandler.UpdateFC += (fcAcc, vals, actions, weight) =>
-                {
-                    vals[2].SetValues(calc.GetPpWithSummedPp(fcAcc, PC.DecimalPrecision));
-                    actions(0, fcAcc, in vals[2], ref vals[3], weight);
-                };
-            }
+
+            string label = CurrentLabels.Count == 0 ? "" : CurrentLabels[CurrentLabels.Count - 1];
+
+            outpText.AppendLine(
+                _formatting.FormatMain(
+                    ppHandler.DisplayFC,
+                    pc.ExtraInfo,
+                    mistakes,
+                    ppHandler[1],
+                    ppHandler[0],
+                    ppHandler[3],
+                    ppHandler[2],
+                    label,
+                    target,
+                    message
+                )
+            );
         }
-        public static async Task<(float[]? clanPP, bool mapCaptured, string owningClan, int playerClanId)> LoadNeededPp(string mapId, int playerClanId, CancellationToken ct = default)
-        {
-            string id = Targeter.TargetID, check;
-            bool mapCaptured = false;
-            string owningClan = "None";
-            check = await BLAPI.Instance.CallAPI_String(string.Format(HelpfulPaths.BLAPI_USERID_FULL, id), ct: ct).ConfigureAwait(false);
-            if (playerClanId < 0 && check.Length > 0) playerClanId = ParseId(JToken.Parse(check));
-            check = await BLAPI.Instance.CallAPI_String($"{string.Format(HelpfulPaths.BLAPI_CLAN, mapId)}?page=1&count=1", ct: ct).ConfigureAwait(false);
-            if (check.Length == 0) return (null, mapCaptured, owningClan, playerClanId);
-            JToken clanData = JToken.Parse(check);
-            if ((int)clanData.ExplicitEnter("difficulty", "status") != 3) return (null, mapCaptured, owningClan, playerClanId); //Map isn't ranked
-            clanData = clanData["clanRanking"]!.Children().First();
-            owningClan = clanData.ExplicitEnter("clan", "tag").ToString();
-            int clanId = -1;
-            if (clanData.Count() > 0) clanId = (int)clanData.ExplicitEnter("clan", "id"); else return (null, mapCaptured, owningClan, playerClanId);
-            mapCaptured = clanId <= 0 || clanId == playerClanId;
-            float pp = (float)clanData["pp"]!;
-            check = await RequestClanLeaderboard(id, mapId, playerClanId, ct);
-            if (check.Length == 0) return (new float[1] { pp }, mapCaptured, owningClan, playerClanId); //No scores are set, so player must capture it by themselves.
-            JEnumerable<JToken> scores = JToken.Parse(check)["associatedScores"]!.Children();
-            List<float> actualPpVals = [];
-            float playerScore = 0.0f;
-            foreach (JToken score in scores)
-            {
-                if (score["playerId"]?.ToString().Equals(id) ?? false)
-                    playerScore = (float)score["pp"]!;
-                actualPpVals.Add((float)score["pp"]!);
-            }
-            List<float> clone = [.. actualPpVals];
-            clone.Remove(playerScore);
-            float[] clanPPs = [.. clone];
-            Array.Sort(clanPPs, (a, b) => (int)Math.Round(b - a));
-            float neededPp = mapCaptured ? 0.0f : BLCalc.Instance.GetNeededPlay(actualPpVals, pp, playerScore);
-            return (clanPPs.Prepend(neededPp).ToArray(), mapCaptured, owningClan, playerClanId);
-        }
-        public static float[]? LoadNeededPp(string mapId, out bool mapCaptured, out string owningClan, ref int playerClanId, CancellationToken ct = default)
-        {
-            float[]? outp;
-            (outp, mapCaptured, owningClan, playerClanId) = LoadNeededPp(mapId, playerClanId, ct).GetAwaiter().GetResult();
-            return outp;
-        }
-        public static float[]? LoadNeededPp(string mapId, out bool mapCaptured, out string owningClan, CancellationToken ct = default) 
-        {
-            float[]? outp;
-            (outp, mapCaptured, owningClan, _) = LoadNeededPp(mapId, -1, ct).GetAwaiter().GetResult(); 
-            return outp;
-        }
-        public override void ReinitCounter(RatingContainer ratingVals) {
-            neededAcc = calc.GetAcc(neededPPs.TotalPP, PC.DecimalPrecision, ratings.Ratings);
-            //Plugin.Log.Info($"Read Percent: {neededAcc}, Calc Percent: {neededAcc / 100f}");
-            float[] temp = calc.GetPp(neededAcc / 100f, nmRatings.Ratings);
-            neededPPs.AccPP = temp[0];
-            neededPPs.PassPP = temp[1];
-            neededPPs.TechPP = temp[2];
-        }
-        public override void UpdateFormat() => UpdateFormats();
-        public static bool InitFormat()
-        {
-            UpdateFormats();
-            return displayClan != null && displayWeighted != null && TheCounter.TargetUsable && TheCounter.PercentNeededUsable && (!PC.ShowClanMessage || displayCustom != null);
-        }
-        public static void ResetFormat()
-        {
-            clanFormatter = null;
-            weightedFormatter = null; 
-            customFormatter = null;
-            displayClan = null;
-            displayWeighted = null;
-            displayCustom = null;
-        }
-        #endregion
-        #region API Requests
-        private static async Task<string> RequestClanLeaderboard(string id, string mapId, int playerClanId, CancellationToken ct = default)
+
+        public override void SoftUpdate(
+            float accuracy,
+            int notes,
+            int mistakes,
+            float fullComboAccuracy,
+            NoteData? currentNote
+        ) { }
+
+        private async Task InitializeAsync(MapSelection map, CancellationToken cancellationToken)
         {
             try
             {
-                int clanId = playerClanId > 0 ? playerClanId : ParseId(await BLAPI.Instance.CallAPI_String($"{HelpfulPaths.BLAPI}player/{id}", forceNoHeader: true, ct: ct).ConfigureAwait(false));
-                return await BLAPI.Instance.CallAPI_String(string.Format(HelpfulPaths.BLAPI_CLAN + "/clan/{1}?count=100&page=1", mapId, clanId), forceNoHeader: true, ct: ct).ConfigureAwait(false);
-            } catch (TaskCanceledException e)
-            {
-                Plugin.Log.Warn("RequestClanLeaderboard failed due to CancellationToken being invoked.");
-                Plugin.Log.Debug(e);
-                return "";
-            }
-        }
-        #endregion
-        #region Helper Functions
-        private static int ParseId(JToken playerData)
-        {
-            JEnumerable<JToken> clans = playerData["clans"]!.Children();
-            if (clans.Count() <= 1) return clans.Count() == 1 ? (int)clans.First()["id"]! : -1;
-            string clan = playerData["clanOrder"]!.ToString().Split(',')[0];
-            foreach (JToken token in clans)
-                if (token["tag"]!.ToString().Equals(clan))
-                    return (int)token["id"]!;
-            return -1;
-        }
-        public static void ClearCache() => mapCache.Clear();
-        private float GetCachedPP(MapSelection map)
-        {
-            foreach ((MapSelection, float[]) pair in mapCache)
-                if (pair.Item1.Equals(map)) {
-                    clanPPs = [.. pair.Item2.Skip(1)];
-                    Plugin.Log.Debug($"PP: {pair.Item2[0]}");
-                    return pair.Item2[0];
+                ClanCaptureResult result = await _clanService
+                    .GetCaptureAsync(map, cancellationToken)
+                    .ConfigureAwait(false);
+
+                cancellationToken.ThrowIfCancellationRequested();
+
+                _clanPpValues = [.. result.ClanPpValues];
+
+                switch (result.Status)
+                {
+                    case ClanCaptureStatus.Success:
+                        InitializeCaptureMode(result);
+                        break;
+
+                    case ClanCaptureStatus.AlreadyCaptured:
+                        InitializeWeightedMode(ClanCounterMode.Captured, pc.MessageSettings.MapCapturedMessage);
+                        break;
+
+                    case ClanCaptureStatus.Unranked:
+                        InitializeWeightedMode(ClanCounterMode.Unranked, pc.MessageSettings.MapUnrankedMessage);
+                        break;
+
+                    default:
+                        InitializeWeightedMode(ClanCounterMode.LoadFailed, pc.MessageSettings.LoadFailedMessage);
+                        break;
                 }
-            return -1.0f;
-        } 
-        public static void UpdateFormats()
-        {
-            if (HelpfulMisc.SetIfChanged(ref clanFormat, PC.FormatSettings.ClanTextFormat) || clanFormatter is null)
-                InitClan();
-            if (HelpfulMisc.SetIfChanged(ref weightedFormat, PC.FormatSettings.WeightedTextFormat) || weightedFormatter is null)
-                InitWeighted();
-            if (HelpfulMisc.SetIfChanged(ref customFormat, PC.MessageSettings.ClanMessage) || customFormatter is null)
-                InitCustom();
-        }
-        private static void InitClan()
-        {
-            clanFormatter = SetupClanFormatter(clanFormat, clanWrapper, FormatAlias);
-
-            displayClan = clanFormatter.GetOutput();
-
-            displayPP = displayClan.UsedKeys.ContainsAny('x', 'p', 'c');
-        }
-        internal static Formatter SetupClanFormatter(string format, FormatWrapper values, Dictionary<string, char>? alias = null)
-        {
-            Formatter outp = new(TokenParser.ParseTokens(format, alias), values);
-
-            if (!PC.ShowLbl) outp.SetTokenToConstantValue('l');
-            if (!PC.Target.Equals(Targeter.NO_TARGET) && PC.ShowEnemy)
-            {
-                string theMods = "";
-                if (TheCounter.theCounter is ClanCounter cc2) theMods = cc2.Mods;
-                outp.SetTokenToConstantValue('t', TheCounter.TargetFormatter(PC.Target.ClampString(PC.MaxNameLength), theMods));
             }
-            else outp.SetTokenToConstantValue('t');
-
-            outp.FlagTokensForToString('x', 'y');
-            outp.PromiseValueForAllTokens();
-
-            return outp;
-        }
-        private static string DisplayClan(bool fc, bool totPp, int mistakes, float modPp, float regPp, float fcModPp, float fcRegPp, string label, Func<string> message)
-        {
-            clanWrapper.SetValues(
-                ((char)1, fc), ((char)2, totPp), ('e', mistakes), ('x', modPp), ('p', regPp), ('l', label), ('y', fcModPp), ('o', fcRegPp), ('m', message())
-            );
-            return displayClan!.Print();
-        }
-        private static void InitWeighted()
-        {
-            weightedFormatter = SetupWeightedFormatter(weightedFormat, weightedWrapper, WeightedFormatAlias);
-
-            displayWeighted = weightedFormatter.GetOutput();
-
-            displayWeightedPP = displayWeighted.UsedKeys.ContainsAny('x', 'p', 'y', 'o');
-        }
-        internal static Formatter SetupWeightedFormatter(string format, FormatWrapper values, Dictionary<string, char>? alias = null)
-        {
-            Formatter outp = new(TokenParser.ParseTokens(format, alias), values);
-
-            if (!PC.ShowLbl) outp.SetTokenToConstantValue('l');
-            outp.PromiseValueForAllTokens();
-
-            return outp;
-        }
-        private static string DisplayWeighted(bool[] settings, int mistakes, string rankColor, int rank, float modPp, float regPp,
-            float fcModPp, float fcRegPp, string label, string message)
-        {
-            weightedWrapper.SetValues(('e', mistakes), ('c', rankColor), ('r', rank), ('x', modPp), ('p', regPp),
-                    ('l', label), ('y', fcModPp), ('o', fcRegPp), ('m', message), ((char)1, settings[0]), ((char)2, settings[1]), ((char)3, settings[2]));
-            return displayWeighted!.Print();
-        }
-        private static void InitCustom()
-        {
-            customFormatter = SetupCustomFormatter(customFormat, customWrapper, MessageFormatAlias);
-
-            displayCustom = customFormatter.GetOutput();
-        }
-        internal static Formatter SetupCustomFormatter(string format, FormatWrapper values, Dictionary<string, char>? alias = null)
-        {
-            Formatter outp = new(TokenParser.ParseTokens(format, alias), values);
-
-            if (!PC.Target.Equals(Targeter.NO_TARGET) && PC.ShowEnemy)
-                outp.SetTokenToConstantValue('t', PC.Target);
-            else outp.SetTokenToConstantValue('t');
-            outp.SurroundTokens("$", "</color>", 'c');
-            outp.PromiseValueForAllTokens();
-
-            return outp;
-        }
-        private static string DisplayCustom(string color, float acc, float accPP, float passPP, float techPP, float pp)
-        {
-            customWrapper.SetValues(('c', color), ('a', acc), ('y', accPP), ('z', passPP), ('x', techPP), ('p', pp));
-            return displayCustom!.Print();
-        }
-        public static void AddToCache(MapSelection map, float[] vals) => mapCache.Add((map, vals));
-        #endregion
-        #region Updates
-        public override void UpdateCounterInternal(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
-        {
-            //Plugin.Log.Info($"acc: {acc}, notes: {notes}, mistakes: {mistakes}, fcPercent: {fcPercent}");
-            if (setupStatus > 0)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                UpdateWeightedCounter(acc, mistakes, fcPercent);
+                throw;
+            }
+            catch (Exception exception)
+            {
+                Plugin.Log.Error($"Clan counter setup failed:\n{exception}");
+
+                InitializeWeightedMode(ClanCounterMode.LoadFailed, pc.MessageSettings.LoadFailedMessage);
+            }
+        }
+
+        private void InitializeCaptureMode(ClanCaptureResult result)
+        {
+            if (result.NeededPp <= 0f)
+            {
+                InitializeWeightedMode(ClanCounterMode.Captured, pc.MessageSettings.MapCapturedMessage);
+
                 return;
             }
-            
-            ppHandler!.Update(acc, mistakes, fcPercent);
-            //Plugin.Log.Info("ppVals: " + HelpfulMisc.Print(ppHandler));
 
-            string color(float num) => PC.UseGrad ? HelpfulFormatter.NumberToGradient(num) : HelpfulFormatter.NumberToColor(num);
-            string message()
+            _neededPpValues.TotalPP = result.NeededPp;
+
+            CalculateNeededAccuracy();
+
+            if (pc.CeilEnabled && _neededAccuracy >= pc.ClanPercentCeil)
             {
-                Func<string, float, float, float, float, float, string> func = PC.ShowClanMessage ? DisplayCustom : TheCounter.PercentNeededFormatter;
-                return func.Invoke(color(ppHandler!.GetPPGroup(0).TotalPP - neededPPs.TotalPP),
-                neededAcc, neededPPs.AccPP, neededPPs.PassPP, neededPPs.TechPP, neededPPs.TotalPP);
+                InitializeWeightedMode(ClanCounterMode.Uncapturable, pc.MessageSettings.MapUncapturableMessage);
+
+                return;
             }
-            if (PC.SplitPPVals && calc.RatingCount > 1)
-            {
-                for (int i = 0; i < 4; i++)
-                    outpText.AppendLine(DisplayClan(ppHandler.DisplayFC, PC.ExtraInfo && i == 3, mistakes, ppHandler[1, i], ppHandler[0, i], 
-                        ppHandler[3, i], ppHandler[2, i], TheCounter.CurrentLabels[i], message));
-            }
-            else
-                outpText.AppendLine(DisplayClan(ppHandler.DisplayFC, PC.ExtraInfo, mistakes, ppHandler[1], ppHandler[0],
-                    ppHandler[3], ppHandler[2], TheCounter.CurrentLabels.Last(), message));
+
+            _message = "";
+            _showRank = pc.ShowRank;
+            _mode = ClanCounterMode.Capture;
         }
-        public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
-        private void UpdateWeightedCounter(float acc, int mistakes, float fcPercent)
+
+        private void InitializeWeightedMode(ClanCounterMode mode, string message)
         {
-            float weight = BLCalc.Instance.GetWeight(weightedPPHandler!.PartialUpdate(acc, mistakes).TotalPP, clanPPs, out int rank);
+            _mode = mode;
+            _message = message;
 
-            weightedPPHandler!.FinishPartialUpdate(acc, fcPercent, weight);
-            //Plugin.Log.Info("ppVals: " + HelpfulMisc.Print(weightedPPHandler));
+            _showRank = pc.ShowRank && mode is not ClanCounterMode.Unranked and not ClanCounterMode.LoadFailed;
+        }
 
-            const string ppLabel = " Weighted PP";
-            if (PC.SplitPPVals && calc.RatingCount > 1)
+        private void CalculateNeededAccuracy()
+        {
+            _neededAccuracy = calc.GetAcc(_neededPpValues.TotalPP, pc.DecimalPrecision, ratings.Ratings);
+
+            float[] values = calc.GetPp(_neededAccuracy / 100f, _normalRatings.Ratings);
+
+            if (values.Length > 0)
+                _neededPpValues.AccPP = values[0];
+
+            if (values.Length > 1)
+                _neededPpValues.PassPP = values[1];
+
+            if (values.Length > 2)
+                _neededPpValues.TechPP = values[2];
+        }
+
+        private void InitializeMainHandler()
+        {
+            ppHandler = new PPHandler(
+                ratings,
+                calc,
+                pc.DecimalPrecision,
+                2,
+                (rating, accuracy, in main, ref toChange, _) =>
+                    PPContainer.SubtractFast(in main, in _neededPpValues, ref toChange)
+            )
             {
-                string color = HelpfulFormatter.GetWeightedRankColor(rank);
-                for (int i = 0; i < 4; i++)
-                    outpText.AppendLine(DisplayWeighted([weightedPPHandler.DisplayFC, PC.ExtraInfo && i == 3, showRank && i == 3], 
-                        mistakes, color, rank, weightedPPHandler[1, i], weightedPPHandler[0, i], weightedPPHandler[3, i], weightedPPHandler[2, i], i == 3 ? ppLabel : TheCounter.CurrentLabels[i], message));
+                UpdateFCEnabled = pc.PPFC,
+                UpdatePPEnabled = _formatting.UsesMainPpValues,
+            };
+
+            ppHandler.UpdateFC += (fullComboAccuracy, values, actions, multiplier) =>
+            {
+                values[2].SetValues(calc.GetPpWithSummedPp(fullComboAccuracy, pc.DecimalPrecision));
+
+                actions(0, fullComboAccuracy, in values[2], ref values[3], multiplier);
+            };
+        }
+
+        private void InitializeWeightedHandler()
+        {
+            _weightedPpHandler = new PPHandler(
+                ratings,
+                calc,
+                pc.DecimalPrecision,
+                2,
+                (rating, accuracy, in main, ref toChange, weight) => PPContainer.MultiplyFast(ref toChange, weight)
+            )
+            {
+                UpdateFCEnabled = pc.PPFC,
+                UpdatePPEnabled = _formatting.UsesWeightedPpValues,
+            };
+
+            _weightedPpHandler.UpdateFC += (fullComboAccuracy, values, actions, weight) =>
+            {
+                values[2].SetValues(calc.GetPpWithSummedPp(fullComboAccuracy, pc.DecimalPrecision));
+
+                actions(0, fullComboAccuracy, in values[2], ref values[3], weight);
+            };
+        }
+
+        private string CreateCaptureMessage()
+        {
+            float difference = ppHandler.GetPPGroup(0).TotalPP - _neededPpValues.TotalPP;
+
+            string color = pc.UseGrad
+                ? HelpfulFormatter.NumberToGradient(difference)
+                : HelpfulFormatter.NumberToColor(difference);
+
+            if (pc.ShowClanMessage)
+            {
+                return _formatting.FormatMessage(
+                    color,
+                    _neededAccuracy,
+                    _neededPpValues.AccPP,
+                    _neededPpValues.PassPP,
+                    _neededPpValues.TechPP,
+                    _neededPpValues.TotalPP,
+                    CreateTargetMessage()
+                );
             }
-            else
-                outpText.AppendLine(DisplayWeighted([weightedPPHandler.DisplayFC, PC.ExtraInfo, showRank], 
-                    mistakes, HelpfulFormatter.GetWeightedRankColor(rank), rank, weightedPPHandler[1], weightedPPHandler[0], weightedPPHandler[3], weightedPPHandler[2], ppLabel, message));
+
+            return _mainFormatting.FormatPercentNeeded(
+                color,
+                _neededAccuracy,
+                _neededPpValues.PassPP,
+                _neededPpValues.AccPP,
+                _neededPpValues.TechPP,
+                _neededPpValues.TotalPP
+            );
+        }
+
+        private string CreateTargetMessage()
+        {
+            if (!pc.ShowEnemy || pc.Target == Targeter.NO_TARGET || !_targeter.IsInitialized)
+            {
+                return "";
+            }
+
+            return _mainFormatting.FormatTarget(_targeter.Target.TargetName.ClampString(pc.MaxNameLength), Mods);
+        }
+
+        private void UpdateWeightedCounter(float accuracy, int mistakes, float fullComboAccuracy)
+        {
+            if (_weightedPpHandler is null)
+                return;
+
+            PPContainer partial = _weightedPpHandler.PartialUpdate(accuracy, mistakes);
+
+            float weight = _beatLeaderCalculator.GetWeight(partial.TotalPP, _clanPpValues, out int rank);
+
+            _weightedPpHandler.FinishPartialUpdate(accuracy, fullComboAccuracy, weight);
+
+            string rankColor = HelpfulFormatter.GetWeightedRankColor(rank);
+
+            const string weightedLabel = " Weighted PP";
+
+            if (pc.SplitPPVals && calc.RatingCount > 1)
+            {
+                int count = Math.Min(calc.DisplayRatingCount, CurrentLabels.Count);
+
+                for (int index = 0; index < count; index++)
+                {
+                    bool isTotal = index == count - 1;
+
+                    outpText.AppendLine(
+                        _formatting.FormatWeighted(
+                            _weightedPpHandler.DisplayFC,
+                            pc.ExtraInfo && isTotal,
+                            _showRank && isTotal,
+                            mistakes,
+                            rankColor,
+                            rank,
+                            _weightedPpHandler[1, index],
+                            _weightedPpHandler[0, index],
+                            _weightedPpHandler[3, index],
+                            _weightedPpHandler[2, index],
+                            isTotal ? weightedLabel : CurrentLabels[index],
+                            _message
+                        )
+                    );
+                }
+
+                return;
+            }
+
+            outpText.AppendLine(
+                _formatting.FormatWeighted(
+                    _weightedPpHandler.DisplayFC,
+                    pc.ExtraInfo,
+                    _showRank,
+                    mistakes,
+                    rankColor,
+                    rank,
+                    _weightedPpHandler[1],
+                    _weightedPpHandler[0],
+                    _weightedPpHandler[3],
+                    _weightedPpHandler[2],
+                    weightedLabel,
+                    _message
+                )
+            );
+        }
+
+        private enum ClanCounterMode
+        {
+            Loading,
+            Capture,
+            Captured,
+            Unranked,
+            LoadFailed,
+            Uncapturable,
         }
     }
-    #endregion
 }

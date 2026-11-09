@@ -1,11 +1,15 @@
-﻿using BLPPCounter.Helpfuls.FormatHelpers;
-using BLPPCounter.Utils.TokenParser.Printers;
 using System;
 using System.Collections.Generic;
+using BLPPCounter.Helpfuls.FormatHelpers;
+using BLPPCounter.Utils.TokenParser.Printers;
 
 namespace BLPPCounter.Utils.TokenData
 {
-    internal class TokenHandler(FormatRelation relator, FormatWrapper wrapper, Func<string, FormatWrapper, Dictionary<string, char>, Formatter> formatCreator)
+    internal class TokenHandler(
+        FormatRelation relator,
+        FormatWrapper wrapper,
+        Func<string, FormatWrapper, Dictionary<string, char>, Formatter> formatCreator
+    )
     {
         private readonly FormatRelation relator = relator;
         private readonly FormatWrapper wrapper = wrapper;

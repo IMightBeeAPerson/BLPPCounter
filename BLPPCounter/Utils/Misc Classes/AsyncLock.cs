@@ -1,37 +1,97 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace BLPPCounter.Utils.Misc_Classes
 {
-    public class AsyncLock
+    internal sealed class AsyncLock : IDisposable
     {
         private readonly SemaphoreSlim _semaphore = new(1, 1);
 
-        /// <summary>
-        /// Acquires the lock asynchronously. Use 'using' to release it automatically.
-        /// </summary>
-        public async Task<Releaser> LockAsync()
+        private int _disposed;
+
+        public async Task<Releaser> LockAsync(CancellationToken cancellationToken = default)
         {
-            await _semaphore.WaitAsync().ConfigureAwait(false);
-            return new Releaser(_semaphore);
+            ThrowIfDisposed();
+
+            await _semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                _semaphore.Release();
+
+                throw new ObjectDisposedException(nameof(AsyncLock));
+            }
+
+            return new Releaser(new Lease(_semaphore));
         }
-        /// <summary>
-        /// Attempts to acquire the lock asynchronously. Returns null if lock is already taken.
-        /// </summary>
-        public async Task<Releaser?> TryLockAsync()
+
+        public async Task<Releaser?> TryLockAsync(CancellationToken cancellationToken = default)
         {
-            bool entered = await _semaphore.WaitAsync(0).ConfigureAwait(false);
-            if (!entered) return null;
-            return new Releaser(_semaphore);
+            ThrowIfDisposed();
+
+            bool acquired = await _semaphore.WaitAsync(0, cancellationToken).ConfigureAwait(false);
+
+            if (!acquired)
+                return null;
+
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                _semaphore.Release();
+
+                throw new ObjectDisposedException(nameof(AsyncLock));
+            }
+
+            return new Releaser(new Lease(_semaphore));
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                return;
+
+            _semaphore.Dispose();
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                throw new ObjectDisposedException(nameof(AsyncLock));
+            }
         }
 
         public readonly struct Releaser : IDisposable
         {
+            private readonly Lease? _lease;
+
+            internal Releaser(Lease lease)
+            {
+                _lease = lease;
+            }
+
+            public void Dispose()
+            {
+                _lease?.Release();
+            }
+        }
+
+        internal sealed class Lease
+        {
             private readonly SemaphoreSlim _semaphore;
-            internal Releaser(SemaphoreSlim semaphore) => _semaphore = semaphore;
-            public void Dispose() => _semaphore?.Release();
+
+            private int _released;
+
+            internal Lease(SemaphoreSlim semaphore)
+            {
+                _semaphore = semaphore ?? throw new ArgumentNullException(nameof(semaphore));
+            }
+
+            internal void Release()
+            {
+                if (Interlocked.Exchange(ref _released, 1) == 0)
+                    _semaphore.Release();
+            }
         }
     }
-
 }

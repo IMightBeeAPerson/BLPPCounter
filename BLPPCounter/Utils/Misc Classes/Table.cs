@@ -1,81 +1,114 @@
-﻿using BLPPCounter.Helpfuls;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text.RegularExpressions;
+using BLPPCounter.Helpfuls;
+using BLPPCounter.Utils.Safety;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace BLPPCounter.Utils.Misc_Classes
 {
-    internal class Table: INotifyPropertyChanged
+    internal class Table : SafeNotifyPropertyChanged
     {
-        public event PropertyChangedEventHandler PropertyChanged;
-
+        /// <summary>
+        ///
+        /// </summary>
         public int Spaces
         {
-            get => _Spaces;
+            get;
             set
             {
-                _Spaces = value;
+                field = value;
                 FormatValueUpdated = false;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Spaces)));
+                NotifyPropertyChanged(nameof(Spaces));
             }
-        }
+        } = 2;
+
+        /// <summary>
+        ///
+        /// </summary>
         public bool HasEndColumn
         {
-            get => _HasEndColumn;
+            get;
             set
             {
-                _HasEndColumn = value;
+                field = value;
                 FormatValueUpdated = false;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasEndColumn)));
+                NotifyPropertyChanged(nameof(HasEndColumn));
             }
-        }
+        } = false;
+
+        /// <summary>
+        ///
+        /// </summary>
         public bool CenterText
         {
-            get => _CenterText;
+            get;
             set
             {
-                _CenterText = value;
+                field = value;
                 FormatValueUpdated = false;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CenterText)));
+                NotifyPropertyChanged(nameof(CenterText));
             }
-        }
+        } = true;
+
+        /// <summary>
+        /// The max width of a column. -1 means no enforced max width.
+        /// </summary>
         public int MaxWidth
         {
-            get => _MaxWidth;
+            get;
             set
             {
-                _MaxWidth = value;
+                field = value;
                 FormattingUpdated = false;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MaxWidth)));
+                NotifyPropertyChanged(nameof(MaxWidth));
             }
-        }
+        } = -1;
+
+        /// <summary>
+        /// Color used when highlighting text.
+        /// </summary>
         public Color HighlightColor
         {
-            get => _HighlightColor;
+            get;
             set
             {
-                _HighlightColor = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HighlightColor)));
+                field = value;
+                NotifyPropertyChanged(nameof(HighlightColor));
             }
-        }
-        private int _Spaces = 2;
-        private bool _HasEndColumn = false;
-        private bool _CenterText = true;
-        private int _MaxWidth = -1; //<= 0 means no max width
-        private Color _HighlightColor = new(1, 1, 0, 0.5f); //Color used when highlighting text.
+        } = new(1, 1, 0, 0.5f);
 
         public readonly TextMeshProUGUI Container;
-        private string[][] Values; //Values given to be in the table. Can only be set so that no one can just change a value without notifying this object.
-        private string[] Names; //The top row, names of each column.
-        private float[][] SpacingValues; //The amount of space to make the tables line up for each value. Includes Names, is in pixels.
-        private readonly string[][] TableValues; //Each part of the table, properly formatted. Used when combining to make the final string.
 
+        /// <summary>
+        /// Values given to be in the table. Can only be set so that no one can just change a value without notifying
+        /// this object.
+        /// </summary>
+        private string[][] Values;
+
+        /// <summary>
+        /// The top row of the table; names of each column.
+        /// </summary>
+        private string[] Names;
+
+        /// <summary>
+        /// The amount of space to make the tables line up for each value. Includes Names, is in pixels.
+        /// </summary>
+        private float[][] SpacingValues;
+
+        /// <summary>
+        /// Each part of the table, properly formatted. Used when combining to make the final string.
+        /// </summary>
+        private readonly string[][] TableValues;
+
+        [MemberNotNullWhen(true, nameof(MaxLengths), nameof(Prefix), nameof(Format), nameof(Spacer), nameof(Suffix))]
         public bool FormatValueUpdated { get; private set; } //Whether or not a value that effects formatting has been updated.
+
+        [MemberNotNullWhen(true, nameof(MaxLengths))]
         public bool FormattingUpdated { get; private set; } //Whether or not the formatting has been updated (specifically TableValues).
         public bool ContainerUpdated { get; private set; } //Whether or not the container has been updated in the UpdateTable() method.
 
@@ -83,8 +116,11 @@ namespace BLPPCounter.Utils.Misc_Classes
         public float TableHeight { get; private set; } //The height of the table in pixels.
 
         private bool SoftUpdate => FormatValueUpdated && FormattingUpdated; //True only when the only things to have changed have been accounted for (ex: cell text changed) or highlighting has been changed.
-        private float[] MaxLengths; //The max length in pixels of a column.
-        private string Prefix, Format, Spacer, Suffix; //The prefix, formatting, spacer, and suffix for each row. 
+        private float[]? MaxLengths; //The max length in pixels of a column.
+        private string? Prefix;
+        private string? Format;
+        private string? Spacer;
+        private string? Suffix; //The prefix, formatting, spacer, and suffix for each row.
         private readonly HashSet<(int Row, int Column)> HighlightQueue; //This is filled when the highlight method is called and the table hasn't been updated yet. When the table updates, this is used to highlight it while processing.
         private readonly HashSet<(int Row, int Column)> UsedHighlights; //This is filled with highlights currently in the table right now, and they are removed when the highlight is cleared or goes back into the queue.
 
@@ -93,7 +129,7 @@ namespace BLPPCounter.Utils.Misc_Classes
         private int CurrentButtonColumn; //The column that the buttons are at currently. -1 if none.
 
         /// <summary>
-        /// Initialize a table, given a matrix of values and an array of headers (or names). 
+        /// Initialize a table, given a matrix of values and an array of headers (or names).
         /// </summary>
         /// <param name="container">
         /// This is how the table displays itself, as it is simply text. Calling <see cref="UpdateTable"/> will automatically display this table through the container,
@@ -133,21 +169,30 @@ namespace BLPPCounter.Utils.Misc_Classes
             TableButtons = [];
 
             //This is a special line to fix an error in the font where people don't set the width for spaces, which screws up highlighting.
-            if (Container.font.characterLookupTable[' '].glyph.metrics.width == 0) Container.font.MakeSpacesHaveSpace();
+            if (Container.font.characterLookupTable[' '].glyph.metrics.width == 0)
+                Container.font.MakeSpacesHaveSpace();
         }
-        public Table(TextMeshProUGUI container, IEnumerable<KeyValuePair<string, string>> values, string key, string value) 
-            : this(container, values.Select(kvp => new string[2] { kvp.Key, kvp.Value }).ToArray(), key, value) {}
-       
+
+        public Table(
+            TextMeshProUGUI container,
+            IEnumerable<KeyValuePair<string, string>> values,
+            string key,
+            string value
+        )
+            : this(container, values.Select(kvp => new string[2] { kvp.Key, kvp.Value }).ToArray(), key, value) { }
+
         public void SetValues(string[][] values)
         {
             Values = values;
             FormattingUpdated = false;
         }
+
         public void SetNames(string[] names)
         {
             Names = names;
             FormattingUpdated = false;
         }
+
         public void UpdateTable(bool removeHighlights = false)
         {
             if (!removeHighlights && FormattingUpdated)
@@ -160,16 +205,21 @@ namespace BLPPCounter.Utils.Misc_Classes
             rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, TableWidth / Container.canvas.scaleFactor);
             rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, TableHeight / Container.canvas.scaleFactor);
         }
+
         public void ClearTable()
         {
             Container.text = new string('\n', Values[0].Length);
             ContainerUpdated = false;
         }
+
         public void ChangeValue(int row, int column, string newValue)
         {
             Values[row][column] = newValue; //Set Value to new value no matter the state of the table.
+
             ContainerUpdated = false; //Since a value has been changed, the current container display is no longer up to date.
-            if (!FormattingUpdated) return; //If formatting hasn't been updated, then nothing more needs to be done. Exit.
+            if (!FormattingUpdated)
+                return; //If formatting hasn't been updated, then nothing more needs to be done. Exit.
+
             float len = GetLen(newValue); //Get the length of the new Value (in pixels).
             if (len < MaxLengths[column]) //Check if this length is within the maximum length of the column.
             {
@@ -177,6 +227,7 @@ namespace BLPPCounter.Utils.Misc_Classes
                 FormatCell(row + 1, column); //Reformat the cell to having the proper values on <space> tags.
             }
         }
+
         public void HighlightCell(int row, int column, bool updateTable = true)
         {
             if (!FormattingUpdated) //If formatting hasn't been updated, meaning TableValues could be null, do not proceed.
@@ -185,13 +236,17 @@ namespace BLPPCounter.Utils.Misc_Classes
                 return; //Do not go any further.
             }
             HighlightCellInternal(row, column); //Since TableValues isn't null, go ahead and highlight the cell.
-            if (updateTable) UpdateTable(false); //Update the table if the user would like the table to be updated.
+            if (updateTable)
+                UpdateTable(false); //Update the table if the user would like the table to be updated.
         }
+
         private void HighlightCellInternal(int row, int column)
         {
-            TableValues[row][column] = $"<mark={HelpfulMisc.ConvertColorToHex(_HighlightColor)}>{TableValues[row][column]}</mark>"; //Surrounds the cell with the highlight tag.
+            TableValues[row][column] =
+                $"<mark={HelpfulMisc.ConvertColorToHex(HighlightColor)}>{TableValues[row][column]}</mark>"; //Surrounds the cell with the highlight tag.
             UsedHighlights.Add((row, column)); //Adds the highlight to UsedHighlights, as it is now in use.
         }
+
         public void RemoveHighlightFromCell(int row, int column)
         {
             if (HighlightQueue.Contains((row, column))) //If highlight is inside queue, the handle removing the highlight, otherwise continue.
@@ -201,23 +256,33 @@ namespace BLPPCounter.Utils.Misc_Classes
             }
             //FIRST PART: If formatting hasn't been updated and a highlight isn't in the queue, then highlight must not exist. Exit this method.
             //SECOND PART: If UsedHighlights doesn't have this highlight, then it must not exist. Exit this method.
-            if (!FormattingUpdated || !UsedHighlights.Contains((row, column))) return;
+            if (!FormattingUpdated || !UsedHighlights.Contains((row, column)))
+                return;
             TableValues[row][column] = HelpfulRegex.MarkTagFinder.Replace(TableValues[row][column], ""); //Uses regex to find and remove the mark from this cell.
             UsedHighlights.Remove((row, column)); //Removes this highlight from UseHighlights as it is no longer used.
         }
+
         public void ClearHighlights()
         {
             HighlightQueue.Clear(); //No matter what, remove all queued highlights from queue.
-            if (!FormattingUpdated) return; //If formatting isn't updated, meaning TableValues could be null, do not proceed.
+            if (!FormattingUpdated)
+                return; //If formatting isn't updated, meaning TableValues could be null, do not proceed.
             foreach ((int, int) highlight in UsedHighlights) //Iterates through all highlights in use.
-                TableValues[highlight.Item1][highlight.Item2] = HelpfulRegex.MarkTagFinder.Replace(TableValues[highlight.Item1][highlight.Item2], ""); //Removes the highlight from TableValues using the regex replace.
+                TableValues[highlight.Item1][highlight.Item2] = HelpfulRegex.MarkTagFinder.Replace(
+                    TableValues[highlight.Item1][highlight.Item2],
+                    ""
+                ); //Removes the highlight from TableValues using the regex replace.
             UsedHighlights.Clear(); //Clears used highlights once they are all back into the queue.
         }
+
         private void RequeueHighlights()
         {
             foreach ((int, int) highlight in UsedHighlights) //Iterates through all highlights in use.
             {
-                TableValues[highlight.Item1][highlight.Item2] = HelpfulRegex.MarkTagFinder.Replace(TableValues[highlight.Item1][highlight.Item2], ""); //Removes the highlight from TableValues using the regex replace.
+                TableValues[highlight.Item1][highlight.Item2] = HelpfulRegex.MarkTagFinder.Replace(
+                    TableValues[highlight.Item1][highlight.Item2],
+                    ""
+                ); //Removes the highlight from TableValues using the regex replace.
                 HighlightQueue.Add(highlight); //Adds the highlight back into the queue.
             }
             UsedHighlights.Clear(); //Clears used highlights once they are all back into the queue.
@@ -230,10 +295,17 @@ namespace BLPPCounter.Utils.Misc_Classes
         /// <param name="column">Which table column to align with</param>
         /// <param name="onClick">Action callback when a button is clicked, passes row/col ID string</param>
         /// <param name="labels">Optional array of labels for buttons</param>
-        public void SpawnButtonsForColumn(int column, Action<string> onClick, Button buttonPrefab, string columnName = null, string[] labels = null)
+        public void SpawnButtonsForColumn(
+            int column,
+            Action<string> onClick,
+            Button buttonPrefab,
+            string? columnName = null,
+            string[]? labels = null
+        )
         {
             //Check for nulls
-            if (!FormatValueUpdated || buttonPrefab is null) return;
+            if (!FormatValueUpdated || buttonPrefab is null)
+                return;
 
             //Reset changes if they have been made
             if (HasButtonsBeenAdded)
@@ -245,7 +317,8 @@ namespace BLPPCounter.Utils.Misc_Classes
 
             // Destroy old buttons
             foreach (Button b in TableButtons)
-                if (b is not null) UnityEngine.Object.Destroy(b.gameObject);
+                if (b is not null)
+                    UnityEngine.Object.Destroy(b.gameObject);
             TableButtons.Clear();
 
             // Force TMP mesh update
@@ -259,20 +332,22 @@ namespace BLPPCounter.Utils.Misc_Classes
             {
                 string text = labels != null && row < labels.Length ? labels[row] : $"{row}_{column}";
                 float textLen = GetLen(text);
-                if (textLen > columnWidth) columnWidth = textLen;
+                if (textLen > columnWidth)
+                    columnWidth = textLen;
             }
 
             // --- Compute start of current column with spacer adjustments ---
             float aLength = GetLen("a");
-            float columnStart = GetLen(Prefix + 'a') - aLength;        // start after prefix
-            float spacer = GetLen('a' + Spacer + 'a') - 2 * aLength;   // spacer width
+            float columnStart = GetLen(Prefix + 'a') - aLength; // start after prefix
+            float spacer = GetLen('a' + Spacer + 'a') - 2 * aLength; // spacer width
             for (int c = 0; c < column; c++)
                 columnStart += MaxLengths[c] + spacer;
             columnStart -= spacer;
             columnStart += column < Names.Length ? spacer : GetLen('a' + Suffix) - aLength;
 
             // --- Column center X offset ---
-            float xOffset = -TableWidth / 2f + columnStart + (column >= Names.Length ? columnWidth : MaxLengths[column]) / 2f;
+            float xOffset =
+                -TableWidth / 2f + columnStart + (column >= Names.Length ? columnWidth : MaxLengths[column]) / 2f;
 
             // --- Add in the extra column ---
             if (columnName is not null)
@@ -330,36 +405,52 @@ namespace BLPPCounter.Utils.Misc_Classes
                 ContainerUpdated = false;
             if (columnName is not null)
                 CurrentButtonColumn = column;
-            else CurrentButtonColumn = -1;
+            else
+                CurrentButtonColumn = -1;
         }
 
         private float GetLen(string str) => Container.GetPreferredValues(str).x;
+
         private float GetLenWithoutRich(string str) => GetLen(Regex.Replace(str, "<[^>]+>", "")); //Too simple to move to HelpfulRegex, will leave it here.
+
         private float GetLenWithSpacers(string str)
         {
             MatchCollection mc = Regex.Matches(str, "(?<=<space=)[^p]+"); //Too simple to move to HelpfulRegex, will leave it here.
             float addedSpace = mc.OfType<Match>().Aggregate(0.0f, (total, match) => total + float.Parse(match.Value)); // 1.34.2 and below
             return GetLenWithoutRich(str) + addedSpace;
         }
-        private string GetRow(int rowIndex) => FormattingUpdated ? 
-            Prefix + TableValues[rowIndex].Skip(1).Aggregate(TableValues[rowIndex][0], (total, current) => total + Spacer + current) + Suffix : //If formatting is updated then a row is simply the Prefix + all table values combined (with a spacer between them) + Suffix.
-            FormatRow(rowIndex); //If formatting is not updated, then update the format :D.
+
+        private string GetRow(int rowIndex) =>
+            FormattingUpdated
+                ? Prefix
+                    + TableValues[rowIndex]
+                        .Skip(1)
+                        .Aggregate(TableValues[rowIndex][0], (total, current) => total + Spacer + current)
+                    + Suffix
+                : //If formatting is updated then a row is simply the Prefix + all table values combined (with a spacer between them) + Suffix.
+                FormatRow(rowIndex); //If formatting is not updated, then update the format :D.
+
         private string FormatRow(int rowIndex)
         {
+            if (!FormatValueUpdated)
+                return "";
+
             string[] vals = rowIndex == 0 ? Names : Values[rowIndex - 1];
             string outp = Prefix;
             for (int i = 0; i < vals.Length; i++)
                 outp += FormatCell(rowIndex, i) + Spacer;
-            outp = outp.Substring(0, outp.Length - Spacer.Length);
-            if (_CenterText) outp += string.Format(Suffix, SpacingValues[rowIndex].Last());
+            outp = outp[..^Spacer.Length];
+            if (CenterText)
+                outp += string.Format(Suffix, SpacingValues[rowIndex].Last());
             return outp;
         }
+
         private string FormatCell(int row, int column)
         {
             string[] vals = row == 0 ? Names : Values[row - 1];
-            TableValues[row][column] = _CenterText ?
-                    string.Format(Format, vals[column], SpacingValues[row][column] / 2, SpacingValues[row][column] / 2) :
-                    string.Format(Format, vals[column], SpacingValues[row][column]);
+            TableValues[row][column] = CenterText
+                ? string.Format(Format, vals[column], SpacingValues[row][column] / 2, SpacingValues[row][column] / 2)
+                : string.Format(Format, vals[column], SpacingValues[row][column]);
             if (HighlightQueue.Contains((row, column)))
             {
                 HighlightCellInternal(row, column);
@@ -367,14 +458,22 @@ namespace BLPPCounter.Utils.Misc_Classes
             }
             return TableValues[row][column];
         }
+
         private void CalculateRowSpacing(int columnIndex)
         {
-            float[] columnLengths = [.. Values.Select(arr => GetLenWithoutRich(arr[columnIndex])).Prepend(GetLenWithoutRich(Names[columnIndex]))];
+            float[] columnLengths =
+            [
+                .. Values
+                    .Select(arr => GetLenWithoutRich(arr[columnIndex]))
+                    .Prepend(GetLenWithoutRich(Names[columnIndex])),
+            ];
             if (columnIndex != CurrentButtonColumn)
-                MaxLengths[columnIndex] = columnLengths.Aggregate(Math.Max);
-            for (int j = 0; j < columnLengths.Length; j++) 
-                SpacingValues[j][columnIndex] = MaxLengths[columnIndex] - columnLengths[j];
+                MaxLengths![columnIndex] = columnLengths.Aggregate(Math.Max);
+            for (int j = 0; j < columnLengths.Length; j++)
+                SpacingValues[j][columnIndex] = MaxLengths![columnIndex] - columnLengths[j];
         }
+
+        [MemberNotNull(nameof(MaxLengths), nameof(Prefix), nameof(Format), nameof(Spacer), nameof(Suffix))]
         private void UpdateValues()
         {
             if (MaxLengths is null)
@@ -384,7 +483,7 @@ namespace BLPPCounter.Utils.Misc_Classes
             {
                 //If Values or Names has changed length, update to correct this.
                 //if (MaxLengths.Length != Names.Length || SpacingValues.Length != Values.Length + 1)
-                    UpdateMaxLengths();
+                UpdateMaxLengths();
                 //FormattingUpdated is kept as false so that GetRow knows to fix formatting.
             }
 
@@ -396,6 +495,8 @@ namespace BLPPCounter.Utils.Misc_Classes
                 FormatValueUpdated = true;
             }
         }
+
+        [MemberNotNull(nameof(MaxLengths))]
         private void UpdateMaxLengths()
         {
             if (MaxLengths is null || MaxLengths.Length != Names.Length || Values.Length != SpacingValues.Length - 1)
@@ -406,13 +507,15 @@ namespace BLPPCounter.Utils.Misc_Classes
             for (int i = 0; i < MaxLengths.Length; i++)
                 CalculateRowSpacing(i);
         }
+
+        [MemberNotNull(nameof(Prefix), nameof(Format), nameof(Spacer), nameof(Suffix))]
         private void UpdateFormatting()
         {
-            string space = new(' ', Spaces); //Set space to the amount of Spaces. 
+            string space = new(' ', Spaces); //Set space to the amount of Spaces.
             Prefix = $"|{space}"; //Sets prefix based on Spaces.
-            Format = _CenterText ? "<space={1}px>{0}<space={2}px>" : "{0}<space={1}px>"; //Sets Format based on CenterText.
+            Format = CenterText ? "<space={1}px>{0}<space={2}px>" : "{0}<space={1}px>"; //Sets Format based on CenterText.
             Spacer = $"{space}|{space}"; //Sets Spacer based on Spaces.
-            Suffix = _HasEndColumn ? $"{space}|" : ""; //Sets Suffix based on Spaces and HasEndColumn.
+            Suffix = HasEndColumn ? $"{space}|" : ""; //Sets Suffix based on Spaces and HasEndColumn.
         }
 
         public override string ToString()
@@ -421,7 +524,8 @@ namespace BLPPCounter.Utils.Misc_Classes
             string[] rows = new string[Values.Length + 2]; //This is the actual rows the table will show, including the dividing dash line.
 
             bool softUpdate = SoftUpdate; //Need to store this variable here in case UpdateValues changes its value.
-            if (!softUpdate) UpdateValues(); //Handles if any value has been updated. Only call this if softUpdate is false, otherwise Update variables are checked twice for no reason.
+            if (!softUpdate)
+                UpdateValues(); //Handles if any value has been updated. Only call this if softUpdate is false, otherwise Update variables are checked twice for no reason.
 
             //Sets each row of the table to be the proper values and combines each row into a string. The only row not setup is the dashes.
             rows[0] = GetRow(0) + '\n'; //The +\n is done because of the way Aggregate works, it doesn't add the \n to the first index.
@@ -432,7 +536,16 @@ namespace BLPPCounter.Utils.Misc_Classes
             {
                 float dashSize = GetLen("-"); //Get sizes of what one dash is. This will be updated later to be more precise.
                 //Length of the line in pixels (without spacers).
-                float maxSpace = _MaxWidth > 0 ? _MaxWidth : GetLenWithSpacers(rows[0].Substring(Prefix.Length, rows[0].Length - Prefix.Length - (_HasEndColumn ? Suffix.Length : 0))); 
+                float maxSpace =
+                    MaxWidth > 0
+                        ? MaxWidth
+                        : GetLenWithSpacers(
+                            rows[0]
+                                .Substring(
+                                    Prefix!.Length,
+                                    rows[0].Length - Prefix.Length - (HasEndColumn ? Suffix!.Length : 0)
+                                )
+                        );
                 int dashCount = -1; //inits the dashCount variable out here so that it is in scope for later use.
                 float realDashSize = 0;
                 do
@@ -445,15 +558,20 @@ namespace BLPPCounter.Utils.Misc_Classes
                     dashCount = (int)Math.Ceiling(maxSpace / dashSize); //The amount of dashes.
                 } while (Math.Round(realDashSize - dashSize * dashCount, 2) != 0); //Checks if the calculated dash size equals the actual one within 2 decimals places.
                 float spaceLength = maxSpace - dashSize * dashCount; //The length in pixels that the spacer(s) need to be set to.
-                if (_HasEndColumn) spaceLength /= 2; //If there is a suffix, divide by 2 since the spacing will be distributed between the front and back.
+
+                if (HasEndColumn)
+                    spaceLength /= 2; //If there is a suffix, divide by 2 since the spacing will be distributed between the front and back.
                 rows[1] = $"{Prefix}<space={spaceLength}px>{new string('-', dashCount)}"; //Sets row[1] to the prefix + space tag + the amount of dashes that was calculated
-                if (_HasEndColumn) rows[1] += $"<space={spaceLength}px>{Suffix}"; //Adds the last part, the spacing and the suffix, to row[1].
+
+                if (HasEndColumn)
+                    rows[1] += $"<space={spaceLength}px>{Suffix}"; //Adds the last part, the spacing and the suffix, to row[1].
                 FormattingUpdated = true; //Make sure this is true, because if it wasn't then formatting has been updated.
-            } else
+            }
+            else
             {
                 string content = Container.text; //Gets the text in the container (this line can only be reached if Container text had been set).
-                content = content.Substring(content.IndexOf('\n')); //Removes the header line from the string.
-                content = content.Substring(1, content.IndexOf('\n', 2) - 1); //Removes everything after the second line (aka the dash line). Importantly it also removes the \n at the start and end of the line.
+                content = content[content.IndexOf('\n')..]; //Removes the header line from the string.
+                content = content[1..content.IndexOf('\n', 2)]; //Removes everything after the second line (aka the dash line). Importantly it also removes the \n at the start and end of the line.
                 rows[1] = content; //Set the row[1] to be the dash line.
             }
             TableWidth = GetLenWithSpacers(rows[0]); //Sets the width of the table to the width of the top row. Because the shape of the table is a rectangle, this should be the width of all rows.

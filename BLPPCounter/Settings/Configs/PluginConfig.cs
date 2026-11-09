@@ -1,24 +1,24 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
-using IPA.Config.Stores;
-using IPA.Config.Stores.Attributes;
-using IPA.Config.Stores.Converters;
+using BLPPCounter.Utils.Converters;
 using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.Misc_Classes;
 using BLPPCounter.Utils.Serializable_Classes;
-using System.Drawing;
-using System.Reflection;
-using System.Linq;
 using BLPPCounter.Utils.Special_Utils;
-using BLPPCounter.Utils.Converters;
+using IPA.Config.Stores;
+using IPA.Config.Stores.Attributes;
+using IPA.Config.Stores.Converters;
 
 [assembly: InternalsVisibleTo(GeneratedStore.AssemblyVisibilityTarget)]
+
 namespace BLPPCounter.Settings.Configs
 {
     internal class PluginConfig
     {
         #region Non-Settings Variables
-        public static PluginConfig Instance { get; set; }
         public virtual TokenFormatSettings TokenSettings { get; set; } = new TokenFormatSettings();
         public virtual MessageSettings MessageSettings { get; set; } = new MessageSettings();
         public virtual TextFormatSettings FormatSettings { get; set; } = new TextFormatSettings();
@@ -38,6 +38,7 @@ namespace BLPPCounter.Settings.Configs
         #region Leaderboard Settings
         [UseConverter(typeof(ListConverter<Leaderboards>))]
         public virtual List<Leaderboards> LeaderboardsInUse { get; set; } = [Leaderboards.Beatleader];
+
         [UseConverter(typeof(EnumConverter<Leaderboards>))]
         public virtual Leaderboards CalcLeaderboard { get; set; } = Leaderboards.Beatleader;
         public virtual bool UseUnranked { get; set; } = true;
@@ -88,6 +89,7 @@ namespace BLPPCounter.Settings.Configs
         #region Menu Settings
         #region Simple Settings
         public virtual bool SimpleUI { get; set; } = true;
+
         [UseConverter(typeof(BoolStorageConverter))]
         public virtual BoolStorage SimpleMenuConfig { get; set; } = new BoolStorage();
         #endregion
@@ -97,33 +99,70 @@ namespace BLPPCounter.Settings.Configs
 
         #region Colors
         #region In-Game Colors
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color ColorGradMin { get; set; } = Color.FromArgb(255, 0, 0);
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color ColorGradMax { get; set; } = Color.FromArgb(0, 255, 0);
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color ColorGradZero { get; set; } = Color.FromArgb(255, 255, 0);
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color ColorGradMin { get; set; } = Color.FromArgb(255, 0, 0);
+
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color ColorGradMax { get; set; } = Color.FromArgb(0, 255, 0);
+
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color ColorGradZero { get; set; } = Color.FromArgb(255, 255, 0);
         #endregion
         #region Alias Colors
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color EscapeCharacterColor { get; set; } = Color.FromArgb(235, 33, 235); //#eb21eb
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color SpecialCharacterColor { get; set; } = Color.Goldenrod;
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color AliasColor { get; set; } = Color.FromArgb(187, 242, 46); //#bbf22e
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color AliasQuoteColor { get; set; } = Color.FromArgb(32, 171, 51); //#20ab33
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color ParamColor { get; set; } = Color.DarkCyan;
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color ParamVarColor { get; set; } = Color.Brown;
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color DelimeterColor { get; set; } = Color.DarkSlateGray;
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color CaptureColor { get; set; } = Color.FromArgb(44, 241, 245); //#2cf1f5
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color CaptureIdColor { get; set; } = Color.LightBlue;
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color GroupColor { get; set; } = Color.FromArgb(27, 40, 224); //#1b28e0
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color GroupReplaceColor { get; set; } = Color.FromArgb(255, 75, 43); //#ff4b2b
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color ShorthandColor { get; set; } = Color.DarkMagenta;
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color HighlightColor { get; set; } = Color.FromArgb(119, 255, 255, 0); //#77ffff00
-        [UseConverter(typeof(SystemColorConverter))] public virtual Color SecondHighlightColor { get; set; } = Color.FromArgb(119, 18, 252, 255); //#7712fcff
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color EscapeCharacterColor { get; set; } = Color.FromArgb(235, 33, 235); //#eb21eb
+
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color SpecialCharacterColor { get; set; } = Color.Goldenrod;
+
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color AliasColor { get; set; } = Color.FromArgb(187, 242, 46); //#bbf22e
+
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color AliasQuoteColor { get; set; } = Color.FromArgb(32, 171, 51); //#20ab33
+
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color ParamColor { get; set; } = Color.DarkCyan;
+
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color ParamVarColor { get; set; } = Color.Brown;
+
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color DelimeterColor { get; set; } = Color.DarkSlateGray;
+
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color CaptureColor { get; set; } = Color.FromArgb(44, 241, 245); //#2cf1f5
+
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color CaptureIdColor { get; set; } = Color.LightBlue;
+
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color GroupColor { get; set; } = Color.FromArgb(27, 40, 224); //#1b28e0
+
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color GroupReplaceColor { get; set; } = Color.FromArgb(255, 75, 43); //#ff4b2b
+
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color ShorthandColor { get; set; } = Color.DarkMagenta;
+
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color HighlightColor { get; set; } = Color.FromArgb(119, 255, 255, 0); //#77ffff00
+
+        [UseConverter(typeof(SystemColorConverter))]
+        public virtual Color SecondHighlightColor { get; set; } = Color.FromArgb(119, 18, 252, 255); //#7712fcff
         #endregion
         [Ignore]
         private readonly Dictionary<string, PropertyInfo> Colors = new Dictionary<string, PropertyInfo>(
-            typeof(PluginConfig).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            typeof(PluginConfig)
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
                 .Where(p => p.PropertyType.Equals(typeof(Color)) && p.Name.EndsWith("Color"))
-                .Select(p => new KeyValuePair<string, PropertyInfo>(p.Name.Substring(0, p.Name.Length - 5), p)));
+                .Select(p => new KeyValuePair<string, PropertyInfo>(p.Name[..^5], p))
+        );
+
         public Color GetColorFromName(string name) => (Color)Colors[name].GetValue(this);
-        [Ignore] public IEnumerable<PropertyInfo> ColorInfos => Colors.Values;
+
+        [Ignore]
+        public IEnumerable<PropertyInfo> ColorInfos => Colors.Values;
         #endregion
         #endregion
         #endregion
@@ -135,7 +174,7 @@ namespace BLPPCounter.Settings.Configs
         public virtual float PercentSliderMax { get; set; } = 100.0f;
         public virtual int PPSliderMin { get; set; } = 0;
         public virtual int PPSliderMax { get; set; } = 1000;
-        public virtual int SliderIncrementNum {  get; set; } = 5;
+        public virtual int SliderIncrementNum { get; set; } = 5;
         public virtual bool ShowTrueID { get; set; } = false;
         #endregion
     }

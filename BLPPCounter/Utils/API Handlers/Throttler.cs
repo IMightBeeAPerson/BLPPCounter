@@ -1,59 +1,98 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace BLPPCounter.Utils.API_Handlers
 {
-    internal class Throttler //based off this: https://github.com/TaohRihze/SongSuggestCore/blob/master/SongSuggestCore/DataHandlers/WebDownloader.cs#L483
+    internal sealed class Throttler : IDisposable
     {
-        public int CallsPerCycle { get; private set; }
-        public int CycleLength { get; private set; } //In seconds
+        private readonly SemaphoreSlim _stateLock = new(1, 1);
+        private readonly TimeSpan _cycleDuration;
 
-        private DateTime CycleStartTime;
-        private int CallsThisCycle;
-        private readonly object locker;
+        private DateTime _cycleStart;
+        private int _callsThisCycle;
+        private int _disposed;
 
         public Throttler(int callsPerCycle, int cycleLength)
         {
+            if (callsPerCycle <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(callsPerCycle));
+            }
+
+            if (cycleLength <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(cycleLength));
+            }
+
             CallsPerCycle = callsPerCycle;
             CycleLength = cycleLength;
 
-            CycleStartTime = DateTime.UtcNow;
-            CallsThisCycle = 0;
-            locker = new object();
+            _cycleDuration = TimeSpan.FromSeconds(cycleLength);
+            _cycleStart = DateTime.UtcNow;
         }
 
-        public async Task Call()
+        public int CallsPerCycle { get; }
+
+        public int CycleLength { get; }
+
+        public async Task Call(CancellationToken cancellationToken = default)
         {
-            int restTime = 0;
-            lock (locker)
+            while (true)
             {
-                TimeSpan diff = DateTime.UtcNow - CycleStartTime;
+                ThrowIfDisposed();
 
-                if (diff.TotalSeconds >= CycleLength)
+                TimeSpan delay;
+
+                await _stateLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+                try
                 {
-                    CallsThisCycle = 0;
-                    CycleStartTime = DateTime.UtcNow;
+                    DateTime now = DateTime.UtcNow;
+                    TimeSpan elapsed = now - _cycleStart;
+
+                    if (elapsed >= _cycleDuration)
+                    {
+                        _cycleStart = now;
+                        _callsThisCycle = 0;
+                        elapsed = TimeSpan.Zero;
+                    }
+
+                    if (_callsThisCycle < CallsPerCycle)
+                    {
+                        _callsThisCycle++;
+                        return;
+                    }
+
+                    delay = _cycleDuration - elapsed;
+                }
+                finally
+                {
+                    _stateLock.Release();
                 }
 
-                CallsThisCycle++;
+                if (delay <= TimeSpan.Zero)
+                    continue;
 
-                if (CallsThisCycle > CallsPerCycle)
-                {
-                    restTime = (int)(CycleLength * 1000 - diff.TotalMilliseconds);
-                    Thread.Sleep(restTime);
-                    CallsThisCycle = 1;
-                    CycleStartTime = DateTime.UtcNow.AddMilliseconds(restTime);
-                }
+                Plugin.Log.Info($"Throttling API calls for " + $"{(int)delay.TotalMilliseconds}ms.");
+
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
             }
-            if (restTime > 0)
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                return;
+
+            _stateLock.Dispose();
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (Volatile.Read(ref _disposed) != 0)
             {
-                Plugin.Log.Info("Throttling calls for " + restTime + "ms.");
-                await Task.Delay(restTime);
+                throw new ObjectDisposedException(nameof(Throttler));
             }
         }
     }

@@ -1,231 +1,549 @@
-﻿using BeatSaberMarkupLanguage.Attributes;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using BeatSaberMarkupLanguage.Attributes;
 using BeatSaberMarkupLanguage.Components;
 using BeatSaberMarkupLanguage.Components.Settings;
 using BeatSaberMarkupLanguage.Parser;
 using BeatSaberMarkupLanguage.ViewControllers;
 using BLPPCounter.Helpfuls;
-using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils.List_Settings;
-using BLPPCounter.Utils.Enums;
-using BLPPCounter.Utils.Misc_Classes;
-using System.Collections.Generic;
-using System.Linq;
-using TMPro;
-using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Helpfuls.FormatHelpers;
+using BLPPCounter.Settings.Configs;
+using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
+using BLPPCounter.Utils.LangAddons;
+using BLPPCounter.Utils.List_Settings;
+using BLPPCounter.Utils.Misc_Classes;
 using BLPPCounter.Utils.Serializable_Classes;
 using BLPPCounter.Utils.TokenParser;
-
-#if !NEW_VERSION
-using BLPPCounter.Utils.Special_Utils;
-#endif
+using TMPro;
+using Zenject;
 
 namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 {
-    public class CustomAliasHandler: BSMLResourceViewController
+    internal sealed class CustomAliasHandler : BSMLResourceViewController
     {
 #pragma warning disable IDE0051, IDE0044, CS0649
+
+        private PluginConfig _config = null!;
+        private IFormatRegistry _formatRegistry = null!;
+        private MenuSettingsHandler _menuSettingsHandler = null!;
+        private LazyInject<FormatEditorHandler> _formatEditorHandler = null!;
+
+        private readonly List<object> _formatNames = [];
+        private readonly List<object> _aliasNames = [];
+        private readonly List<object> _aliasInfos = [];
+
+        private bool _loaded;
+        private string _counter = "";
+        private string _formatName = "";
+        private string _oldAliasName = "";
+
+        private Table? _aliasTable;
+
         public override string ResourceName => "BLPPCounter.Settings.BSML.MenuComponents.AliasSettings.bsml";
-        public static CustomAliasHandler Instance { get; } = new CustomAliasHandler();
-        private static PluginConfig PC => PluginConfig.Instance;
-        private CustomAliasHandler() { }
-        private bool loaded = false;
-        private FormatRelation CurrentFormatInfo => MenuSettingsHandler.AllFormatInfo[(_FormatName, _Counter)];
-        private Table AliasTable;
+
+        [Inject]
+        private void Construct(
+            PluginConfig config,
+            IFormatRegistry formatRegistry,
+            MenuSettingsHandler menuSettingsHandler,
+            LazyInject<FormatEditorHandler> formatEditorHandler
+        )
+        {
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+
+            _formatRegistry = formatRegistry ?? throw new ArgumentNullException(nameof(formatRegistry));
+
+            _menuSettingsHandler = menuSettingsHandler ?? throw new ArgumentNullException(nameof(menuSettingsHandler));
+
+            _formatEditorHandler = formatEditorHandler ?? throw new ArgumentNullException(nameof(formatEditorHandler));
+        }
+
+        private FormatRelation CurrentFormatInfo
+        {
+            get
+            {
+                if (BetterString.IsNullOrWhiteSpace(_counter) || BetterString.IsNullOrWhiteSpace(_formatName))
+                {
+                    throw new InvalidOperationException("No format relation is currently selected.");
+                }
+
+                return _formatRegistry.Get(_formatName, _counter);
+            }
+        }
+
         #region UI Components
+
         [UIParams]
-        private BSMLParserParams ParserParams;
+        private BSMLParserParams ParserParams = null!;
+
         [UIComponent(nameof(ChooseFormat))]
-        private DropDownListSetting ChooseFormat;
+        private DropDownListSetting ChooseFormat = null!;
+
         [UIComponent(nameof(InfoTable))]
-        private TextMeshProUGUI InfoTable;
+        private TextMeshProUGUI InfoTable = null!;
+
         [UIComponent(nameof(AliasEditor))]
-        private CustomCellListTableData AliasEditor;
+        private CustomCellListTableData AliasEditor = null!;
+
         [UIComponent(nameof(CounterText))]
-        private TextMeshProUGUI CounterText;
+        private TextMeshProUGUI CounterText = null!;
+
         [UIComponent(nameof(FormatText))]
-        private TextMeshProUGUI FormatText;
+        private TextMeshProUGUI FormatText = null!;
+
         [UIComponent(nameof(AliasNamePicker))]
-        private DropDownListSetting AliasNamePicker;
+        private DropDownListSetting AliasNamePicker = null!;
+
         [UIComponent(nameof(NewAlias))]
-        private StringSetting NewAlias;
+        private StringSetting NewAlias = null!;
+
         #endregion
+
         #region UI Values
+
         [UIValue(nameof(MenuHeight))]
         private int MenuHeight => SettingsHandler.MENU_HEIGHT;
+
         [UIValue(nameof(MenuAnchor))]
         private int MenuAnchor => SettingsHandler.MENU_ANCHOR;
-#if NEW_VERSION
+
         [UIValue(nameof(Counter))]
         private string Counter
         {
-            get => _Counter;
-            set { _Counter = value; UpdateFormatOptions(); }
+            get
+            {
+                if (BetterString.IsNullOrWhiteSpace(_counter) && CounterNames.Count > 0)
+                {
+                    _counter = CounterNames[0].ToString();
+                }
+
+                return _counter;
+            }
+            set
+            {
+                if (string.Equals(_counter, value, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _counter = value;
+                UpdateFormatOptions();
+            }
         }
-        private string _Counter = null;
-        [UIValue(nameof(FormatName))] private string FormatName
+
+        [UIValue(nameof(FormatName))]
+        private string FormatName
         {
-            get => _FormatName;
-            set { _FormatName = value; UpdateTable(); }
+            get
+            {
+                if (BetterString.IsNullOrWhiteSpace(_formatName) && _formatNames.Count > 0)
+                {
+                    _formatName = _formatNames[0].ToString();
+                }
+
+                return _formatName;
+            }
+            set
+            {
+                if (string.Equals(_formatName, value, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _formatName = value;
+
+                if (!BetterString.IsNullOrWhiteSpace(_formatName))
+                {
+                    UpdateTable();
+                }
+            }
         }
-        private string _FormatName = null;
-        [UIValue(nameof(OldAliasName))] private string OldAliasName
+
+        [UIValue(nameof(OldAliasName))]
+        private string OldAliasName
         {
-            get => _OldAliasName;
-            set { _OldAliasName = value; }
-        } // 1.37.0 and above
-#else
-        [UIValue(nameof(Counter))]
-        private string Counter
-        {
-            get => _Counter ?? CounterNames[0] as string;
-            set { _Counter = value; UpdateFormatOptions(); }
+            get
+            {
+                if (BetterString.IsNullOrWhiteSpace(_oldAliasName) && _aliasNames.Count > 0)
+                {
+                    _oldAliasName = _aliasNames[0].ToString();
+                }
+
+                return _oldAliasName;
+            }
+            set => _oldAliasName = value;
         }
-        private string _Counter = null;
-        [UIValue(nameof(FormatName))] private string FormatName
-        {
-            get => _FormatName ?? FormatNameContainer.Value as string;
-            set { _FormatName = value; UpdateTable(); }
-        }
-        private string _FormatName = null;
-        [UIValue(nameof(OldAliasName))] private string OldAliasName
-        {
-            get => _OldAliasName ?? AliasNameContainer.Value as string;
-            set { _OldAliasName = value; }
-        } // 1.34.2 and below
-#endif
-        private string _OldAliasName;
+
         [UIValue(nameof(CounterNames))]
-        private List<object> CounterNames => [.. TheCounter.ValidDisplayNames[Leaderboards.Beatleader].Where(a => MenuSettingsHandler.AllFormatInfo.Any(b => b.Key.Item2.Equals(a)))
-            .Append(TheCounter.DisplayName).Cast<object>()];
-#if NEW_VERSION
+        private List<object> CounterNames => [.. _formatRegistry.CounterNames.Cast<object>()];
+
         [UIValue(nameof(FormatNames))]
-        private List<object> FormatNames = [];
+        private List<object> FormatNames => _formatNames;
+
         [UIValue(nameof(AliasNames))]
-        private List<object> AliasNames = [];
+        private List<object> AliasNames => _aliasNames;
+
         [UIValue(nameof(AliasInfos))]
-        private List<object> AliasInfos = []; // 1.37.0 and above
-#else
-        [UIValue(nameof(FormatNames))]
-        private List<object> FormatNames => FormatNameContainer.List;
-        private FilledList FormatNameContainer = new();
-        [UIValue(nameof(AliasNames))]
-        private List<object> AliasNames => AliasNameContainer.List;
-        private FilledList AliasNameContainer = new();
-        [UIValue(nameof(AliasInfos))]
-        private List<object> AliasInfos => AliasInfoContainer.List;
-        private readonly FilledList AliasInfoContainer = new(placeholder: new AliasListInfo(default)); // 1.34.2 and below
-#endif
-#endregion
-#region UI Actions
-        [UIAction("#back")] private void GoBack() => MenuSettingsHandler.Instance.GoBack();
+        private List<object> AliasInfos => _aliasInfos;
+
+        #endregion
+
+        #region UI Actions
+
+        [UIAction("#back")]
+        private void GoBack()
+        {
+            _menuSettingsHandler.GoBack();
+        }
+
         [UIAction(nameof(Load))]
         private void Load()
         {
-            if (loaded) return;
-            loaded = true;
-            Counter = CounterNames[0] as string;
-            AliasListInfo.RemoveSelf = ali =>
+            if (_loaded)
+                return;
+
+            _loaded = true;
+
+            RebuildAliasInfoList();
+
+            if (CounterNames.Count == 0)
             {
-                AliasInfos.Remove(ali);
-                ali.Unapply(MenuSettingsHandler.AllFormatInfo);
-#if NEW_VERSION
-                AliasEditor.TableView.ReloadData(); // 1.37.0 and above
+                Plugin.Log.Warn("The format registry contains no counters.");
 
-#else
-                AliasEditor.tableView.ReloadData(); // 1.34.2 and below
-#endif
-                PC.TokenSettings.TokenAliases.Remove(ali.Alias);
-                UpdateTable();
-                UpdateRefs(ali.Alias, true);
-            };
-            AliasInfos.AddRange(PC.TokenSettings.TokenAliases.Select(ca => new AliasListInfo(ca)));
-#if NEW_VERSION
-            AliasEditor.TableView.ReloadData(); // 1.37.0 and above
+                return;
+            }
 
-#else
-            if (AliasInfos.Count == 0) AliasInfos.Add(""); //this is done because BSML missed a null check. Only needed on 1.34.2 and below
-            AliasEditor.tableView.ReloadData(); // 1.34.2 and below
-#endif
+            Counter = CounterNames[0].ToString();
+
+            ReloadAliasEditor();
         }
+
         [UIAction(nameof(AddAlias))]
         private void AddAlias()
         {
-            if (NewAlias.Text is null || NewAlias.Text.Length == 0) return;
+            string newAlias = NewAlias.Text;
+
+            if (
+                BetterString.IsNullOrWhiteSpace(newAlias)
+                || BetterString.IsNullOrWhiteSpace(_oldAliasName)
+                || BetterString.IsNullOrWhiteSpace(_counter)
+                || BetterString.IsNullOrWhiteSpace(_formatName)
+            )
+            {
+                return;
+            }
+
+            if (!CurrentFormatInfo.Alias.TryGetValue(_oldAliasName, out char aliasCharacter))
+            {
+                Plugin.Log.Warn($"Alias \"{_oldAliasName}\" does not " + "exist in the selected format.");
+
+                return;
+            }
+
+            if (
+                _config.TokenSettings.TokenAliases.Any(existing =>
+                    string.Equals(existing.CounterName, _counter, StringComparison.Ordinal)
+                    && string.Equals(existing.FormatName, _formatName, StringComparison.Ordinal)
+                    && string.Equals(existing.AliasName, newAlias, StringComparison.Ordinal)
+                )
+            )
+            {
+                Plugin.Log.Warn($"Alias \"{newAlias}\" already exists " + "for the selected format.");
+
+                return;
+            }
+
             ParserParams.EmitEvent("CloseWindow");
-            AliasListInfo ali = new(new CustomAlias(_Counter, _FormatName, CurrentFormatInfo.Alias[_OldAliasName], NewAlias.Text, _OldAliasName));
-#if !NEW_VERSION
-            if (AliasInfos.Count == 1 && AliasInfos[0].Equals("")) AliasInfos.Remove(""); // 1.34.2 and below
-#endif
-            AliasInfos.Add(ali);
-            ali.Apply(CurrentFormatInfo);
-#if NEW_VERSION
-            AliasEditor.TableView.ReloadData(); // 1.37.0 and above
-#else
-            AliasEditor.tableView.ReloadData(); // 1.34.2 and below
-#endif
-            PC.TokenSettings.TokenAliases.Add(ali.Alias);
-            Plugin.Log.Info(string.Join("\n", AliasInfos));
+
+            CustomAlias alias = new(_counter, _formatName, aliasCharacter, newAlias, _oldAliasName);
+
+            _config.TokenSettings.TokenAliases.Add(alias);
+
+            AliasListInfo info = CreateAliasInfo(alias);
+
+            _aliasInfos.Add(info);
+
+            _formatRegistry.ReapplyAliases();
+            _formatRegistry.RebuildAll();
+
+            NewAlias.Text = "";
+
+            ReloadAliasEditor();
             UpdateTable();
-            UpdateRefs(ali.Alias, false);
+            UpdateFormatEditorPreview();
+
+            Plugin.Log.Info($"Added custom alias {alias}.");
         }
+
         [UIAction("#AddNewAlias")]
         private void AddNewAlias()
         {
-            CounterText.text = "<align=\"left\">Counter: <align=\"right\">" + _Counter;
-            FormatText.text = "<align=\"left\">Format: <align=\"right\">" + _FormatName;
+            CounterText.SetText("<align=\"left\">Counter: " + "<align=\"right\">" + _counter);
+
+            FormatText.SetText("<align=\"left\">Format: " + "<align=\"right\">" + _formatName);
         }
-#endregion
-        #region Misc Functions
+
+        #endregion
+
+        #region Alias Operations
+
+        private void RemoveAlias(AliasListInfo info)
+        {
+            if (info is null)
+                return;
+
+            info.RemoveRequested -= RemoveAlias;
+
+            CustomAlias alias = info.Alias;
+
+            if (_formatRegistry.TryGet(alias.FormatName, alias.CounterName, out FormatRelation? relation))
+            {
+                info.Unapply(relation);
+
+                UpdateReferences(alias, relation, removing: true);
+            }
+
+            _config.TokenSettings.TokenAliases.Remove(alias);
+
+            _aliasInfos.Remove(info);
+
+            _formatRegistry.ReapplyAliases();
+            _formatRegistry.RebuildAll();
+
+            ReloadAliasEditor();
+
+            if (
+                string.Equals(alias.CounterName, _counter, StringComparison.Ordinal)
+                && string.Equals(alias.FormatName, _formatName, StringComparison.Ordinal)
+            )
+            {
+                UpdateTable();
+            }
+
+            UpdateFormatEditorPreview();
+        }
+
+        private void RebuildAliasInfoList()
+        {
+            foreach (AliasListInfo existing in _aliasInfos.OfType<AliasListInfo>())
+            {
+                existing.RemoveRequested -= RemoveAlias;
+            }
+
+            _aliasInfos.Clear();
+
+            foreach (CustomAlias alias in _config.TokenSettings.TokenAliases)
+            {
+                _aliasInfos.Add(CreateAliasInfo(alias));
+            }
+        }
+
+        private AliasListInfo CreateAliasInfo(CustomAlias alias)
+        {
+            AliasListInfo info = new(alias);
+
+            info.RemoveRequested += RemoveAlias;
+
+            return info;
+        }
+
+        private void UpdateReferences(CustomAlias alias, FormatRelation relation, bool removing)
+        {
+            if (!_config.AutoUpdateRefs)
+                return;
+
+            string oldAlias = removing ? alias.AliasName : alias.OldAlias;
+
+            string newAlias = removing ? alias.OldAlias : alias.AliasName;
+
+            string oldToken = $"{Tokens.ESCAPE_CHAR}" + $"{Tokens.ALIAS}" + $"{oldAlias}" + $"{Tokens.ALIAS}";
+
+            string newToken = $"{Tokens.ESCAPE_CHAR}" + $"{Tokens.ALIAS}" + $"{newAlias}" + $"{Tokens.ALIAS}";
+
+            if (relation.Format.Contains(oldToken))
+            {
+                relation.Format = relation.Format.Replace(oldToken, newToken);
+
+                _formatRegistry.Rebuild(relation);
+            }
+        }
+
+        #endregion
+
+        #region Format Selection
+
         private void UpdateFormatOptions()
         {
+            _formatNames.Clear();
+
+            if (BetterString.IsNullOrWhiteSpace(_counter))
+            {
+                RefreshFormatChoices();
+                return;
+            }
+
+            _formatNames.AddRange(
+                _formatRegistry.GetForCounter(_counter).Select(relation => (object)relation.GetKey.FormatName)
+            );
+
+            if (_formatNames.Count == 0)
+            {
+                _formatName = "";
+                RefreshFormatChoices();
+                ClearTable();
+                return;
+            }
+
+            bool currentStillValid = _formatNames.Any(value =>
+                string.Equals(value.ToString(), _formatName, StringComparison.Ordinal)
+            );
+
+            if (!currentStillValid)
+            {
+                _formatName = _formatNames[0].ToString();
+            }
+
+            RefreshFormatChoices();
+            UpdateTable();
+        }
+
+        private void RefreshFormatChoices()
+        {
+            if (ChooseFormat is null)
+                return;
+
+            List<object> choices = _formatNames.Count > 0 ? _formatNames : [string.Empty];
+
 #if NEW_VERSION
-            FormatNames = [.. MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>()];
-            ChooseFormat.Values = FormatNames; // 1.37.0 and above
+            ChooseFormat.Values = choices;
 #else
-            FormatNameContainer = new FilledList([.. MenuSettingsHandler.AllFormatInfo.Where(pair => pair.Key.Item2.Equals(_Counter)).Select(pair => pair.Key.Item1).Cast<object>()]);
-            ChooseFormat.values = FormatNames; // 1.34.2 and below
+            ChooseFormat.values = choices;
 #endif
-            if (FormatNames.Count > 0) FormatName = FormatNames[0] as string;
-            ChooseFormat.Value = FormatName;
+
+            ChooseFormat.Value = _formatNames.Count > 0 ? _formatName : string.Empty;
+
             ChooseFormat.UpdateChoices();
         }
+
         private void UpdateTable()
         {
-            const string keys = "Alias Token Description";
-            Dictionary<char, string> reversedAlias = CurrentFormatInfo.Alias.Swap();
-            if (AliasTable is null)
-                AliasTable = new Table(
-                    InfoTable,
-                    [.. CurrentFormatInfo.Descriptions.Select(kvp => new string[3] { reversedAlias[kvp.Key], kvp.Key + "", kvp.Value })],
-                    keys.Split(' ')
-                    )
+            if (
+                BetterString.IsNullOrWhiteSpace(_counter)
+                || BetterString.IsNullOrWhiteSpace(_formatName)
+                || InfoTable is null
+            )
+            {
+                return;
+            }
+
+            FormatRelation relation = CurrentFormatInfo;
+
+            Dictionary<char, string> reversedAliases = relation.Alias.Swap();
+
+            string[][] rows =
+            [
+                .. relation.Descriptions.Select(pair =>
+                    new[]
+                    {
+                        reversedAliases.TryGetValue(pair.Key, out string? alias) ? alias : pair.Key.ToString(),
+                        pair.Key.ToString(),
+                        pair.Value,
+                    }
+                ),
+            ];
+
+            if (_aliasTable is null)
+            {
+                _aliasTable = new Table(InfoTable, rows, "Alias", "Token", "Description")
                 {
                     MaxWidth = 200,
-                    CenterText = false
+                    CenterText = false,
                 };
-            else AliasTable.SetValues([.. CurrentFormatInfo.Descriptions.Select(kvp => new string[3] { reversedAlias[kvp.Key], kvp.Key + "", kvp.Value })]);
-            AliasTable.UpdateTable();
+            }
+            else
+            {
+                _aliasTable.SetValues(rows);
+            }
+
+            _aliasTable.UpdateTable();
+
+            _aliasNames.Clear();
+
+            _aliasNames.AddRange(relation.Alias.Keys.Cast<object>());
+
+            if (_aliasNames.Count == 0)
+            {
+                _oldAliasName = "";
+                RefreshAliasChoices();
+                return;
+            }
+
+            bool currentStillValid = _aliasNames.Any(value =>
+                string.Equals(value.ToString(), _oldAliasName, StringComparison.Ordinal)
+            );
+
+            if (!currentStillValid)
+            {
+                _oldAliasName = _aliasNames[0].ToString();
+            }
+
+            RefreshAliasChoices();
+        }
+
+        private void ClearTable()
+        {
+            _aliasNames.Clear();
+            _oldAliasName = "";
+
+            _aliasTable?.SetValues([]);
+
+            _aliasTable?.UpdateTable();
+
+            RefreshAliasChoices();
+        }
+
+        private void RefreshAliasChoices()
+        {
+            if (AliasNamePicker is null)
+                return;
+
+            List<object> choices = _aliasNames.Count > 0 ? _aliasNames : [string.Empty];
+
 #if NEW_VERSION
-            AliasNames = [.. CurrentFormatInfo.Alias.Keys.Cast<object>()];
-            AliasNamePicker.Values = AliasNames; // 1.37.0 and above
+            AliasNamePicker.Values = choices;
 #else
-            AliasNameContainer = new FilledList([.. CurrentFormatInfo.Alias.Keys.Cast<object>()]);
-            AliasNamePicker.values = AliasNames; // 1.34.2 and below
+            AliasNamePicker.values = choices;
 #endif
-            OldAliasName = AliasNames[0] as string;
+
+            AliasNamePicker.Value = _aliasNames.Count > 0 ? _oldAliasName : string.Empty;
+
             AliasNamePicker.UpdateChoices();
         }
-        private void UpdateRefs(CustomAlias ca, bool removing)
-        {
-            if (!PC.AutoUpdateRefs) return;
-            string toReplace = $"{Tokens.ESCAPE_CHAR}{Tokens.ALIAS}{(removing ? ca.AliasName : ca.OldAlias)}{Tokens.ALIAS}";
-            if (CurrentFormatInfo.Format.Contains(toReplace))
-                CurrentFormatInfo.Format = CurrentFormatInfo.Format.Replace(toReplace,
-                    $"{Tokens.ESCAPE_CHAR}{Tokens.ALIAS}{(removing ? ca.OldAlias : ca.AliasName)}{Tokens.ALIAS}");
-            if (FormatEditorHandler.Instance.IsLoaded)
-                FormatEditorHandler.Instance.UpdateFormatDisplay();
-        }
+
         #endregion
+
+        private void ReloadAliasEditor()
+        {
+            if (AliasEditor is null)
+                return;
+
+#if NEW_VERSION
+            AliasEditor.Data = _aliasInfos;
+            AliasEditor.TableView.ReloadData();
+#else
+            AliasEditor.data = _aliasInfos.Count > 0 ? _aliasInfos : [string.Empty];
+
+            AliasEditor.tableView.ReloadData();
+#endif
+        }
+
+        private void UpdateFormatEditorPreview()
+        {
+            FormatEditorHandler editor = _formatEditorHandler.Value;
+
+            if (editor.IsLoaded)
+                editor.UpdateFormatDisplay();
+        }
     }
 }

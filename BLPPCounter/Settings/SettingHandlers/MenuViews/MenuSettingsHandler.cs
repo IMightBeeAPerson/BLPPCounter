@@ -1,94 +1,133 @@
-﻿using BeatSaberMarkupLanguage.Attributes;
+using System;
+using System.Collections.Generic;
+using BeatSaberMarkupLanguage.Attributes;
 using BeatSaberMarkupLanguage.Parser;
 using BeatSaberMarkupLanguage.ViewControllers;
-using BLPPCounter.Counters;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils;
-using BLPPCounter.Utils.Serializable_Classes;
-using System.Collections.Generic;
 using UnityEngine;
+using Zenject;
+
 namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 {
-    public class MenuSettingsHandler: BSMLResourceViewController
+    public sealed class MenuSettingsHandler : BSMLResourceViewController
     {
-#pragma warning disable IDE0044, IDE0051, CS0649
-        #region Variables
-        private static PluginConfig PC => PluginConfig.Instance;
-        public static MenuSettingsHandler Instance { get; } = new MenuSettingsHandler();
+        private PluginConfig _config = null!;
+        private IFormatRegistry _formatRegistry = null!;
+        private SimpleSettingsHandler _simpleSettingsHandler = null!;
+        private SimpleMenuSettingsHandler _simpleMenuSettingsHandler = null!;
+        private FormatEditorHandler _formatEditorHandler = null!;
+        private ColorSettingsHandler _colorSettingsHandler = null!;
+        private CustomAliasHandler _customAliasHandler = null!;
+
+        [UIObject(nameof(SimpleContainer))]
+        private readonly GameObject SimpleContainer = null!;
+
+        [UIObject(nameof(FormatContainer))]
+        private readonly GameObject FormatContainer = null!;
+
+        [UIObject(nameof(ColorContainer))]
+        private readonly GameObject ColorContainer = null!;
+
+        [UIObject(nameof(AliasContainer))]
+        private readonly GameObject AliasContainer = null!;
+
+        [UIParams]
+        private readonly BSMLParserParams ParserParams = null!;
+
         public override string ResourceName => "BLPPCounter.Settings.BSML.MainMenuSettings.bsml";
 
-        [UIObject(nameof(SimpleContainer))] private GameObject SimpleContainer;
-        [UIObject(nameof(FormatContainer))] private GameObject FormatContainer;
-        [UIObject(nameof(ColorContainer))] private GameObject ColorContainer;
-        [UIObject(nameof(AliasContainer))] private GameObject AliasContainer;
-        [UIParams] private BSMLParserParams ParserParams;
-        #endregion
-        #region Init
-        [UIAction("#post-parse")]
-        private void ActivateOthers()
+        internal IReadOnlyDictionary<(string FormatName, string CounterName), FormatRelation> AllFormatInfo =>
+            _formatRegistry.Relations;
+
+        [Inject]
+        private void Construct(
+            PluginConfig config,
+            IFormatRegistry formatRegistry,
+            SimpleSettingsHandler simpleSettingsHandler,
+            SimpleMenuSettingsHandler simpleMenuSettingsHandler,
+            FormatEditorHandler formatEditorHandler,
+            ColorSettingsHandler colorSettingsHandler,
+            CustomAliasHandler customAliasHandler
+        )
         {
-            HelpfulMisc.AddToComponent(SimpleMenuSettingsHandler.Instance, SimpleContainer);
-            HelpfulMisc.AddToComponent(FormatEditorHandler.Instance, FormatContainer);
-            HelpfulMisc.AddToComponent(ColorSettingsHandler.Instance, ColorContainer);
-            HelpfulMisc.AddToComponent(CustomAliasHandler.Instance, AliasContainer);
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+
+            _formatRegistry = formatRegistry ?? throw new ArgumentNullException(nameof(formatRegistry));
+
+            _simpleSettingsHandler =
+                simpleSettingsHandler ?? throw new ArgumentNullException(nameof(simpleSettingsHandler));
+
+            _simpleMenuSettingsHandler =
+                simpleMenuSettingsHandler ?? throw new ArgumentNullException(nameof(simpleMenuSettingsHandler));
+
+            _formatEditorHandler = formatEditorHandler ?? throw new ArgumentNullException(nameof(formatEditorHandler));
+
+            _colorSettingsHandler =
+                colorSettingsHandler ?? throw new ArgumentNullException(nameof(colorSettingsHandler));
+
+            _customAliasHandler = customAliasHandler ?? throw new ArgumentNullException(nameof(customAliasHandler));
         }
-        static MenuSettingsHandler()
-        {
-            AllFormatInfo = new Dictionary<(string, string), FormatRelation>()
-            {
-                { TheCounter.DefaultFormatRelation.GetKey, TheCounter.DefaultFormatRelation },
-                { TheCounter.TargetFormatRelation.GetKey, TheCounter.TargetFormatRelation },
-                { TheCounter.PercentNeededFormatRelation.GetKey, TheCounter.PercentNeededFormatRelation },
-                { ClanCounter.ClanFormatRelation.GetKey, ClanCounter.ClanFormatRelation },
-                { ClanCounter.WeightedFormatRelation.GetKey, ClanCounter.WeightedFormatRelation },
-                { ClanCounter.MessageFormatRelation.GetKey, ClanCounter.MessageFormatRelation },
-                { RelativeCounter.DefaultFormatRelation.GetKey, RelativeCounter.DefaultFormatRelation },
-                { RankCounter.MainRelation.GetKey, RankCounter.MainRelation }
-            };
-            CustomAlias.ApplyAliases(PC.TokenSettings.TokenAliases, AllFormatInfo);
-        }
-        #endregion
-        #region UI Variables
+
         [UIValue(nameof(SimpleUI))]
         public bool SimpleUI
         {
-            get => PC.SimpleUI;
+            get => _config.SimpleUI;
             set
             {
-                PC.SimpleUI = value;
-                SimpleSettingsHandler.Instance.ChangeMenuTab();
+                _config.SimpleUI = value;
+                _simpleSettingsHandler.ChangeMenuTab();
             }
         }
+
         [UIValue(nameof(UpdatePreview))]
         public bool UpdatePreview
         {
-            get => PC.UpdatePreview;
-            set => PC.UpdatePreview = value;
+            get => _config.UpdatePreview;
+            set => _config.UpdatePreview = value;
         }
+
         [UIValue(nameof(AutoUpdateRefs))]
         public bool AutoUpdateRefs
         {
-            get => PC.AutoUpdateRefs;
-            set => PC.AutoUpdateRefs = value;
+            get => _config.AutoUpdateRefs;
+            set => _config.AutoUpdateRefs = value;
         }
-        #endregion
-        #region Misc Variables
-        internal static readonly Dictionary<(string, string), FormatRelation> AllFormatInfo;
-        #endregion
-        #region UI Actions
+
+        [UIAction("#post-parse")]
+        private void ActivateOthers()
+        {
+            HelpfulMisc.AddToComponent(_simpleMenuSettingsHandler, SimpleContainer);
+
+            HelpfulMisc.AddToComponent(_formatEditorHandler, FormatContainer);
+
+            HelpfulMisc.AddToComponent(_colorSettingsHandler, ColorContainer);
+
+            HelpfulMisc.AddToComponent(_customAliasHandler, AliasContainer);
+        }
+
         [UIAction(nameof(LoadSimpleMenu))]
-        private void LoadSimpleMenu() => SimpleMenuSettingsHandler.Instance.LoadMenu();
+        private void LoadSimpleMenu()
+        {
+            _simpleMenuSettingsHandler.LoadMenu();
+        }
+
         [UIAction(nameof(LoadFormatMenu))]
-        private void LoadFormatMenu() => FormatEditorHandler.Instance.LoadMenu();
+        private void LoadFormatMenu()
+        {
+            _formatEditorHandler.LoadMenu();
+        }
+
         [UIAction(nameof(LoadColorMenu))]
-        private void LoadColorMenu() => ColorSettingsHandler.Instance.InitColorList();
-        public void GoBack() => ParserParams.EmitEvent("back");
-        #endregion
-        #region Misc Functions
-        #endregion
+        private void LoadColorMenu()
+        {
+            _colorSettingsHandler.InitColorList();
+        }
 
-
+        public void GoBack()
+        {
+            ParserParams.EmitEvent("back");
+        }
     }
 }

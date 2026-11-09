@@ -1,8 +1,7 @@
-﻿using BLPPCounter.Helpfuls.FormatHelpers;
-using BLPPCounter.Utils.TokenParser.FormatTypes;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using BLPPCounter.Helpfuls.FormatHelpers;
 
 namespace BLPPCounter.Utils.TokenParser.Printers
 {
@@ -20,7 +19,13 @@ namespace BLPPCounter.Utils.TokenParser.Printers
         public readonly FormatWrapper InputValues;
         public HashSet<char> UsedKeys;
 
-        public Printer(string[] outputChunks, int[][] dependencies, FormatWrapper InputValues, char[] keys, (int index, Func<FormatWrapper, string> paramHandler)[] parameters)
+        public Printer(
+            string[] outputChunks,
+            int[][] dependencies,
+            FormatWrapper InputValues,
+            char[] keys,
+            (int index, Func<FormatWrapper, string> paramHandler)[] parameters
+        )
         {
             this.outputChunks = outputChunks;
             this.dependencies = dependencies;
@@ -49,9 +54,14 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                     paramIndex++;
                     continue;
                 }
-                values[i] = boolIndexes.Contains(i) ? (bool)InputValues[keys[i]] ? true : null : InputValues[keys[i]];
+                values[i] = boolIndexes.Contains(i)
+                    ? (bool)InputValues[keys[i]]
+                        ? true
+                        : null
+                    : InputValues[keys[i]];
             }
         }
+
         private bool ValidateDependency(int[] dependencies)
         {
             for (int i = 0; i < dependencies.Length; i++)
@@ -61,6 +71,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
             }
             return true;
         }
+
         public string Print()
         {
             sb.Clear();
@@ -74,7 +85,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                     sb.Append(string.Format(outputChunks[i], values));
             }
             //Plugin.Log.Info($"Printer output: {sb.ToString().Replace("\n", "\\n")}");
-            
+
             return sb.ToString();
         }
 

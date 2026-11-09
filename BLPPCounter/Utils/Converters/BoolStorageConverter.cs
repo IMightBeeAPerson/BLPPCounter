@@ -1,11 +1,11 @@
-﻿using BLPPCounter.Utils.Special_Utils;
+using System.Linq;
+using BLPPCounter.Utils.Special_Utils;
 using IPA.Config.Data;
 using IPA.Config.Stores;
-using System.Linq;
 
 namespace BLPPCounter.Utils.Converters
 {
-    public class BoolStorageConverter : ValueConverter<BoolStorage> 
+    public class BoolStorageConverter : ValueConverter<BoolStorage>
     {
         public override BoolStorage FromValue(Value? value, object parent)
         {
@@ -17,10 +17,13 @@ namespace BLPPCounter.Utils.Converters
             }
             return new BoolStorage();
         }
+
         public override Value ToValue(BoolStorage? obj, object parent)
         {
             if (obj is not null)
-                return Value.From(obj.GetVals().Append((ulong)obj.CurrentLength).Select(current => new Integer((long)current)));
+                return Value.From(
+                    obj.GetVals().Append((ulong)obj.CurrentLength).Select(current => new Integer((long)current))
+                );
             return Value.From("");
         }
     }

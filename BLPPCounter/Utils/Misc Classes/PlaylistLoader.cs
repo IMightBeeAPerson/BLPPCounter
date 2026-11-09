@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using BLPPCounter.Helpfuls;
-using System.IO;
-using Newtonsoft.Json.Linq;
 using BLPPCounter.Utils.Map_Utils;
+using Newtonsoft.Json.Linq;
 
 namespace BLPPCounter.Utils
 {
@@ -13,8 +13,10 @@ namespace BLPPCounter.Utils
         public static PlaylistLoader Instance { get; private set; }
         public string[] Names { get; private set; }
         public Dictionary<string, MapSelection[]> Playlists { get; private set; }
-        public PlaylistLoader() { 
-            Instance = this; 
+
+        public PlaylistLoader()
+        {
+            Instance = this;
             Playlists = new Dictionary<string, MapSelection[]>();
             LoadPlaylists();
         }
@@ -24,32 +26,43 @@ namespace BLPPCounter.Utils
             string[] files = Directory.GetFiles(HelpfulPaths.PLAYLISTS);
             List<string> names = new List<string>();
             foreach (string file in files)
-                names.Add(new string(file.Skip(file.LastIndexOf('.')+1).ToArray()));
+                names.Add(new string([.. file.Skip(file.LastIndexOf('.') + 1)]));
             foreach (string file in files)
             {
-                if (!File.Exists(file)) continue;
+                if (!File.Exists(file))
+                    continue;
                 LoadPlaylist(file);
             }
         }
+
         private void LoadPlaylist(string file)
         {
             List<MapSelection> outp = new List<MapSelection>();
             string name = "";
-            try 
+            try
             {
                 JToken data = JToken.Parse(File.ReadAllText(file));
                 JEnumerable<JToken> songs = data["songs"].Children();
                 name = data["playlistTitle"].ToString();
                 foreach (JToken song in songs)
-                    if (TheCounter.Data.TryGetValue(song["hash"].ToString(), out Map m)) 
+                    if (TheCounter.Data.TryGetValue(song["hash"].ToString(), out Map m))
                     {
                         JEnumerable<JToken> diffs = song["difficulties"].Children();
                         foreach (JToken diff in diffs)
-                            outp.Add(new MapSelection(m, Map.FromValue((int)diff["value"]), diff["characteristic"].ToString()));
+                            outp.Add(
+                                new MapSelection(
+                                    m,
+                                    Map.FromValue((int)diff["value"]),
+                                    diff["characteristic"].ToString()
+                                )
+                            );
                     }
-            } 
-            catch (Exception e) { Plugin.Log.Info("Error loading playlists\n" + e); }
-            Playlists.Add(name, outp.ToArray());
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.Info("Error loading playlists\n" + e);
+            }
+            Playlists.Add(name, [.. outp]);
         }
     }
 }

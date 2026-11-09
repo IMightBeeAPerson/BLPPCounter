@@ -1,86 +1,106 @@
-﻿using BeatSaberMarkupLanguage.Components;
-using BeatSaberMarkupLanguage.Components.Settings;
-using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils.Enums;
-using BLPPCounter.Utils.List_Settings;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BLPPCounter.Settings.Configs;
+using BLPPCounter.Utils.Enums;
 
 namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
 {
-    internal class LeaderboardSettingsHandler
+    internal sealed class LeaderboardSettingsHandler
     {
-        internal static LeaderboardSettingsHandler Instance = new();
-        private static PluginConfig PC => PluginConfig.Instance;
-
-        public event Action LeaderboardUpdated;
-        public IReadOnlyList<Leaderboards> UsableLeaderboards => _usableLeaderboards;
-        internal List<object> LeaderboardOptions => [.. PC.LeaderboardsInUse.Select(token => (object)new LeaderboardListInfo(token))];
-        internal List<object> LeaderboardList => PC.LeaderboardsInUse.Count == _usableLeaderboards.Count ?
-            [Leaderboards.None.ToString()] :
-            [.. _usableLeaderboards.Where(token => !PC.LeaderboardsInUse.Contains(token)).Select(token => (object)token.ToString())];
-
+        private readonly PluginConfig _config;
         private readonly List<Leaderboards> _usableLeaderboards;
-        public Leaderboards NextLeaderboardToAdd;
-        private ListSetting LeaderboardSelector => SettingsHandler.Instance.LeaderboardSelector;
-        private CustomCellListTableData LeaderboardTable => SettingsHandler.Instance.LeaderboardTable;
 
-        private LeaderboardSettingsHandler() 
+        public LeaderboardSettingsHandler(PluginConfig config)
         {
-            _usableLeaderboards = new List<Leaderboards>((int)Math.Log((int)Leaderboards.All + 1, 2));
-            for (int i = 1; i < (int)Leaderboards.All; i <<= 1)
-                _usableLeaderboards.Add((Leaderboards)i);
-            NextLeaderboardToAdd = (Leaderboards)Enum.Parse(typeof(Leaderboards), LeaderboardList.First() as string);
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+
+            _usableLeaderboards = [];
+
+            for (int value = 1; value < (int)Leaderboards.All; value <<= 1)
+            {
+                _usableLeaderboards.Add((Leaderboards)value);
+            }
+
+            NextLeaderboardToAdd = AvailableLeaderboards.FirstOrDefault();
         }
+
+        public event Action? LeaderboardUpdated;
+
+        public IReadOnlyList<Leaderboards> UsableLeaderboards => _usableLeaderboards;
+
+        public IReadOnlyList<Leaderboards> SelectedLeaderboards => _config.LeaderboardsInUse;
+
+        public IReadOnlyList<Leaderboards> AvailableLeaderboards =>
+            _usableLeaderboards.Where(leaderboard => !_config.LeaderboardsInUse.Contains(leaderboard)).ToArray();
+
+        public Leaderboards NextLeaderboardToAdd { get; set; }
 
         internal void RemoveCell(Leaderboards leaderboard)
         {
-            if (PC.LeaderboardsInUse.Count == 1) return;
-            PC.LeaderboardsInUse.Remove(leaderboard);
-            Refresh();
+            if (_config.LeaderboardsInUse.Count <= 1)
+                return;
+
+            if (!_config.LeaderboardsInUse.Remove(leaderboard))
+                return;
+
+            RefreshSelection();
         }
+
         internal void AddCell()
         {
-            if (NextLeaderboardToAdd == Leaderboards.None)
+            if (NextLeaderboardToAdd == Leaderboards.None || _config.LeaderboardsInUse.Contains(NextLeaderboardToAdd))
+            {
                 return;
-            PC.LeaderboardsInUse.Add(NextLeaderboardToAdd);
-            Refresh();
+            }
+
+            _config.LeaderboardsInUse.Add(NextLeaderboardToAdd);
+
+            RefreshSelection();
         }
+
         internal void SwapUp(Leaderboards leaderboard)
         {
-            int index = PC.LeaderboardsInUse.IndexOf(leaderboard);
+            int index = _config.LeaderboardsInUse.IndexOf(leaderboard);
+
             if (index < 1)
                 return;
-            PC.LeaderboardsInUse[index] = PC.LeaderboardsInUse[index - 1];
-            PC.LeaderboardsInUse[index - 1] = leaderboard;
-            Refresh();
+
+            (_config.LeaderboardsInUse[index - 1], _config.LeaderboardsInUse[index]) = (
+                _config.LeaderboardsInUse[index],
+                _config.LeaderboardsInUse[index - 1]
+            );
+
+            NotifyUpdated();
         }
+
         internal void SwapDown(Leaderboards leaderboard)
         {
-            int index = PC.LeaderboardsInUse.IndexOf(leaderboard);
-            if (index < 0 || index == PC.LeaderboardsInUse.Count - 1)
+            int index = _config.LeaderboardsInUse.IndexOf(leaderboard);
+
+            if (index < 0 || index >= _config.LeaderboardsInUse.Count - 1)
+            {
                 return;
-            PC.LeaderboardsInUse[index] = PC.LeaderboardsInUse[index + 1];
-            PC.LeaderboardsInUse[index + 1] = leaderboard;
-            Refresh();
+            }
+
+            (_config.LeaderboardsInUse[index], _config.LeaderboardsInUse[index + 1]) = (
+                _config.LeaderboardsInUse[index + 1],
+                _config.LeaderboardsInUse[index]
+            );
+
+            NotifyUpdated();
         }
-        internal void Refresh()
+
+        private void RefreshSelection()
+        {
+            NextLeaderboardToAdd = AvailableLeaderboards.FirstOrDefault();
+
+            NotifyUpdated();
+        }
+
+        private void NotifyUpdated()
         {
             LeaderboardUpdated?.Invoke();
-            //Plugin.Log.Info($"NULL CHECKS: LeaderboardOptions: {LeaderboardOptions is null} || LeaderboardList: {LeaderboardList is null} || LeaderboardTable: {LeaderboardTable is null} || LeaderboardSelector: {LeaderboardSelector is null} || LeaderboardList.First(): {LeaderboardList.First() is null}");
-#if NEW_VERSION
-            LeaderboardTable.Data = LeaderboardOptions;
-            LeaderboardSelector.Values = LeaderboardList;
-            LeaderboardTable.TableView.ReloadData();
-#else
-            LeaderboardTable.data = LeaderboardOptions;
-            LeaderboardSelector.values = LeaderboardList;
-            LeaderboardTable.tableView.ReloadData();
-#endif
-            //NextLeaderboardToAdd = (Leaderboards)Enum.Parse(typeof(Leaderboards), LeaderboardList.First() as string);
-            LeaderboardSelector.Value = LeaderboardList.First();
-            LeaderboardSelector.ApplyValue();
         }
     }
 }

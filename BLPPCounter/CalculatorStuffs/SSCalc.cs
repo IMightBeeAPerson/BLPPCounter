@@ -1,13 +1,12 @@
-﻿using BLPPCounter.Utils.Enums;
-using BLPPCounter.Utils.API_Handlers;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BLPPCounter.Utils.Enums;
+using Newtonsoft.Json.Linq;
 
 namespace BLPPCounter.CalculatorStuffs
 {
-    public class SSCalc: Calculator
+    public class SSCalc : Calculator
     {
         private static readonly float SecretMultiplier = 42.117208413f;
         internal override List<(float, float)> PointList { get; } =
@@ -48,32 +47,48 @@ namespace BLPPCounter.CalculatorStuffs
             (0.99825f, 4.32502747f),
             (0.999f, 4.715471f),
             (0.9995f, 5.01954365f),
-            (1, 5.36739445f)
+            (1, 5.36739445f),
         ];
-        public static readonly SSCalc Instance = new();
         public override Leaderboards Leaderboard => Leaderboards.Scoresaber;
         public override int RatingCount => 1;
         public override string Label => "SS";
         public override string[] StarLabels { get; } = ["<color=yellow>Stars</color>"];
         public override bool UsesModifiers => false;
-        private SSCalc() 
+
+        internal SSCalc()
         {
             PointList.Reverse();
         }
 
-        public override float[] GetPp(float acc, params float[] ratings) => [SecretMultiplier * GetCurve(acc) * ratings[0]];
+        public override float[] GetPp(float acc, params float[] ratings) =>
+            [SecretMultiplier * GetCurve(acc) * ratings[0]];
+
         public override float[] SelectRatings(float[] ratings) => [.. ratings.Take(1)];
+
         public override float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings)
         {
-            if (deflatedPp > GetSummedPp(1.0f, ratings)) return precision < 0 ? 1.0f : 100.0f;
+            if (deflatedPp > GetSummedPp(1.0f, ratings))
+                return precision < 0 ? 1.0f : 100.0f;
             float outp = InvertCurve(deflatedPp / (SecretMultiplier * ratings[0]));
             return precision < 0 ? outp : (float)Math.Round(outp * 100.0f, precision);
         }
-        public override float GetAccDeflated(float deflatedPp, JToken diffData, GameplayModifiers.SongSpeed speed = GameplayModifiers.SongSpeed.Normal, float modMult = 1, int precision = -1)
+
+        public override float GetAccDeflated(
+            float deflatedPp,
+            JToken diffData,
+            GameplayModifiers.SongSpeed speed = GameplayModifiers.SongSpeed.Normal,
+            float modMult = 1,
+            int precision = -1
+        )
         {
-            float outp = GetAccDeflated(deflatedPp, precision, SSAPI.Instance.GetRatings(diffData, speed, modMult));
-            return precision >= 0 ? (float)Math.Round(outp * 100.0f, precision) : outp;
+            if (diffData is null)
+                throw new ArgumentNullException(nameof(diffData));
+
+            float starRating = (float?)diffData["stars"] ?? (float?)diffData["starScoreSaber"] ?? 0f;
+
+            return GetAccDeflated(deflatedPp, precision, starRating * modMult);
         }
+
         public override float Inflate(float deflatedPp) => deflatedPp; //There is no inflation in SS
 
         public override float Deflate(float inflatedPp) => inflatedPp; //There is no deflation in SS

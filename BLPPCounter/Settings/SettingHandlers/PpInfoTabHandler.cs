@@ -1,4 +1,12 @@
-﻿using BeatSaberMarkupLanguage.Attributes;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using BeatSaberMarkupLanguage.Attributes;
 using BeatSaberMarkupLanguage.Components;
 using BeatSaberMarkupLanguage.Components.Settings;
 using BeatSaberMarkupLanguage.Parser;
@@ -6,1072 +14,2424 @@ using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Counters;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Helpfuls.FormatHelpers;
+using BLPPCounter.Models.Base;
+using BLPPCounter.Models.MapModels;
 using BLPPCounter.Patches;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
+using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.LangAddons;
 using BLPPCounter.Utils.Map_Utils;
 using BLPPCounter.Utils.Misc_Classes;
 using BLPPCounter.Utils.Profile_Utils;
+using BLPPCounter.Utils.Safety;
 using BLPPCounter.Utils.TokenParser;
 using BLPPCounter.Utils.TokenParser.Printers;
 using BS_Utils.Utilities;
 using HMUI;
 using Newtonsoft.Json.Linq;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Zenject;
 using static GameplayModifiers;
 
 namespace BLPPCounter.Settings.SettingHandlers
 {
-    public class PpInfoTabHandler
+    internal sealed class PpInfoTabHandler : SafeNotifyPropertyChanged, IInitializable, IDisposable
     {
 #pragma warning disable IDE0051, IDE0044, CS0649
-        #region Misc Static Variables & Controllers
-        internal StandardLevelDetailViewController Sldvc { private get; set; }
-        internal GameplayModifiersPanelController Gmpc { private get; set; }
-        public static PpInfoTabHandler Instance { get; }
-        private static PluginConfig PC => PluginConfig.Instance;
-        public static readonly string TabName = "PP Calculator";
-        #endregion
-        #region Variables
-        private string CurrentMods = "", UnformattedCurrentMods = "", CurrentTab = "Info";
-        private float CurrentModMultiplier = 1f;
+
+        public const string TabName = "PP Calculator";
+
+        private static readonly string[] SelectionButtonTags = ["SSButton", "NMButton", "FSButton", "SFButton"];
+
+        private readonly StandardLevelDetailViewController _levelDetailView;
+        private readonly GameplayModifiersPanelController _modifiersPanel;
+        private readonly IMainThreadDispatcher _dispatcher;
+        private readonly SettingsHandler _settingsHandler;
+        private readonly PluginConfig _config;
+        private readonly LeaderboardSelector _leaderboardSelector;
+        private readonly PathUtils _pathUtils;
+        private readonly LeaderboardSettingsHandler _leaderboardSettings;
+        private readonly IProfileRepository _profileRepository;
+        private readonly ICompletedPlayService _completedPlayService;
+        private readonly ITargeter _targeter;
+        private readonly IBackgroundTaskRunner _taskRunner;
+        private readonly ProfilePanelPresenter _profilePanelPresenter;
+        private readonly IMapRepository _mapRepository;
+        private readonly IClanService _clanService;
+        private readonly IMainCounterFormattingService _mainFormatting;
+
+        private readonly CancellationTokenSource _lifetimeSource = new();
+        private readonly AsyncLock _refreshLock = new();
+        private readonly AsyncLock _profileLock = new();
+
+        private readonly Dictionary<string,
 #if NEW_VERSION
-        private BeatmapKey CurrentMap; // 1.37.0 and above
+            BeatmapKey
 #else
-        private IDifficultyBeatmap CurrentMap; // 1.34.2 and below
+            IDifficultyBeatmap
 #endif
-        private (JToken Diffdata, JToken Scoredata) CurrentDiff;
-        private AsyncLock RefreshLock = new(), ProfileLock = new();
-        private bool SelectButtonsOn = false;
-        internal Leaderboards CurrentLeaderboard { get; private set; } = PC.CalcLeaderboard;
-        private Calculator CurrentCalculator => Calculator.GetCalc(CurrentLeaderboard);
-        private APIHandler CurrentAPI => APIHandler.GetAPI(CurrentLeaderboard);
-#if NEW_VERSION
-        private readonly Dictionary<string, BeatmapKey> TabMapInfo = new() // 1.37.0 and above
-#else
-        private readonly Dictionary<string, IDifficultyBeatmap> TabMapInfo = new() // 1.34.2 and below
-#endif
+        > _tabMapInfo = new()
         {
             { "Info", default },
             { "Capture", default },
             { "Relative", default },
             { "Custom", default },
             { "Profile", default },
-            { "Settings", default } //This one is only here to provide a list of names
+            { "Settings", default },
         };
-        private readonly Dictionary<string, Action<PpInfoTabHandler>> Updates = new()
-        {
-            {"Info", new Action<PpInfoTabHandler>(pith => pith.UpdateInfo()) },
-            {"Capture", new Action<PpInfoTabHandler>(pith => pith.UpdateCaptureValues()) },
-            {"Relative", new Action<PpInfoTabHandler>(pith => pith.UpdateRelativeValues()) },
-            {"Custom", new Action<PpInfoTabHandler>(pith => pith.UpdateCustomAccuracy()) },
-            {"Profile", new Action<PpInfoTabHandler>(pith => pith.UpdateProfile()) }
-        };
-        private static readonly string[] SelectionButtonTags = ["SSButton", "NMButton", "FSButton", "SFButton"];
-        private Table ClanTableTable, RelativeTableTable, PPTableTable, PercentTableTable;
-        public bool ChangeTabSettings = false;
-        #region Relative Counter
-        private static Func<string> GetTarget, GetNoScoreTarget;
-        private static FormatWrapper NoScoreTargetWrapper;
-        private float TargetPP = 0;
-        private bool TargetHasScore = false;
-        #endregion
-        #region Clan Counter
-        private float PPToCapture = 0;
-        #endregion
-        #region Custom Accuracy & Profile
-        private bool IsPPMode = true;
 
-        private Profile CurrentProfile = null;
-        private bool IsPlayTableOpen = false, UpdatePlayTableOnOpen = false;
-        #endregion
-        #endregion
-        #region UI Variables & components
-        [UIParams] private BSMLParserParams Parser;
-        private bool UsesMods => CurrentCalculator.UsesModifiers;
-        private bool IsBL => CurrentLeaderboard == Leaderboards.Beatleader;
-        private bool IsAP => CurrentLeaderboard == Leaderboards.Accsaber;
-        private bool ShowProfileTab => true;// CurrentLeaderboard != Leaderboards.Accsaber;
+        private string _currentMods = "";
+        private string _unformattedCurrentMods = "";
+        private string _currentTab = "Info";
 
-        [UIComponent(nameof(MainTabSelector))] internal TabSelector MainTabSelector;
-        [UIComponent(nameof(SaveLeaderboardButton))] private Button SaveLeaderboardButton;
-        [UIComponent(nameof(CalcSelector))] internal ListSetting CalcSelector;
+        private float _currentModMultiplier = 1f;
+        private float _targetPp;
+        private float _ppToCapture;
 
-#if DEBUG
-        [UIValue(nameof(Testing))] private bool Testing => true;
+#if NEW_VERSION
+        private BeatmapKey _currentMap;
 #else
-        [UIValue(nameof(Testing))] private bool Testing => false;
+        private IDifficultyBeatmap? _currentMap;
 #endif
 
-        [UIValue(nameof(ShowTrueID))] private bool ShowTrueID
+        private (ICacheModel? DiffData, JToken? ScoreData) _currentDiff;
+
+        private Table? _clanTable;
+        private Table? _relativeTable;
+        private Table? _ppTable;
+        private Table? _percentTable;
+
+        private FormatWrapper? _noScoreTargetWrapper;
+        private Func<string>? _getTarget;
+        private Func<string>? _getNoScoreTarget;
+
+        private Profile? _currentProfile;
+
+        private bool _selectButtonsOn;
+        private bool _targetHasScore;
+        private bool _isPpMode = true;
+        private bool _isPlayTableOpen;
+        private bool _postParsed;
+        private bool _disposed;
+        private bool _sldvcListenersAttached;
+
+        private APCategory _accSaberCategory = APCategory.All;
+
+        private bool _showTrueId;
+        private float _percentSliderMin;
+        private float _percentSliderMax;
+        private int _ppSliderMin;
+        private int _ppSliderMax;
+        private int _sliderIncrementNumber;
+
+        private string _beatmapName = "";
+        private string _beatmapId = "";
+        private string _mapModeText = "";
+        private string _mapDifficultyText = "";
+        private string _trueBeatmapId = "";
+
+        public PpInfoTabHandler(
+            StandardLevelDetailViewController levelDetailView,
+            GameplayModifiersPanelController modifiersPanel,
+            IMainThreadDispatcher dispatcher,
+            SettingsHandler settingsHandler,
+            PluginConfig config,
+            LeaderboardSelector leaderboardSelector,
+            PathUtils pathUtils,
+            LeaderboardSettingsHandler leaderboardSettings,
+            IProfileRepository profileRepository,
+            ICompletedPlayService completedPlayService,
+            ITargeter targeter,
+            IBackgroundTaskRunner taskRunner,
+            ProfilePanelPresenter profilePanelPresenter,
+            IMapRepository mapRepository,
+            IClanService clanService,
+            IMainCounterFormattingService mainFormatting
+        )
         {
-            get => _ShowTrueID;
+            _levelDetailView = levelDetailView ?? throw new ArgumentNullException(nameof(levelDetailView));
+
+            _modifiersPanel = modifiersPanel ?? throw new ArgumentNullException(nameof(modifiersPanel));
+
+            _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
+
+            _settingsHandler = settingsHandler ?? throw new ArgumentNullException(nameof(settingsHandler));
+
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+
+            _leaderboardSelector = leaderboardSelector ?? throw new ArgumentNullException(nameof(leaderboardSelector));
+
+            _pathUtils = pathUtils ?? throw new ArgumentNullException(nameof(pathUtils));
+
+            _leaderboardSettings = leaderboardSettings ?? throw new ArgumentNullException(nameof(leaderboardSettings));
+
+            _profileRepository = profileRepository ?? throw new ArgumentNullException(nameof(profileRepository));
+
+            _completedPlayService =
+                completedPlayService ?? throw new ArgumentNullException(nameof(completedPlayService));
+
+            _targeter = targeter ?? throw new ArgumentNullException(nameof(targeter));
+
+            _taskRunner = taskRunner ?? throw new ArgumentNullException(nameof(taskRunner));
+
+            _profilePanelPresenter =
+                profilePanelPresenter ?? throw new ArgumentNullException(nameof(profilePanelPresenter));
+
+            _mapRepository = mapRepository ?? throw new ArgumentNullException(nameof(mapRepository));
+
+            _clanService = clanService ?? throw new ArgumentNullException(nameof(clanService));
+
+            _mainFormatting = mainFormatting ?? throw new ArgumentNullException(nameof(mainFormatting));
+        }
+
+        internal Leaderboards CurrentLeaderboard { get; private set; }
+
+        public bool ChangeTabSettings { get; set; }
+
+        private Calculator CurrentCalculator => _leaderboardSelector.GetCalc(CurrentLeaderboard);
+
+        private APIHandler CurrentApi => _leaderboardSelector.GetAPI(CurrentLeaderboard);
+
+        private bool UsesMods => CurrentCalculator.UsesModifiers;
+
+        private bool IsBeatLeader => CurrentLeaderboard == Leaderboards.Beatleader;
+
+        private bool IsAccSaber => CurrentLeaderboard == Leaderboards.Accsaber;
+
+        private const bool ShowProfileTab = true;
+
+        #region BSML fields
+
+        [UIParams]
+        private BSMLParserParams Parser = null!;
+
+        [UIComponent(nameof(MainTabSelector))]
+        internal TabSelector MainTabSelector = null!;
+
+        [UIComponent(nameof(SaveLeaderboardButton))]
+        private Button SaveLeaderboardButton = null!;
+
+        [UIComponent(nameof(CalcSelector))]
+        internal ListSetting CalcSelector = null!;
+
+        [UIComponent(nameof(MinAccSlider))]
+        private SliderSetting MinAccSlider = null!;
+
+        [UIComponent(nameof(MaxAccSlider))]
+        private SliderSetting MaxAccSlider = null!;
+
+        [UIComponent(nameof(MinPPSlider))]
+        private SliderSetting MinPPSlider = null!;
+
+        [UIComponent(nameof(MaxPPSlider))]
+        private SliderSetting MaxPPSlider = null!;
+
+        [UIComponent(nameof(ProfileTab))]
+        private Tab ProfileTab = null!;
+
+        [UIComponent(nameof(PlayTable))]
+        private TextMeshProUGUI PlayTable = null!;
+
+        [UIComponent(nameof(PlayTableButtons))]
+        private HorizontalLayoutGroup PlayTableButtons = null!;
+
+        [UIObject(nameof(PlayTableModal))]
+        private GameObject PlayTableModal = null!;
+
+        [UIObject(nameof(SessionWindow))]
+        private GameObject SessionWindow = null!;
+
+        [UIComponent(nameof(SessionWindow_PlaysSet))]
+        private TextMeshProUGUI SessionWindow_PlaysSet = null!;
+
+        [UIComponent(nameof(SessionWindow_PpGained))]
+        private TextMeshProUGUI SessionWindow_PpGained = null!;
+
+        [UIComponent(nameof(SessionTable))]
+        private CustomCellListTableData SessionTable = null!;
+
+        [UIComponent(nameof(PlusOneLabel))]
+        private TextMeshProUGUI PlusOneLabel = null!;
+
+        [UIComponent(nameof(PlusOneText))]
+        private TextMeshProUGUI PlusOneText = null!;
+
+        [UIComponent(nameof(ReloadDataButton))]
+        private Button ReloadDataButton = null!;
+
+        [UIComponent(nameof(AccSaberSetting))]
+        private DropDownListSetting AccSaberSetting = null!;
+
+        [UIComponent(nameof(ProfilePPSlider))]
+        private SliderSetting ProfilePPSlider = null!;
+
+        [UIComponent(nameof(WeightedText))]
+        private TextMeshProUGUI WeightedText = null!;
+
+        [UIComponent(nameof(WeightedTextValue))]
+        private TextMeshProUGUI WeightedTextValue = null!;
+
+        [UIComponent(nameof(ProfilePPText))]
+        private TextMeshProUGUI ProfilePPText = null!;
+
+        [UIComponent(nameof(ProfilePPTextValue))]
+        private TextMeshProUGUI ProfilePPTextValue = null!;
+
+        [UIComponent(nameof(PercentTable))]
+        private TextMeshProUGUI PercentTable = null!;
+
+        [UIComponent(nameof(PPTable))]
+        private TextMeshProUGUI PPTable = null!;
+
+        [UIComponent("ModeButton")]
+        private TextMeshProUGUI ModeButtonText = null!;
+
+        [UIObject(nameof(CA_PercentSlider))]
+        private GameObject CA_PercentSlider = null!;
+
+        [UIComponent(nameof(CA_PercentSlider))]
+        private SliderSetting CA_PercentSliderSlider = null!;
+
+        [UIObject(nameof(CA_PPSlider))]
+        private GameObject CA_PPSlider = null!;
+
+        [UIComponent(nameof(CA_PPSlider))]
+        private SliderSetting CA_PPSliderSlider = null!;
+
+        [UIObject(nameof(PercentTable_BG))]
+        private GameObject PercentTable_BG = null!;
+
+        [UIObject(nameof(PPTable_BG))]
+        private GameObject PPTable_BG = null!;
+
+        [UIComponent(nameof(RelativeText))]
+        private TextMeshProUGUI RelativeText = null!;
+
+        [UIComponent(nameof(RelativeTarget))]
+        private TextMeshProUGUI RelativeTarget = null!;
+
+        [UIComponent(nameof(RelativeTable))]
+        private TextMeshProUGUI RelativeTable = null!;
+
+        [UIComponent(nameof(CaptureTab))]
+        private Tab CaptureTab = null!;
+
+        [UIComponent(nameof(ClanTable))]
+        private TextMeshProUGUI ClanTable = null!;
+
+        [UIComponent(nameof(OwningClan))]
+        private TextMeshProUGUI OwningClan = null!;
+
+        [UIComponent(nameof(ClanTarget))]
+        private TextMeshProUGUI ClanTarget = null!;
+
+        [UIComponent(nameof(PPTarget))]
+        private TextMeshProUGUI PPTarget = null!;
+
+        [UIComponent(nameof(SpeedModText))]
+        private TextMeshProUGUI SpeedModText = null!;
+
+        [UIComponent(nameof(ModMultText))]
+        private TextMeshProUGUI ModMultText = null!;
+
+        [UIComponent(nameof(PrefixLabels))]
+        private TextMeshProUGUI PrefixLabels = null!;
+
+        [UIComponent(nameof(StarRatings))]
+        private TextMeshProUGUI StarRatings = null!;
+
+        [UIComponent(nameof(MapName))]
+        private TextMeshProUGUI MapName = null!;
+
+        [UIComponent(nameof(MapID))]
+        private TextMeshProUGUI MapID = null!;
+
+        [UIComponent(nameof(MapMode))]
+        private TextMeshProUGUI MapMode = null!;
+
+        [UIComponent(nameof(MapDiff))]
+        private TextMeshProUGUI MapDiff = null!;
+
+        [UIComponent(nameof(TrueMapID))]
+        private TextMeshProUGUI TrueMapID = null!;
+
+        #endregion
+
+        #region BSML values
+
+#if DEBUG
+        [UIValue(nameof(Testing))]
+        private bool Testing => true;
+#else
+        [UIValue(nameof(Testing))]
+        private bool Testing => false;
+#endif
+
+        [UIValue(nameof(ShowTrueID))]
+        private bool ShowTrueID
+        {
+            get => _showTrueId;
             set
             {
-                _ShowTrueID = value;
-                MapID.gameObject.SetActive(!value);
-                TrueMapID.gameObject.SetActive(value);
+                _showTrueId = value;
+
+                MapID?.gameObject.SetActive(!value);
+
+                TrueMapID?.gameObject.SetActive(value);
+
+                NotifyPropertyChanged();
             }
         }
-        [UIValue(nameof(CalcLeaderboard))] private string CalcLeaderboard
+
+        [UIValue(nameof(CalcLeaderboard))]
+        private string CalcLeaderboard
         {
-            get => PC.CalcLeaderboard.ToString();
-            set => PC.CalcLeaderboard = (Leaderboards)Enum.Parse(typeof(Leaderboards), value);
+            get => _config.CalcLeaderboard.ToString();
+            set => _config.CalcLeaderboard = Enum.Parse<Leaderboards>(value);
         }
-        [UIValue(nameof(CalcLeaderboards))] private List<object> CalcLeaderboards => [.. LeaderboardSettingsHandler.Instance.UsableLeaderboards.Select(a => a.ToString())];
-        [UIAction(nameof(SaveLeaderboard))] private void SaveLeaderboard()
+
+        [UIValue(nameof(CalcLeaderboards))]
+        private List<object> CalcLeaderboards =>
+            [.. _leaderboardSettings.UsableLeaderboards.Select(leaderboard => (object)leaderboard.ToString())];
+
+        [UIValue(nameof(PercentSliderMin))]
+        private float PercentSliderMin
         {
-            SaveLeaderboardButton.interactable = false;
-            ChangeTabSettings = true;
-            SettingsHandler.Instance.CalcSelector.ReceiveValue();
-            ResetTabs();
-            Task.Run(async () => { await Refresh(true); SaveLeaderboardButton.interactable = true; });
-        }
-        [UIValue(nameof(PercentSliderMin))] private float PercentSliderMin
-        {
-            get => _PercentSliderMin;
+            get => _percentSliderMin;
             set
             {
-                _PercentSliderMin = value;
-                CA_PercentSliderSlider.ChangeMinValue(value);
+                _percentSliderMin = value;
+
+                CA_PercentSliderSlider?.ChangeMinValue(value);
+
+                NotifyPropertyChanged();
             }
         }
-        [UIValue(nameof(PercentSliderMax))] private float PercentSliderMax
+
+        [UIValue(nameof(PercentSliderMax))]
+        private float PercentSliderMax
         {
-            get => _PercentSliderMax;
+            get => _percentSliderMax;
             set
             {
-                _PercentSliderMax = value;
-                CA_PercentSliderSlider.ChangeMaxValue(value);
+                _percentSliderMax = value;
+
+                CA_PercentSliderSlider?.ChangeMaxValue(value);
+
+                NotifyPropertyChanged();
             }
         }
-        [UIValue(nameof(PPSliderMin))] private int PPSliderMin
+
+        [UIValue(nameof(PPSliderMin))]
+        private int PPSliderMin
         {
-            get => _PPSliderMin;
+            get => _ppSliderMin;
             set
             {
-                _PPSliderMin = value;
-                CA_PPSliderSlider.ChangeMinValue(value);
-                ProfilePPSlider.ChangeMinValue(value);
+                _ppSliderMin = value;
+
+                CA_PPSliderSlider?.ChangeMinValue(value);
+
+                ProfilePPSlider?.ChangeMinValue(value);
+
+                NotifyPropertyChanged();
             }
         }
-        [UIValue(nameof(PPSliderMax))] private int PPSliderMax
+
+        [UIValue(nameof(PPSliderMax))]
+        private int PPSliderMax
         {
-            get => _PPSliderMax;
+            get => _ppSliderMax;
             set
             {
-                _PPSliderMax = value;
-                CA_PPSliderSlider.ChangeMaxValue(value);
-                ProfilePPSlider.ChangeMaxValue(value);
+                _ppSliderMax = value;
+
+                CA_PPSliderSlider?.ChangeMaxValue(value);
+
+                ProfilePPSlider?.ChangeMaxValue(value);
+
+                NotifyPropertyChanged();
             }
         }
+
         [UIValue(nameof(SliderIncrementNum))]
         private int SliderIncrementNum
         {
-            get => _SliderIncrementNum;
+            get => _sliderIncrementNumber;
             set
             {
-                _SliderIncrementNum = value;
-                UpdateTabSliders(value);
+                _sliderIncrementNumber = value;
+
+                if (_postParsed)
+                    UpdateTabSliders(value);
+
+                NotifyPropertyChanged();
             }
         }
+
         [UIValue(nameof(PercentSliderIncrementNum))]
-        private float PercentSliderIncrementNum => _SliderIncrementNum / 100f;
+        private float PercentSliderIncrementNum => SliderIncrementNum / 100f;
 
-        private bool _ShowTrueID = PC.ShowTrueID;
-        private float _PercentSliderMin = PC.PercentSliderMin;
-        private float _PercentSliderMax = PC.PercentSliderMax;
-        private int _PPSliderMin = PC.PPSliderMin;
-        private int _PPSliderMax = PC.PPSliderMax;
-        private int _SliderIncrementNum = PC.SliderIncrementNum;
-        [UIComponent(nameof(MinAccSlider))] private SliderSetting MinAccSlider;
-        [UIComponent(nameof(MaxAccSlider))] private SliderSetting MaxAccSlider;
-        [UIComponent(nameof(MinPPSlider))] private SliderSetting MinPPSlider;
-        [UIComponent(nameof(MaxPPSlider))] private SliderSetting MaxPPSlider;
-
-        [UIValue(nameof(ProfileTestPp))] private int ProfileTestPp
+        [UIValue(nameof(ProfileTestPp))]
+        private int ProfileTestPp
         {
-            get => PC.ProfileTestPP;
-            set => PC.ProfileTestPP = value;
+            get => _config.ProfileTestPP;
+            set => _config.ProfileTestPP = value;
         }
-        [UIValue(nameof(APSetting))] private string APSetting
+
+        [UIValue(nameof(APSetting))]
+        private string APSetting
         {
-            get => _APSetting.ToString();
+            get => _accSaberCategory.ToString();
             set
             {
-                _APSetting = (APCategory)Enum.Parse(typeof(APCategory), value);
-                Task.Run(() => UpdateProfile());
+                _accSaberCategory = Enum.Parse<APCategory>(value);
+
+                _taskRunner.Run(LoadCurrentProfileAsync, "Change AccSaber profile category", _lifetimeSource.Token);
             }
         }
-        [UIValue(nameof(APCategorySettings))] private List<object> APCategorySettings = [.. Enum.GetNames(typeof(APCategory)).Skip(1).Cast<object>()];
-        private APCategory _APSetting = APCategory.All;
 
-        [UIComponent(nameof(ProfileTab))] private Tab ProfileTab;
+        [UIValue(nameof(APCategorySettings))]
+        private List<object> APCategorySettings => [.. Enum.GetNames(typeof(APCategory)).Skip(1).Cast<object>()];
 
-        [UIComponent(nameof(PlayTable))] private TextMeshProUGUI PlayTable;
-        [UIComponent(nameof(PlayTableButtons))] private HorizontalLayoutGroup PlayTableButtons;
-        [UIObject(nameof(PlayTableModal))] private GameObject PlayTableModal;
+        [UIValue(nameof(SessionTable_Infos))]
+        private List<object> SessionTable_Infos => [.. _profilePanelPresenter.SessionRows];
 
-        [UIObject(nameof(SessionWindow))] private GameObject SessionWindow;
-        [UIComponent(nameof(SessionWindow_PlaysSet))] private TextMeshProUGUI SessionWindow_PlaysSet;
-        [UIComponent(nameof(SessionWindow_PpGained))] private TextMeshProUGUI SessionWindow_PpGained;
-        [UIComponent(nameof(SessionTable))] private CustomCellListTableData SessionTable;
-        [UIValue(nameof(SessionTable_Infos))] private List<object> SessionTable_Infos => CurrentProfile?.CurrentSession.Info ?? [];
-
-        [UIComponent(nameof(PlusOneLabel))] private TextMeshProUGUI PlusOneLabel;
-        [UIComponent(nameof(PlusOneText))] private TextMeshProUGUI PlusOneText;
-        [UIComponent(nameof(ReloadDataButton))] private Button ReloadDataButton;
-        [UIComponent(nameof(AccSaberSetting))] private DropDownListSetting AccSaberSetting;
-        [UIComponent(nameof(ProfilePPSlider))] private SliderSetting ProfilePPSlider;
-        [UIComponent(nameof(WeightedText))] private TextMeshProUGUI WeightedText;
-        [UIComponent(nameof(WeightedTextValue))] private TextMeshProUGUI WeightedTextValue;
-        [UIComponent(nameof(ProfilePPText))] private TextMeshProUGUI ProfilePPText;
-        [UIComponent(nameof(ProfilePPTextValue))] private TextMeshProUGUI ProfilePPTextValue;
-
-        [UIValue(nameof(TestAcc))] private float TestAcc 
+        [UIValue(nameof(TestAcc))]
+        private float TestAcc
         {
-            get => PC.TestAccAmount;
-            set => PC.TestAccAmount = value;
+            get => _config.TestAccAmount;
+            set => _config.TestAccAmount = value;
         }
-        [UIValue(nameof(TestPp))] private int TestPp
+
+        [UIValue(nameof(TestPp))]
+        private int TestPp
         {
-            get => PC.TestPPAmount;
-            set => PC.TestPPAmount = value;
+            get => _config.TestPPAmount;
+            set => _config.TestPPAmount = value;
         }
+
 #pragma warning disable CS0414
         [UIValue(nameof(TabPos))]
 #if NEW_VERSION
         private float TabPos = -5.5f;
 #else
-        private float TabPos = 0f;
+        private float TabPos;
 #endif
 #pragma warning restore CS0414
-        [UIComponent(nameof(PercentTable))] private TextMeshProUGUI PercentTable;
-        [UIComponent(nameof(PPTable))] private TextMeshProUGUI PPTable;
-        [UIComponent("ModeButton")] private TextMeshProUGUI ModeButtonText;
-        [UIObject(nameof(CA_PercentSlider))] private GameObject CA_PercentSlider;
-        [UIComponent(nameof(CA_PercentSlider))] private SliderSetting CA_PercentSliderSlider;
-        [UIObject(nameof(CA_PPSlider))] private GameObject CA_PPSlider;
-        [UIComponent(nameof(CA_PPSlider))] private SliderSetting CA_PPSliderSlider;
-        [UIObject(nameof(PercentTable_BG))] private GameObject PercentTable_BG;
-        [UIObject(nameof(PPTable_BG))] private GameObject PPTable_BG;
 
-        [UIComponent(nameof(RelativeText))] private TextMeshProUGUI RelativeText;
-        [UIComponent(nameof(RelativeTarget))] private TextMeshProUGUI RelativeTarget;
-        [UIComponent(nameof(RelativeTable))] private TextMeshProUGUI RelativeTable;
-
-        [UIComponent(nameof(CaptureTab))] private Tab CaptureTab;
-        [UIComponent(nameof(ClanTable))] private TextMeshProUGUI ClanTable;
-        [UIComponent(nameof(OwningClan))] private TextMeshProUGUI OwningClan;
-        [UIComponent(nameof(ClanTarget))] private TextMeshProUGUI ClanTarget;
-        [UIComponent(nameof(PPTarget))] private TextMeshProUGUI PPTarget;
-
-        [UIComponent(nameof(SpeedModText))] private TextMeshProUGUI SpeedModText;
-        [UIComponent(nameof(ModMultText))] private TextMeshProUGUI ModMultText;
-        [UIComponent(nameof(PrefixLabels))] private TextMeshProUGUI PrefixLabels;
-        [UIComponent(nameof(StarRatings))] private TextMeshProUGUI StarRatings;
-        [UIComponent(nameof(MapName))] private TextMeshProUGUI MapName;
-        [UIComponent(nameof(MapID))] private TextMeshProUGUI MapID;
-        [UIComponent(nameof(MapMode))] private TextMeshProUGUI MapMode;
-        [UIComponent(nameof(MapDiff))] private TextMeshProUGUI MapDiff;
-        [UIComponent(nameof(TrueMapID))] private TextMeshProUGUI TrueMapID;
-        [UIValue(nameof(BeatmapName))] private string BeatmapName
+        [UIValue(nameof(BeatmapName))]
+        private string BeatmapName
         {
-            get => $"<color=#777>Map Name: <color=#AAA>{_BeatmapName.ClampString(25)}</color>";
-            set { if (MapName is null) return; _BeatmapName = value; MapName.text = $"<color=#777>Map Name: <color=#AAA>{value.ClampString(25)}</color>"; }
-        }
-        private string _BeatmapName = "";
-        [UIValue(nameof(BeatmapID))] private string BeatmapID
-        {
-            get => $"<color=#777>Map ID: <color=#AAA>{_BeatmapID}</color>";
-            set { if (MapID is null) return; _BeatmapID = value; MapID.text = $"<color=#777>Map ID: <color=#AAA>{value}</color>"; }
-        }
-        private string _BeatmapID = "";
-        [UIValue(nameof(MapModeText))] private string MapModeText
-        {
-            get => $"<color=#777>Map Type: <color=#AAA>{_MapModeText}</color>";
-            set { if (MapID is null) return; _MapModeText = value; MapMode.text = $"<color=#777>Map Type: <color=#AAA>{value}</color>"; }
-        }
-        private string _MapModeText = "";
-        [UIValue(nameof(MapDiffText))] private string MapDiffText
-        {
-            get => $"<color=#777>Map Difficulty: <color=#AAA>{_MapDiffText}</color>";
-            set { if (MapID is null) return; _MapDiffText = value; MapDiff.text = $"<color=#777>Map Difficulty: <color=#AAA>{value}</color>"; }
-        }
-        private string _MapDiffText = "";
-        [UIValue(nameof(TrueBeatmapID))] private string TrueBeatmapID
-        {
-            get => $"<color=#777>True Map ID: <color=#AAA>{_TrueBeatmapID}</color>";
-            set { if (MapID is null) return; _TrueBeatmapID = value; TrueMapID.text = $"<color=#777>True Map ID: <color=#AAA>{value}</color>"; }
-        }
-        private string _TrueBeatmapID = "";
-#endregion
-        #region UI Functions
-        [UIAction(nameof(Refresh))]
-        private void ForceRefresh() { if (Sldvc != null && Gmpc != null) Refresh(true); }
-        [UIAction(nameof(RefreshMods))]
-        private void RefreshMods() { if (Sldvc != null && Gmpc != null) { UpdateMods(); UpdateTabDisplay(true); } }
-        [UIAction(nameof(ChangeTab))]
-        private void ChangeTab(SegmentedControl sc, int index)
-        {
-            if (sc.cells[index] is TextSegmentedControlCell tscc)
+            get => $"<color=#777>Map Name: " + $"<color=#AAA>{_beatmapName.ClampString(25)}</color>";
+            set
             {
-                if (CurrentTab.Equals("Settings")) SaveSettings();
-                CurrentTab = tscc.text;
-                if (Sldvc != null && Gmpc != null)
-                    UpdateTabDisplay();
+                _beatmapName = value;
+
+                MapName?.SetText($"<color=#777>Map Name: " + $"<color=#AAA>{value.ClampString(25)}</color>");
             }
         }
+
+        [UIValue(nameof(BeatmapID))]
+        private string BeatmapID
+        {
+            get => $"<color=#777>Map ID: " + $"<color=#AAA>{_beatmapId}</color>";
+            set
+            {
+                _beatmapId = value;
+
+                MapID?.SetText($"<color=#777>Map ID: " + $"<color=#AAA>{value}</color>");
+            }
+        }
+
+        [UIValue(nameof(MapModeText))]
+        private string MapModeText
+        {
+            get => $"<color=#777>Map Type: " + $"<color=#AAA>{_mapModeText}</color>";
+            set
+            {
+                _mapModeText = value;
+
+                MapMode?.SetText($"<color=#777>Map Type: " + $"<color=#AAA>{value}</color>");
+            }
+        }
+
+        [UIValue(nameof(MapDiffText))]
+        private string MapDiffText
+        {
+            get => $"<color=#777>Map Difficulty: " + $"<color=#AAA>{_mapDifficultyText}</color>";
+            set
+            {
+                _mapDifficultyText = value;
+
+                MapDiff?.SetText($"<color=#777>Map Difficulty: " + $"<color=#AAA>{value}</color>");
+            }
+        }
+
+        [UIValue(nameof(TrueBeatmapID))]
+        private string TrueBeatmapID
+        {
+            get => $"<color=#777>True Map ID: " + $"<color=#AAA>{_trueBeatmapId}</color>";
+            set
+            {
+                _trueBeatmapId = value;
+
+                TrueMapID?.SetText($"<color=#777>True Map ID: " + $"<color=#AAA>{value}</color>");
+            }
+        }
+
+        #endregion
+
+        #region Lifecycle
+
+        public void Initialize()
+        {
+            ThrowIfDisposed();
+
+            CurrentLeaderboard = _config.CalcLeaderboard;
+
+            _showTrueId = _config.ShowTrueID;
+
+            _percentSliderMin = _config.PercentSliderMin;
+
+            _percentSliderMax = _config.PercentSliderMax;
+
+            _ppSliderMin = _config.PPSliderMin;
+
+            _ppSliderMax = _config.PPSliderMax;
+
+            _sliderIncrementNumber = _config.SliderIncrementNum;
+
+            ChangeMapListeners(true);
+            InitFormatters();
+
+            TabSelectionPatch.AddToTabSelectedAction(TabName, HandleCalculatorTabSelected);
+
+            _settingsHandler.PropertyChanged += HandleSettingsChanged;
+
+            _taskRunner.Run(LoadCurrentProfileAsync, "Initialize PP calculator profile", _lifetimeSource.Token);
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            _disposed = true;
+
+            ChangeMapListeners(false);
+
+            TabSelectionPatch.RemoveFromTabSelectedAction(TabName, HandleCalculatorTabSelected);
+
+            TabSelectionPatch.SetIgnoredSelector(null);
+
+            _settingsHandler.PropertyChanged -= HandleSettingsChanged;
+
+            _lifetimeSource.Cancel();
+            _lifetimeSource.Dispose();
+
+            _profilePanelPresenter.Dispose();
+
+            _refreshLock.Dispose();
+            _profileLock.Dispose();
+        }
+
+        private void HandleCalculatorTabSelected()
+        {
+            _taskRunner.Run(
+                cancellationToken => RefreshAsync(false, cancellationToken),
+                "Refresh selected PP calculator tab",
+                _lifetimeSource.Token
+            );
+        }
+
+        private void HandleSettingsChanged(object? sender, PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName == nameof(SettingsHandler.Target))
+            {
+                ClearMapTabs();
+            }
+        }
+
+        internal void SldvcInit()
+        {
+            if (_sldvcListenersAttached)
+                return;
+
+            _sldvcListenersAttached = true;
+
+            _levelDetailView.didChangeContentEvent += (_, _) =>
+                _taskRunner.Run(
+                    cancellationToken => RefreshAsync(false, cancellationToken),
+                    "Refresh PP calculator content",
+                    _lifetimeSource.Token
+                );
+
+#if NEW_VERSION
+            _levelDetailView.didChangeDifficultyBeatmapEvent += _ =>
+                _taskRunner.Run(
+                    cancellationToken => RefreshAsync(false, cancellationToken),
+                    "Refresh PP calculator difficulty",
+                    _lifetimeSource.Token
+                );
+#else
+            _levelDetailView.didChangeDifficultyBeatmapEvent += (_, _) =>
+            {
+                _taskRunner.Run(
+                    cancellationToken => RefreshAsync(false, cancellationToken),
+                    "Refresh PP calculator difficulty",
+                    _lifetimeSource.Token
+                );
+            };
+#endif
+        }
+
+        #endregion
+
+        #region BSML actions
+
+        [UIAction(nameof(Refresh))]
+        private void ForceRefresh()
+        {
+            _taskRunner.Run(
+                cancellationToken => RefreshAsync(true, cancellationToken),
+                "Force refresh PP calculator",
+                _lifetimeSource.Token
+            );
+        }
+
+        [UIAction(nameof(RefreshMods))]
+        private void RefreshMods()
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+            UpdateMods();
+
+            _taskRunner.Run(
+                cancellationToken => UpdateTabDisplayAsync(true, cancellationToken),
+                "Refresh PP calculator modifiers",
+                _lifetimeSource.Token
+            );
+        }
+
+        [UIAction(nameof(ChangeTab))]
+        private void ChangeTab(SegmentedControl segmentedControl, int index)
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+            if (segmentedControl.cells[index] is not TextSegmentedControlCell cell)
+            {
+                return;
+            }
+
+            if (_currentTab == "Settings")
+                SaveSettings();
+
+            _currentTab = cell.text;
+
+            _taskRunner.Run(
+                cancellationToken => UpdateTabDisplayAsync(false, cancellationToken),
+                "Change PP calculator tab",
+                _lifetimeSource.Token
+            );
+        }
+
         [UIAction(nameof(PercentFormat))]
-        private string PercentFormat(float toFormat) => $"{toFormat:N2}%";
+        private string PercentFormat(float value)
+        {
+            return $"{value:N2}%";
+        }
+
         [UIAction(nameof(PPFormat))]
-        private string PPFormat(int toFormat) => $"{toFormat} " + GetPPLabel();
+        private string PPFormat(int value)
+        {
+            return $"{value} {GetPPLabel()}";
+        }
+
+        [UIAction(nameof(SaveLeaderboard))]
+        private void SaveLeaderboard()
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+            SaveLeaderboardButton.interactable = false;
+
+            ChangeTabSettings = true;
+
+            _settingsHandler.CalcSelector.ReceiveValue();
+
+            ResetTabs();
+
+            _taskRunner.Run(SaveLeaderboardAsync, "Change PP calculator leaderboard", _lifetimeSource.Token);
+        }
+
         [UIAction(nameof(ToggleCAMode))]
         private void ToggleCAMode()
         {
-            IsPPMode = !IsPPMode;
-            CA_PPSlider.SetActive(IsPPMode);
-            CA_PercentSlider.SetActive(!IsPPMode);
-            PPTable_BG.SetActive(!IsPPMode);
-            PercentTable_BG.SetActive(IsPPMode);
-            ModeButtonText.text = IsPPMode ? "<color=#A020F0>Input " + GetPPLabel().ToUpper() : "<color=#FFD700>Input Percentage";
-            if (Sldvc != null) 
-            {
-                UpdateCustomAccuracy();
-                BuildTable(); 
-            }
+            MainThreadDispatcher.AssertOnMainThread();
+
+            _isPpMode = !_isPpMode;
+
+            CA_PPSlider.SetActive(_isPpMode);
+            CA_PercentSlider.SetActive(!_isPpMode);
+            PPTable_BG.SetActive(!_isPpMode);
+            PercentTable_BG.SetActive(_isPpMode);
+
+            ModeButtonText.SetText(
+                _isPpMode
+                    ? "<color=#A020F0>Input " + GetPPLabel().ToUpperInvariant()
+                    : "<color=#FFD700>Input Percentage"
+            );
+
+            UpdateCustomAccuracy();
+            BuildTable();
         }
-        [UIAction(nameof(SelectSS))] private void SelectSS() => SelectMod(SongSpeed.Slower);
-        [UIAction(nameof(SelectNM))] private void SelectNM() => SelectMod(SongSpeed.Normal);
-        [UIAction(nameof(SelectFS))] private void SelectFS() => SelectMod(SongSpeed.Faster);
-        [UIAction(nameof(SelectSF))] private void SelectSF() => SelectMod(SongSpeed.SuperFast);
-        private void SelectMod(SongSpeed speed)
+
+        [UIAction(nameof(SelectSS))]
+        private void SelectSS()
         {
-            Gmpc.ChangeSongSpeed(speed);
-            UpdateMods();
-            UpdateCurrentTable();
+            SelectMod(SongSpeed.Slower);
         }
-        [UIAction(nameof(UpdateProfilePP))] private void UpdateProfilePP()
+
+        [UIAction(nameof(SelectNM))]
+        private void SelectNM()
         {
-            float ppAmount = Mathf.Round(ProfilePPSlider.Value);
-            WeightedText.SetText($"<color=green>Weighted</color> {GetPPLabel()}");
-            string weightedPp = $"{CurrentProfile.GetWeightedPP(ppAmount)}";
-            if (weightedPp[0] == '-') weightedPp = "Unknown";
-            WeightedTextValue.SetText("<color=#A72>" + weightedPp + "</color> " + GetPPLabel());
-            ProfilePPText.SetText($"<color=yellow>Profile</color> {GetPPLabel()}");
-            string profilePp = $"{CurrentProfile.GetProfilePPRaw(ppAmount)}";
-            if (profilePp[0] == '-') profilePp = "Unknown";
-            ProfilePPTextValue.SetText("<color=purple>" + profilePp + "</color> " + GetPPLabel());
+            SelectMod(SongSpeed.Normal);
         }
+
+        [UIAction(nameof(SelectFS))]
+        private void SelectFS()
+        {
+            SelectMod(SongSpeed.Faster);
+        }
+
+        [UIAction(nameof(SelectSF))]
+        private void SelectSF()
+        {
+            SelectMod(SongSpeed.SuperFast);
+        }
+
+        [UIAction(nameof(UpdateProfilePP))]
+        private void UpdateProfilePP()
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+            _profilePanelPresenter.UpdateProfilePpPreview(
+                Mathf.Round(ProfilePPSlider.Value),
+                WeightedText,
+                WeightedTextValue,
+                ProfilePPText,
+                ProfilePPTextValue
+            );
+        }
+
         [UIAction(nameof(DoTestThing))]
         private void DoTestThing()
         {
-            //CurrentProfile.AddPlay(ProfilePPSlider.Value);
+            MainThreadDispatcher.AssertOnMainThread();
+
             UpdateProfilePP();
-            UpdateProfile();
-            const float acc = 0.999f;
+
 #if NEW_VERSION
-            CompletedMap(acc, Sldvc.beatmapKey, Sldvc.beatmapLevel);
+            string hash = _levelDetailView.beatmapLevel.levelID.Split('_')[2];
+
+            string mapName = _levelDetailView.beatmapLevel.songName;
+
+            BeatmapDifficulty difficulty = _levelDetailView.beatmapKey.difficulty;
+
+            string mode = _levelDetailView.beatmapKey.beatmapCharacteristic.serializedName;
 #else
-            CompletedMap(acc, Sldvc.selectedDifficultyBeatmap);
+            IDifficultyBeatmap beatmap = _levelDetailView.selectedDifficultyBeatmap;
+
+            string hash = beatmap.level.levelID.Split('_')[2];
+
+            string mapName = beatmap.level.songName;
+
+            BeatmapDifficulty difficulty = beatmap.difficulty;
+
+            string mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;
 #endif
+
+            _taskRunner.Run(
+                cancellationToken => CompletedMapAsync(0.999f, hash, mapName, difficulty, mode, cancellationToken),
+                "Add PP calculator test play",
+                _lifetimeSource.Token
+            );
         }
+
         [UIAction(nameof(RefreshProfilePP))]
-        private void RefreshProfilePP() => Task.Run(RefreshProfileScores);
-        private async Task RefreshProfileScores()
+        private void RefreshProfilePP()
         {
-            AsyncLock.Releaser? theLock = await ProfileLock.TryLockAsync();
-            if (theLock is null) return;
-            using (theLock.Value)
-            {
-                ReloadDataButton.interactable = false;
-                if (CurrentProfile is null)
-                    UpdateProfile();
-                CurrentProfile.ReloadScores();
-                await Refresh(true);
-                ReloadDataButton.interactable = true;
-            }
-        }
-        private IEnumerator DelayUpdatePlayTable(Table theTable)
-        {
-            yield return new WaitForEndOfFrame();
-            theTable.UpdateTable();
-            const int ButtonWidths = 60; //correct value: 60
-            PlayTableButtons.spacing = (theTable.TableWidth - ButtonWidths) / 2f;
-            (PlayTableModal.transform as RectTransform).sizeDelta = new Vector2(theTable.TableWidth, theTable.TableHeight * 1.5f);
-            //theTable.SpawnButtonsForColumn(5, str => Plugin.Log.Info("Button Pressed! Id: " + str), PlayTableButton, "Buttons");
-        }
-        [UIAction(nameof(PlayTable_PageUp))] private void PlayTable_PageUp()
-        {
-            if (CurrentProfile is null || CurrentProfile.PlayTable is null) return;
-            CurrentProfile.PageUp();
-            CoroutineHost.Start(DelayUpdatePlayTable(CurrentProfile.PlayTable));
-        }
-        [UIAction(nameof(PlayTable_PageTop))] private void PlayTable_PageTop()
-        {
-            if (CurrentProfile is null || CurrentProfile.PlayTable is null) return;
-            CurrentProfile.PageTop();
-            CoroutineHost.Start(DelayUpdatePlayTable(CurrentProfile.PlayTable));
-        }
-        [UIAction(nameof(PlayTable_PageDown))] private void PlayTable_PageDown()
-        {
-            if (CurrentProfile is null || CurrentProfile.PlayTable is null) return;
-            CurrentProfile.PageDown();
-            CoroutineHost.Start(DelayUpdatePlayTable(CurrentProfile.PlayTable));
-        }
-        [UIAction(nameof(SaveSettings))] private void SaveSettings()
-        {
-            PC.PercentSliderMin = _PercentSliderMin;
-            PC.PercentSliderMax = _PercentSliderMax;
-            PC.PPSliderMin = _PPSliderMin;
-            PC.PPSliderMax = _PPSliderMax;
-            PC.SliderIncrementNum = _SliderIncrementNum;
-            PC.ShowTrueID = _ShowTrueID;
-        }
-        [UIAction("#ShowPlayTable")] private void ShowPlayTable()
-        {
-            IsPlayTableOpen = true;
-            if (CurrentProfile is null)
-                UpdateProfile();
-            Table theTable = CurrentProfile.PlayTable;
-            if (theTable is null)
-            {
-                Profile.TextContainer = PlayTable;
-                theTable = CurrentProfile.PlayTable;
-            }
-
-            if (!theTable.ContainerUpdated || UpdatePlayTableOnOpen)
-            {
-                UpdatePlayTableOnOpen = false;
-                CoroutineHost.Start(DelayUpdatePlayTable(theTable));
-            }
-        }
-        [UIAction("#HidePlayTable")] private void HidePlayTable() => IsPlayTableOpen = false;
-        [UIAction("#ShowSessionTable")] private void ShowSessionTable()
-        {
-            int hold = CurrentProfile?.CurrentSession.PlaysSet ?? 0;
-            SessionWindow_PlaysSet.SetText($"<color=#0F0>{hold}</color> Top {Profile.GetPlusOneCount(CurrentLeaderboard)} Score{(hold == 1 ? "" : "s")}");
-            SessionWindow_PpGained.SetText($"+<color=purple>{CurrentProfile?.CurrentSession.GainedProfilePp ?? 0}</color> Profile {GetPPLabel().ToUpper()}");
-
-            IEnumerator WaitThenUpdate()
-            {
-                yield return new WaitForEndOfFrame();
-#if NEW_VERSION
-                SessionTable.Data = SessionTable_Infos;
-                SessionTable.TableView.ReloadData();
-#else
-                SessionTable.data = SessionTable_Infos;
-                SessionTable.tableView.ReloadData();
-#endif
-                (SessionWindow.transform as RectTransform).sizeDelta = new Vector2(120, 50);
-            }
-            CoroutineHost.Start(WaitThenUpdate());
-        }
-        [UIAction("#UpdateCurrentTable")] private void UpdateCurrentTable() => BuildTable();
-        [UIAction("#UpdateCurrentTab")] private void UpdateCurrentTab() => UpdateTabDisplay(true);
-        [UIAction("#post-parse")] private void DoStuff()
-        {
-            HelpfulMisc.CoupleMinMaxSliders(MinAccSlider, MaxAccSlider);
-            HelpfulMisc.CoupleMinMaxSliders(MinPPSlider, MaxPPSlider);
-            foreach (string s in SelectionButtonTags)
-                foreach (GameObject go in Parser.GetObjectsWithTag(s))
-                    go.SetActive(false);
-            CaptureTab.IsVisible = IsBL;
-            ProfileTab.IsVisible = ShowProfileTab;
-            AccSaberSetting.gameObject.SetActive(IsAP);
-            MapID.gameObject.SetActive(!ShowTrueID);
-            TrueMapID.gameObject.SetActive(ShowTrueID);
-        }
-#endregion
-        #region Inits
-        static PpInfoTabHandler()
-        {
-            InitFormatters();
-            Instance = new PpInfoTabHandler();
-            Instance.ChangeMapListeners(true);
-            TabSelectionPatch.AddToTabSelectedAction(TabName, () =>
-            {
-                if (Instance.Sldvc != null && Instance.Gmpc != null)
-                    Instance.Refresh();
-            });
-            SettingsHandler.Instance.PropertyChanged += (parent, args) => {
-#if NEW_VERSION
-                if (Instance.CurrentMap == default) return; // 1.37.0 and above
-#else
-                if (Instance.CurrentMap is null) return; // 1.34.2 and below
-#endif
-                if (args.PropertyName.Equals(nameof(SettingsHandler.Target)))
-                    Instance.ClearMapTabs();
-            };
-        }
-        internal void SldvcInit()
-        {
-            Sldvc.didChangeContentEvent += async (a, b) => await Refresh().ConfigureAwait(false);
-#if NEW_VERSION
-            Sldvc.didChangeDifficultyBeatmapEvent += async a => await Refresh().ConfigureAwait(false); // 1.37.0 and above
-#else
-            Sldvc.didChangeDifficultyBeatmapEvent += async (a, b) => await Refresh().ConfigureAwait(false); // 1.34.2 and below
-#endif
-        }
-        //internal void GmpcInit() { Gmpc.didChangeGameplayModifiersEvent += UpdateMods; UpdateMods(); }
-
-        #endregion
-        #region Formatting
-        #region Relative Counter
-        private static void InitFormatters()
-        {
-            NoScoreTargetWrapper = new FormatWrapper((typeof(string), 't'));
-            Formatter f = new(TokenParser.ParseTokens(PC.MessageSettings.TargetHasNoScoreMessage, new Dictionary<string, char>() { { "Target", 't' } }), NoScoreTargetWrapper);
-            f.PromiseValueForTokens();
-            Printer simple = f.GetOutput();
-            GetNoScoreTarget = () => { NoScoreTargetWrapper.SetValue('t', Targeter.TargetName, typeof(string)); return simple.Print(); };
-            GetTarget = () => TheCounter.TargetFormatter(Targeter.TargetName.ClampString(PC.MaxNameLength), "") ?? "Target formatter is null";
-        }
-        private float GetAccToBeatTarget()
-        {
-            if (CurrentDiff.Diffdata is null || CurrentAPI.AreRatingsNull(CurrentDiff.Diffdata)) return 0f;
-            return CurrentCalculator.GetAcc(CurrentAPI.GetPP(CurrentDiff.Scoredata), PC.DecimalPrecision, CurrentAPI.GetRatings(CurrentDiff.Diffdata));
+            _taskRunner.Run(RefreshProfileScoresAsync, "Reload PP calculator profile", _lifetimeSource.Token);
         }
 
-        private async Task<float> UpdateTargetPP()
+        [UIAction(nameof(PlayTable_PageUp))]
+        private void PlayTable_PageUp()
         {
-            if (Sldvc is null) return 0f;
-#if NEW_VERSION
-            CurrentMap = Sldvc.beatmapKey; // 1.37.0 and above
-            if (CurrentMap == default) return 0f;
-#else
-            CurrentMap = Sldvc.selectedDifficultyBeatmap; // 1.34.2 and below
-            if (CurrentMap is null) return 0f;
-#endif
-            
-            CurrentDiff = (null, null);
-            if (!Sldvc.beatmapLevel.levelID.Substring(0, 6).Equals("custom")) return 0.0f; //means the level selected is not custom
-#if NEW_VERSION
-            string mode = CurrentMap.beatmapCharacteristic.serializedName; // 1.37.0 and above
-#else
-            string mode = CurrentMap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName; // 1.34.2 and below
-#endif
-            string hash = Sldvc.beatmapLevel.levelID.Split('_')[2];
-            JObject scoreData = await CurrentAPI.GetScoreData(
-                Targeter.TargetID,
-                hash,
-                CurrentMap.difficulty.ToString().Replace("+", "Plus"),
-                mode,
-                true //Debug option, just prevents prints when the API was called.
-                ).ConfigureAwait(false) as JObject;
-            TargetHasScore = scoreData is not null;
-            if (!TargetHasScore) { await UpdateDiff().ConfigureAwait(false); return 0.0f; } //target doesn't have a score on this diff.
-            JToken diffData = null;
-            try
-            {
-                string actualMode = TheCounter.SelectMode(mode, CurrentLeaderboard);
-                Map map = await TheCounter.GetMap(hash, actualMode, CurrentLeaderboard, true);
-                //Plugin.Log.Info($"SelectedMap: {map}");
-                if (!map.TryGet(actualMode, CurrentMap.difficulty, out var val))
-                    throw new Exception();
-                BeatmapID = val.MapId;
-                diffData = val.Data;
-
-                if (IsAP)
-                    scoreData.Property("accuracy").AddAfterSelf(new JProperty("complexity", (float)(diffData["complexity"] ?? diffData["complexityAccSaber"])));
-
-                TrueBeatmapID = BLAPI.CleanUpId(IsBL ? _BeatmapID : map.Get(mode ?? "Standard", CurrentMap.difficulty).MapId);
-#if NEW_VERSION
-                BeatmapName = Sldvc.beatmapLevel.songName;
-#else
-                BeatmapName = CurrentMap.level.songName;
-#endif
-            }
-            catch (Exception)
-            { //This exception should only happen when a map isn't on the radar of the selected leaderboard (aka unranked), and thus doesn't need to be broadcasted.
-                await UpdateDiff(true).ConfigureAwait(false);
-                return 0.0f;
-            }
-            try
-            {
-                MapDiffText = HelpfulMisc.AddSpaces(CurrentMap.difficulty.ToString().Replace("+", "Plus"));
-                MapModeText = HelpfulMisc.AddSpaces(mode);
-                float outp = CurrentAPI.GetPP(scoreData);
-                if (outp == 0.0f && !CurrentAPI.AreRatingsNull(diffData)) //If the score set doesn't have a pp value, calculate one manually. Make sure there are ratings to do calculation, otherwise skip.
-                    outp = CurrentCalculator.Inflate(CurrentCalculator.GetSummedPp(CurrentAPI.GetScore(scoreData) / (float)CurrentAPI.GetMaxScore(diffData), CurrentAPI.GetRatings(diffData)));
-                CurrentDiff = (diffData, scoreData);
-                if (UnformattedCurrentMods.Length > 0) CurrentModMultiplier = HelpfulPaths.GetMultiAmounts(diffData, UnformattedCurrentMods.Split(' '));
-                return outp;
-            } catch (Exception e)
-            {
-                Plugin.Log.Error($"Error while updating target PP: {e}");
-                TargetHasScore = false;
-                await UpdateDiff(true).ConfigureAwait(false);
-            }
-            return 0.0f;
+            _profilePanelPresenter.PageUp();
         }
-#endregion
-        private void BuildTable(Func<float[], string> valueCalc, TextMeshProUGUI table, ref Table tableTable,
-            string suffix = "%",
-            string speedLbl = "<color=blue>Speed</color>",
-            string accLbl = "<color=#0D0>Acc</color> to Cap",
-            string gnLbl = "With <color=green>Selected Mods</color>")
+
+        [UIAction(nameof(PlayTable_PageTop))]
+        private void PlayTable_PageTop()
         {
-            Calculator calc = CurrentCalculator;
-            string[][] arr = new string[] { "<color=red>Slower</color>", "<color=#aaa>Normal</color>", "<color=#0F0>Faster</color>", "<color=#FFD700>Super Fast</color>" }.RowToColumn(3);
-            //ss-sf, [star, acc, pass, tech] (selects by leaderboard)
-            JToken data = IsBL ? CurrentDiff.Diffdata.TryEnter("difficulty") as JObject : CurrentDiff.Diffdata;
-            float[] ratings = UsesMods ? [.. HelpfulPaths.GetAllRatings(data, calc).SelectMany(rating => rating.GetRatings(calc.Leaderboard)).Where(num => num > 0f)] : [HelpfulPaths.GetRating(data, PPType.Star)];
-            if (!UsesMods)
+            _profilePanelPresenter.PageTop();
+        }
+
+        [UIAction(nameof(PlayTable_PageDown))]
+        private void PlayTable_PageDown()
+        {
+            _profilePanelPresenter.PageDown();
+        }
+
+        [UIAction(nameof(SaveSettings))]
+        private void SaveSettings()
+        {
+            _config.PercentSliderMin = PercentSliderMin;
+
+            _config.PercentSliderMax = PercentSliderMax;
+
+            _config.PPSliderMin = PPSliderMin;
+
+            _config.PPSliderMax = PPSliderMax;
+
+            _config.SliderIncrementNum = SliderIncrementNum;
+
+            _config.ShowTrueID = ShowTrueID;
+        }
+
+        [UIAction("#ShowPlayTable")]
+        private void ShowPlayTable()
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+            _isPlayTableOpen = true;
+
+            if (_currentProfile is null)
             {
-                float[] newArr = new float[ratings.Length * 4];
-                for (int i = 0; i < ratings.Length; i++)
-                {
-                    newArr[i] = ratings[i];
-                    newArr[i + ratings.Length] = ratings[i];
-                    newArr[i + ratings.Length * 2] = ratings[i];
-                    newArr[i + ratings.Length * 3] = ratings[i];
-                }
-                ratings = newArr;
-            }
-            int len = ratings.Length / 4; //divide by 4 because 3 speed mods + 1 no mod
-            /*Plugin.Log.Info($"rating len: {ratings.Length}, len: {len}");
-            if (ratings.Length == 0 || len == 0)
-            {
-                tableTable = null;
-                Plugin.Log.Info(data.ToString());
+                _taskRunner.Run(
+                    async cancellationToken =>
+                    {
+                        await LoadCurrentProfileAsync(cancellationToken).ConfigureAwait(false);
+
+                        await _dispatcher
+                            .InvokeAsync(_profilePanelPresenter.ShowPlayTable, cancellationToken)
+                            .ConfigureAwait(false);
+                    },
+                    "Open profile play table",
+                    _lifetimeSource.Token
+                );
+
                 return;
-            }//*/
-            for (int i = 0; i < arr.Length; i++)
-                arr[i][1] = "<color=#0c0>" + valueCalc.Invoke([.. ratings.Skip(i * len).Take(len)]) + "</color>" + suffix;
-            if (!Mathf.Approximately(CurrentModMultiplier, 1.0f)) for (int i = 0; i < arr.Length; i++)
-                    arr[i][2] = "<color=green>" + valueCalc([.. ratings.Skip(i * len).Take(len).Select(current => current * CurrentModMultiplier)]) + "</color>" + suffix;
-            else for (int i = 0; i < arr.Length; i++) arr[i][2] = "N/A";
-            if (tableTable is null)
-                tableTable = new Table(table, arr, speedLbl, accLbl, gnLbl) { HasEndColumn = true };
-            else
-                tableTable.SetValues(arr);
-            Table tableTableTable = tableTable; //this is done because ref vars are not allowed to be passed into functions (probably something to do with security being compromised).
-            IEnumerator DelayRoutine()
-            {
-                yield return new WaitForEndOfFrame();
-                tableTableTable.UpdateTable();
-                TurnOnSelectButtons();
-            };
-            Task.Run(() => CoroutineHost.Start(DelayRoutine()));
-            //This is done so that the game object is shown before the table is built. Otherwise, the game object gives wrong measurements, which messes up the table.
+            }
+
+            _profilePanelPresenter.ShowPlayTable();
         }
-        private void BuildTable()
+
+        [UIAction("#HidePlayTable")]
+        private void HidePlayTable()
         {
-            switch (CurrentTab)
+            _isPlayTableOpen = false;
+            _profilePanelPresenter.HidePlayTable();
+        }
+
+        [UIAction("#ShowSessionTable")]
+        private void ShowSessionTable()
+        {
+            _profilePanelPresenter.ShowSessionTable();
+        }
+
+        [UIAction("#HideSessionTable")]
+        private void HideSessionTable()
+        {
+            _profilePanelPresenter.HideSessionTable();
+        }
+
+        [UIAction("#UpdateCurrentTable")]
+        private void UpdateCurrentTable()
+        {
+            BuildTable();
+        }
+
+        [UIAction("#UpdateCurrentTab")]
+        private void UpdateCurrentTab()
+        {
+            _taskRunner.Run(
+                cancellationToken => UpdateTabDisplayAsync(true, cancellationToken),
+                "Update current PP calculator tab",
+                _lifetimeSource.Token
+            );
+        }
+
+        [UIAction("#post-parse")]
+        private void PostParse()
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+            _postParsed = true;
+
+#if NEW_VERSION
+            TabSelectionPatch.SetIgnoredSelector(MainTabSelector.TextSegmentedControl);
+#else
+            TabSelectionPatch.SetIgnoredSelector(MainTabSelector.textSegmentedControl);
+#endif
+
+            HelpfulMisc.CoupleMinMaxSliders(MinAccSlider, MaxAccSlider);
+
+            HelpfulMisc.CoupleMinMaxSliders(MinPPSlider, MaxPPSlider);
+
+            foreach (string tag in SelectionButtonTags)
             {
-                case "Capture":
-                    if (!IsBL) break;
-                    BuildTable(ratings => CurrentCalculator.GetAcc(PPToCapture, PC.DecimalPrecision, ratings) + "", ClanTable, ref ClanTableTable);
-                    ClanTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
-                    break;
-                case "Relative":
-                    BuildTable(ratings => CurrentCalculator.GetAcc(TargetPP, PC.DecimalPrecision, ratings) + "", RelativeTable, ref RelativeTableTable, accLbl: "<color=#0D0>Acc</color> to Beat");
-                    RelativeTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
-                    break;
-                case "Custom":
-                    if (IsPPMode)
-                    {
-                        BuildTable(ratings => CurrentCalculator.GetAcc(TestPp, PC.DecimalPrecision, ratings) + "", PercentTable, ref PercentTableTable, accLbl: "<color=#0D0>Acc</color>");
-                        PercentTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
-                    }
-                    else
-                    {
-                        BuildTable(ratings => CurrentCalculator.GetSummedPp(TestAcc / 100.0f, PC.DecimalPrecision, ratings) + "", PPTable, ref PPTableTable, $" {GetPPLabel()}", accLbl: $"<color=#0D0>{GetPPLabel().ToUpper()}</color>");
-                        PPTableTable.HighlightCell(HelpfulMisc.OrderSongSpeedCorrectly(Gmpc.gameplayModifiers.songSpeed) + 1, 0);
-                    }
-                    break;
-                default: 
-                    return;
+                foreach (GameObject gameObject in Parser.GetObjectsWithTag(tag))
+                {
+                    gameObject.SetActive(false);
+                }
+            }
+
+            CaptureTab.IsVisible = IsBeatLeader;
+            ProfileTab.IsVisible = ShowProfileTab;
+
+            AccSaberSetting.gameObject.SetActive(IsAccSaber);
+
+            MapID.gameObject.SetActive(!ShowTrueID);
+
+            TrueMapID.gameObject.SetActive(ShowTrueID);
+
+            PercentSliderMin = _percentSliderMin;
+            PercentSliderMax = _percentSliderMax;
+            PPSliderMin = _ppSliderMin;
+            PPSliderMax = _ppSliderMax;
+
+            UpdateTabSliders(_sliderIncrementNumber);
+
+            _profilePanelPresenter.Initialize(
+                PlayTable,
+                PlayTableButtons,
+                PlayTableModal,
+                SessionWindow,
+                SessionWindow_PlaysSet,
+                SessionWindow_PpGained,
+                SessionTable,
+                PlusOneLabel,
+                PlusOneText
+            );
+
+            if (_currentProfile is not null)
+            {
+                _profilePanelPresenter.Bind(_currentProfile);
             }
         }
-        private static string Grammarize(string mods) //this is very needed :)
-        {
-            int commaCount = mods.Count(c => c == ',');
-            if (commaCount == 0) return mods;
-            if (commaCount == 1) return mods.Replace(", ", " and ");
-            return mods.Substring(0, mods.LastIndexOf(',')) + " and" + mods.Substring(mods.LastIndexOf(',') + 1);
-        }
-        private void UpdateMods() //this is why you use bitmasks instead of a billion bools vars
-        {
-            string newMods = "";
-            UnformattedCurrentMods = "";
-            GameplayModifiers mods = Gmpc.gameplayModifiers;
-            switch (mods.songSpeed)
-            {//Speed mods are not added to UnformattedCurrentMods because they are handled in a different way.
-                case SongSpeed.Slower: newMods += "Slower Song, "; break;
-                case SongSpeed.Faster: newMods += "Faster Song, "; break;
-                case SongSpeed.SuperFast: newMods += "Super Fast Song, "; break;
-            }
-            if (mods.ghostNotes) { UnformattedCurrentMods += "gn "; newMods += "Ghost Notes, "; }
-            if (mods.disappearingArrows) { UnformattedCurrentMods += "da "; newMods += "Disappearing Arrows, "; }
-            if (mods.energyType == EnergyType.Battery) newMods += "Four Lifes, ";
-            if (mods.noArrows) { UnformattedCurrentMods += "na "; newMods += "No Arrows, "; }
-            if (mods.noFailOn0Energy) newMods += "No Fail, ";
-            if (mods.zenMode) newMods += "Zen Mode (why are you using zen mode), ";
-            if (mods.instaFail) newMods += "One Life, ";
-            if (mods.noBombs) { UnformattedCurrentMods += "nb "; newMods += "No Bombs, "; }
-            if (mods.proMode) { UnformattedCurrentMods += "pm "; newMods += "Pro Mode, "; }
-            if (mods.smallCubes) { UnformattedCurrentMods += "sc "; newMods += "Small Cubes, "; }
-            if (mods.strictAngles) { UnformattedCurrentMods += "sa "; newMods += "Strict Angles, "; }
-            if (mods.enabledObstacleType == EnabledObstacleType.NoObstacles) { UnformattedCurrentMods += "no "; newMods += "No Walls, "; }
-            CurrentMods = newMods.Length > 1 ? Grammarize(newMods.Substring(0, newMods.Length - 2)) : null;
-            if (UnformattedCurrentMods.Length > 0) UnformattedCurrentMods = UnformattedCurrentMods.Trim();
-            if (!UsesMods) return;
-            float modMult = CurrentModMultiplier;
-            if (CurrentDiff.Diffdata != null) CurrentModMultiplier = HelpfulPaths.GetMultiAmounts(CurrentDiff.Diffdata, UnformattedCurrentMods.Split(' '));
-            if (!Mathf.Approximately(modMult, CurrentModMultiplier))
-            {
-                TabMapInfo["Capture"] = default;
-                TabMapInfo["Relative"] = default;
-            }
-        }
-        private void TurnOnSelectButtons()
-        {
-            if (SelectButtonsOn) return;
-            foreach (string s in SelectionButtonTags)
-                foreach (GameObject go in Parser.GetObjectsWithTag(s))
-                    go.SetActive(true);
-            SelectButtonsOn = true;
-        }
+
         #endregion
-        #region Misc Functions
-        private void ChangeMapListeners(bool toEnable)
+
+        #region Profile operations
+
+        private async Task SaveLeaderboardAsync(CancellationToken cancellationToken)
         {
-            if (toEnable)
+            try
             {
-                BSEvents.levelCleared += SucceededMap;
-                /*BSEvents.levelFailed += FailedMap;
-                BSEvents.levelQuit += FailedMap;
-                BSEvents.levelRestarted += FailedMap;*/
-            } else
+                await LoadCurrentProfileAsync(cancellationToken).ConfigureAwait(false);
+
+                await RefreshAsync(true, cancellationToken).ConfigureAwait(false);
+            }
+            finally
             {
-                BSEvents.levelCleared -= SucceededMap;
-                /*BSEvents.levelFailed -= FailedMap;
-                BSEvents.levelQuit -= FailedMap;
-                BSEvents.levelRestarted -= FailedMap;*/
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    await _dispatcher
+                        .InvokeAsync(() => SaveLeaderboardButton.interactable = true)
+                        .ConfigureAwait(false);
+                }
             }
         }
+
+        private async Task LoadCurrentProfileAsync(CancellationToken cancellationToken)
+        {
+            await _targeter.WaitUntilInitializedAsync(cancellationToken).ConfigureAwait(false);
+
+            Leaderboards leaderboard = await _dispatcher
+                .InvokeAsync(() => _config.CalcLeaderboard, cancellationToken)
+                .ConfigureAwait(false);
+
+            APCategory category = leaderboard == Leaderboards.Accsaber ? _accSaberCategory : APCategory.None;
+
+            Profile profile = await _profileRepository
+                .GetAsync(leaderboard, _targeter.Target.PlayerID, category, cancellationToken)
+                .ConfigureAwait(false);
+
+            await _dispatcher
+                .InvokeAsync(
+                    () =>
+                    {
+                        CurrentLeaderboard = leaderboard;
+
+                        SetCurrentProfile(profile);
+
+                        UpdateProfilePP();
+                    },
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+        }
+
+        private void SetCurrentProfile(Profile profile)
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+            _currentProfile = profile ?? throw new ArgumentNullException(nameof(profile));
+
+            _profilePanelPresenter.Bind(profile);
+        }
+
+        private void UpdateProfile()
+        {
+            if (_currentProfile is not null)
+            {
+                _profilePanelPresenter.Refresh();
+                UpdateProfilePP();
+                return;
+            }
+
+            _taskRunner.Run(LoadCurrentProfileAsync, "Load PP calculator profile", _lifetimeSource.Token);
+        }
+
+        private async Task RefreshProfileScoresAsync(CancellationToken cancellationToken)
+        {
+            AsyncLock.Releaser? releaser = await _profileLock.TryLockAsync(cancellationToken).ConfigureAwait(false);
+
+            if (releaser is null)
+                return;
+
+            using (releaser.Value)
+            {
+                await _dispatcher
+                    .InvokeAsync(() => ReloadDataButton.interactable = false, cancellationToken)
+                    .ConfigureAwait(false);
+
+                try
+                {
+                    if (_currentProfile is null)
+                    {
+                        await LoadCurrentProfileAsync(cancellationToken).ConfigureAwait(false);
+                    }
+
+                    Profile profile =
+                        _currentProfile ?? throw new InvalidOperationException("The current profile was not loaded.");
+
+                    await _profileRepository.ReloadAsync(profile, cancellationToken).ConfigureAwait(false);
+
+                    await _dispatcher
+                        .InvokeAsync(
+                            () =>
+                            {
+                                SetCurrentProfile(profile);
+
+                                UpdateProfilePP();
+                            },
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
+
+                    await RefreshAsync(true, cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        await _dispatcher.InvokeAsync(() => ReloadDataButton.interactable = true).ConfigureAwait(false);
+                    }
+                }
+            }
+        }
+
+        private Task UpdatePlayTableAsync(CancellationToken cancellationToken)
+        {
+            if (_currentProfile is null)
+                return Task.CompletedTask;
+
+            if (_isPlayTableOpen)
+            {
+                return _dispatcher.InvokeAsync(_profilePanelPresenter.Refresh, cancellationToken);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        #endregion
+
+        #region Completed plays
+
         private void SucceededMap(StandardLevelScenesTransitionSetupDataSO transition, LevelCompletionResults results)
         {
             ClearMapTabs();
             TheCounter.ClearCounter();
-            Task.Run(async () => {
+
+            float accuracy = HelpfulMisc.GetAcc(transition, results);
+
 #if NEW_VERSION
-                await CompletedMap(HelpfulMisc.GetAcc(transition, results), transition.beatmapKey, transition.beatmapLevel);
+            string hash = transition.beatmapLevel.levelID.Split('_')[2];
+
+            string mapName = transition.beatmapLevel.songName;
+
+            BeatmapDifficulty difficulty = transition.beatmapKey.difficulty;
+
+            string mode = transition.beatmapKey.beatmapCharacteristic.serializedName;
 #else
-                await CompletedMap(HelpfulMisc.GetAcc(transition, results), transition.difficultyBeatmap);
+            IDifficultyBeatmap beatmap = transition.difficultyBeatmap;
+
+            string hash = beatmap.level.levelID.Split('_')[2];
+
+            string mapName = beatmap.level.songName;
+
+            BeatmapDifficulty difficulty = beatmap.difficulty;
+
+            string mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;
 #endif
-            });
+
+            _taskRunner.Run(
+                cancellationToken => CompletedMapAsync(accuracy, hash, mapName, difficulty, mode, cancellationToken),
+                "Record completed map",
+                _lifetimeSource.Token
+            );
         }
-        /*private void FailedMap(StandardLevelScenesTransitionSetupDataSO transition, LevelCompletionResults results)
+
+        private async Task CompletedMapAsync(
+            float finalAccuracy,
+            string hash,
+            string mapName,
+            BeatmapDifficulty difficulty,
+            string mode,
+            CancellationToken cancellationToken
+        )
         {
-            FinalMapData = default;
-        }*/
-#if NEW_VERSION
-        private Task CompletedMap(float finalAcc, BeatmapKey diffData, BeatmapLevel levelData)
-        {
-            return CompletedMap(
-                finalAcc,
-                levelData.levelID.Split('_')[2],
-                levelData.songName,
-                diffData.difficulty,
-                diffData.beatmapCharacteristic.serializedName
-                );
-        }
-#else
-        private Task CompletedMap(float finalAcc, IDifficultyBeatmap data)
-        {
-            return CompletedMap(
-                finalAcc,
-                data.level.levelID.Split('_')[2],
-                data.level.songName,
-                data.difficulty,
-                data.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName
-                );
-        }
-#endif
-        private Task CompletedMap(float finalAcc, string hash, string mapName, BeatmapDifficulty diff, string mode)
-        {
-            //finalAcc = 1.0f;
-            Plugin.Log.Debug("Map completion info: " + HelpfulMisc.Print(new object[5] { finalAcc, hash, mapName, diff, mode }));
-            if (float.IsNaN(finalAcc)) 
-            {
-                TheCounter.LastMap = default;
-                return Task.CompletedTask; 
-            }
-            Task outp = Task.Run(async () =>
-            {
-                if (await Profile.AddPlay(Targeter.PlayerID, hash, finalAcc, mapName, diff, mode).ConfigureAwait(false))
-                {
-                    await Refresh(true).ConfigureAwait(false);
-                }
-            });
+            Plugin.Log.Debug(
+                "Map completion info: "
+                    + HelpfulMisc.Print(new object[] { finalAccuracy, hash, mapName, difficulty, mode })
+            );
+
             TheCounter.LastMap = default;
-            return outp ?? Task.CompletedTask;
+
+            if (float.IsNaN(finalAccuracy) || float.IsInfinity(finalAccuracy) || finalAccuracy <= 0f)
+            {
+                return;
+            }
+
+            await _targeter.WaitUntilInitializedAsync(cancellationToken).ConfigureAwait(false);
+
+            bool added = await _completedPlayService
+                .AddCompletedPlayAsync(
+                    _targeter.Target.PlayerID,
+                    hash,
+                    finalAccuracy,
+                    mapName,
+                    difficulty,
+                    mode,
+                    TheCounter.LastMods,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            if (!added)
+                return;
+
+            await LoadCurrentProfileAsync(cancellationToken).ConfigureAwait(false);
+
+            await RefreshAsync(true, cancellationToken).ConfigureAwait(false);
         }
+
+        #endregion
+
+        #region Refresh and map loading
+
+        public Task Refresh(bool forceRefresh = false)
+        {
+            return RefreshAsync(forceRefresh, _lifetimeSource.Token);
+        }
+
+        private async Task RefreshAsync(bool forceRefresh, CancellationToken cancellationToken)
+        {
+            ThrowIfDisposed();
+
+            bool shouldRefresh = await _dispatcher
+                .InvokeAsync(
+                    () =>
+                    {
+                        if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || !TabSelectionPatch.IsOnModsTab)
+                        {
+                            return false;
+                        }
+
+#if NEW_VERSION
+                        if (
+                            !forceRefresh
+                            && _levelDetailView.beatmapKey.levelId?.Equals(_currentMap.levelId) == true
+                            && _levelDetailView.beatmapKey.difficulty == _currentMap.difficulty
+                        )
+                        {
+                            return false;
+                        }
+#else
+                        if (!forceRefresh && Equals(_levelDetailView.selectedDifficultyBeatmap, _currentMap))
+                        {
+                            return false;
+                        }
+#endif
+
+                        return true;
+                    },
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            if (!shouldRefresh)
+                return;
+
+            AsyncLock.Releaser? releaser = await _refreshLock.TryLockAsync(cancellationToken).ConfigureAwait(false);
+
+            if (releaser is null)
+                return;
+
+            using (releaser.Value)
+            {
+                try
+                {
+                    await _dispatcher
+                        .InvokeAsync(
+                            () =>
+                            {
+                                CurrentLeaderboard = _config.CalcLeaderboard;
+
+                                UpdateMods();
+                            },
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
+
+                    _targetPp = await UpdateTargetPpAsync(cancellationToken).ConfigureAwait(false);
+
+                    await UpdateTabDisplayAsync(forceRefresh, cancellationToken).ConfigureAwait(false);
+
+                    await UpdatePlayTableAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    Plugin.Log.Error($"There was an issue refreshing " + $"{TabName}:\n{exception}");
+                }
+            }
+        }
+
+        private async Task<float> UpdateTargetPpAsync(CancellationToken cancellationToken)
+        {
+            await _targeter.WaitUntilInitializedAsync(cancellationToken).ConfigureAwait(false);
+
+            SelectedMapInfo selectedMap = await _dispatcher
+                .InvokeAsync(CaptureSelectedMap, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (!selectedMap.IsUsable)
+                return 0f;
+
+            _currentDiff = default;
+
+            JToken? scoreData = await CurrentApi
+                .GetScoreData(
+                    _targeter.Target.TargetID,
+                    selectedMap.Hash,
+                    selectedMap.Difficulty.ToString().Replace("+", "Plus"),
+                    selectedMap.Mode,
+                    quiet: true,
+                    ct: cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            _targetHasScore = scoreData is not null;
+
+            if (scoreData is null)
+            {
+                await UpdateDiffAsync(mapFailed: false, cancellationToken).ConfigureAwait(false);
+
+                return 0f;
+            }
+
+            string cacheMode = SelectCacheMode(selectedMap.Mode, CurrentLeaderboard);
+
+            Map? map = await _mapRepository
+                .GetAsync(selectedMap.Hash, cacheMode, CurrentLeaderboard, forceRemoteLoad: true, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (map is null || !map.TryGet(cacheMode, selectedMap.Difficulty, out MapDiffModel? mapDifficulty))
+            {
+                await UpdateDiffAsync(mapFailed: true, cancellationToken).ConfigureAwait(false);
+
+                return 0f;
+            }
+
+            ICacheModel difficultyData = mapDifficulty.Data;
+
+            if (!CurrentApi.MapIsUsable(difficultyData))
+            {
+                await UpdateDiffAsync(mapFailed: true, cancellationToken).ConfigureAwait(false);
+
+                return 0f;
+            }
+
+            float targetPp = CurrentApi.GetPP(scoreData);
+
+            if (targetPp <= 0f && !CurrentApi.AreRatingsNull(difficultyData))
+            {
+                int maximumScore = CurrentApi.GetMaxScore(difficultyData);
+
+                if (maximumScore > 0)
+                {
+                    float accuracy = CurrentApi.GetScore(scoreData) / (float)maximumScore;
+
+                    targetPp = CurrentCalculator.Inflate(
+                        CurrentCalculator.GetSummedPp(accuracy, CurrentApi.GetRatings(difficultyData))
+                    );
+                }
+            }
+
+            _currentDiff = (difficultyData, scoreData);
+
+            if (!BetterString.IsNullOrWhiteSpace(_unformattedCurrentMods))
+            {
+                _currentModMultiplier = _pathUtils.GetMultiAmounts(
+                    difficultyData,
+                    _unformattedCurrentMods.Split([' '], StringSplitOptions.RemoveEmptyEntries)
+                );
+            }
+
+            await UpdateMapDisplayAsync(selectedMap, mapDifficulty, cancellationToken).ConfigureAwait(false);
+
+            return targetPp;
+        }
+
+        private async Task UpdateDiffAsync(bool mapFailed, CancellationToken cancellationToken)
+        {
+            try
+            {
+                SelectedMapInfo selectedMap = await _dispatcher
+                    .InvokeAsync(CaptureSelectedMap, cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (!selectedMap.IsUsable)
+                {
+                    _currentDiff = default;
+                    return;
+                }
+
+                string cacheMode = SelectCacheMode(selectedMap.Mode, CurrentLeaderboard);
+
+                Map? map = mapFailed
+                    ? null
+                    : await _mapRepository
+                        .GetAsync(
+                            selectedMap.Hash,
+                            cacheMode,
+                            CurrentLeaderboard,
+                            forceRemoteLoad: true,
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
+
+                MapDiffModel? mapDifficulty = null;
+
+                bool usedFallback = map is null || !map.TryGet(cacheMode, selectedMap.Difficulty, out mapDifficulty);
+
+                if (usedFallback)
+                {
+                    map = await _mapRepository
+                        .GetAsync(
+                            selectedMap.Hash,
+                            selectedMap.Mode,
+                            Leaderboards.Beatleader,
+                            forceRemoteLoad: true,
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
+
+                    if (map is null || !map.TryGet(selectedMap.Mode, selectedMap.Difficulty, out mapDifficulty))
+                    {
+                        Plugin.Log.Error(
+                            "Completely failed to load map data. "
+                                + "The map may be unranked, the network may "
+                                + "be unavailable, or the API may be down."
+                        );
+
+                        _currentDiff = default;
+                        return;
+                    }
+                }
+
+                ICacheModel cacheModel = mapDifficulty!.Data;
+
+                _currentDiff =
+                    usedFallback || CurrentApi.AreRatingsNull(cacheModel)
+                        ? default
+                        : (cacheModel, _currentDiff.ScoreData);
+
+                await UpdateMapDisplayAsync(selectedMap, mapDifficulty, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                Plugin.Log.Error(
+                    "Error updating map difficulty data. "
+                        + "The map may not be ranked on the selected "
+                        + $"leaderboard:\n{exception}"
+                );
+
+                _currentDiff = default;
+            }
+        }
+
+        private async Task UpdateMapDisplayAsync(
+            SelectedMapInfo selectedMap,
+            MapDiffModel mapDifficulty,
+            CancellationToken cancellationToken
+        )
+        {
+            string trueMapId = await ResolveTrueMapIdAsync(selectedMap, mapDifficulty.SongId, cancellationToken)
+                .ConfigureAwait(false);
+
+            await _dispatcher
+                .InvokeAsync(
+                    () =>
+                    {
+                        BeatmapID = mapDifficulty.SongId;
+
+                        TrueBeatmapID = trueMapId;
+
+                        MapDiffText = HelpfulMisc.AddSpaces(selectedMap.Difficulty.ToString().Replace("+", "Plus"));
+
+                        MapModeText = HelpfulMisc.AddSpaces(selectedMap.Mode!);
+
+                        BeatmapName = selectedMap.MapName!;
+                    },
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+        }
+
+        private async Task<string> ResolveTrueMapIdAsync(
+            SelectedMapInfo selectedMap,
+            string fallbackSongId,
+            CancellationToken cancellationToken
+        )
+        {
+            if (CurrentLeaderboard == Leaderboards.Beatleader)
+            {
+                return CleanBeatLeaderId(fallbackSongId);
+            }
+
+            Map? beatLeaderMap = await _mapRepository
+                .GetAsync(
+                    selectedMap.Hash!,
+                    selectedMap.Mode,
+                    Leaderboards.Beatleader,
+                    forceRemoteLoad: true,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            if (
+                beatLeaderMap is not null
+                && beatLeaderMap.TryGet(
+                    selectedMap.Mode!,
+                    selectedMap.Difficulty,
+                    out MapDiffModel? beatLeaderDifficulty
+                )
+            )
+            {
+                return CleanBeatLeaderId(beatLeaderDifficulty.SongId);
+            }
+
+            return CleanBeatLeaderId(fallbackSongId);
+        }
+
+        private static string SelectCacheMode(string? characteristic, Leaderboards leaderboard)
+        {
+            return leaderboard switch
+            {
+                Leaderboards.Scoresaber => Map.SS_MODE_NAME,
+
+                Leaderboards.Accsaber => Map.AP_MODE_NAME,
+
+                _ when BetterString.IsNullOrWhiteSpace(characteristic) => Profile.DEFAULT_MODE,
+
+                _ => characteristic,
+            };
+        }
+
+        private static string CleanBeatLeaderId(string songId)
+        {
+            if (BetterString.IsNullOrWhiteSpace(songId))
+            {
+                return "";
+            }
+
+            int separatorIndex = songId.IndexOf('x');
+
+            if (separatorIndex >= 0)
+                return songId[..separatorIndex];
+
+            return songId.Length > 2 ? songId[..^2] : songId;
+        }
+
+        private SelectedMapInfo CaptureSelectedMap()
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+#if NEW_VERSION
+            _currentMap = _levelDetailView.beatmapKey;
+
+            if (_currentMap == default)
+                return default;
+
+            string levelId = _levelDetailView.beatmapLevel.levelID;
+
+            if (
+                BetterString.IsNullOrWhiteSpace(levelId)
+                || !levelId.StartsWith("custom", StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                return default;
+            }
+
+            return new SelectedMapInfo(
+                levelId.Split('_')[2],
+                _levelDetailView.beatmapLevel.songName,
+                _currentMap.difficulty,
+                _currentMap.beatmapCharacteristic.serializedName
+            );
+#else
+            _currentMap = _levelDetailView.selectedDifficultyBeatmap;
+
+            if (_currentMap is null)
+                return default;
+
+            string levelId = _currentMap.level.levelID;
+
+            if (
+                BetterString.IsNullOrWhiteSpace(levelId)
+                || !levelId.StartsWith("custom", StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                return default;
+            }
+
+            return new SelectedMapInfo(
+                levelId.Split('_')[2],
+                _currentMap.level.songName,
+                _currentMap.difficulty,
+                _currentMap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName
+            );
+#endif
+        }
+
+        #endregion
+
+        #region Tab presentation
+
+        private async Task UpdateTabDisplayAsync(bool forceUpdate, CancellationToken cancellationToken)
+        {
+            await _dispatcher
+                .InvokeAsync(
+                    () =>
+                    {
+                        if (BetterString.IsNullOrEmpty(_currentTab))
+                        {
+                            return;
+                        }
+
+                        if (
+                            !forceUpdate
+                            && EqualityComparer<
+#if NEW_VERSION
+                            BeatmapKey
+#else
+                            IDifficultyBeatmap
+#endif
+                            >.Default.Equals(_tabMapInfo[_currentTab], _currentMap)
+                        )
+                        {
+                            return;
+                        }
+
+                        if (ChangeTabSettings)
+                        {
+                            ChangeTabSettings = false;
+                            UpdateDisplayVisibility(false);
+                        }
+
+                        if (_currentTab == "Settings")
+                            return;
+
+                        _tabMapInfo[_currentTab] = _currentMap;
+
+                        switch (_currentTab)
+                        {
+                            case "Info":
+                                UpdateInfo();
+                                break;
+
+                            case "Capture":
+                                UpdateCaptureValues();
+                                break;
+
+                            case "Relative":
+                                UpdateRelativeValues();
+                                break;
+
+                            case "Custom":
+                                UpdateCustomAccuracy();
+                                break;
+
+                            case "Profile":
+                                UpdateProfile();
+                                break;
+                        }
+
+                        BuildTable();
+                    },
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+        }
+
+        private void UpdateInfo()
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+            const string delimiter = "\n";
+            const string lineHeight = "80";
+
+            PrefixLabels.SetText($"<line-height={lineHeight}%>" + string.Join(delimiter, CurrentCalculator.StarLabels));
+
+            ICacheModel? difficultyData = _currentDiff.DiffData;
+
+            if (difficultyData is not null && CurrentApi.MapIsUsable(difficultyData))
+            {
+                const char star = (char)9733;
+
+                if (CurrentLeaderboard == Leaderboards.Beatleader)
+                {
+                    SongSpeed speed = _modifiersPanel.gameplayModifiers.songSpeed;
+
+                    float accuracyRating =
+                        _pathUtils.GetRating(difficultyData, PPType.Acc, Leaderboards.Beatleader, speed)
+                        * _currentModMultiplier;
+
+                    float passRating =
+                        _pathUtils.GetRating(difficultyData, PPType.Pass, Leaderboards.Beatleader, speed)
+                        * _currentModMultiplier;
+
+                    float technologyRating =
+                        _pathUtils.GetRating(difficultyData, PPType.Tech, Leaderboards.Beatleader, speed)
+                        * _currentModMultiplier;
+
+                    float starRating = _pathUtils.GetRating(
+                        difficultyData,
+                        PPType.Star,
+                        Leaderboards.Beatleader,
+                        speed
+                    );
+
+                    StarRatings.SetText(
+                        $"<line-height={lineHeight}%>"
+                            + $"{Math.Round(accuracyRating, _config.DecimalPrecision)} {star}"
+                            + delimiter
+                            + $"{Math.Round(passRating, _config.DecimalPrecision)} {star}"
+                            + delimiter
+                            + $"{Math.Round(technologyRating, _config.DecimalPrecision)} {star}"
+                            + delimiter
+                            + $"{Math.Round(starRating, _config.DecimalPrecision)} {star}"
+                    );
+                }
+                else
+                {
+                    float rating = _pathUtils.GetRating(difficultyData, PPType.Star, CurrentLeaderboard);
+
+                    StarRatings.SetText(
+                        $"<line-height={lineHeight}%>" + $"{Math.Round(rating, _config.DecimalPrecision)} {star}"
+                    );
+                }
+            }
+            else
+            {
+                string failText = string.Join(
+                    delimiter,
+                    Enumerable.Repeat("Not Found!", CurrentCalculator.DisplayRatingCount)
+                );
+
+                StarRatings.SetText($"<line-height={lineHeight}%>" + failText);
+            }
+
+            SpeedModText.SetText(
+                "<color=green>" + HelpfulMisc.AddSpaces(_modifiersPanel.gameplayModifiers.songSpeed.ToString())
+            );
+
+            ModMultText.SetText($"x{Math.Round(_currentModMultiplier, 2):N2}");
+        }
+
+        private void UpdateCaptureValues()
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+            if (!IsBeatLeader || _currentDiff.DiffData is null || !CurrentApi.MapIsUsable(_currentDiff.DiffData))
+            {
+                return;
+            }
+
+            ClanTarget.SetText(_targetHasScore ? _getTarget?.Invoke() : _getNoScoreTarget?.Invoke());
+
+            string mapId = BeatmapID;
+
+            OwningClan.SetText("<color=#777>Loading clan data...</color>");
+
+            PPTarget.SetText("<color=#777>Loading...</color>");
+
+            _taskRunner.Run(
+                cancellationToken => UpdateCaptureValuesAsync(mapId, cancellationToken),
+                "Load PP calculator clan values",
+                _lifetimeSource.Token
+            );
+        }
+
+        private async Task UpdateCaptureValuesAsync(string mapId, CancellationToken cancellationToken)
+        {
+            ClanCaptureResult result = await _clanService
+                .GetCaptureAsync(mapId, cancellationToken)
+                .ConfigureAwait(false);
+
+            await _dispatcher
+                .InvokeAsync(
+                    () =>
+                    {
+                        if (!string.Equals(BeatmapID, mapId, StringComparison.Ordinal))
+                        {
+                            return;
+                        }
+
+                        _ppToCapture = result.NeededPp;
+
+                        OwningClan.SetText(
+                            result.Status == ClanCaptureStatus.LoadFailed
+                                ? "<color=red>Clan data failed to load.</color>"
+                            : result.Status == ClanCaptureStatus.Unranked ? "<color=#999>Map is not ranked.</color>"
+                            : result.IsCaptured
+                                ? $"<color=green>{result.OwningClan}</color> " + "already owns this map."
+                            : $"<color=red>{result.OwningClan}</color> " + "owns this map."
+                        );
+
+                        PPTarget.SetText(
+                            result.IsSuccessful
+                                ? $"<color=#0F0>"
+                                    + $"{Math.Round(result.NeededPp, _config.DecimalPrecision)}"
+                                    + $"</color> {GetPPLabel()}"
+                                : "<color=#999>Unavailable</color>"
+                        );
+
+                        if (string.Equals(_currentTab, "Capture", StringComparison.Ordinal))
+                        {
+                            BuildTable();
+                        }
+                    },
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+        }
+
+        private void UpdateRelativeValues()
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+            RelativeText.SetText(_targetHasScore ? _getTarget?.Invoke() : _getNoScoreTarget?.Invoke());
+
+            RelativeTarget.SetText(
+                $"<color=#0F0>" + $"{Math.Round(_targetPp, _config.DecimalPrecision)}</color> " + GetPPLabel()
+            );
+        }
+
+        private void UpdateCustomAccuracy()
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+            if (_currentDiff.DiffData is null)
+                return;
+
+            if (_isPpMode)
+                _config.TestAccAmount = TestAcc;
+            else
+                _config.TestPPAmount = TestPp;
+        }
+
         private void UpdateDisplayVisibility(bool waitForEndOfFrame = true)
         {
             void Update()
             {
-                AccSaberSetting.gameObject.SetActive(IsAP);
-                if ((CaptureTab.IsVisible == IsBL) && (ProfileTab.IsVisible == ShowProfileTab))
+                MainThreadDispatcher.AssertOnMainThread();
+
+                AccSaberSetting.gameObject.SetActive(IsAccSaber);
+
+                if (CaptureTab.IsVisible == IsBeatLeader && ProfileTab.IsVisible == ShowProfileTab)
+                {
                     return;
+                }
+
 #if NEW_VERSION
-                int currentTabNum = MainTabSelector.TextSegmentedControl.selectedCellNumber;
+                int currentTabNumber = MainTabSelector.TextSegmentedControl.selectedCellNumber;
 #else
-                int currentTabNum = MainTabSelector.textSegmentedControl.selectedCellNumber;
+                int currentTabNumber = MainTabSelector.textSegmentedControl.selectedCellNumber;
 #endif
 
-                bool change = CaptureTab.IsVisible != IsBL;
-                bool keepPos = !change || !CurrentTab.Equals(CaptureTab.TabName);
-                if (change)
+                bool changed = CaptureTab.IsVisible != IsBeatLeader;
+
+                bool keepPosition = !changed || _currentTab != CaptureTab.TabName;
+
+                if (changed)
                 {
-                    CaptureTab.IsVisible = IsBL;
-                    if (currentTabNum >= TabMapInfo.Keys.ToList().IndexOf(CaptureTab.TabName))
-                        currentTabNum += IsBL ? 1 : -1;
+                    CaptureTab.IsVisible = IsBeatLeader;
+
+                    if (currentTabNumber >= _tabMapInfo.Keys.ToList().IndexOf(CaptureTab.TabName))
+                    {
+                        currentTabNumber += IsBeatLeader ? 1 : -1;
+                    }
                 }
 
-                change = ProfileTab.IsVisible != ShowProfileTab;
-                keepPos &= !change || !CurrentTab.Equals(ProfileTab.TabName);
-                if (change)
+                changed = ProfileTab.IsVisible != ShowProfileTab;
+
+                keepPosition &= !changed || _currentTab != ProfileTab.TabName;
+
+                if (changed)
                 {
                     ProfileTab.IsVisible = ShowProfileTab;
-                    if (currentTabNum >= TabMapInfo.Keys.ToList().IndexOf(ProfileTab.TabName))
-                        currentTabNum += ShowProfileTab ? 1 : -1;
+
+                    if (currentTabNumber >= _tabMapInfo.Keys.ToList().IndexOf(ProfileTab.TabName))
+                    {
+                        currentTabNumber += ShowProfileTab ? 1 : -1;
+                    }
                 }
 
-                MainTabSelector.ForceSelectAndNotify(keepPos ? currentTabNum : 0);
-                if (!keepPos) CurrentTab = TabMapInfo.Keys.First();
+                MainTabSelector.ForceSelectAndNotify(keepPosition ? currentTabNumber : 0);
+
+                if (!keepPosition)
+                {
+                    _currentTab = _tabMapInfo.Keys.First();
+                }
             }
+
+            if (!waitForEndOfFrame)
+            {
+                Update();
+                return;
+            }
+
             IEnumerator WaitThenUpdate()
             {
                 yield return new WaitForEndOfFrame();
                 Update();
             }
-            if (waitForEndOfFrame) CoroutineHost.Start(WaitThenUpdate());
-            else Update();
+
+            _dispatcher.EnqueueRoutine(WaitThenUpdate());
         }
-        public string GetPPLabel() => IsAP ? "ap" : "pp";
-        public Task UpdateTabDisplay(bool forceUpdate = false, bool runAsync = true) 
+
+        #endregion
+
+        #region Tables and modifiers
+
+        private bool BuildTable(
+            Func<float[], string> valueCalculator,
+            TextMeshProUGUI text,
+            [NotNullWhen(true)] ref Table? table,
+            string suffix = "%",
+            string speedLabel = "<color=blue>Speed</color>",
+            string accuracyLabel = "<color=#0D0>Acc</color> to Cap",
+            string modifierLabel = "With <color=green>Selected Mods</color>"
+        )
         {
-            if (CurrentTab.Length == 0 || (!forceUpdate && TabMapInfo[CurrentTab] == CurrentMap)) return Task.CompletedTask;
-            IEnumerator WaitThenUpdate()
+            MainThreadDispatcher.AssertOnMainThread();
+
+            ICacheModel? difficultyData = _currentDiff.DiffData;
+
+            if (difficultyData is null)
+                return false;
+
+            Calculator calculator = CurrentCalculator;
+
+            string[][] values = new[]
+            {
+                "<color=red>Slower</color>",
+                "<color=#aaa>Normal</color>",
+                "<color=#0F0>Faster</color>",
+                "<color=#FFD700>Super Fast</color>",
+            }.RowToColumn(3);
+
+            float[] ratings;
+
+            if (UsesMods)
+            {
+                ratings =
+                [
+                    .. _pathUtils
+                        .GetAllRatings(difficultyData, calculator)
+                        .SelectMany(rating => rating.GetRatings(calculator.Leaderboard))
+                        .Where(rating => rating > 0f),
+                ];
+            }
+            else
+            {
+                float rating = _pathUtils.GetRating(difficultyData, PPType.Star, calculator.Leaderboard);
+
+                ratings = [rating, rating, rating, rating];
+            }
+
+            if (ratings.Length == 0 || ratings.Length % 4 != 0)
+            {
+                return false;
+            }
+
+            int ratingsPerSpeed = ratings.Length / 4;
+
+            for (int index = 0; index < values.Length; index++)
+            {
+                float[] speedRatings = [.. ratings.Skip(index * ratingsPerSpeed).Take(ratingsPerSpeed)];
+
+                values[index][1] = "<color=#0c0>" + valueCalculator(speedRatings) + "</color>" + suffix;
+
+                if (Mathf.Approximately(_currentModMultiplier, 1f))
+                {
+                    values[index][2] = "N/A";
+                    continue;
+                }
+
+                values[index][2] =
+                    "<color=green>"
+                    + valueCalculator([.. speedRatings.Select(rating => rating * _currentModMultiplier)])
+                    + "</color>"
+                    + suffix;
+            }
+
+            if (table is null)
+            {
+                table = new Table(text, values, speedLabel, accuracyLabel, modifierLabel) { HasEndColumn = true };
+            }
+            else
+            {
+                table.SetValues(values);
+            }
+
+            Table capturedTable = table;
+
+            IEnumerator UpdateTableAfterLayout()
             {
                 yield return new WaitForEndOfFrame();
-                UpdateDisplayVisibility(false);
+
+                capturedTable.UpdateTable();
+                TurnOnSelectButtons();
             }
-            async Task Update()
+
+            _dispatcher.EnqueueRoutine(UpdateTableAfterLayout());
+
+            return true;
+        }
+
+        private void BuildTable()
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+            switch (_currentTab)
             {
-                if (ChangeTabSettings)
-                {
-                    ChangeTabSettings = false;
-                    await WaitThenUpdate().AsTask(CoroutineHost.Instance).ConfigureAwait(false);
-                }
-                //Plugin.Log.Info("DiffData:\n" + CurrentDiff.Diffdata);
-                if (CurrentTab.Equals("Settings")) return;
-                TabMapInfo[CurrentTab] = CurrentMap;
-                Updates[CurrentTab].Invoke(this);
-                BuildTable();
-            }
-            if (runAsync) 
-                return Task.Run(Update);
-            return Update();
-        }
-        private void UpdateInfo()
-        {
-            const string Delimiter = "\n";
-            const string LineHeight = "80";
-            PrefixLabels.SetText($"<line-height={LineHeight}%>" + CurrentCalculator.StarLabels.Aggregate((total, current) => total + Delimiter + current));
-            if (CurrentDiff.Diffdata is not null && CurrentAPI.MapIsUsable(CurrentDiff.Diffdata))
-            {
-                const char Star = (char)9733;
-                switch (CurrentLeaderboard) 
-                {
-                    case Leaderboards.Beatleader:
-                        (float accRating, float passRating, float techRating, float starRating) = 
-                            HelpfulMisc.GetRatingsAndStar(CurrentDiff.Diffdata, Gmpc.gameplayModifiers.songSpeed, CurrentModMultiplier);
-                        StarRatings.SetText($"<line-height={LineHeight}%>" +
-                            Math.Round(accRating, PC.DecimalPrecision) + ' ' + Star + Delimiter +
-                            Math.Round(passRating, PC.DecimalPrecision) + ' ' + Star + Delimiter +
-                            Math.Round(techRating, PC.DecimalPrecision) + ' ' + Star + Delimiter +
-                            Math.Round(starRating, PC.DecimalPrecision) + ' ' + Star);
-                        break;
-                    case Leaderboards.Scoresaber:
-                        StarRatings.SetText($"<line-height={LineHeight}%>{Math.Round(CurrentAPI.GetRatings(CurrentDiff.Diffdata)[0], PC.DecimalPrecision)} {Star}");
-                        break;
-                    case Leaderboards.Accsaber:
-                        StarRatings.SetText($"<line-height={LineHeight}%>{Math.Round(CurrentAPI.GetRatings(CurrentDiff.Diffdata)[0], PC.DecimalPrecision)} {Star}");
-                        break;
-                }
-            } else
-            {
-                const string failText = "Not Found!";
-                string failString = "";
-                for (int i = 0; i < CurrentCalculator.DisplayRatingCount; i++)
-                    failString += Delimiter + failText;
-                StarRatings.SetText($"<line-height={LineHeight}%>" + failString.Substring(Delimiter.Length));
-            }
-            SpeedModText.SetText("<color=green>" + HelpfulMisc.AddSpaces(Gmpc.gameplayModifiers.songSpeed.ToString()));
-            ModMultText.SetText($"x{Math.Round(CurrentModMultiplier, 2):N2}");
-        }
-        private void UpdateCaptureValues() 
-        {
-            if (!IsBL || CurrentDiff.Diffdata is null || !BLAPI.Instance.MapIsUsable(CurrentDiff.Diffdata)) return;
-            ClanTarget.SetText(TargetHasScore ? GetTarget() : GetNoScoreTarget());
-            PPToCapture = ClanCounter.LoadNeededPp(_BeatmapID, out _, out string owningClan)?.First() ?? -1f;
-            OwningClan.SetText($"<color=red>{owningClan}</color> owns this map.");
-            PPTarget.SetText($"<color=#0F0>{Math.Round(PPToCapture, PC.DecimalPrecision)}</color> " + GetPPLabel());
-        }
-        private void UpdateRelativeValues()
-        {
-            RelativeText.SetText(TargetHasScore ? GetTarget() : GetNoScoreTarget());
-            RelativeTarget.SetText($"<color=#0F0>{Math.Round(TargetPP, PC.DecimalPrecision)}</color> " + GetPPLabel());
-        }
-        private void UpdateCustomAccuracy()
-        {
-            if (CurrentDiff.Diffdata is null) return;
-            if (IsPPMode) PC.TestAccAmount = TestAcc;
-            else PC.TestPPAmount = TestPp;
-        }
-        private async Task UpdateDiff(bool mapFailed = false)
-        {
-            try
-            {
-#if NEW_VERSION
-            BeatmapDifficulty diff = Sldvc.beatmapKey.difficulty; // 1.37.0 and below
-            string modeName = Sldvc.beatmapKey.beatmapCharacteristic.serializedName;
-            string hash = Sldvc.beatmapLevel.levelID.Split('_')[2];
-#else
-                BeatmapDifficulty diff = Sldvc.selectedDifficultyBeatmap.difficulty; // 1.34.2 and above
-                string modeName = Sldvc.selectedDifficultyBeatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;
-                string hash = Sldvc.selectedDifficultyBeatmap.level.levelID.Split('_')[2];
-#endif
-                string actualModeName = TheCounter.SelectMode(modeName, CurrentLeaderboard);
-                Map map = mapFailed ? null : await TheCounter.GetMap(hash, actualModeName, CurrentLeaderboard, true);
-                (string MapId, JToken Data) val = default;
-                bool failed = !(map?.TryGet(actualModeName, diff, out val) ?? false);
-                if (failed)
-                {
-                    //Plugin.Log.Warn("Map failed to load. Most likely unranked.");
-                    map = await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader, true);
-                    if (!map.TryGet(modeName, diff, out val))
-                    {
-                        Plugin.Log.Error("Completely failed to load any map whatsoever. Either you are disconnected from the internet or beatleader is down.");
+                case "Capture":
+                    if (!IsBeatLeader)
                         return;
+
+                    if (
+                        BuildTable(
+                            ratings =>
+                                CurrentCalculator.GetAcc(_ppToCapture, _config.DecimalPrecision, ratings).ToString(),
+                            ClanTable,
+                            ref _clanTable
+                        )
+                    )
+                    {
+                        _clanTable.HighlightCell(
+                            HelpfulMisc.OrderSongSpeedCorrectly(_modifiersPanel.gameplayModifiers.songSpeed) + 1,
+                            0
+                        );
                     }
-                }
-                BeatmapID = val.MapId;
-                JToken tokens = val.Data;
-                TrueBeatmapID = BLAPI.CleanUpId(IsBL || failed ? _BeatmapID : (await TheCounter.GetMap(hash, modeName, Leaderboards.Beatleader, true)).Get(modeName ?? "Standard", CurrentMap.difficulty).MapId);
-                //Plugin.Log.Info("CurrentMap\n" + map);
-                CurrentDiff = (tokens, CurrentDiff.Scoredata);
-                MapDiffText = HelpfulMisc.AddSpaces(CurrentMap.difficulty.ToString().Replace("+", "Plus"));
-                MapModeText = HelpfulMisc.AddSpaces(modeName);
-#if NEW_VERSION
-                BeatmapName = Sldvc.beatmapLevel.songName;
-#else
-                BeatmapName = CurrentMap.level.songName;
-#endif
-                if (failed || CurrentAPI.AreRatingsNull(CurrentDiff.Diffdata))
-                    CurrentDiff = (null, null);
+
+                    break;
+
+                case "Relative":
+                    if (
+                        BuildTable(
+                            ratings =>
+                                CurrentCalculator.GetAcc(_targetPp, _config.DecimalPrecision, ratings).ToString(),
+                            RelativeTable,
+                            ref _relativeTable,
+                            accuracyLabel: "<color=#0D0>Acc</color> to Beat"
+                        )
+                    )
+                    {
+                        _relativeTable.HighlightCell(
+                            HelpfulMisc.OrderSongSpeedCorrectly(_modifiersPanel.gameplayModifiers.songSpeed) + 1,
+                            0
+                        );
+                    }
+
+                    break;
+
+                case "Custom":
+                    if (_isPpMode)
+                    {
+                        if (
+                            BuildTable(
+                                ratings =>
+                                    CurrentCalculator.GetAcc(TestPp, _config.DecimalPrecision, ratings).ToString(),
+                                PercentTable,
+                                ref _percentTable,
+                                accuracyLabel: "<color=#0D0>Acc</color>"
+                            )
+                        )
+                        {
+                            _percentTable.HighlightCell(
+                                HelpfulMisc.OrderSongSpeedCorrectly(_modifiersPanel.gameplayModifiers.songSpeed) + 1,
+                                0
+                            );
+                        }
+                    }
+                    else
+                    {
+                        if (
+                            BuildTable(
+                                ratings =>
+                                    CurrentCalculator
+                                        .GetSummedPp(TestAcc / 100f, _config.DecimalPrecision, ratings)
+                                        .ToString(),
+                                PPTable,
+                                ref _ppTable,
+                                $" {GetPPLabel()}",
+                                accuracyLabel: $"<color=#0D0>" + $"{GetPPLabel().ToUpperInvariant()}</color>"
+                            )
+                        )
+                        {
+                            _ppTable.HighlightCell(
+                                HelpfulMisc.OrderSongSpeedCorrectly(_modifiersPanel.gameplayModifiers.songSpeed) + 1,
+                                0
+                            );
+                        }
+                    }
+
+                    break;
             }
-            catch (Exception e)
+        }
+
+        private void SelectMod(SongSpeed speed)
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+            _modifiersPanel.ChangeSongSpeed(speed);
+
+            UpdateMods();
+            BuildTable();
+        }
+
+        private void UpdateMods()
+        {
+            MainThreadDispatcher.AssertOnMainThread();
+
+            string formattedModifiers = "";
+            _unformattedCurrentMods = "";
+
+            GameplayModifiers modifiers = _modifiersPanel.gameplayModifiers;
+
+            switch (modifiers.songSpeed)
             {
-                Plugin.Log.Error("Error updating diff data. This likely means the map isn't ranked on the selected leaderboard, or there was an issue with the API. \nException message: " + e.Message);
-                Plugin.Log.Debug("Stack trace: " + e.StackTrace);
-                CurrentDiff = (null, null);
+                case SongSpeed.Slower:
+                    formattedModifiers += "Slower Song, ";
+                    break;
+
+                case SongSpeed.Faster:
+                    formattedModifiers += "Faster Song, ";
+                    break;
+
+                case SongSpeed.SuperFast:
+                    formattedModifiers += "Super Fast Song, ";
+                    break;
             }
-        }
-        private void UpdateProfile()
-        {
-            CurrentProfile = IsAP ? Profile.GetProfile(CurrentLeaderboard, Targeter.PlayerID, _APSetting) : Profile.GetProfile(CurrentLeaderboard, Targeter.PlayerID);
-            CurrentProfile.ReloadTableValues();
-            PlusOneLabel.SetText("+1 " + GetPPLabel());
-            PlusOneText.SetText($"<color=#0F0>{CurrentProfile.PlusOne}</color> {GetPPLabel()}");
-            UpdateProfilePP();
-        }
-        public Task Refresh(bool forceRefresh = false) => DoRefresh(forceRefresh);
-        private async Task DoRefresh(bool forceRefresh)
-        {
-            //Plugin.Log.Info($"ActualMap: {Sldvc?.selectedDifficultyBeatmap.level.songName ?? "null"} || Currently Saved Map: {CurrentMap?.level.songName ?? "null"}");
-            //Plugin.Log.Info($"ActualMap: [{Sldvc?.beatmapKey.levelId}, {Sldvc?.beatmapKey.difficulty}] || Currently Saved Map: [{CurrentMap.levelId}, {CurrentMap.difficulty}]");
-            //Plugin.Log.Info("TabSelectionPatch: " + TabSelectionPatch.GetIfTabIsSelected(TabName) + ", Maps equal? " + (Sldvc?.beatmapKey.Equals(CurrentMap)));
-            //Plugin.Log.Info("Are we on the tab? " + TabSelectionPatch.IsOnModsTab);
-            if (!TabSelectionPatch.GetIfTabIsSelected(TabName) || !TabSelectionPatch.IsOnModsTab) return;
-#if NEW_VERSION
-            if (!forceRefresh && (Sldvc?.beatmapKey.levelId?.Equals(CurrentMap.levelId) ?? false) && Sldvc.beatmapKey.difficulty == CurrentMap.difficulty) return; // 1.37.0 and above
-#else
-            if (!forceRefresh && (Sldvc?.selectedDifficultyBeatmap?.Equals(CurrentMap) ?? false)) return; // 1.34.2 and below
-#endif
-            AsyncLock.Releaser? theLock = await RefreshLock.TryLockAsync();
-            if (theLock is null) return;
-            using (theLock.Value)
+
+            AddModifier(modifiers.ghostNotes, "gn", "Ghost Notes");
+
+            AddModifier(modifiers.disappearingArrows, "da", "Disappearing Arrows");
+
+            if (modifiers.energyType == EnergyType.Battery)
             {
-                try
-                {
-                    CurrentLeaderboard = PC.CalcLeaderboard;
-                    UpdateMods();
-                    TargetPP = await UpdateTargetPP();
-                    await UpdateTabDisplay(forceRefresh, false);
-                    await UpdatePlayTable();
-                }
-                catch (Exception ex)
-                {
-                    Plugin.Log.Error("There was an issue refreshing the " + TabName + " display!");
-                    Plugin.Log.Error(ex);
-                }
+                formattedModifiers += "Four Lives, ";
             }
-        }
-        private async Task UpdatePlayTable()
-        {
-            if (CurrentProfile is null)
+
+            AddModifier(modifiers.noArrows, "na", "No Arrows");
+
+            if (modifiers.noFailOn0Energy)
+            {
+                formattedModifiers += "No Fail, ";
+            }
+
+            if (modifiers.zenMode)
+            {
+                formattedModifiers += "Zen Mode, ";
+            }
+
+            if (modifiers.instaFail)
+            {
+                formattedModifiers += "One Life, ";
+            }
+
+            AddModifier(modifiers.noBombs, "nb", "No Bombs");
+
+            AddModifier(modifiers.proMode, "pm", "Pro Mode");
+
+            AddModifier(modifiers.smallCubes, "sc", "Small Cubes");
+
+            AddModifier(modifiers.strictAngles, "sa", "Strict Angles");
+
+            AddModifier(modifiers.enabledObstacleType == EnabledObstacleType.NoObstacles, "no", "No Walls");
+
+            _currentMods = formattedModifiers.Length > 1 ? Grammarize(formattedModifiers[..^2]) : "";
+
+            _unformattedCurrentMods = _unformattedCurrentMods.Trim();
+
+            if (!UsesMods)
+            {
+                _currentModMultiplier = 1f;
                 return;
-            if (IsPlayTableOpen)
-                await DelayUpdatePlayTable(CurrentProfile.PlayTable).AsTask(Sldvc).ConfigureAwait(false);
-            else
-                UpdatePlayTableOnOpen = true;
+            }
+
+            float previousMultiplier = _currentModMultiplier;
+
+            if (_currentDiff.DiffData is not null)
+            {
+                _currentModMultiplier = _pathUtils.GetMultiAmounts(
+                    _currentDiff.DiffData,
+                    _unformattedCurrentMods.Split([' '], StringSplitOptions.RemoveEmptyEntries)
+                );
+            }
+
+            if (!Mathf.Approximately(previousMultiplier, _currentModMultiplier))
+            {
+                _tabMapInfo["Capture"] = default;
+
+                _tabMapInfo["Relative"] = default;
+            }
+
+            void AddModifier(bool enabled, string shortName, string displayName)
+            {
+                if (!enabled)
+                    return;
+
+                _unformattedCurrentMods += shortName + " ";
+
+                formattedModifiers += displayName + ", ";
+            }
         }
+
+        private static string Grammarize(string modifiers)
+        {
+            int commaCount = modifiers.Count(character => character == ',');
+
+            if (commaCount == 0)
+                return modifiers;
+
+            if (commaCount == 1)
+            {
+                return modifiers.Replace(", ", " and ");
+            }
+
+            int lastComma = modifiers.LastIndexOf(',');
+
+            return modifiers[..lastComma] + " and" + modifiers[(lastComma + 1)..];
+        }
+
+        private void TurnOnSelectButtons()
+        {
+            if (_selectButtonsOn)
+                return;
+
+            foreach (string tag in SelectionButtonTags)
+            {
+                foreach (GameObject gameObject in Parser.GetObjectsWithTag(tag))
+                {
+                    gameObject.SetActive(true);
+                }
+            }
+
+            _selectButtonsOn = true;
+        }
+
+        #endregion
+
+        #region Formatting
+
+        [MemberNotNull(nameof(_noScoreTargetWrapper), nameof(_getNoScoreTarget), nameof(_getTarget))]
+        private void InitFormatters()
+        {
+            _noScoreTargetWrapper = new FormatWrapper((typeof(string), 't'));
+
+            Formatter formatter = new(
+                TokenParser.ParseTokens(
+                    _config.MessageSettings.TargetHasNoScoreMessage,
+                    new Dictionary<string, char> { { "Target", 't' } }
+                ),
+                _noScoreTargetWrapper
+            );
+
+            formatter.PromiseValueForTokens();
+
+            Printer printer = formatter.GetOutput();
+
+            _getNoScoreTarget = () =>
+            {
+                string targetName = _targeter.IsInitialized ? _targeter.Target.TargetName : Targeter.NO_TARGET;
+
+                _noScoreTargetWrapper.SetValue('t', targetName, typeof(string));
+
+                return printer.Print();
+            };
+
+            _getTarget = () =>
+            {
+                string targetName = _targeter.IsInitialized ? _targeter.Target.TargetName : Targeter.NO_TARGET;
+
+                return _mainFormatting.FormatTarget(targetName.ClampString(_config.MaxNameLength), "");
+            };
+        }
+
+        private float GetAccToBeatTarget()
+        {
+            if (
+                _currentDiff.DiffData is null
+                || _currentDiff.ScoreData is null
+                || CurrentApi.AreRatingsNull(_currentDiff.DiffData)
+            )
+            {
+                return 0f;
+            }
+
+            return CurrentCalculator.GetAcc(
+                CurrentApi.GetPP(_currentDiff.ScoreData),
+                _config.DecimalPrecision,
+                CurrentApi.GetRatings(_currentDiff.DiffData)
+            );
+        }
+
+        public string GetPPLabel()
+        {
+            return IsAccSaber ? "ap" : "pp";
+        }
+
+        #endregion
+
+        #region Miscellaneous
+
+        private void ChangeMapListeners(bool enable)
+        {
+            if (enable)
+            {
+                BSEvents.levelCleared += SucceededMap;
+            }
+            else
+            {
+                BSEvents.levelCleared -= SucceededMap;
+            }
+        }
+
         public void ClearMapTabs()
         {
-            TabMapInfo["Capture"] = default;
-            TabMapInfo["Relative Values"] = default;
-            ClanTableTable?.ClearTable();
-            RelativeTableTable?.ClearTable();
-            CurrentMap = default;
+            _tabMapInfo["Capture"] = default;
+
+            _tabMapInfo["Relative"] = default;
+
+            _clanTable?.ClearTable();
+            _relativeTable?.ClearTable();
+
+            _currentMap = default;
         }
+
         public void ResetTabs()
         {
-#if NEW_VERSION
-            if (CurrentMap.Equals(default) && CurrentDiff.Equals(default)) return;
-#else
-            if (CurrentMap is null && CurrentDiff.Equals(default)) return;
-#endif
-            string[] tabNames = [.. TabMapInfo.Keys];
-            foreach (string s in tabNames)
-                TabMapInfo[s] = default;
-            PPTableTable?.ClearTable();
-            PercentTableTable?.ClearTable();
-            ClanTableTable?.ClearTable();
-            RelativeTableTable?.ClearTable();
-            CurrentMap = default;
-            CurrentDiff = default;
+            foreach (string tabName in _tabMapInfo.Keys.ToArray())
+            {
+                _tabMapInfo[tabName] = default;
+            }
+
+            _ppTable?.ClearTable();
+            _percentTable?.ClearTable();
+            _clanTable?.ClearTable();
+            _relativeTable?.ClearTable();
+
+            _currentMap = default;
+            _currentDiff = default;
         }
+
         private void UpdateTabSliders(int amount = -1)
         {
-            if (amount <= 0) amount = PC.SliderIncrementNum;
+            if (!_postParsed)
+                return;
+
+            if (amount <= 0)
+            {
+                amount = _config.SliderIncrementNum;
+            }
+
             HelpfulMisc.SetIncrements(amount, MinPPSlider, MaxPPSlider, CA_PPSliderSlider, ProfilePPSlider);
-            HelpfulMisc.SetIncrements(amount, 1f / 100f, MinAccSlider, MaxAccSlider, CA_PercentSliderSlider);
+
+            HelpfulMisc.SetIncrements(amount, 0.01f, MinAccSlider, MaxAccSlider, CA_PercentSliderSlider);
         }
-#endregion
+
+        private void ThrowIfDisposed()
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(PpInfoTabHandler));
+            }
+        }
+
+        private readonly struct SelectedMapInfo
+        {
+            internal SelectedMapInfo(string hash, string mapName, BeatmapDifficulty difficulty, string mode)
+            {
+                Hash = hash;
+                MapName = mapName;
+                Difficulty = difficulty;
+
+                Mode = BetterString.IsNullOrWhiteSpace(mode) ? Profile.DEFAULT_MODE : mode;
+            }
+
+            internal string? Hash { get; }
+
+            internal string? MapName { get; }
+
+            internal BeatmapDifficulty Difficulty { get; }
+
+            internal string? Mode { get; }
+
+            [MemberNotNullWhen(true, nameof(Hash), nameof(MapName), nameof(Mode))]
+            internal bool IsUsable =>
+                !BetterString.IsNullOrWhiteSpace(Hash)
+                && !BetterString.IsNullOrWhiteSpace(MapName)
+                && !BetterString.IsNullOrWhiteSpace(Mode);
+        }
+
+        #endregion
     }
 }

@@ -1,18 +1,25 @@
-﻿using BLPPCounter.Helpfuls.FormatHelpers;
-using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils.TokenParser;
-using BLPPCounter.Utils.TokenParser.Printers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using BLPPCounter.Helpfuls.FormatHelpers;
+using BLPPCounter.Settings.Configs;
+using BLPPCounter.Utils.TokenParser;
+using BLPPCounter.Utils.TokenParser.Printers;
 
 namespace BLPPCounter.Utils.TokenData
 {
-    internal class TokenSetup(string formatName, string counterName, int controlParamCount, PropertyInfo format, Func<string, FormatWrapper, Dictionary<string, char>, Formatter> formatCreator)
+    internal class TokenSetup(
+        string formatName,
+        string counterName,
+        int controlParamCount,
+        PropertyInfo format,
+        Func<string, FormatWrapper, Dictionary<string, char>, Formatter> formatCreator
+    )
     {
         private readonly Dictionary<string, char> aliases = [];
-        private readonly Dictionary<char, string> descriptions = [], customNames = [];
+        private readonly Dictionary<char, string> descriptions = [],
+            customNames = [];
         private readonly Dictionary<char, object> tokenValues = [];
         private readonly Dictionary<char, IEnumerable<(string, object)>> tokenTestParameters = [];
         private readonly Dictionary<char, int> tokenFormatterId = [];
@@ -33,7 +40,10 @@ namespace BLPPCounter.Utils.TokenData
             descriptions[token] = description;
             tokenValues[token] = defaultValue;
         }
-        public void RegisterTokenTestParameters(char token, IEnumerable<(string, object)> parameters) => tokenTestParameters[token] = parameters;
+
+        public void RegisterTokenTestParameters(char token, IEnumerable<(string, object)> parameters) =>
+            tokenTestParameters[token] = parameters;
+
         public void AddFormatting(Func<object, bool, object> formatter, params char[] tokens)
         {
             foreach (char token in tokens)
@@ -41,7 +51,9 @@ namespace BLPPCounter.Utils.TokenData
 
             formatters.Add(formatter);
         }
+
         public void SetCustomName(char token, string name) => customNames[token] = name;
+
         public TokenHandler GetHandler()
         {
             FormatRelation relation = new(

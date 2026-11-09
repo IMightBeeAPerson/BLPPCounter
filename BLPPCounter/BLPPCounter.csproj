@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <!-- Project configuration -->
   <PropertyGroup>
     <ProductVersion>8.0.30703</ProductVersion>
@@ -22,6 +21,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DefineConstants>DEBUG</DefineConstants>
@@ -74,7 +74,11 @@
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\System.Drawing.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="UnityEngine.TextCoreFontEngineModule" Condition="$(DefineConstants.Contains('NEW_VERSION')) == true">
+    <Reference Include="System.Net.Http" />
+    <Reference
+      Include="UnityEngine.TextCoreFontEngineModule"
+      Condition="$(DefineConstants.Contains('NEW_VERSION')) == true"
+    >
       <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\UnityEngine.TextCoreFontEngineModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.TextCoreModule" Condition="$(DefineConstants.Contains('NEW_VERSION')) == false" />
@@ -183,6 +187,7 @@
 
   <!-- User-side and project files -->
   <ItemGroup>
+    <None Include="C:\Users\sman6\source\repos\BLPPCounter\BLPPCounter\.editorconfig" />
     <None Include="Directory.Build.props" Condition="Exists('Directory.Build.props')" />
     <None Include="Directory.Build.targets" Condition="Exists('Directory.Build.targets')" />
     <None Include="BLPPCounter.csproj.user" Condition="Exists('BLPPCounter.csproj.user')" />
@@ -201,5 +206,13 @@
     <EmbeddedResource Include="Settings\BSML\MenuComponents\AliasSettings.bsml" />
     <EmbeddedResource Include="Settings\BSML\PpInfo.bsml" />
     <EmbeddedResource Include="Settings\BSML\VariableSettingsContainer.bsml" />
+  </ItemGroup>
+
+  <!-- 1.29 only cs files, this is for back patching some additions that are useful -->
+  <ItemGroup Condition="$(DefineConstants.Contains('NEW_VERSION')) == true">
+    <Compile Remove="Utils\OldVersion\*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EditorConfigFiles Remove="C:\Users\sman6\source\repos\BLPPCounter\BLPPCounter\.editorconfig" />
   </ItemGroup>
 </Project>

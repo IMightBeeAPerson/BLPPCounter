@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 
 namespace BLPPCounter.Utils.Serializable_Classes
 {
@@ -6,6 +6,7 @@ namespace BLPPCounter.Utils.Serializable_Classes
     {
         [JsonProperty(nameof(Rank), Required = Required.DisallowNull)]
         public int Rank { get; set; } = rank;
+
         [JsonProperty(nameof(Color), Required = Required.DisallowNull)]
         public string Color { get; set; } = color;
 

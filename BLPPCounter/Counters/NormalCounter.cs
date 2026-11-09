@@ -1,40 +1,61 @@
-﻿using BLPPCounter.Settings.Configs;
+using System.Threading;
+using BLPPCounter.Helpfuls.FormatHelpers;
+using BLPPCounter.Utils.Containers;
 using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.Map_Utils;
-using BLPPCounter.Utils.Containers;
-using System.Threading;
-using TMPro;
 
 namespace BLPPCounter.Counters
 {
-    public class NormalCounter(TMP_Text display, MapSelection map, CancellationToken ct) : MyCounters(display, map, ct)
+    public sealed class NormalCounter : MyCounters
     {
         public static string DisplayName => "Normal";
-        public static string DisplayHandler => TheCounter.DisplayName;
+
+        public static string DisplayHandler => MainCounterFormattingService.CounterName;
+
         public static int OrderNumber => 0;
+
         public static Leaderboards ValidLeaderboards => Leaderboards.All;
+
         public override string Name => DisplayName;
 
-        #region Init
-        public override void SetupData(MapSelection map, CancellationToken ct) 
+        public override void SetupData(MapSelection map, CancellationToken cancellationToken)
         {
-            ppHandler = new PPHandler(ratings, calc, PluginConfig.Instance.DecimalPrecision, 1)
-            {
-                UpdateFCEnabled = PluginConfig.Instance.PPFC
-            };
-            ppHandler.UpdateFC += (acc, extraVals, extraCalls, _) => extraVals[1].SetValues(calc.GetPpWithSummedPp(acc, PluginConfig.Instance.DecimalPrecision, ratings));
+            cancellationToken.ThrowIfCancellationRequested();
+
+            ppHandler = new PPHandler(ratings, calc, pc.DecimalPrecision, 1) { UpdateFCEnabled = pc.PPFC };
+
+            ppHandler.UpdateFC += (accuracy, extraValues, _, _) =>
+                extraValues[1].SetValues(calc.GetPpWithSummedPp(accuracy, pc.DecimalPrecision, ratings));
         }
+
         public override void UpdateFormat() { }
-        public static bool InitFormat() => TheCounter.FormatUsable;
-        public static void ResetFormat() { }
-        #endregion
-        #region Updates
-        public override void UpdateCounterInternal(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote)
+
+        public override void UpdateCounterInternal(
+            float accuracy,
+            int notes,
+            int mistakes,
+            float fullComboAccuracy,
+            NoteData? currentNote
+        )
         {
-            ppHandler.Update(acc, mistakes, fcPercent);
-            TheCounter.UpdateText(ppHandler.DisplayFC, outpText, ppHandler, mistakes);
+            ppHandler.Update(accuracy, mistakes, fullComboAccuracy);
+
+            MainFormatting.AppendPpText(
+                ppHandler.DisplayFC,
+                outpText,
+                ppHandler,
+                mistakes,
+                calc.DisplayRatingCount,
+                CurrentLabels
+            );
         }
-        public override void SoftUpdate(float acc, int notes, int mistakes, float fcPercent, NoteData currentNote) { }
-        #endregion
+
+        public override void SoftUpdate(
+            float accuracy,
+            int notes,
+            int mistakes,
+            float fullComboAccuracy,
+            NoteData? currentNote
+        ) { }
     }
 }
