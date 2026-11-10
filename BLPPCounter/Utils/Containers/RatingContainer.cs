@@ -25,6 +25,7 @@ namespace BLPPCounter.Utils.Containers
             _calculatorProvider = calculatorProvider;
 
             SetRatings(leaderboard, ratings);
+            SetSelectedRatings(leaderboard);
 
             ValidLeaderboards = Leaderboards.None;
             ValidLeaderboards = GetValidLeaderboards();
@@ -34,6 +35,7 @@ namespace BLPPCounter.Utils.Containers
         {
             if ((leaderboard & ValidLeaderboards) == Leaderboards.None)
                 throw new ArgumentException("The given leaderboard is not valid for this container.");
+
             return _calculatorProvider.Get(leaderboard).SelectRatings(StarRating, AccRating, PassRating, TechRating);
         }
 

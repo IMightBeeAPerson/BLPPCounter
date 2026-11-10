@@ -131,7 +131,7 @@ namespace BLPPCounter.Models
         [JsonProperty("status")]
         public int Status { get; set; }
 
-        [JsonProperty("modifierRatings")]
+        [JsonProperty("modifierRating")]
         public BlCacheModifierRatings ModifierRatings { get; set; } = null!;
 
         public float GetRating(PPType type, SongSpeed speed)

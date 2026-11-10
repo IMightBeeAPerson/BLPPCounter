@@ -73,7 +73,7 @@ namespace BLPPCounter.Counters
             calc = _calculatorProvider.Get(leaderboard);
 
             ratings = map.Ratings;
-            ratings.SetRatings(CurrentLeaderboard);
+            ratings.SetSelectedRatings(CurrentLeaderboard);
             calc.Ratings = ratings;
 
             outpText = new StringBuilder();

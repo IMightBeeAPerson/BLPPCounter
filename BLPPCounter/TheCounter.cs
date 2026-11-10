@@ -35,19 +35,16 @@ namespace BLPPCounter
     public class TheCounter : BasicCustomCounter
     {
         #region Dependencies
-
 #if NEW_VERSION
         private BeatmapLevel beatmap = null!;
         private BeatmapKey beatmapDiff;
 #else
         private IDifficultyBeatmap beatmap = null!;
 #endif
-
         private GameplayModifiers mods = null!;
         private ScoreController sc = null!;
         private BeatmapObjectManager bomb = null!;
         private PlayerHeadAndObstacleInteraction wall = null!;
-
         private LeaderboardSelector selector = null!;
         private PathUtils pathUtils = null!;
         private IMapRepository mapRepository = null!;
@@ -85,7 +82,6 @@ namespace BLPPCounter
         )
         {
             beatmap = beatmapLevel ?? throw new ArgumentNullException(nameof(beatmapLevel));
-
             beatmapDiff = beatmapKey;
 
             ConstructShared(
@@ -172,97 +168,79 @@ namespace BLPPCounter
         )
         {
             mods = gameplayModifiers ?? throw new ArgumentNullException(nameof(gameplayModifiers));
-
             sc = scoreController ?? throw new ArgumentNullException(nameof(scoreController));
-
             bomb = beatmapObjectManager ?? throw new ArgumentNullException(nameof(beatmapObjectManager));
-
             wall = obstacleInteraction ?? throw new ArgumentNullException(nameof(obstacleInteraction));
-
             pc = pluginConfig ?? throw new ArgumentNullException(nameof(pluginConfig));
-
-            this.apiProvider = apiProvider ?? throw new ArgumentException(nameof(apiProvider));
-
+            this.apiProvider = apiProvider ?? throw new ArgumentNullException(nameof(apiProvider));
             selector = leaderboardSelector ?? throw new ArgumentNullException(nameof(leaderboardSelector));
-
             this.pathUtils = pathUtils ?? throw new ArgumentNullException(nameof(pathUtils));
-
             this.mapRepository = mapRepository ?? throw new ArgumentNullException(nameof(mapRepository));
-
             this.beatLeaderCalculator =
                 beatLeaderCalculator ?? throw new ArgumentNullException(nameof(beatLeaderCalculator));
-
             this.taskRunner = taskRunner ?? throw new ArgumentNullException(nameof(taskRunner));
-
             this.counterCatalog = counterCatalog ?? throw new ArgumentNullException(nameof(counterCatalog));
-
             this.counterFactory = counterFactory ?? throw new ArgumentNullException(nameof(counterFactory));
-
             this.formatRegistry = formatRegistry ?? throw new ArgumentNullException(nameof(formatRegistry));
-
             this.ratingFactory = ratingFactory ?? throw new ArgumentNullException(nameof(ratingFactory));
-
             this.mapFactory = mapFactory ?? throw new ArgumentNullException(nameof(mapFactory));
         }
-
         #endregion
-        #region Static Variables
 
+        #region Static Variables
         public static string DisplayName => MainCounterFormattingService.CounterName;
 
         private int leaderboardIndex;
-        private int lastLeaderboardIndex = 0;
+        private int lastLeaderboardIndex;
 
         internal static MapSelection LastMap;
-
         internal static GameplayModifiers? LastMods;
-
         public static MyCounters? theCounter { get; private set; }
-
         public static bool SettingChanged { get; set; }
 
         private static readonly TimeLooper TimeLooper = new();
-
         private static string lastTarget = Targeter.NO_TARGET;
-
         private static Action? ForceOff;
 
         private Task initTask = Task.CompletedTask;
-
         private CancellationTokenSource? initTaskCanceller;
+        private int initializationGeneration;
 
         private bool counterPaused;
         private bool formattingSubscribed;
+        private bool notifiersSubscribed;
 
 #if !NEW_VERSION
         private static HashSet<SliderKey> sliderMap = [];
 #endif
-
         #endregion
-        #region Variables
 
+        #region Variables
         private Leaderboards Leaderboard =>
             pc.LeaderboardsInUse.Count <= leaderboardIndex ? default : pc.LeaderboardsInUse[leaderboardIndex];
+
         private bool LastLeaderboard => pc.LeaderboardsInUse.Count - 1 <= leaderboardIndex;
+
         private TMP_Text? display;
-        private bool enabled,
-            checkedLastIndex;
+        private bool enabled;
+        private bool checkedLastIndex;
+
         private RatingContainer ratings;
-        private int notes,
-            comboNotes,
-            mistakes;
-        private int totalHitscore,
-            maxHitscore,
-            fcTotalHitscore,
-            fcMaxHitscore;
-        private float acc,
-            fcAcc;
-        private string? mode,
-            hash;
+        private int notes;
+        private int comboNotes;
+        private int mistakes;
+        private int totalHitscore;
+        private int maxHitscore;
+        private int fcTotalHitscore;
+        private int fcMaxHitscore;
+        private float acc;
+        private float fcAcc;
+        private string? mode;
+        private string? hash;
         private NoteData? currentNote;
         #endregion
-        #region Inits & Overrides
 
+        #region Initialization Lifecycle
         private static async Task DisposeInitializationAsync(
             Task initializationTask,
             CancellationTokenSource cancellationSource
@@ -278,7 +256,7 @@ namespace BLPPCounter
             }
             catch (Exception exception)
             {
-                Plugin.Log.Warn("PP counter initialization ended with an " + $"error during shutdown:\n{exception}");
+                Plugin.Log.Warn("PP counter initialization ended with an error during shutdown:\n" + exception);
             }
             finally
             {
@@ -286,8 +264,49 @@ namespace BLPPCounter
             }
         }
 
+        private void CancelAndObserveInitialization()
+        {
+            CancellationTokenSource? previousCancellationSource = initTaskCanceller;
+            Task previousInitializationTask = initTask;
+
+            initTaskCanceller = null;
+            initTask = Task.CompletedTask;
+
+            if (previousCancellationSource is null)
+            {
+                return;
+            }
+
+            previousCancellationSource.Cancel();
+
+            taskRunner.Forget(
+                DisposeInitializationAsync(previousInitializationTask, previousCancellationSource),
+                "Finish cancelled PP counter initialization"
+            );
+        }
+
+        private bool IsCurrentInitialization(int generation, CancellationToken cancellationToken)
+        {
+            return !cancellationToken.IsCancellationRequested
+                && generation == Volatile.Read(ref initializationGeneration);
+        }
+
+        private Task RunOnMainThread(Action action)
+        {
+            return UnityMainThreadTaskScheduler.Factory.StartNew(action);
+        }
+
+        private Task<T> RunOnMainThread<T>(Func<T> function)
+        {
+            return UnityMainThreadTaskScheduler.Factory.StartNew(function);
+        }
+
         public override void CounterInit()
         {
+            CancelAndObserveInitialization();
+
+            int generation = Interlocked.Increment(ref initializationGeneration);
+
             enabled = false;
             checkedLastIndex = false;
             counterPaused = false;
@@ -296,27 +315,24 @@ namespace BLPPCounter
             ForceOff = () => ForceTurnOff();
 
             SubscribeToFormatChanges();
-
             counterCatalog.ValidateConfiguration();
 
             if (!counterCatalog.IsUsable)
             {
                 Plugin.Log.Critical("There is no usable counter!");
-
                 return;
             }
 
             notes = 0;
             comboNotes = 0;
             mistakes = 0;
-
             totalHitscore = 0;
             maxHitscore = 0;
             fcTotalHitscore = 0;
             fcMaxHitscore = 0;
-
             acc = 0f;
             fcAcc = 0f;
+            currentNote = null;
 
 #if !NEW_VERSION
             sliderMap = [];
@@ -325,19 +341,13 @@ namespace BLPPCounter
             ChangeNotifiers(true);
 
             display = CanvasUtility.CreateTextFromSettings(Settings);
-
             display.fontSize = pc.FontSize;
             display.text = "Loading...";
 
-            initTaskCanceller?.Cancel();
-            initTaskCanceller?.Dispose();
-
             initTaskCanceller = new CancellationTokenSource();
-
             CancellationToken cancellationToken = initTaskCanceller.Token;
 
-            initTask = AsyncCounterInit(cancellationToken);
-
+            initTask = AsyncCounterInit(cancellationToken, generation);
             taskRunner.Forget(initTask, "Initialize gameplay PP counter");
         }
 
@@ -347,6 +357,8 @@ namespace BLPPCounter
 
             try
             {
+                Interlocked.Increment(ref initializationGeneration);
+
                 UnsubscribeFromFormatChanges();
                 ChangeNotifiers(false);
 
@@ -362,492 +374,41 @@ namespace BLPPCounter
                     theCounter?.CounterComplete(acc, fcAcc, notes, mistakes);
                 }
 
-                CancellationTokenSource? cancellationSource = initTaskCanceller;
+                enabled = false;
+                theCounter = null;
+                ForceOff = null;
 
-                Task initializationTask = initTask;
-
-                initTaskCanceller = null;
-                initTask = Task.CompletedTask;
-
-                if (cancellationSource is not null)
-                {
-                    cancellationSource.Cancel();
-
-                    taskRunner.Forget(
-                        DisposeInitializationAsync(initializationTask, cancellationSource),
-                        "Finish cancelled PP counter initialization"
-                    );
-                }
+                CancelAndObserveInitialization();
             }
             catch (Exception exception)
             {
                 Plugin.Log.Error("There was an issue turning the counter off!");
-
                 Plugin.Log.Debug(exception);
                 theCounter = null;
+                ForceOff = null;
             }
         }
-
-        private async Task AsyncCounterInit(CancellationToken cancellationToken, bool ignoreLast = false)
-        {
-            if (leaderboardIndex == lastLeaderboardIndex && checkedLastIndex)
-            {
-                goto Failed;
-            }
-
-            if (Leaderboard == default)
-            {
-                Plugin.Log.Warn("Leaderboard reached default state, disabling.");
-                ForceTurnOff();
-                lastLeaderboardIndex = 0;
-                return;
-            }
-
-            Leaderboards currentLeaderboard = Leaderboard;
-
-            Plugin.Log.Info($"Attempting to load {currentLeaderboard}...");
-
-            try
-            {
-                enabled = await UnityMainThreadTaskScheduler
-                    .Factory.StartNew(async () => await SetupMapDataAsync(cancellationToken))
-                    .Unwrap();
-
-                cancellationToken.ThrowIfCancellationRequested();
-
-                if (!enabled)
-                {
-                    Plugin.Log.Warn(
-                        "Map data failed to load, most likely " + "because the selected difficulty is unranked."
-                    );
-
-                    goto Failed;
-                }
-
-                if (hash is null || mode is null)
-                {
-                    Plugin.Log.Warn("Counter map identity was not initialized.");
-
-                    goto Failed;
-                }
-
-                if (hash.EndsWith("wip", StringComparison.OrdinalIgnoreCase))
-                {
-                    Plugin.Log.Warn("WIP map detected; disabling the counter.");
-
-                    ForceTurnOff();
-                    return;
-                }
-
-                if (
-                    !LastMap.Equals(default)
-                    && !hash.Equals(LastMap.Hash, StringComparison.OrdinalIgnoreCase)
-                    && !ignoreLast
-                    && lastLeaderboardIndex != 0
-                    && lastLeaderboardIndex == leaderboardIndex
-                )
-                {
-                    Plugin.Log.Info("Ignoring the last leaderboard because the selected map changed.");
-
-                    leaderboardIndex = 0;
-
-                    await AsyncCounterInit(cancellationToken, ignoreLast: true);
-
-                    return;
-                }
-
-                bool counterChanged = !string.Equals(theCounter?.Name, pc.PPType, StringComparison.Ordinal);
-
-                bool requiresNewCounter =
-                    theCounter is null
-                    || SettingChanged
-                    || counterChanged
-                    || LastMap.Equals(default)
-                    || !hash.Equals(LastMap.Hash, StringComparison.OrdinalIgnoreCase)
-                    || !lastTarget.Equals(pc.Target, StringComparison.Ordinal);
-
-                if (requiresNewCounter)
-                {
-                    Map? map = await UnityMainThreadTaskScheduler
-                        .Factory.StartNew(async () =>
-                            await mapRepository.GetAsync(
-                                hash,
-                                mode,
-                                currentLeaderboard,
-                                forceRemoteLoad: pc.UseUnranked && currentLeaderboard == Leaderboards.Beatleader,
-                                cancellationToken
-                            )
-                        )
-                        .Unwrap();
-
-                    if (map is null)
-                    {
-                        Plugin.Log.Warn("The map repository returned no map.");
-
-                        goto Failed;
-                    }
-
-                    cancellationToken.ThrowIfCancellationRequested();
-
-#if NEW_VERSION
-                    MapSelection selection = mapFactory.Create(
-                        map,
-                        beatmapDiff.difficulty,
-                        mode,
-                        mods.songSpeed,
-                        ratings
-                    );
-#else
-                    MapSelection selection = mapFactory.Create(map, beatmap.difficulty, mode, mods.songSpeed, ratings);
-#endif
-
-                    if (!selection.IsUsable)
-                    {
-                        Plugin.Log.Warn("The selected map is marked unusable.");
-
-                        goto Failed;
-                    }
-
-                    LastMap = selection;
-                    LastMods = mods;
-
-                    if (!InitCounter(cancellationToken))
-                    {
-                        Plugin.Log.Warn("The selected counter failed to initialize.");
-
-                        goto Failed;
-                    }
-
-                    SettingChanged = false;
-
-                    if (currentLeaderboard == Leaderboards.Beatleader)
-                    {
-                        await beatLeaderCalculator
-                            .SetCurve(LastMap.MapData.SongId, LastMap.MapSpeed, apiProvider)
-                            .ConfigureAwait(false);
-                    }
-                }
-                else if (!await APIAvoidanceModeAsync(cancellationToken).ConfigureAwait(false))
-                {
-                    goto Failed;
-                }
-
-                cancellationToken.ThrowIfCancellationRequested();
-
-                lastTarget = pc.Target;
-
-                theCounter?.UpdateFormat();
-
-                if (pc.UpdateAfterTime)
-                    SetTimeLooper();
-
-                display?.SetText("Loaded!");
-
-                Plugin.Log.Debug("Counter loaded successfully.");
-
-                if (pc.UpdateAfterTime)
-                {
-                    await TimeLooper.Start().ConfigureAwait(false);
-                }
-                else if (notes < 1)
-                {
-                    theCounter?.UpdateCounter(1f, 0, 0, 1f, null);
-                }
-
-                return;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                Plugin.Log.Debug("Counter initialization was cancelled.");
-
-                return;
-            }
-            catch (Exception exception)
-            {
-                Plugin.Log.Error(
-                    $"The counter failed to initialize: " + $"{exception.Message}\n" + $"Source: {exception.Source}"
-                );
-
-                Plugin.Log.Debug(exception);
-
-                if (LastLeaderboard)
-                    ForceTurnOff();
-            }
-
-            Failed:
-
-            if (!LastLeaderboard || (!checkedLastIndex && pc.LeaderboardsInUse.Count > 1))
-            {
-                if (leaderboardIndex == lastLeaderboardIndex && !checkedLastIndex)
-                {
-                    leaderboardIndex = lastLeaderboardIndex == 0 ? 1 : 0;
-
-                    checkedLastIndex = true;
-                }
-                else
-                {
-                    leaderboardIndex +=
-                        leaderboardIndex + 1 == lastLeaderboardIndex && !checkedLastIndex && !ignoreLast ? 2 : 1;
-                }
-
-                if (!cancellationToken.IsCancellationRequested)
-                    await AsyncCounterInit(cancellationToken, ignoreLast);
-
-                return;
-            }
-
-            ForceTurnOff();
-        }
-        #endregion
-        #region Event Calls
-        private void OnNoteScored(ScoringElement scoringElement)
-        {
-            try
-            {
-                OnNoteScoredInternal(scoringElement);
-            }
-            catch (Exception e)
-            {
-                Plugin.Log.Error("The counter encountered a fatal error, shutting down.");
-                ForceTurnOff("Fatal error!\nPlease report this!");
-                Plugin.Log.Debug(e);
-                if (e is NullReferenceException or ArgumentNullException)
-                    Plugin.Log.Debug(
-                        $"NULL CHECKS: theCounter null? {theCounter is null} || scoringElement null? {scoringElement is null} || TimeLooper is null? {TimeLooper is null} || scoringElement.NoteData is null? {scoringElement?.noteData is null}"
-                    );
-            }
-            finally
-            {
-                if (pc.UpdateAfterTime)
-                    TimeLooper?.Resume();
-            }
-        }
-
-        private void OnNoteScoredInternal(ScoringElement scoringElement)
-        {
-            if (scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb)
-            {
-                return;
-            }
-
-            NoteData.ScoringType scoringType = scoringElement.noteData.scoringType;
-
-            currentNote = scoringElement.noteData;
-
-            if (scoringType == NoteData.ScoringType.Ignore)
-            {
-                goto Finish;
-            }
-
-            notes++;
-
-            if (scoringType != NoteData.ScoringType.NoScore)
-            {
-                comboNotes++;
-            }
-
-            int cutScore = scoringElement.cutScore;
-
-            int maximumCutScore = scoringElement.maxPossibleCutScore;
-
-            int offset = HandleWeirdNoteBehaviour(currentNote, maximumCutScore);
-
-            if (offset != 0)
-            {
-                cutScore += offset;
-                maximumCutScore += offset;
-            }
-
-            maxHitscore += maximumCutScore * HelpfulMath.MultiplierForNote(notes);
-
-            if (cutScore > 0)
-            {
-                fcMaxHitscore += maximumCutScore * HelpfulMath.MultiplierForNote(notes);
-
-                totalHitscore += cutScore * HelpfulMath.MultiplierForNote(comboNotes);
-
-                fcTotalHitscore += cutScore * HelpfulMath.MultiplierForNote(notes);
-            }
-            else
-            {
-                OnMiss();
-            }
-
-            acc = maxHitscore <= 0 ? 0f : (float)totalHitscore / maxHitscore;
-
-            fcAcc = fcMaxHitscore <= 0 ? 0f : (float)fcTotalHitscore / fcMaxHitscore;
-
-            Finish:
-
-            if (!initTask.IsCompleted || counterPaused || theCounter is null)
-            {
-                return;
-            }
-
-            theCounter.SoftUpdate(acc, notes, mistakes, fcAcc, currentNote);
-
-            if (!pc.UpdateAfterTime)
-            {
-                theCounter.UpdateCounter(acc, notes, mistakes, fcAcc, currentNote);
-            }
-        }
-
-#if !NEW_VERSION
-        private void OnSliderSpawn(SliderController sc)
-        {
-            if (!sc.sliderData.hasHeadNote)
-                return;
-            sliderMap.Add(KeyFromSliderData(sc.sliderData, true));
-        }
-#endif
-
-        private void OnBombHit(NoteController nc, in NoteCutInfo nci)
-        {
-            if (nc.noteData.gameplayType == NoteData.GameplayType.Bomb)
-                OnMiss();
-        }
-
-        private void OnWallHit(ObstacleController oc)
-        {
-            OnMiss();
-        }
-
-        private void OnMiss()
-        {
-            if (notes == 0)
-                return;
-            comboNotes = HelpfulMath.DecreaseMultiplier(comboNotes);
-            mistakes++;
-        }
-
-        private void SetTimeLooper()
-        {
-            TimeLooper.DelayMs = (int)(pc.UpdateTime * 1000);
-            int currentNotes = 0;
-            TimeLooper.SetAction(() =>
-            {
-                if (currentNotes == notes)
-                    return true;
-                theCounter?.UpdateCounter(acc, notes, mistakes, fcAcc, currentNote);
-                currentNotes = notes;
-                return false;
-            });
-        }
-        #endregion
-        #region Helper Methods
-
-        private void SubscribeToFormatChanges()
-        {
-            if (formattingSubscribed)
-                return;
-
-            formatRegistry.FormatsRebuilt += HandleFormatsRebuilt;
-
-            formattingSubscribed = true;
-        }
-
-        private void UnsubscribeFromFormatChanges()
-        {
-            if (!formattingSubscribed)
-                return;
-
-            formatRegistry.FormatsRebuilt -= HandleFormatsRebuilt;
-
-            formattingSubscribed = false;
-        }
-
-        private void HandleFormatsRebuilt()
-        {
-            try
-            {
-                theCounter?.UpdateFormat();
-            }
-            catch (Exception exception)
-            {
-                Plugin.Log.Error("The active counter failed to apply rebuilt " + $"formatters:\n{exception}");
-            }
-        }
-
-        public static int HandleWeirdNoteBehaviour(NoteData note, int maxCutscore)
-        {
-            return ScoreModel.GetNoteScoreDefinition(HandleWeirdNoteBehaviour(note)).maxCutScore - maxCutscore;
-        }
-
-        public static NoteData.ScoringType HandleWeirdNoteBehaviour(NoteData note)
-        {
-#if NEW_VERSION
-            if (note.gameplayType == NoteData.GameplayType.BurstSliderHead && note.isArcHead)
-#endif
-#if NEWER_VERSION
-            return note.isArcTail ? NoteData.ScoringType.ArcHeadArcTail : NoteData.ScoringType.ArcHead;
-#elif NEW_VERSION
-                return note.isArcTail
-                    ? (NoteData.ScoringType)BLCalc.ExtendedScoringType.ArcHeadArcTail
-                    : (NoteData.ScoringType)2;
-#else
-            bool isSliderHead = false;
-            SliderKey sk = KeyFromNoteData(note);
-            if (sliderMap.Contains(sk))
-            {
-                sliderMap.Remove(sk);
-                isSliderHead = true;
-            }
-            if (note.gameplayType == NoteData.GameplayType.BurstSliderHead && isSliderHead)
-                note.ChangeToSliderHead();
-#endif
-            return note.scoringType;
-        }
-
-        private void ChangeNotifiers(bool a)
-        {
-            if (a)
-            {
-                sc.scoringForNoteFinishedEvent += OnNoteScored;
-                wall.headDidEnterObstacleEvent += OnWallHit;
-                bomb.noteWasCutEvent += OnBombHit;
-#if !NEW_VERSION
-                bomb.sliderWasSpawnedEvent += OnSliderSpawn;
-#endif
-            }
-            else
-            {
-                sc.scoringForNoteFinishedEvent -= OnNoteScored;
-                wall.headDidEnterObstacleEvent -= OnWallHit;
-                bomb.noteWasCutEvent -= OnBombHit;
-#if !NEW_VERSION
-                bomb.sliderWasSpawnedEvent -= OnSliderSpawn;
-#endif
-            }
-        }
-
-#if !NEW_VERSION
-        private static SliderKey KeyFromNoteData(NoteData nd) =>
-            new(Mathf.RoundToInt(nd.time * 1000f), nd.lineIndex, nd.noteLineLayer, nd.colorType, nd.cutDirection);
-
-        private static SliderKey KeyFromSliderData(SliderData sd, bool useHead) =>
-            useHead
-                ? new SliderKey(
-                    Mathf.RoundToInt(sd.time * 1000f),
-                    sd.headLineIndex,
-                    sd.headLineLayer,
-                    sd.colorType,
-                    sd.headCutDirection
-                )
-                : new SliderKey(
-                    Mathf.RoundToInt(sd.tailTime * 1000f),
-                    sd.tailLineIndex,
-                    sd.tailLineLayer,
-                    sd.colorType,
-                    sd.tailCutDirection
-                );
-#endif
 
         internal void ForceTurnOff(string errorText = "")
         {
+            Interlocked.Increment(ref initializationGeneration);
+
             enabled = false;
-            display?.text = errorText;
+            counterPaused = false;
+
+            if (pc.UpdateAfterTime)
+            {
+                taskRunner.Forget(TimeLooper.End(), "Stop disabled PP counter time loop");
+            }
+
+            display?.SetText(errorText);
             ChangeNotifiers(false);
+
             theCounter = null;
+
+            // Cancellation is cooperative. Do not dispose the CTS here because this
+            // method can be called from inside the currently executing initialization task.
+            initTaskCanceller?.Cancel();
         }
 
         internal static void CancelCounter()
@@ -858,8 +419,14 @@ namespace BLPPCounter
         public static void ClearCounter()
         {
             LastMap = default;
+            LastMods = null;
+            theCounter = null;
+            lastTarget = Targeter.NO_TARGET;
+            SettingChanged = false;
         }
+        #endregion
 
+        #region Map Selection
         public MapSelection GetDifficulty(
             Map map,
             BeatmapDifficulty difficulty,
@@ -895,25 +462,29 @@ namespace BLPPCounter
             return leaderboard switch
             {
                 Leaderboards.Scoresaber => Map.SS_MODE_NAME,
-
                 Leaderboards.Accsaber => Map.AP_MODE_NAME,
-
                 _ => BetterString.IsNullOrWhiteSpace(mainMode) ? Profile.DEFAULT_MODE : mainMode,
             };
         }
-
         #endregion
-        #region Init
+
+        #region Counter Construction
         [MemberNotNullWhen(true, nameof(theCounter))]
         private bool InitCounter(CancellationToken cancellationToken = default)
         {
             if (display is null)
+            {
+                Plugin.Log.Warn("Cannot init counter when the display is null!");
                 return false;
+            }
 
             MyCounters? created = CreateCounter(pc.PPType, display, cancellationToken);
 
             if (created is null)
+            {
+                Plugin.Log.Warn("The created counter is null!");
                 return false;
+            }
 
             theCounter = created;
             return true;
@@ -927,15 +498,144 @@ namespace BLPPCounter
         {
             if (LastMap.Equals(default))
             {
-                Plugin.Log.Warn("Cannot create a counter before the current " + "map selection has been initialized.");
-
+                Plugin.Log.Warn("Cannot create a counter before the current map selection has been initialized.");
                 return null;
             }
 
             return counterFactory.Create(displayName, counterDisplay, LastMap, Leaderboard, cancellationToken);
         }
 
-        private async Task<bool> APIAvoidanceModeAsync(CancellationToken cancellationToken)
+        internal void ReplaceCurrentCounter(string newCounter, TMP_Text counterDisplay)
+        {
+            try
+            {
+                if (pc.UpdateAfterTime)
+                {
+                    TimeLooper.Pause();
+                }
+
+                counterPaused = true;
+
+                MyCounters? replacement = CreateCounter(newCounter, counterDisplay);
+
+                if (replacement is null)
+                {
+                    Plugin.Log.Error("Error changing counter: the replacement counter is null.");
+                    CancelCounter();
+                    return;
+                }
+
+                theCounter = replacement;
+                counterPaused = false;
+
+                if (pc.UpdateAfterTime)
+                {
+                    TimeLooper.Resume();
+                }
+            }
+            catch (Exception exception)
+            {
+                Plugin.Log.Error($"Error changing counter:\n{exception}");
+                CancelCounter();
+            }
+        }
+        #endregion
+
+        #region Map Loading
+        private async Task<bool> SetupMapDataAsync(CancellationToken cancellationToken, int generation)
+        {
+#if NEW_VERSION
+            string characteristic = beatmapDiff.beatmapCharacteristic.serializedName;
+            BeatmapDifficulty difficulty = beatmapDiff.difficulty;
+            string levelId = beatmap.levelID;
+#else
+            string characteristic = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;
+            BeatmapDifficulty difficulty = beatmap.difficulty;
+            string levelId = beatmap.level.levelID;
+#endif
+
+            if (!IsCurrentInitialization(generation, cancellationToken))
+            {
+                return false;
+            }
+
+            string selectedMode = SelectMode(characteristic, Leaderboard);
+            string[] levelIdParts = levelId.Split('_');
+
+            if (levelIdParts.Length < 3)
+            {
+                Plugin.Log.Warn($"Could not extract a map hash from level ID \"{levelId}\".");
+                return false;
+            }
+
+            string selectedHash = Map.NormalizeHash(levelIdParts[2]);
+
+            try
+            {
+                Map? map = await mapRepository
+                    .GetAsync(
+                        selectedHash,
+                        selectedMode,
+                        Leaderboard,
+                        forceRemoteLoad: pc.UseUnranked && Leaderboard == Leaderboards.Beatleader,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
+
+                if (!IsCurrentInitialization(generation, cancellationToken))
+                {
+                    return false;
+                }
+
+                if (map is null)
+                {
+                    Plugin.Log.Warn("The selected map is not available in the map repository.");
+                    return false;
+                }
+
+                if (!map.TryGet(selectedMode, difficulty, out MapDiffModel? mapDifficulty))
+                {
+                    Plugin.Log.Warn(
+                        $"Mode \"{selectedMode}\" and difficulty \"{difficulty}\" were not found for map {selectedHash}."
+                    );
+                    return false;
+                }
+
+                if (!SetupMapData(mapDifficulty.Data))
+                {
+                    return false;
+                }
+
+                mode = selectedMode;
+                hash = selectedHash;
+
+                Plugin.Log.Info($"Map Hash: {hash}");
+                return true;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                Plugin.Log.Warn($"Failed to load map {selectedHash} for {Leaderboard}.");
+                Plugin.Log.Debug(exception);
+                return false;
+            }
+        }
+
+        private bool SetupMapData(ICacheModel data)
+        {
+            if (!SetupMapData(data, Leaderboard, out float[]? loadedRatings, mods))
+            {
+                return false;
+            }
+
+            ratings = ratingFactory.Create(Leaderboard, loadedRatings);
+            return true;
+        }
+
+        private async Task<bool> APIAvoidanceModeAsync(CancellationToken cancellationToken, int generation)
         {
             if (mode is null || display is null || theCounter is null || LastMap.Equals(default))
             {
@@ -948,8 +648,10 @@ namespace BLPPCounter
                 .GetAsync(LastMap.Hash, mode, Leaderboard, forceRemoteLoad: false, cancellationToken)
                 .ConfigureAwait(false);
 
-            if (map is null)
+            if (!IsCurrentInitialization(generation, cancellationToken) || map is null)
+            {
                 return false;
+            }
 
 #if NEW_VERSION
             MapSelection currentMap = mapFactory.Create(map, beatmapDiff.difficulty, mode, mods.songSpeed, ratings);
@@ -958,7 +660,9 @@ namespace BLPPCounter
 #endif
 
             if (!currentMap.IsUsable)
+            {
                 return false;
+            }
 
             (bool ratingDifference, bool difficultyDifference) = currentMap.GetDifference(LastMap);
 
@@ -967,151 +671,595 @@ namespace BLPPCounter
                 await beatLeaderCalculator
                     .SetCurve(LastMap.MapData.SongId, LastMap.MapSpeed, apiProvider)
                     .ConfigureAwait(false);
-            }
 
-            if (difficultyDifference)
-            {
-                theCounter.ReinitCounter(display, currentMap);
-            }
-            else if (ratingDifference)
-            {
-                theCounter.ReinitCounter(display, ratings);
-            }
-            else
-            {
-                theCounter.ReinitCounter(display);
-            }
-
-            LastMap = currentMap;
-            return true;
-        }
-
-        internal void ReplaceCurrentCounter(string newCounter, TMP_Text counterDisplay)
-        {
-            try
-            {
-                if (pc.UpdateAfterTime)
-                    TimeLooper.Pause();
-
-                counterPaused = true;
-
-                MyCounters? replacement = CreateCounter(newCounter, counterDisplay);
-
-                if (replacement is null)
+                if (!IsCurrentInitialization(generation, cancellationToken))
                 {
-                    CancelCounter();
+                    return false;
+                }
+            }
 
-                    Plugin.Log.Error("Error changing counter: the replacement " + "counter is null.");
-
+            await RunOnMainThread(() =>
+            {
+                if (!IsCurrentInitialization(generation, cancellationToken) || theCounter is null)
+                {
                     return;
                 }
 
-                theCounter = replacement;
-                counterPaused = false;
+                if (difficultyDifference)
+                {
+                    theCounter.ReinitCounter(display, currentMap);
+                }
+                else if (ratingDifference)
+                {
+                    theCounter.ReinitCounter(display, ratings);
+                }
+                else
+                {
+                    theCounter.ReinitCounter(display);
+                }
 
-                if (pc.UpdateAfterTime)
-                    TimeLooper.Resume();
-            }
-            catch (Exception exception)
-            {
-                Plugin.Log.Error($"Error changing counter:\n{exception}");
+                LastMap = currentMap;
+            });
 
-                CancelCounter();
-            }
+            return IsCurrentInitialization(generation, cancellationToken);
         }
+        #endregion
 
-        private async Task<bool> SetupMapDataAsync(CancellationToken cancellationToken)
+        #region Async Initialization
+        private async Task AsyncCounterInit(
+            CancellationToken cancellationToken,
+            int generation,
+            bool ignoreLast = false
+        )
         {
-#if NEW_VERSION
-            string characteristic = beatmapDiff.beatmapCharacteristic.serializedName;
-
-            BeatmapDifficulty difficulty = beatmapDiff.difficulty;
-
-            string levelId = beatmap.levelID;
-#else
-            string characteristic = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;
-
-            BeatmapDifficulty difficulty = beatmap.difficulty;
-
-            string levelId = beatmap.level.levelID;
-#endif
-
-            mode = SelectMode(characteristic, Leaderboard);
-
-            string[] levelIdParts = levelId.Split('_');
-
-            if (levelIdParts.Length < 3)
+            if (!IsCurrentInitialization(generation, cancellationToken))
             {
-                Plugin.Log.Warn($"Could not extract a map hash from " + $"level ID \"{levelId}\".");
-
-                hash = null;
-                return false;
+                return;
             }
 
-            hash = Map.NormalizeHash(levelIdParts[2]);
+            if (leaderboardIndex == lastLeaderboardIndex && checkedLastIndex)
+            {
+                goto Failed;
+            }
+
+            if (Leaderboard == default)
+            {
+                Plugin.Log.Warn("Leaderboard reached default state, disabling.");
+                ForceTurnOff();
+                lastLeaderboardIndex = 0;
+                return;
+            }
+
+            Leaderboards currentLeaderboard = Leaderboard;
+            Plugin.Log.Info($"Attempting to load {currentLeaderboard}...");
 
             try
             {
-                Map? map = await mapRepository
-                    .GetAsync(
-                        hash,
-                        mode,
-                        Leaderboard,
-                        forceRemoteLoad: pc.UseUnranked && Leaderboard == Leaderboards.Beatleader,
-                        cancellationToken
-                    )
-                    .ConfigureAwait(false);
+                enabled = await RunOnMainThread(() => SetupMapDataAsync(cancellationToken, generation)).Unwrap();
 
-                if (map is null)
+                if (!IsCurrentInitialization(generation, cancellationToken))
                 {
-                    Plugin.Log.Warn("The selected map is not available in " + "the map repository.");
-
-                    return false;
+                    return;
                 }
 
-                if (!map.TryGet(mode, difficulty, out MapDiffModel? mapDifficulty))
+                if (!enabled)
                 {
                     Plugin.Log.Warn(
-                        $"Mode \"{mode}\" and difficulty " + $"\"{difficulty}\" were not found for " + $"map {hash}."
+                        "Map data failed to load, most likely because the selected difficulty is unranked."
                     );
-
-                    return false;
+                    goto Failed;
                 }
 
-                if (!SetupMapData(mapDifficulty.Data))
+                if (hash is null || mode is null)
                 {
-                    return false;
+                    Plugin.Log.Warn("Counter map identity was not initialized.");
+                    goto Failed;
                 }
 
-                Plugin.Log.Info($"Map Hash: {hash}");
+                if (hash.EndsWith("wip", StringComparison.OrdinalIgnoreCase))
+                {
+                    Plugin.Log.Warn("WIP map detected; disabling the counter.");
+                    ForceTurnOff();
+                    return;
+                }
 
-                return true;
+                if (
+                    !LastMap.Equals(default)
+                    && !hash.Equals(LastMap.Hash, StringComparison.OrdinalIgnoreCase)
+                    && !ignoreLast
+                    && lastLeaderboardIndex != 0
+                    && lastLeaderboardIndex == leaderboardIndex
+                )
+                {
+                    Plugin.Log.Info("Ignoring the last leaderboard because the selected map changed.");
+
+                    leaderboardIndex = 0;
+                    await AsyncCounterInit(cancellationToken, generation, ignoreLast: true);
+                    return;
+                }
+
+                bool counterChanged = !string.Equals(theCounter?.Name, pc.PPType, StringComparison.Ordinal);
+
+                bool requiresNewCounter =
+                    theCounter is null
+                    || SettingChanged
+                    || counterChanged
+                    || LastMap.Equals(default)
+                    || !hash.Equals(LastMap.Hash, StringComparison.OrdinalIgnoreCase)
+                    || !lastTarget.Equals(pc.Target, StringComparison.Ordinal);
+
+                if (requiresNewCounter)
+                {
+                    Map? map = await mapRepository
+                        .GetAsync(
+                            hash,
+                            mode,
+                            currentLeaderboard,
+                            forceRemoteLoad: pc.UseUnranked && currentLeaderboard == Leaderboards.Beatleader,
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
+
+                    if (!IsCurrentInitialization(generation, cancellationToken))
+                    {
+                        return;
+                    }
+
+                    if (map is null)
+                    {
+                        Plugin.Log.Warn("The map repository returned no map.");
+                        goto Failed;
+                    }
+
+                    bool counterInitialized = await RunOnMainThread(() =>
+                    {
+#if NEW_VERSION
+                        MapSelection selection = mapFactory.Create(
+                            map,
+                            beatmapDiff.difficulty,
+                            mode,
+                            mods.songSpeed,
+                            ratings
+                        );
+#else
+                        MapSelection selection = mapFactory.Create(
+                            map,
+                            beatmap.difficulty,
+                            mode,
+                            mods.songSpeed,
+                            ratings
+                        );
+#endif
+
+                        if (!selection.IsUsable || !IsCurrentInitialization(generation, cancellationToken))
+                        {
+                            return false;
+                        }
+
+                        LastMap = selection;
+                        LastMods = mods;
+
+                        return InitCounter(cancellationToken);
+                    });
+
+                    if (!counterInitialized)
+                    {
+                        Plugin.Log.Warn("The selected counter failed to initialize.");
+                        goto Failed;
+                    }
+
+                    SettingChanged = false;
+
+                    if (currentLeaderboard == Leaderboards.Beatleader)
+                    {
+                        await beatLeaderCalculator.SetCurve(LastMap.MapData.SongId, LastMap.MapSpeed, apiProvider);
+
+                        if (!IsCurrentInitialization(generation, cancellationToken))
+                        {
+                            return;
+                        }
+                    }
+                }
+                else if (
+                    !await RunOnMainThread(async () => await APIAvoidanceModeAsync(cancellationToken, generation))
+                        .Unwrap()
+                )
+                {
+                    goto Failed;
+                }
+
+                if (!IsCurrentInitialization(generation, cancellationToken))
+                {
+                    return;
+                }
+
+                await RunOnMainThread(() =>
+                {
+                    if (!IsCurrentInitialization(generation, cancellationToken))
+                    {
+                        return;
+                    }
+
+                    lastTarget = pc.Target;
+
+                    theCounter?.UpdateFormat();
+
+                    if (pc.UpdateAfterTime)
+                    {
+                        SetTimeLooper();
+                    }
+
+                    display?.SetText("Loaded!");
+
+                    if (!pc.UpdateAfterTime && notes < 1)
+                    {
+                        theCounter?.UpdateCounter(1f, 0, 0, 1f, null);
+                    }
+                });
+
+                if (!IsCurrentInitialization(generation, cancellationToken))
+                {
+                    return;
+                }
+
+                Plugin.Log.Debug("Counter loaded successfully.");
+
+                if (pc.UpdateAfterTime)
+                {
+                    await TimeLooper.Start().ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                throw;
+                Plugin.Log.Debug("Counter initialization was cancelled.");
             }
             catch (Exception exception)
             {
-                Plugin.Log.Warn($"Failed to load map {hash} for " + $"{Leaderboard}.");
-
+                Plugin.Log.Error($"The counter failed to initialize: {exception.Message}\nSource: {exception.Source}");
                 Plugin.Log.Debug(exception);
-                return false;
-            }
-        }
 
-        private bool SetupMapData(ICacheModel data)
-        {
-            if (!SetupMapData(data, Leaderboard, out float[]? loadedRatings, mods) || loadedRatings is null)
+                if (LastLeaderboard)
+                {
+                    ForceTurnOff();
+                }
+            }
+
+            return;
+
+            Failed:
+            if (!IsCurrentInitialization(generation, cancellationToken))
             {
-                return false;
+                return;
             }
 
-            ratings = ratingFactory.Create(Leaderboard, loadedRatings);
+            if (!LastLeaderboard || (!checkedLastIndex && pc.LeaderboardsInUse.Count > 1))
+            {
+                if (leaderboardIndex == lastLeaderboardIndex && !checkedLastIndex)
+                {
+                    leaderboardIndex = lastLeaderboardIndex == 0 ? 1 : 0;
+                    checkedLastIndex = true;
+                }
+                else
+                {
+                    leaderboardIndex +=
+                        leaderboardIndex + 1 == lastLeaderboardIndex && !checkedLastIndex && !ignoreLast ? 2 : 1;
+                }
 
-            return true;
+                await AsyncCounterInit(cancellationToken, generation, ignoreLast);
+                return;
+            }
+
+            ForceTurnOff();
+        }
+        #endregion
+
+        #region Event Calls
+        private void OnNoteScored(ScoringElement scoringElement)
+        {
+            try
+            {
+                OnNoteScoredInternal(scoringElement);
+            }
+            catch (Exception exception)
+            {
+                Plugin.Log.Error("The counter encountered a fatal error, shutting down.");
+                ForceTurnOff("Fatal error!\nPlease report this!");
+                Plugin.Log.Debug(exception);
+
+                if (exception is NullReferenceException or ArgumentNullException)
+                {
+                    Plugin.Log.Debug(
+                        $"NULL CHECKS: theCounter null? {theCounter is null} || "
+                            + $"scoringElement null? {scoringElement is null} || "
+                            + $"scoringElement.NoteData null? {scoringElement?.noteData is null}"
+                    );
+                }
+            }
+            finally
+            {
+                if (pc.UpdateAfterTime)
+                {
+                    TimeLooper.Resume();
+                }
+            }
         }
 
+        private void OnNoteScoredInternal(ScoringElement scoringElement)
+        {
+            if (scoringElement.noteData.gameplayType == NoteData.GameplayType.Bomb)
+            {
+                return;
+            }
+
+            NoteData.ScoringType scoringType = scoringElement.noteData.scoringType;
+            currentNote = scoringElement.noteData;
+
+            if (scoringType == NoteData.ScoringType.Ignore)
+            {
+                goto Finish;
+            }
+
+            notes++;
+
+            if (scoringType != NoteData.ScoringType.NoScore)
+            {
+                comboNotes++;
+            }
+
+            int cutScore = scoringElement.cutScore;
+            int maximumCutScore = scoringElement.maxPossibleCutScore;
+
+            int offset = HandleWeirdNoteBehaviour(currentNote, maximumCutScore);
+
+            if (offset != 0)
+            {
+                cutScore += offset;
+                maximumCutScore += offset;
+            }
+
+            maxHitscore += maximumCutScore * HelpfulMath.MultiplierForNote(notes);
+
+            if (cutScore > 0)
+            {
+                fcMaxHitscore += maximumCutScore * HelpfulMath.MultiplierForNote(notes);
+                totalHitscore += cutScore * HelpfulMath.MultiplierForNote(comboNotes);
+                fcTotalHitscore += cutScore * HelpfulMath.MultiplierForNote(notes);
+            }
+            else
+            {
+                OnMiss();
+            }
+
+            acc = maxHitscore <= 0 ? 0f : (float)totalHitscore / maxHitscore;
+            fcAcc = fcMaxHitscore <= 0 ? 0f : (float)fcTotalHitscore / fcMaxHitscore;
+
+            Finish:
+            if (!initTask.IsCompleted || counterPaused || theCounter is null)
+            {
+                return;
+            }
+
+            theCounter.SoftUpdate(acc, notes, mistakes, fcAcc, currentNote);
+
+            if (!pc.UpdateAfterTime)
+            {
+                theCounter.UpdateCounter(acc, notes, mistakes, fcAcc, currentNote);
+            }
+        }
+
+#if !NEW_VERSION
+        private void OnSliderSpawn(SliderController sliderController)
+        {
+            if (!sliderController.sliderData.hasHeadNote)
+            {
+                return;
+            }
+
+            sliderMap.Add(KeyFromSliderData(sliderController.sliderData, true));
+        }
+#endif
+
+        private void OnBombHit(NoteController noteController, in NoteCutInfo noteCutInfo)
+        {
+            if (noteController.noteData.gameplayType == NoteData.GameplayType.Bomb)
+            {
+                OnMiss();
+            }
+        }
+
+        private void OnWallHit(ObstacleController obstacleController)
+        {
+            OnMiss();
+        }
+
+        private void OnMiss()
+        {
+            // Bombs and walls can occur before the first scoreable note. They are
+            // still gameplay mistakes and must be counted.
+            comboNotes = HelpfulMath.DecreaseMultiplier(comboNotes);
+            mistakes++;
+        }
+
+        private void SetTimeLooper()
+        {
+            TimeLooper.DelayMs = Math.Max(1, (int)(pc.UpdateTime * 1000));
+
+            int currentNotes = 0;
+
+            TimeLooper.SetAction(() =>
+            {
+                if (currentNotes == notes)
+                {
+                    return true;
+                }
+
+                int capturedNotes = notes;
+                int capturedMistakes = mistakes;
+                float capturedAcc = acc;
+                float capturedFcAcc = fcAcc;
+                NoteData? capturedCurrentNote = currentNote;
+
+                _ = RunOnMainThread(() =>
+                    theCounter?.UpdateCounter(
+                        capturedAcc,
+                        capturedNotes,
+                        capturedMistakes,
+                        capturedFcAcc,
+                        capturedCurrentNote
+                    )
+                );
+
+                currentNotes = capturedNotes;
+                return false;
+            });
+        }
+        #endregion
+
+        #region Helper Methods
+        private void SubscribeToFormatChanges()
+        {
+            if (formattingSubscribed)
+            {
+                return;
+            }
+
+            formatRegistry.FormatsRebuilt += HandleFormatsRebuilt;
+            formattingSubscribed = true;
+        }
+
+        private void UnsubscribeFromFormatChanges()
+        {
+            if (!formattingSubscribed)
+            {
+                return;
+            }
+
+            formatRegistry.FormatsRebuilt -= HandleFormatsRebuilt;
+            formattingSubscribed = false;
+        }
+
+        private void HandleFormatsRebuilt()
+        {
+            try
+            {
+                theCounter?.UpdateFormat();
+            }
+            catch (Exception exception)
+            {
+                Plugin.Log.Error("The active counter failed to apply rebuilt formatters:\n" + exception);
+            }
+        }
+
+        private void ChangeNotifiers(bool subscribe)
+        {
+            if (subscribe)
+            {
+                if (notifiersSubscribed)
+                {
+                    return;
+                }
+
+                sc.scoringForNoteFinishedEvent += OnNoteScored;
+                wall.headDidEnterObstacleEvent += OnWallHit;
+                bomb.noteWasCutEvent += OnBombHit;
+
+#if !NEW_VERSION
+                bomb.sliderWasSpawnedEvent += OnSliderSpawn;
+#endif
+
+                notifiersSubscribed = true;
+                return;
+            }
+
+            if (!notifiersSubscribed)
+            {
+                return;
+            }
+
+            sc.scoringForNoteFinishedEvent -= OnNoteScored;
+            wall.headDidEnterObstacleEvent -= OnWallHit;
+            bomb.noteWasCutEvent -= OnBombHit;
+
+#if !NEW_VERSION
+            bomb.sliderWasSpawnedEvent -= OnSliderSpawn;
+#endif
+
+            notifiersSubscribed = false;
+        }
+
+        public static int HandleWeirdNoteBehaviour(NoteData note, int maxCutscore)
+        {
+            return ScoreModel.GetNoteScoreDefinition(HandleWeirdNoteBehaviour(note)).maxCutScore - maxCutscore;
+        }
+
+        public static NoteData.ScoringType HandleWeirdNoteBehaviour(NoteData note)
+        {
+#if NEW_VERSION
+            if (note.gameplayType == NoteData.GameplayType.BurstSliderHead && note.isArcHead)
+#endif
+#if NEWER_VERSION
+            {
+                return note.isArcTail ? NoteData.ScoringType.ArcHeadArcTail : NoteData.ScoringType.ArcHead;
+            }
+#elif NEW_VERSION
+            {
+                return note.isArcTail
+                    ? (NoteData.ScoringType)BLCalc.ExtendedScoringType.ArcHeadArcTail
+                    : (NoteData.ScoringType)2;
+            }
+#else
+            bool isSliderHead = false;
+            SliderKey sliderKey = KeyFromNoteData(note);
+
+            if (sliderMap.Contains(sliderKey))
+            {
+                sliderMap.Remove(sliderKey);
+                isSliderHead = true;
+            }
+
+            if (note.gameplayType == NoteData.GameplayType.BurstSliderHead && isSliderHead)
+            {
+                note.ChangeToSliderHead();
+            }
+#endif
+
+            return note.scoringType;
+        }
+
+#if !NEW_VERSION
+        private static SliderKey KeyFromNoteData(NoteData noteData)
+        {
+            return new SliderKey(
+                Mathf.RoundToInt(noteData.time * 1000f),
+                noteData.lineIndex,
+                noteData.noteLineLayer,
+                noteData.colorType,
+                noteData.cutDirection
+            );
+        }
+
+        private static SliderKey KeyFromSliderData(SliderData sliderData, bool useHead)
+        {
+            return useHead
+                ? new SliderKey(
+                    Mathf.RoundToInt(sliderData.time * 1000f),
+                    sliderData.headLineIndex,
+                    sliderData.headLineLayer,
+                    sliderData.colorType,
+                    sliderData.headCutDirection
+                )
+                : new SliderKey(
+                    Mathf.RoundToInt(sliderData.tailTime * 1000f),
+                    sliderData.tailLineIndex,
+                    sliderData.tailLineLayer,
+                    sliderData.colorType,
+                    sliderData.tailCutDirection
+                );
+        }
+#endif
+        #endregion
+
+        #region Ratings
         /// <summary>
         /// Given the difficulty <paramref name="data"/>, <paramref name="gameplayModifiers"/>, and
         /// <paramref name="leaderboard"/>, find what the star ratings are with as few API calls as possible.
@@ -1125,7 +1273,7 @@ namespace BLPPCounter
         public bool SetupMapData(
             ICacheModel data,
             Leaderboards leaderboard,
-            out float[]? loadedRatings,
+            [NotNullWhen(true)] out float[]? loadedRatings,
             GameplayModifiers? gameplayModifiers = null,
             bool quiet = false
         )
@@ -1147,7 +1295,6 @@ namespace BLPPCounter
                     }
 
                     float stars = taohCache.StarScoreSaber.GetValueOrDefault();
-
                     loadedRatings = [stars];
 
                     if (!quiet)
@@ -1167,7 +1314,6 @@ namespace BLPPCounter
                     }
 
                     float complexity = taohCache.ComplexityAccSaber.GetValueOrDefault();
-
                     loadedRatings = [complexity];
 
                     if (!quiet)
@@ -1181,15 +1327,11 @@ namespace BLPPCounter
                 case Leaderboards.Beatleader:
                 {
                     SongSpeed speed = gameplayModifiers?.songSpeed ?? SongSpeed.Normal;
-
                     float multiplier = pathUtils.GetStarMultiplier(data, gameplayModifiers);
 
                     float stars = pathUtils.GetRating(data, PPType.Star, leaderboard, speed);
-
                     float accuracyRating = pathUtils.GetRating(data, PPType.Acc, leaderboard, speed) * multiplier;
-
                     float passRating = pathUtils.GetRating(data, PPType.Pass, leaderboard, speed) * multiplier;
-
                     float technologyRating = pathUtils.GetRating(data, PPType.Tech, leaderboard, speed) * multiplier;
 
                     loadedRatings = [stars, accuracyRating, passRating, technologyRating];
@@ -1202,12 +1344,9 @@ namespace BLPPCounter
 
                         Plugin.Log.Info(
                             $"{prefix}Stars: {stars}\n"
-                                + $"{prefix}Acc Rating: "
-                                + $"{accuracyRating}\n"
-                                + $"{prefix}Pass Rating: "
-                                + $"{passRating}\n"
-                                + $"{prefix}Tech Rating: "
-                                + $"{technologyRating}"
+                                + $"{prefix}Acc Rating: {accuracyRating}\n"
+                                + $"{prefix}Pass Rating: {passRating}\n"
+                                + $"{prefix}Tech Rating: {technologyRating}"
                         );
                     }
 
@@ -1219,7 +1358,6 @@ namespace BLPPCounter
                     return false;
             }
         }
-
         #endregion
     }
 }

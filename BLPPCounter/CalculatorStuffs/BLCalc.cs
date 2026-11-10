@@ -131,13 +131,15 @@ namespace BLPPCounter.CalculatorStuffs
                 _ => "",
             };
 
-            System.Net.Http.HttpContent? content = await apiProvider.BeatLeader.CallAPI_Static(
-                string.Format(
-                    $"https://api.beatleader.com/pp/curve?leaderboardId={{0}}{(BetterString.IsNullOrEmpty(mod) ? "" : "&modifiers=")}{{1}}",
-                    leaderboardId,
-                    mod
+            System.Net.Http.HttpContent? content = await apiProvider
+                .BeatLeader.CallAPI_Static(
+                    string.Format(
+                        $"https://api.beatleader.com/pp/curve?leaderboardId={{0}}{(BetterString.IsNullOrEmpty(mod) ? "" : "&modifiers=")}{{1}}",
+                        leaderboardId,
+                        mod
+                    )
                 )
-            );
+                .ConfigureAwait(false);
 
             if (content is null)
                 return;
