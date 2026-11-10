@@ -620,6 +620,8 @@ namespace BLPPCounter.Settings.SettingHandlers
 
             _sliderIncrementNumber = _config.SliderIncrementNum;
 
+            SldvcInit();
+
             ChangeMapListeners(true);
             InitFormatters();
 

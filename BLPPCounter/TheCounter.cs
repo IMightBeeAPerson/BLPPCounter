@@ -20,6 +20,7 @@ using BLPPCounter.Utils.Misc_Classes;
 using BLPPCounter.Utils.Profile_Utils;
 using BLPPCounter.Utils.Safety;
 using CountersPlus.Counters.Custom;
+using IPA.Utilities.Async;
 using TMPro;
 using Zenject;
 using static GameplayModifiers;
@@ -209,8 +210,8 @@ namespace BLPPCounter
 
         public static string DisplayName => MainCounterFormattingService.CounterName;
 
-        private static int leaderboardIndex;
-        private static int lastLeaderboardIndex;
+        private int leaderboardIndex;
+        private int lastLeaderboardIndex = 0;
 
         internal static MapSelection LastMap;
 
@@ -240,8 +241,9 @@ namespace BLPPCounter
         #endregion
         #region Variables
 
-        private Leaderboards Leaderboard;
-        private bool LastLeaderboard;
+        private Leaderboards Leaderboard =>
+            pc.LeaderboardsInUse.Count <= leaderboardIndex ? default : pc.LeaderboardsInUse[leaderboardIndex];
+        private bool LastLeaderboard => pc.LeaderboardsInUse.Count - 1 <= leaderboardIndex;
         private TMP_Text? display;
         private bool enabled,
             checkedLastIndex;
@@ -297,8 +299,10 @@ namespace BLPPCounter
 
             counterCatalog.ValidateConfiguration();
 
-            if (!counterCatalog.IsUsable || Leaderboard == Leaderboards.None)
+            if (!counterCatalog.IsUsable)
             {
+                Plugin.Log.Critical("There is no usable counter!");
+
                 return;
             }
 
@@ -391,13 +395,23 @@ namespace BLPPCounter
                 goto Failed;
             }
 
+            if (Leaderboard == default)
+            {
+                Plugin.Log.Warn("Leaderboard reached default state, disabling.");
+                ForceTurnOff();
+                lastLeaderboardIndex = 0;
+                return;
+            }
+
             Leaderboards currentLeaderboard = Leaderboard;
 
             Plugin.Log.Info($"Attempting to load {currentLeaderboard}...");
 
             try
             {
-                enabled = await SetupMapDataAsync(cancellationToken).ConfigureAwait(false);
+                enabled = await UnityMainThreadTaskScheduler
+                    .Factory.StartNew(async () => await SetupMapDataAsync(cancellationToken))
+                    .Unwrap();
 
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -433,11 +447,11 @@ namespace BLPPCounter
                     && lastLeaderboardIndex == leaderboardIndex
                 )
                 {
-                    Plugin.Log.Info("Ignoring the last leaderboard because " + "the selected map changed.");
+                    Plugin.Log.Info("Ignoring the last leaderboard because the selected map changed.");
 
                     leaderboardIndex = 0;
 
-                    await AsyncCounterInit(cancellationToken, ignoreLast: true).ConfigureAwait(false);
+                    await AsyncCounterInit(cancellationToken, ignoreLast: true);
 
                     return;
                 }
@@ -454,15 +468,17 @@ namespace BLPPCounter
 
                 if (requiresNewCounter)
                 {
-                    Map? map = await mapRepository
-                        .GetAsync(
-                            hash,
-                            mode,
-                            currentLeaderboard,
-                            forceRemoteLoad: pc.UseUnranked && currentLeaderboard == Leaderboards.Beatleader,
-                            cancellationToken
+                    Map? map = await UnityMainThreadTaskScheduler
+                        .Factory.StartNew(async () =>
+                            await mapRepository.GetAsync(
+                                hash,
+                                mode,
+                                currentLeaderboard,
+                                forceRemoteLoad: pc.UseUnranked && currentLeaderboard == Leaderboards.Beatleader,
+                                cancellationToken
+                            )
                         )
-                        .ConfigureAwait(false);
+                        .Unwrap();
 
                     if (map is null)
                     {
@@ -574,9 +590,8 @@ namespace BLPPCounter
                         leaderboardIndex + 1 == lastLeaderboardIndex && !checkedLastIndex && !ignoreLast ? 2 : 1;
                 }
 
-                cancellationToken.ThrowIfCancellationRequested();
-
-                await AsyncCounterInit(cancellationToken, ignoreLast).ConfigureAwait(false);
+                if (!cancellationToken.IsCancellationRequested)
+                    await AsyncCounterInit(cancellationToken, ignoreLast);
 
                 return;
             }
