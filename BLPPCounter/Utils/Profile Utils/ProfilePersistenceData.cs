@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.LangAddons;
 using Newtonsoft.Json;
 
 namespace BLPPCounter.Utils.Profile_Utils

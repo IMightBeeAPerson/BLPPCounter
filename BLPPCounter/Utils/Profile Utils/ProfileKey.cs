@@ -1,5 +1,6 @@
 using System;
 using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.LangAddons;
 
 namespace BLPPCounter.Utils.Profile_Utils
 {

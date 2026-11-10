@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using BLPPCounter.Models.Base;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.LangAddons;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 using static GameplayModifiers;
@@ -31,11 +33,20 @@ namespace BLPPCounter.CalculatorStuffs
         ];
         public override bool UsesModifiers => true;
 
-        public float GetPassPp(float passRating) => 0f;
+        public float GetPassPp(float passRating)
+        {
+            return 0f;
+        }
 
-        public float GetAccPp(float acc) => GetCurve(acc);
+        public float GetAccPp(float acc)
+        {
+            return GetCurve(acc);
+        }
 
-        public float GetTechPp(float acc, float techRating) => 0f;
+        public float GetTechPp(float acc, float techRating)
+        {
+            return 0f;
+        }
 
         public override float[] GetPp(float acc, params float[] ratings) //ratings order: acc pass tech
         {
@@ -46,7 +57,10 @@ namespace BLPPCounter.CalculatorStuffs
             return [GetCurve(acc), 0, 0];
         }
 
-        public override float[] SelectRatings(float[] ratings) => [.. ratings.Skip(1)];
+        public override float[] SelectRatings(float[] ratings)
+        {
+            return [.. ratings.Skip(1)];
+        }
 
         public override float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings) //ratings order: acc pass tech
         {
@@ -62,7 +76,7 @@ namespace BLPPCounter.CalculatorStuffs
 
         public override float GetAccDeflated(
             float deflatedPp,
-            JToken diffData,
+            ICacheModel diffData,
             SongSpeed speed = SongSpeed.Normal,
             float modMult = 1.0f,
             int precision = -1
@@ -97,11 +111,17 @@ namespace BLPPCounter.CalculatorStuffs
                 );
         }
 
-        public override float Inflate(float pp) => pp;
+        public override float Inflate(float pp)
+        {
+            return pp;
+        }
 
-        public override float Deflate(float pp) => pp;
+        public override float Deflate(float pp)
+        {
+            return pp;
+        }
 
-        public async Task SetCurve(string leaderboardId, SongSpeed songSpeed)
+        internal async Task SetCurve(string leaderboardId, SongSpeed songSpeed, ILeaderboardApiProvider apiProvider)
         {
             string mod = songSpeed switch
             {
@@ -111,7 +131,7 @@ namespace BLPPCounter.CalculatorStuffs
                 _ => "",
             };
 
-            (bool Success, System.Net.Http.HttpContent? Content) = await APIHandler.CallAPI_Static(
+            System.Net.Http.HttpContent? content = await apiProvider.BeatLeader.CallAPI_Static(
                 string.Format(
                     $"https://api.beatleader.com/pp/curve?leaderboardId={{0}}{(BetterString.IsNullOrEmpty(mod) ? "" : "&modifiers=")}{{1}}",
                     leaderboardId,
@@ -119,13 +139,15 @@ namespace BLPPCounter.CalculatorStuffs
                 )
             );
 
-            if (!Success)
+            if (content is null)
                 return;
 
-            IEnumerable<(float, float)> newPoints = JObject
-                .Parse(await Content.ReadAsStringAsync())["points"]
-                .Children()
-                .Select(arr => ((float)arr[0], (float)arr[1]));
+            string contentStr = await content.ReadAsStringAsync();
+
+            IEnumerable<(float, float)>? newPoints = JObject
+                .Parse(contentStr)["points"]
+                ?.Children()
+                .Select(arr => ((float)(arr[0] ?? 0f), (float)(arr[1] ?? 0f)));
 
             PointList.Clear();
             PointList.AddRange(newPoints);
@@ -149,11 +171,11 @@ namespace BLPPCounter.CalculatorStuffs
             while (error > tolerance && iterations < maxIterations)
             {
                 // Compute the current value of the equation
-                double currentValue = 1.08 * t * Math.Exp(1.9 * x) + 34 * a * GetCurve(x);
+                double currentValue = (1.08 * t * Math.Exp(1.9 * x)) + (34 * a * GetCurve(x));
                 double difference = currentValue - y;
 
                 // Adjust x using a basic Newton's method approach
-                double derivative = 1.08 * t * Math.Exp(1.9 * x) + 34 * a * CurveDerivative(x);
+                double derivative = (1.08 * t * Math.Exp(1.9 * x)) + (34 * a * CurveDerivative(x));
                 x -= (float)(difference / derivative);
                 if (x < 0)
                     x = Math.Abs(x); // Ensure x stays within valid bounds
@@ -175,7 +197,7 @@ namespace BLPPCounter.CalculatorStuffs
                 0.0f,
                 (a, b) =>
                 {
-                    float n = a + currentWeight * b;
+                    float n = a + (currentWeight * b);
                     currentWeight *= coefficient;
                     return n;
                 }
@@ -229,7 +251,10 @@ namespace BLPPCounter.CalculatorStuffs
             return outp;
         }
 
-        public float GetWeight(float pp, float[] sortedClanPps) => GetWeight(pp, sortedClanPps, out _);
+        public float GetWeight(float pp, float[] sortedClanPps)
+        {
+            return GetWeight(pp, sortedClanPps, out _);
+        }
 
         public float GetWeightedPp(float pp, float[] clanPps)
         {

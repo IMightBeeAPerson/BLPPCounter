@@ -32,14 +32,22 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
         private readonly Dictionary<char, string> TokenToName;
         public (string FormatName, string CounterName) GetKey => (Name, CounterName);
 
-        public string? GetName(char token) => TokenToName.TryGetValue(token, out string name) ? name : null;
+        public string? GetName(char token)
+        {
+            return TokenToName.TryGetValue(token, out string name) ? name : null;
+        }
 
-        public ValueListInfo.ValueType GetValueType(char token) =>
-            (ValTypes?.TryGetValue(token, out ValueListInfo.ValueType outp) ?? false)
+        public ValueListInfo.ValueType GetValueType(char token)
+        {
+            return (ValTypes?.TryGetValue(token, out ValueListInfo.ValueType outp) ?? false)
                 ? outp
                 : ValueListInfo.ValueType.Inferred;
+        }
 
-        public int GetParamAmount(char token) => ParamAmounts(token);
+        public int GetParamAmount(char token)
+        {
+            return ParamAmounts(token);
+        }
 
         public FormatRelation(
             string name,
@@ -162,41 +170,61 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             return GetFormat.Invoke(rawFormat, testVals);
         }
 
-        public string GetQuickFormat(string? rawFormat = default) =>
-            GetQuickFormat(rawFormat == default ? _Format : rawFormat, true);
+        public string GetQuickFormat(string? rawFormat = default)
+        {
+            return GetQuickFormat(rawFormat == default ? _Format : rawFormat, true);
+        }
 
-        public string GetQuickFormat(FormatWrapper testVals, string? rawFormat = default) =>
-            GetQuickFormat(rawFormat == default ? _Format : rawFormat, true, testVals);
+        public string GetQuickFormat(FormatWrapper testVals, string? rawFormat = default)
+        {
+            return GetQuickFormat(rawFormat == default ? _Format : rawFormat, true, testVals);
+        }
 
-        public string GetQuickFormatWithRawTestVals(string? rawFormat = default) =>
-            GetQuickFormat(rawFormat == default ? _Format : rawFormat, false);
+        public string GetQuickFormatWithRawTestVals(string? rawFormat = default)
+        {
+            return GetQuickFormat(rawFormat == default ? _Format : rawFormat, false);
+        }
 
         public FormatWrapper GetFormattedTestVals(bool toDisplay)
         {
             FormatWrapper outp = new(TestValues);
+
             if (TestValueFormats is null || TestValueFormatIndex is null)
                 return outp;
+
             foreach (char token in TestValueFormatIndex.Keys)
             {
-                object v = TestValueFormats[TestValueFormatIndex[token]].Invoke(outp[token], toDisplay);
+                object? o = outp[token];
+
+                if (o is null)
+                    continue;
+
+                object v = TestValueFormats[TestValueFormatIndex[token]].Invoke(o, toDisplay);
                 outp.SetValueAndType(token, v, v.GetType());
             }
             return outp;
         }
 
-        public IEnumerable<(string, object)>? GetExtraTestParams(char token) =>
-            (TestValueParams?.TryGetValue(token, out IEnumerable<(string, object)>? result) ?? false)
+        public IEnumerable<(string, object)>? GetExtraTestParams(char token)
+        {
+            return (TestValueParams?.TryGetValue(token, out IEnumerable<(string, object)>? result) ?? false)
                 ? result
                 : default;
+        }
 
-        public Func<object, bool, object>? GetTestValFormatter(char token) =>
-            (TestValueFormatIndex?.TryGetValue(token, out int result) ?? false) ? TestValueFormats?[result] : default;
+        public Func<object, bool, object>? GetTestValFormatter(char token)
+        {
+            return (TestValueFormatIndex?.TryGetValue(token, out int result) ?? false)
+                ? TestValueFormats?[result]
+                : default;
+        }
 
         public static Func<object, bool, object> CreateFunc<T>(
             Func<T, string> displayFormat,
             Func<T, string> formatFormat
-        ) =>
-            (obj, isDisplay) =>
+        )
+        {
+            return (obj, isDisplay) =>
                 obj is T outp
                     ? //Condition #1
                     isDisplay
@@ -206,30 +234,39 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                         formatFormat(outp)
                     : //#1: True, #2: False
                     obj.ToString(); //#1: False
+        }
 
-        public static Func<object, bool, object> CreateFunc<T>(Func<T, string> format) =>
-            (obj, _) =>
+        public static Func<object, bool, object> CreateFunc<T>(Func<T, string> format)
+        {
+            return (obj, _) =>
                 obj is T outp
                     ? //Condition #1
                     format(outp)
                     : //#1: True
                     obj.ToString(); //#1: False
+        }
 
-        public static Func<object, bool, object> CreateFunc(string displayFormat, string formatFormat) =>
-            (obj, isDisplay) =>
+        public static Func<object, bool, object> CreateFunc(string displayFormat, string formatFormat)
+        {
+            return (obj, isDisplay) =>
                 isDisplay
                     ? //Condition #1
                     string.Format(displayFormat, obj)
                     : //#1: True
                     string.Format(formatFormat, obj); //#1: False
+        }
 
-        public static Func<object, bool, object> CreateFunc(string format) => (obj, _) => string.Format(format, obj);
+        public static Func<object, bool, object> CreateFunc(string format)
+        {
+            return (obj, _) => string.Format(format, obj);
+        }
 
         public static Func<object, bool, object> CreateFuncWithWrapper<T>(
             Func<T, string> displayFormat,
             Func<T, Func<object>> formatFormat
-        ) =>
-            (wrapper, isDisplay) =>
+        )
+        {
+            return (wrapper, isDisplay) =>
             {
                 object obj = wrapper is Func<object> f ? f.Invoke() : wrapper;
                 return obj is T outp
@@ -242,9 +279,11 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                     : //#1: True, #2: False
                     obj.ToString(); //#1: False
             };
+        }
 
-        public static Func<object, bool, object> CreateFuncWithWrapper(string displayFormat, string formatFormat) =>
-            (wrapper, isDisplay) =>
+        public static Func<object, bool, object> CreateFuncWithWrapper(string displayFormat, string formatFormat)
+        {
+            return (wrapper, isDisplay) =>
             {
                 object obj = wrapper is Func<object> f ? f.Invoke() : wrapper; //Unwraps the wrapper
                 return isDisplay
@@ -253,9 +292,12 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                     : //return this if it is to display
                     new Func<object>(() => string.Format(formatFormat, obj)); //return this if it is to format
             };
+        }
 
-        public static Func<object, bool, object> CreateFuncWithWrapper(string format) =>
-            CreateFuncWithWrapper(format, format);
+        public static Func<object, bool, object> CreateFuncWithWrapper(string format)
+        {
+            return CreateFuncWithWrapper(format, format);
+        }
 
         public static Func<string, FormatWrapper, string> FormatDisplayer(
             Func<string, FormatWrapper, Dictionary<string, char>, Utils.TokenParser.Printers.Formatter> setup,
@@ -276,17 +318,29 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             };
         }
 
-        public override bool Equals(object obj) => obj is FormatRelation fr && Equals(fr);
+        public override bool Equals(object obj)
+        {
+            return obj is FormatRelation fr && Equals(fr);
+        }
 
-        public bool Equals(FormatRelation fr) =>
-            fr is not null && fr.CounterName.Equals(CounterName) && fr.Name.Equals(Name);
+        public bool Equals(FormatRelation fr)
+        {
+            return fr is not null && fr.CounterName.Equals(CounterName) && fr.Name.Equals(Name);
+        }
 
-        public override int GetHashCode() => base.GetHashCode();
+        public override int GetHashCode()
+        {
+            return base.GetHashCode();
+        }
 
-        public static bool operator ==(FormatRelation left, FormatRelation right) =>
-            left is not null && left.Equals(right);
+        public static bool operator ==(FormatRelation left, FormatRelation right)
+        {
+            return left is not null && left.Equals(right);
+        }
 
-        public static bool operator !=(FormatRelation left, FormatRelation right) =>
-            left is null || !left.Equals(right);
+        public static bool operator !=(FormatRelation left, FormatRelation right)
+        {
+            return left is null || !left.Equals(right);
+        }
     }
 }

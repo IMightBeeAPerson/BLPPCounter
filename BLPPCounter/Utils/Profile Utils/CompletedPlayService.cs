@@ -6,6 +6,7 @@ using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Models;
 using BLPPCounter.Models.Base;
 using BLPPCounter.Models.MapModels;
+using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.LangAddons;
@@ -23,6 +24,8 @@ namespace BLPPCounter.Utils.Profile_Utils
             Leaderboards.Accsaber,
         ];
 
+        private readonly PluginConfig _pc;
+
         private readonly IProfileRepository _profileRepository;
 
         private readonly IBeatSaverMetadataService _beatSaverMetadata;
@@ -36,6 +39,7 @@ namespace BLPPCounter.Utils.Profile_Utils
         private readonly PathUtils _pathUtils;
 
         public CompletedPlayService(
+            PluginConfig pc,
             IProfileRepository profileRepository,
             IBeatSaverMetadataService beatSaverMetadata,
             ILeaderboardApiProvider apiProvider,
@@ -44,6 +48,8 @@ namespace BLPPCounter.Utils.Profile_Utils
             PathUtils pathUtils
         )
         {
+            _pc = pc ?? throw new ArgumentNullException(nameof(pc));
+
             _profileRepository = profileRepository ?? throw new ArgumentNullException(nameof(profileRepository));
 
             _beatSaverMetadata = beatSaverMetadata ?? throw new ArgumentNullException(nameof(beatSaverMetadata));
@@ -154,7 +160,7 @@ namespace BLPPCounter.Utils.Profile_Utils
 
             ICacheModel cacheModel = mapDifficulty.Data;
 
-            if (!api.MapIsUsable(cacheModel))
+            if (!api.MapIsUsable(cacheModel, _pc.UseUnranked))
                 return false;
 
             Calculator calculator = _calculatorProvider.Get(leaderboard);

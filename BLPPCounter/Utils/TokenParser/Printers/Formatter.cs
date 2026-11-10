@@ -5,11 +5,15 @@ using System.Text;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Utils.TokenParser.FormatTypes;
+using Zenject;
 
 namespace BLPPCounter.Utils.TokenParser.Printers
 {
     internal class Formatter
     {
+        private readonly Tokens _token;
+        private readonly HelpfulFormatter _formatter;
+
         private Chunk[] chunks;
         private readonly StringBuilder sb;
         private readonly FormatWrapper tokenValues;
@@ -25,9 +29,11 @@ namespace BLPPCounter.Utils.TokenParser.Printers
 
         public FormatWrapper TokenValues => tokenValues;
 #pragma warning disable IDE0057
-#nullable enable
-        public Formatter(Chunk[] arr, FormatWrapper tokenVals)
+        internal Formatter(Tokens token, HelpfulFormatter formatter, Chunk[] arr, FormatWrapper tokenVals)
         {
+            _token = token;
+            _formatter = formatter;
+
             chunks = arr;
             sb = new();
             tokenValues = tokenVals;
@@ -72,7 +78,10 @@ namespace BLPPCounter.Utils.TokenParser.Printers
             }
         }
 
-        public void PromiseValueForTokens(params char[] tokens) => PromiseValueForTokens((IEnumerable<char>)tokens);
+        public void PromiseValueForTokens(params char[] tokens)
+        {
+            PromiseValueForTokens((IEnumerable<char>)tokens);
+        }
 
         public void PromiseValueForTokens(IEnumerable<char> tokens)
         {
@@ -80,7 +89,10 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                 promisedTokens.Add(c);
         }
 
-        public void PromiseValueForAllTokens() => PromiseValueForTokens(tokenOrder.Where(t => t > FormatWrapper.SPLIT));
+        public void PromiseValueForAllTokens()
+        {
+            PromiseValueForTokens(tokenOrder.Where(t => t > FormatWrapper.SPLIT));
+        }
 
         public void FlagTokensForToString(params char[] tokens)
         {
@@ -117,7 +129,10 @@ namespace BLPPCounter.Utils.TokenParser.Printers
             }
         }
 
-        public void SurroundToken(char token, string start, string end) => SurroundTokens(start, end, token);
+        public void SurroundToken(char token, string start, string end)
+        {
+            SurroundTokens(start, end, token);
+        }
 
         public void SurroundTokens(string start, string end, params char[] tokens)
         {
@@ -126,11 +141,11 @@ namespace BLPPCounter.Utils.TokenParser.Printers
             SurroundToken_Internal([.. tokens], startChunks, endChunks, startPlaceholders, endPlaceholders, ref chunks);
         }
 
-        private static (Chunk?[] chunks, int[] placeholders) QuickParse(string s)
+        private (Chunk?[] chunks, int[] placeholders) QuickParse(string s)
         {
             List<Chunk?> outp = [];
             List<int> placeholders = [];
-            int index = s.IndexOf(Tokens.INSERT_SELF);
+            int index = s.IndexOf(_token.INSERT_SELF);
             while (index >= 0 && s.Length > 0)
             {
                 if (index != 0)
@@ -138,7 +153,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                 placeholders.Add(outp.Count);
                 outp.Add(null);
                 s = s.Substring(index + 1);
-                index = s.IndexOf(Tokens.INSERT_SELF);
+                index = s.IndexOf(_token.INSERT_SELF);
             }
             if (s.Length > 0)
                 outp.Add(new Chunk(s));
@@ -212,11 +227,11 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                     index = tokenOrder.IndexOf(c.GetValue()[0]);
                     sb.Append(
                         toStringTokens.Contains(c.GetValue()[0])
-                            ? $"{{{index}:{HelpfulFormatter.NUMBER_TOSTRING_FORMAT}}}"
+                            ? $"{{{index}:{_formatter.NUMBER_TOSTRING_FORMAT}}}"
                             : $"{{{index}}}"
                     );
                     if (c is Parameter p)
-                        parameters.Add((index, Tokens.PreparseParameter(p)));
+                        parameters.Add((index, _token.PreparseParameter(p)));
                     continue;
                 }
                 if (c is Group g)
@@ -233,7 +248,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                     if (c is GroupParameter gp)
                     {
                         sb.Append($"{{{index}}}");
-                        parameters.Add((index, Tokens.PreparseParameter(gp.Param)));
+                        parameters.Add((index, _token.PreparseParameter(gp.Param)));
                     }
                     if (index >= 0)
                         currentDependency.Push(index);
@@ -279,7 +294,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                     last = new Chunk(last.GetValue() + arr[i].GetValue());
                     continue;
                 }
-            end:
+                end:
                 if (last is not null)
                     combinedChunks.Add(last);
                 if (arr[i] is Group g)
@@ -303,5 +318,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
             if (last is not null)
                 combinedChunks.Add(last);
         }
+
+        internal sealed class Factory : PlaceholderFactory<Chunk[], FormatWrapper, Formatter> { }
     }
 }

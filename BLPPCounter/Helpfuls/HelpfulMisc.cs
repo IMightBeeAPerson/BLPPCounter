@@ -12,6 +12,7 @@ using BeatSaberMarkupLanguage;
 using BeatSaberMarkupLanguage.Components.Settings;
 using BeatSaberMarkupLanguage.Parser;
 using BeatSaberMarkupLanguage.ViewControllers;
+using BLPPCounter.Models;
 using BLPPCounter.Models.Base;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.Enums;
@@ -39,8 +40,9 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="ss">The song speed to convert to a number</param>
         /// <returns>The ordered number for given song speed</returns>
-        public static int OrderSongSpeedCorrectly(SongSpeed ss) =>
-            ss switch
+        public static int OrderSongSpeedCorrectly(SongSpeed ss)
+        {
+            return ss switch
             {
                 SongSpeed.Slower => 0,
                 SongSpeed.Normal => 1,
@@ -48,9 +50,11 @@ namespace BLPPCounter.Helpfuls
                 SongSpeed.SuperFast => 3,
                 _ => -1,
             };
+        }
 
-        public static SongSpeed OrderSongSpeedCorrectly(int ss) =>
-            ss switch
+        public static SongSpeed OrderSongSpeedCorrectly(int ss)
+        {
+            return ss switch
             {
                 0 => SongSpeed.Slower,
                 1 => SongSpeed.Normal,
@@ -58,40 +62,53 @@ namespace BLPPCounter.Helpfuls
                 3 => SongSpeed.SuperFast,
                 _ => default,
             };
+        }
 
-        public static string PPTypeToRating(PPType type) =>
-            type switch
+        public static string PPTypeToRating(PPType type, Leaderboards leaderboard)
+        {
+            return type switch
             {
                 PPType.Acc => "accRating",
                 PPType.Tech => "techRating",
                 PPType.Pass => "passRating",
-                PPType.Star => TheCounter.Leaderboard == Leaderboards.Accsaber ? "complexity" : "stars",
+                PPType.Star => leaderboard == Leaderboards.Accsaber ? "complexity" : "stars",
                 _ => "",
             };
+        }
 
-        public static string GetModifierShortname(SongSpeed mod) =>
-            mod switch
+        public static string GetModifierShortname(SongSpeed mod)
+        {
+            return mod switch
             {
                 SongSpeed.SuperFast => "sf",
                 SongSpeed.Faster => "fs",
                 SongSpeed.Slower => "ss",
                 _ => "",
             };
+        }
 
-        public static SongSpeed GetModifierFromShortname(string mod) =>
-            mod switch
+        public static SongSpeed GetModifierFromShortname(string mod)
+        {
+            return mod switch
             {
                 "sf" => SongSpeed.SuperFast,
                 "fs" => SongSpeed.Faster,
                 "ss" => SongSpeed.Slower,
                 _ => SongSpeed.Normal,
             };
+        }
 
-        public static string AddModifier(string name, SongSpeed modifier) =>
-            modifier == SongSpeed.Normal ? name : GetModifierShortname(modifier) + char.ToUpper(name[0]) + name[1..];
+        public static string AddModifier(string name, SongSpeed modifier)
+        {
+            return modifier == SongSpeed.Normal
+                ? name
+                : GetModifierShortname(modifier) + char.ToUpper(name[0]) + name[1..];
+        }
 
-        public static string AddModifier(string name, string modifierName) =>
-            modifierName.Equals("") ? name : modifierName + char.ToUpper(name[0]) + name[1..];
+        public static string AddModifier(string name, string modifierName)
+        {
+            return modifierName.Equals("") ? name : modifierName + char.ToUpper(name[0]) + name[1..];
+        }
 
         public static (float accRating, float passRating, float techRating) GetRatings(
             ICacheModel diffData,
@@ -99,15 +116,12 @@ namespace BLPPCounter.Helpfuls
             float modMult = 1.0f
         )
         {
-            if (diffData["difficulty"] is not null)
-                diffData = diffData["difficulty"];
-            if (speed != SongSpeed.Normal)
-                diffData = diffData["modifiersRating"];
-            return (
-                (float)diffData[AddModifier("accRating", speed)] * modMult,
-                (float)diffData[AddModifier("passRating", speed)] * modMult,
-                (float)diffData[AddModifier("techRating", speed)] * modMult
-            );
+            if (diffData is not BlCacheEntry entry)
+                return (0f, 0f, 0f);
+
+            float[] ratings = entry.DifficultyInfo.GetRatings(speed);
+
+            return (ratings[1] * modMult, ratings[2] * modMult, ratings[3] * modMult);
         }
 
         public static (float accRating, float passRating, float techRating, float starRating) GetRatingsAndStar(
@@ -116,22 +130,12 @@ namespace BLPPCounter.Helpfuls
             float modMult = 1.0f
         )
         {
-            float accRating,
-                passRating,
-                techRating;
-            try
-            {
-                (accRating, passRating, techRating) = GetRatings(diffData, speed, modMult);
-            }
-            catch (Exception)
-            {
-                return (0, 0, 0, 0);
-            }
-            if (diffData["difficulty"] is not null)
-                diffData = diffData["difficulty"];
-            if (speed != SongSpeed.Normal)
-                diffData = diffData["modifiersRating"];
-            return (accRating, passRating, techRating, (float)diffData[AddModifier("stars", speed)] * modMult);
+            if (diffData is not BlCacheEntry entry)
+                return (0f, 0f, 0f, 0f);
+
+            float[] ratings = entry.DifficultyInfo.GetRatings(speed);
+
+            return (ratings[1] * modMult, ratings[2] * modMult, ratings[3] * modMult, ratings[0] * modMult);
         }
 
         public static string ToLiteral(string input)
@@ -227,51 +231,68 @@ namespace BLPPCounter.Helpfuls
             }
         }
 
-        public static K GetKeyFromDictionary<K, V>(Dictionary<K, V> dict, V val) =>
-            dict.ContainsValue(val) ? dict.First(kvp => kvp.Value.Equals(val)).Key : default;
+        public static K? GetKeyFromDictionary<K, V>(Dictionary<K, V> dict, V val)
+        {
+            return dict.ContainsValue(val) && val is not null ? dict.First(kvp => val.Equals(kvp.Value)).Key : default;
+        }
 
-        public static string GetKeyFromDictionary<V>(Dictionary<string, V> dict, V val) =>
-            GetKeyFromDictionary<string, V>(dict, val) ?? val.ToString();
+        public static string GetKeyFromDictionary<V>(Dictionary<string, V> dict, V val)
+        {
+            return GetKeyFromDictionary<string, V>(dict, val) ?? val?.ToString() ?? "";
+        }
 
         public static PropertyInfo[] GetAllPropertiesUsingAttribute(
             Type theClass,
             Type theAttribute,
             BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public
-        ) => [.. theClass.GetProperties(bindingFlags).Where(p => Attribute.IsDefined(p, theAttribute))];
+        )
+        {
+            return [.. theClass.GetProperties(bindingFlags).Where(p => Attribute.IsDefined(p, theAttribute))];
+        }
 
         public static FieldInfo[] GetAllFieldsUsingAttribute(
             Type theClass,
             Type theAttribute,
             BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public
-        ) => [.. theClass.GetFields(bindingFlags).Where(p => Attribute.IsDefined(p, theAttribute))];
+        )
+        {
+            return [.. theClass.GetFields(bindingFlags).Where(p => Attribute.IsDefined(p, theAttribute))];
+        }
 
         public static MemberInfo[] GetAllVariablesUsingAttribute(
             Type theClass,
             Type theAttribute,
             BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public
-        ) =>
+        )
+        {
+            return
             [
                 .. GetAllPropertiesUsingAttribute(theClass, theAttribute, bindingFlags)
                     .Cast<MemberInfo>()
                     .Union(GetAllFieldsUsingAttribute(theClass, theAttribute, bindingFlags)),
             ];
+        }
 
-        public static bool IsNumber(Type t)
+        public static bool IsNumber(Type? t)
         {
             if (t is null)
                 return false;
+
             TypeCode tc = Type.GetTypeCode(t);
-            return tc >= TypeCode.SByte && tc < TypeCode.DateTime;
+            return tc is >= TypeCode.SByte and < TypeCode.DateTime;
         }
 
-        public static bool IsNumber(object o) => IsNumber(o?.GetType());
+        public static bool IsNumber(object o)
+        {
+            return IsNumber(o?.GetType());
+        }
 
         public static bool IsIntType(Type t)
         {
             if (t is null)
                 return false;
             TypeCode tc = Type.GetTypeCode(t);
-            return tc >= TypeCode.SByte && tc < TypeCode.Single;
+            return tc is >= TypeCode.SByte and < TypeCode.Single;
         }
 
         public static bool IsDecimalType(Type t)
@@ -279,28 +300,51 @@ namespace BLPPCounter.Helpfuls
             if (t is null)
                 return false;
             TypeCode tc = Type.GetTypeCode(t);
-            return tc >= TypeCode.Single && tc <= TypeCode.Decimal;
+            return tc is >= TypeCode.Single and <= TypeCode.Decimal;
         }
 
-        public static string SplitByUppercase(string s) => Regex.Replace(s, "(?!^)[A-Z][^A-Z]*", " $&");
+        public static string SplitByUppercase(string s)
+        {
+            return Regex.Replace(s, "(?!^)[A-Z][^A-Z]*", " $&");
+        }
 
-        public static string ConvertColorToHex(System.Drawing.Color c) => $"#{ToRgba(c):X8}";
+        public static string ConvertColorToHex(System.Drawing.Color c)
+        {
+            return $"#{ToRgba(c):X8}";
+        }
 
-        public static string ConvertColorToHex(Color c) => $"#{ToRgba(c):X8}";
+        public static string ConvertColorToHex(Color c)
+        {
+            return $"#{ToRgba(c):X8}";
+        }
 
-        public static string ConvertColorToMarkup(System.Drawing.Color c) => $"<color={ConvertColorToHex(c)}>";
+        public static string ConvertColorToMarkup(System.Drawing.Color c)
+        {
+            return $"<color={ConvertColorToHex(c)}>";
+        }
 
-        public static int ArgbToRgba(int argb) => (argb << 8) + (argb >>> 24);
+        public static int ArgbToRgba(int argb)
+        {
+            return (argb << 8) + (argb >>> 24);
+        }
 
-        public static int RgbaToArgb(int rgba) => (rgba >>> 8) + (rgba << 24);
+        public static int RgbaToArgb(int rgba)
+        {
+            return (rgba >>> 8) + (rgba << 24);
+        }
 
-        public static int ToRgba(System.Drawing.Color c) => ArgbToRgba(c.ToArgb());
+        public static int ToRgba(System.Drawing.Color c)
+        {
+            return ArgbToRgba(c.ToArgb());
+        }
 
-        public static int ToRgba(Color c) =>
-            ((int)Math.Round(c.r * 0xFF) << 24)
-            + ((int)Math.Round(c.g * 0xFF) << 16)
-            + ((int)Math.Round(c.b * 0xFF) << 8)
-            + (int)Math.Round(c.a * 0xFF);
+        public static int ToRgba(Color c)
+        {
+            return ((int)Math.Round(c.r * 0xFF) << 24)
+                + ((int)Math.Round(c.g * 0xFF) << 16)
+                + ((int)Math.Round(c.b * 0xFF) << 8)
+                + (int)Math.Round(c.a * 0xFF);
+        }
 
         public static Color TextToColor(string text)
         {
@@ -333,39 +377,45 @@ namespace BLPPCounter.Helpfuls
             );
         }
 
-        public static Color ConvertColor(System.Drawing.Color color) =>
-            new(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f);
+        public static Color ConvertColor(System.Drawing.Color color)
+        {
+            return new(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f);
+        }
 
-        public static System.Drawing.Color ConvertColor(Color color) =>
-            System.Drawing.Color.FromArgb(
+        public static System.Drawing.Color ConvertColor(Color color)
+        {
+            return System.Drawing.Color.FromArgb(
                 (int)Math.Round(color.a * 0xFF),
                 (int)Math.Round(color.r * 0xFF),
                 (int)Math.Round(color.g * 0xFF),
                 (int)Math.Round(color.b * 0xFF)
             );
+        }
 
-        public static System.Drawing.Color Multiply(System.Drawing.Color a, float b) =>
-            System.Drawing.Color.FromArgb(
+        public static System.Drawing.Color Multiply(System.Drawing.Color a, float b)
+        {
+            return System.Drawing.Color.FromArgb(
                 (int)Math.Round(a.A * b),
                 (int)Math.Round(a.R * b),
                 (int)Math.Round(a.G * b),
                 (int)Math.Round(a.B * b)
             );
+        }
 
         public static System.Drawing.Color Blend(System.Drawing.Color a, System.Drawing.Color b, float t)
         {
             t = Mathf.Clamp(t, 0f, 1f);
             float invT = 1f - t;
 
-            int A = (int)Math.Round(a.A * t + b.A * invT);
-            int R = (int)Math.Round(a.R * t + b.R * invT);
-            int G = (int)Math.Round(a.G * t + b.G * invT);
-            int B = (int)Math.Round(a.B * t + b.B * invT);
+            int A = (int)Math.Round((a.A * t) + (b.A * invT));
+            int R = (int)Math.Round((a.R * t) + (b.R * invT));
+            int G = (int)Math.Round((a.G * t) + (b.G * invT));
+            int B = (int)Math.Round((a.B * t) + (b.B * invT));
 
             return System.Drawing.Color.FromArgb(A, R, G, B);
         }
 
-        public static BSMLParserParams AddToComponent(BSMLResourceViewController brvc, GameObject container) =>
+        internal static BSMLParserParams AddToComponent(BSMLResourceViewController brvc, GameObject container) =>
 #if NEW_VERSION
             BSMLParser.Instance.Parse(
                 Utilities.GetResourceContent(Assembly.GetExecutingAssembly(), brvc.ResourceName),
@@ -440,8 +490,10 @@ namespace BLPPCounter.Helpfuls
             return arr.Where(item => hash.Contains(item));
         }
 
-        public static Dictionary<V, K> Swap<K, V>(this Dictionary<K, V> dict) =>
-            dict.ToDictionary(kvp => kvp.Value, kvp => kvp.Key);
+        public static Dictionary<V, K> Swap<K, V>(this Dictionary<K, V> dict)
+        {
+            return dict.ToDictionary(kvp => kvp.Value, kvp => kvp.Key);
+        }
 
         public static void MakeSpacesHaveSpace(this TMP_FontAsset font)
         { //This somehow worked first try. All it does is make the mark rich text actually highlight trailing spaces.
@@ -456,7 +508,10 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="str">The word to add spaces to</param>
         /// <returns>The words with spaces</returns>
-        public static string AddSpaces(string str) => Regex.Replace(str, "(?<=[a-z])([A-Z])", " $+");
+        public static string AddSpaces(string str)
+        {
+            return Regex.Replace(str, "(?<=[a-z])([A-Z])", " $+");
+        }
 
         public static T[][] RowToColumn<T>(this IEnumerable<T> arr, int rowLengths = 0)
         {
@@ -558,14 +613,25 @@ namespace BLPPCounter.Helpfuls
             string value,
             Func<string, T> caster,
             Func<T, T, int> comparer
-        ) => comparer(caster(item1[value].ToString()), caster(item2[value].ToString()));
+        )
+        {
+            return comparer(caster(item1[value]?.ToString() ?? ""), caster(item2[value]?.ToString() ?? ""));
+        }
 
-        public static int CompareValues<T>(JToken item1, JToken item2, string value, Func<T, T, int> comparer)
-            where T : class => comparer(item1[value] as T, item2[value] as T);
+        public static int CompareValues<T>(JToken item1, JToken item2, string value, Func<T?, T?, int> comparer)
+            where T : class
+        {
+            return comparer(item1[value] as T, item2[value] as T);
+        }
 
         public static int CompareStructValues<T>(JToken item1, JToken item2, string value, Func<T, T, int> comparer)
-            where T : struct =>
-            comparer((T)Convert.ChangeType(item1[value], typeof(T)), (T)Convert.ChangeType(item2[value], typeof(T)));
+            where T : struct
+        {
+            return comparer(
+                (T)Convert.ChangeType(item1[value], typeof(T)),
+                (T)Convert.ChangeType(item2[value], typeof(T))
+            );
+        }
 
         public static void UpdateListSetting(this ListSetting menu, List<object> newValues)
         {
@@ -608,8 +674,10 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="status">The status value returned from BeatLeader's api.</param>
         /// <returns>Whether or not the api will provide enough info to calculate pp.</returns>
-        public static bool StatusIsUsable(int status) =>
-            (status > 0 && status <= 3) || status == 6 || (PluginConfig.Instance.UseUnranked && status == 0);
+        public static bool StatusIsUsable(int status, bool useUnranked)
+        {
+            return (status > 0 && status <= 3) || status == 6 || (useUnranked && status == 0);
+        }
 
         /// <summary>
         /// Checks if a given map selection is usable. If it is using a score saber map or an acc saber map, then it is always usable.
@@ -639,10 +707,15 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="ms">The map selection to check.</param>
         /// <returns>Whether or not the map selection has a usable status.</returns>
-        public static bool StatusIsUsable(MapSelection ms) =>
-            ms.Mode.Equals(Map.SS_MODE_NAME)
-            || ms.Mode.Equals(Map.AP_MODE_NAME)
-            || StatusIsUsable((int)ms.MapData.diffData["status"]);
+        public static bool StatusIsUsable(MapSelection ms, bool useUnranked)
+        {
+            return ms.Mode.Equals(Map.SS_MODE_NAME)
+                || ms.Mode.Equals(Map.AP_MODE_NAME)
+                || (
+                    ms.MapData.Data is BlCacheEntry blEntry
+                    && StatusIsUsable(blEntry.DifficultyInfo.Status, useUnranked)
+                );
+        }
 
         /// <summary>
         /// Create a square matrix (a matrix with all arrays inside it being the same size).
@@ -687,9 +760,15 @@ namespace BLPPCounter.Helpfuls
             (gmpc as IRefreshable).Refresh(); //Refresh the display so that the new modifier is shown correctly.
         }
 
-        public static void ChangeMinValue(this SliderSetting ss, float newVal) => ChangeValue(ss, newVal, true);
+        public static void ChangeMinValue(this SliderSetting ss, float newVal)
+        {
+            ChangeValue(ss, newVal, true);
+        }
 
-        public static void ChangeMaxValue(this SliderSetting ss, float newVal) => ChangeValue(ss, newVal, false);
+        public static void ChangeMaxValue(this SliderSetting ss, float newVal)
+        {
+            ChangeValue(ss, newVal, false);
+        }
 
         private static void ChangeValue(SliderSetting ss, float newVal, bool isMinVal)
         {
@@ -759,8 +838,10 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="incrementNum">The number to set the increment to.</param>
         /// <param name="toSet">The <see cref="SliderSetting"/>s to set.</param>
-        public static void SetIncrements(int incrementNum, params SliderSetting[] toSet) =>
+        public static void SetIncrements(int incrementNum, params SliderSetting[] toSet)
+        {
             SetIncrements(incrementNum, 1.0f, toSet);
+        }
 
         /// <summary>
         /// Sets the increment for the given <see cref="SliderSetting"/>s to the given number multiplied by a given <paramref name="mult"/>.
@@ -790,8 +871,10 @@ namespace BLPPCounter.Helpfuls
         /// </summary>
         /// <param name="tuple">The <see cref="ITuple"/> to convert.</param>
         /// <returns>Outputs an <see cref="IEnumerable{T}">IEnumerable&lt;object&gt;</see> that contains the tuple objects in order.</returns>
-        public static IEnumerable<object> TupleToEnumerable(ITuple tuple) =>
-            Enumerable.Range(0, tuple.Length).Select(i => tuple[i]?.ToString());
+        public static IEnumerable<object> TupleToEnumerable(ITuple tuple)
+        {
+            return Enumerable.Range(0, tuple.Length).Select(i => tuple[i]?.ToString() ?? "");
+        }
 
         /// <summary>
         /// Checks if a given <see cref="IEnumerable"/> is filled with only default values.
@@ -802,7 +885,7 @@ namespace BLPPCounter.Helpfuls
         public static bool FilledWithDefaults<T>(this IEnumerable<T> vals)
         {
             foreach (T val in vals)
-                if (!val.Equals(default(T)))
+                if (val is not null && !val.Equals(default(T)))
                     return false;
             return true;
         }
@@ -813,7 +896,10 @@ namespace BLPPCounter.Helpfuls
         /// <param name="data">Parent <see cref="JToken">JToken</see>.</param>
         /// <param name="name">The key to attempt to move into.</param>
         /// <returns>Either the child <see cref="JToken">JToken</see> or if it is null the parent <see cref="JToken">JToken</see>.</returns>
-        public static JToken TryEnter(this JToken data, string name) => data[name] ?? data;
+        public static JToken TryEnter(this JToken data, string name)
+        {
+            return data[name] ?? data;
+        }
 
         /// <summary>
         /// Removes the value at <paramref name="removeIndex"/>, sifting all values above <paramref name="removeIndex"/> up.
@@ -837,11 +923,11 @@ namespace BLPPCounter.Helpfuls
         /// <param name="insertIndex">The index to insert the value at. Must be within the bounds of <paramref name="arr"/>.</param>
         /// <param name="value">The value to be inserted.</param>
         /// <returns>The value at the last index in <paramref name="arr"/>.</returns>
-        public static T SiftDown<T>(T[] arr, int insertIndex, T value)
+        public static T? SiftDown<T>(T[] arr, int insertIndex, T value)
         {
             if (arr.Length <= insertIndex || insertIndex < 0 || arr.Length < 2)
                 return default;
-            T outp = arr[arr.Length - 1];
+            T outp = arr[^1];
             for (int i = arr.Length - 1; i > insertIndex; i--)
                 arr[i] = arr[i - 1];
             arr[insertIndex] = value;
@@ -861,7 +947,7 @@ namespace BLPPCounter.Helpfuls
         {
             if (arr.Length <= insertIndex || insertIndex < 0 || arr.Length < 2)
                 return default;
-            float outp = arr[arr.Length - 1];
+            float outp = arr[^1];
             for (int i = arr.Length - 1; i > insertIndex; i--)
                 arr[i] = arr[i - 1] * mult;
             arr[insertIndex] = value;
@@ -879,7 +965,7 @@ namespace BLPPCounter.Helpfuls
         /// If this value is greater than the length of <paramref name="arr"/>, it will be set to the last index. No values after this index will be touched.</param>
         /// <param name="value">The value to be inserted.</param>
         /// <returns>The value at <paramref name="endIndex"/> in <paramref name="arr"/>.</returns>
-        public static T SiftDown<T>(T[] arr, int insertIndex, int endIndex, T value)
+        public static T? SiftDown<T>(T[] arr, int insertIndex, int endIndex, T value)
         {
             if (arr.Length - 1 <= insertIndex || insertIndex < 0 || endIndex < insertIndex || arr.Length < 2)
                 return default;
@@ -1105,7 +1191,7 @@ namespace BLPPCounter.Helpfuls
             }
 
             // Store the number of bits used in the last ulong (if not full)
-            result[result.Length - 1] = bitPos > 0 ? (ulong)bitPos : 0;
+            result[^1] = bitPos > 0 ? (ulong)bitPos : 0;
 
             return result;
         }
@@ -1127,7 +1213,7 @@ namespace BLPPCounter.Helpfuls
             bool ignoreLast = false;
             if (extraLength > LongBits) // default magic value means "not provided"
             {
-                extraLength = (byte)arr[arr.Length - 1];
+                extraLength = (byte)arr[^1];
                 ignoreLast = true;
             }
 
@@ -1207,14 +1293,16 @@ namespace BLPPCounter.Helpfuls
             return str[..maxLength] + "...";
         }
 
-        public static string ToCapName(Leaderboards leaderboard) =>
-            leaderboard switch
+        public static string ToCapName(Leaderboards leaderboard)
+        {
+            return leaderboard switch
             {
                 Leaderboards.Beatleader => "BeatLeader",
                 Leaderboards.Scoresaber => "ScoreSaber",
                 Leaderboards.Accsaber => "AccSaber",
                 _ => "",
             };
+        }
 
         public static float GetLineHeight(this TMP_TextInfo textInfo, int line = 0)
         {
@@ -1348,12 +1436,10 @@ namespace BLPPCounter.Helpfuls
             list.Insert(index, toAdd);
         }
 
-        public static void AddSorted<T>(
-            this List<T> list,
-            T toAdd,
-            Comparison<T> comparer,
-            bool greatestFirst = false
-        ) => AddSorted(list, toAdd, Comparer<T>.Create(comparer), greatestFirst);
+        public static void AddSorted<T>(this List<T> list, T toAdd, Comparison<T> comparer, bool greatestFirst = false)
+        {
+            AddSorted(list, toAdd, Comparer<T>.Create(comparer), greatestFirst);
+        }
 
         public static SongSpeed GetSongSpeed(string? mods)
         {
@@ -1363,7 +1449,7 @@ namespace BLPPCounter.Helpfuls
 
         public static (SongSpeed speed, float modMult) ParseModifiers(
             string mods,
-            JToken modifierData,
+            ICacheModel modifierData,
             bool allowNoFail = false,
             char delimiter = ','
         )
@@ -1374,17 +1460,19 @@ namespace BLPPCounter.Helpfuls
                 .Replace(mods, allowNoFail ? $"(?:fs|sf|ss){delimiter}?" : $"(?:fs|sf|ss|nf){delimiter}?", "")
                 .Split(delimiter);
             SongSpeed speed = regexSpeed.Success ? GetModifierFromShortname(regexSpeed.Value) : SongSpeed.Normal;
-            //Plugin.Log.Info("Mod Array Length: " + modArr.Length + ", value[0].Length = " + modArr[0].Length);
-            return (
-                speed,
-                modArr.Length > 1 || modArr.Length == 1 && modArr[0].Length > 0
-                    ? HelpfulPaths.GetMultiAmounts(modifierData, modArr)
-                    : 1.0f
-            );
+            bool hasNonEmptyMods = modArr.Length > 1 || (modArr.Length == 1 && modArr[0].Length > 0);
+            if (!hasNonEmptyMods || modifierData is not BlCacheEntry entry || entry.DifficultyInfo.Modifiers is null)
+                return (speed, 1.0f);
+            float modMult = 1f;
+            foreach (string mod in modArr)
+                modMult += entry.DifficultyInfo.Modifiers.TryGetValue(mod, out float val) ? val : 0f;
+            return (speed, modMult);
         }
 
-        public static bool HasNonSpeedMods(string mods, char delimiter = ',') =>
-            Regex.Replace(mods, $"(?:fs|sf|ss|nf){delimiter}?", "", RegexOptions.IgnoreCase).Length > 0;
+        public static bool HasNonSpeedMods(string mods, char delimiter = ',')
+        {
+            return Regex.Replace(mods, $"(?:fs|sf|ss|nf){delimiter}?", "", RegexOptions.IgnoreCase).Length > 0;
+        }
 
 #nullable enable
         public static void ChangeValuesAndAdd<T>(
@@ -1420,7 +1508,7 @@ namespace BLPPCounter.Helpfuls
 
         public static bool SetIfChanged<T>(ref T field, T value)
         {
-            if (field?.Equals(value) ?? value is null)
+            if (field?.Equals(value) ?? (value is null))
                 return false;
             field = value;
             return true;

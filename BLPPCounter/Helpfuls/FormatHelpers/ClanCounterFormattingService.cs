@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using BLPPCounter.Counters;
 using BLPPCounter.Settings.Configs;
@@ -18,6 +18,10 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
         private readonly object _sync = new();
         private readonly PluginConfig _config;
+        private readonly Tokens _token;
+        private readonly HelpfulFormatter _formatter;
+        private readonly Formatter.Factory _formatFactory;
+        private readonly TokenParser _tokenParser;
 
         private readonly FormatWrapper _mainWrapper;
         private readonly FormatWrapper _weightedWrapper;
@@ -29,9 +33,23 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
         private Printer? _weightedPrinter;
         private Printer? _messagePrinter;
 
-        public ClanCounterFormattingService(PluginConfig config)
+        public ClanCounterFormattingService(
+            PluginConfig config,
+            Tokens token,
+            HelpfulFormatter formatter,
+            Formatter.Factory formatFactory,
+            TokenParser tokenParser
+        )
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
+
+            _token = token ?? throw new ArgumentNullException(nameof(token));
+
+            _formatter = formatter ?? throw new ArgumentNullException(nameof(formatter));
+
+            _formatFactory = formatFactory ?? throw new ArgumentNullException(nameof(formatFactory));
+
+            _tokenParser = tokenParser ?? throw new ArgumentNullException(nameof(tokenParser));
 
             MainAliases = new Dictionary<string, char>
             {
@@ -302,7 +320,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
         private Formatter SetupMainFormatter(string format, FormatWrapper values, Dictionary<string, char> aliases)
         {
-            Formatter formatter = new(TokenParser.ParseTokens(format, aliases), values);
+            Formatter formatter = _formatFactory.Create(_tokenParser.ParseTokens(format, aliases), values);
 
             if (!_config.ShowLbl)
             {
@@ -323,7 +341,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
         private Formatter SetupWeightedFormatter(string format, FormatWrapper values, Dictionary<string, char> aliases)
         {
-            Formatter formatter = new(TokenParser.ParseTokens(format, aliases), values);
+            Formatter formatter = _formatFactory.Create(_tokenParser.ParseTokens(format, aliases), values);
 
             if (!_config.ShowLbl)
             {
@@ -337,7 +355,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
         private Formatter SetupMessageFormatter(string format, FormatWrapper values, Dictionary<string, char> aliases)
         {
-            Formatter formatter = new(TokenParser.ParseTokens(format, aliases), values);
+            Formatter formatter = _formatFactory.Create(_tokenParser.ParseTokens(format, aliases), values);
 
             if (!_config.ShowEnemy || _config.Target == Utils.Misc_Classes.Targeter.NO_TARGET)
             {
@@ -386,7 +404,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                         { 'm', "Get 95% for 543.21 PP!" },
                     }
                 ),
-                Tokens.GLOBAL_PARAM_AMOUNT,
+                _token.GLOBAL_PARAM_AMOUNT,
                 new Dictionary<char, int> { { 't', 0 }, { 'm', 1 } },
                 [
                     FormatRelation.CreateFunc("Targeting <color=red>{0}</color>", "{0}"),
@@ -431,7 +449,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                         { (char)2, true },
                         { (char)3, true },
                         { 'e', 1 },
-                        { 'c', HelpfulFormatter.GetWeightedRankColor(3) },
+                        { 'c', _formatter.GetWeightedRankColor(3) },
                         { 'r', 3 },
                         { 'x', 473.21f },
                         { 'p', 543.21f },
@@ -441,12 +459,12 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                         { 'm', "<color=red>Load Failed</color>" },
                     }
                 ),
-                Tokens.GLOBAL_PARAM_AMOUNT,
+                _token.GLOBAL_PARAM_AMOUNT,
                 new Dictionary<char, int> { { 'c', 0 }, { 'r', 1 } },
                 [
                     FormatRelation.CreateFuncWithWrapper<int>(
-                        rank => HelpfulFormatter.GetWeightedRankColor(rank) + rank,
-                        rank => () => HelpfulFormatter.GetWeightedRankColor(rank)
+                        rank => _formatter.GetWeightedRankColor(rank) + rank,
+                        rank => () => _formatter.GetWeightedRankColor(rank)
                     ),
                     FormatRelation.CreateFunc("#{0}", "{0}"),
                 ],
@@ -486,7 +504,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                         { 't', "Targeting <color=red>" + "Person</color>" },
                     }
                 ),
-                Tokens.GLOBAL_PARAM_AMOUNT,
+                _token.GLOBAL_PARAM_AMOUNT,
                 new Dictionary<char, int>
                 {
                     { 'c', 0 },

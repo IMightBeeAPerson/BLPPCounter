@@ -4,6 +4,7 @@ using BLPPCounter.Models.MapModels;
 using BLPPCounter.Utils.Containers;
 using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.LangAddons;
+using Zenject;
 using static GameplayModifiers;
 
 namespace BLPPCounter.Utils.Map_Utils
@@ -11,12 +12,12 @@ namespace BLPPCounter.Utils.Map_Utils
 #pragma warning disable CS0659
     public readonly struct MapSelection : IEquatable<MapSelection>
     {
-        public MapSelection(
+        internal MapSelection(
             Map map,
             BeatmapDifficulty difficulty,
             string mode,
-            RatingContainer ratings,
-            SongSpeed mapSpeed = SongSpeed.Normal
+            SongSpeed mapSpeed,
+            RatingContainer ratings
         )
         {
             Map = map ?? throw new ArgumentNullException(nameof(map));
@@ -38,16 +39,6 @@ namespace BLPPCounter.Utils.Map_Utils
             MapSpeed = mapSpeed;
             MapData = mapData;
         }
-
-        public MapSelection(
-            Map map,
-            BeatmapDifficulty difficulty,
-            string mode,
-            SongSpeed mapSpeed,
-            Leaderboards leaderboard,
-            params float[] ratings
-        )
-            : this(map, difficulty, mode, RatingContainer.GetContainer(leaderboard, ratings), mapSpeed) { }
 
         public Map Map { get; }
 
@@ -104,6 +95,45 @@ namespace BLPPCounter.Utils.Map_Utils
             return Map is null
                 ? "Map: null"
                 : $"Map: {Map.Hash}\n" + $"Difficulty: {Difficulty}\n" + $"Mode: {Mode}\n" + Ratings;
+        }
+
+        internal sealed class Factory
+            : PlaceholderFactory<Map, BeatmapDifficulty, string, SongSpeed, RatingContainer, MapSelection>
+        {
+            private readonly RatingContainer.Factory ratingFactory;
+
+            public Factory(RatingContainer.Factory ratingFactory)
+            {
+                this.ratingFactory = ratingFactory;
+            }
+
+            public MapSelection Create(Map map, BeatmapDifficulty diff, string mode, RatingContainer ratingContainer)
+            {
+                return Create(map, diff, mode, SongSpeed.Normal, ratingContainer);
+            }
+
+            public MapSelection Create(
+                Map map,
+                BeatmapDifficulty diff,
+                string mode,
+                SongSpeed speed,
+                Leaderboards leaderboard,
+                params float[] ratings
+            )
+            {
+                return Create(map, diff, mode, speed, ratingFactory.GetContainer(leaderboard, ratings));
+            }
+
+            public MapSelection Create(
+                Map map,
+                BeatmapDifficulty diff,
+                string mode,
+                Leaderboards leaderboard,
+                params float[] ratings
+            )
+            {
+                return Create(map, diff, mode, ratingFactory.GetContainer(leaderboard, ratings));
+            }
         }
     }
 }

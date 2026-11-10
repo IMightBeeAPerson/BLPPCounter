@@ -4,48 +4,66 @@ using BLPPCounter.Helpfuls;
 using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.TokenParser.FormatTypes;
+using Zenject;
 
 namespace BLPPCounter.Utils.TokenParser
 {
-    internal static class Tokens
+    internal sealed class Tokens : IInitializable
     {
-#nullable enable
-        private static readonly Dictionary<char, ParamInfo> ParamParsers = [];
+        private readonly Dictionary<char, ParamInfo> ParamParsers = [];
 
-        private static PluginConfig PC => PluginConfig.Instance;
-        public static readonly char ESCAPE_CHAR = PC.TokenSettings.EscapeCharacter;
-        public static readonly char RICH_SHORT = PC.TokenSettings.RichTextShorthand;
-        public static readonly char DELIMITER = PC.TokenSettings.Delimiter;
-        public static readonly char GROUP_OPEN = PC.TokenSettings.GroupBracketOpen;
-        public static readonly char INSERT_SELF = PC.TokenSettings.GroupInsertSelf;
-        public static readonly char GROUP_CLOSE = PC.TokenSettings.GroupBracketClose;
-        public static readonly char CAPTURE_OPEN = PC.TokenSettings.CaptureBracketOpen;
-        public static readonly char CAPTURE_CLOSE = PC.TokenSettings.CaptureBracketClose;
-        public static readonly char PARAM_OPEN = PC.TokenSettings.EscapeCharParamBracketOpen;
-        public static readonly char PARAM_CLOSE = PC.TokenSettings.EscapeCharParamBracketClose;
-        public static readonly char ALIAS = PC.TokenSettings.NicknameIndicator;
+        [Inject]
+        private readonly PluginConfig pc = null!;
 
-        public static readonly HashSet<char> SPECIAL_TOKENS =
-        [
-            ESCAPE_CHAR,
-            GROUP_OPEN,
-            GROUP_CLOSE,
-            CAPTURE_OPEN,
-            CAPTURE_CLOSE,
-            INSERT_SELF,
-            RICH_SHORT,
-            ALIAS,
-        ];
-        public static readonly Dictionary<string, char> GlobalAliases = new()
+        public char ESCAPE_CHAR { get; private set; }
+        public char RICH_SHORT { get; private set; }
+        public char DELIMITER { get; private set; }
+        public char GROUP_OPEN { get; private set; }
+        public char INSERT_SELF { get; private set; }
+        public char GROUP_CLOSE { get; private set; }
+        public char CAPTURE_OPEN { get; private set; }
+        public char CAPTURE_CLOSE { get; private set; }
+        public char PARAM_OPEN { get; private set; }
+        public char PARAM_CLOSE { get; private set; }
+        public char ALIAS { get; private set; }
+
+        public HashSet<char> SPECIAL_TOKENS { get; private set; } = null!;
+        public readonly Dictionary<string, char> GlobalAliases = new()
         {
             { "Dynamic s", 's' },
             { "Hide", 'h' },
             { "Gradient", 'g' },
         };
-        public static Func<char, int> GLOBAL_PARAM_AMOUNT = c => ParamParsers[c].MaxParams;
+        public Func<char, int> GLOBAL_PARAM_AMOUNT { get; private set; } = null!;
 
-        static Tokens()
+        public void Initialize()
         {
+            ESCAPE_CHAR = pc.TokenSettings.EscapeCharacter;
+            RICH_SHORT = pc.TokenSettings.RichTextShorthand;
+            DELIMITER = pc.TokenSettings.Delimiter;
+            GROUP_OPEN = pc.TokenSettings.GroupBracketOpen;
+            INSERT_SELF = pc.TokenSettings.GroupInsertSelf;
+            GROUP_CLOSE = pc.TokenSettings.GroupBracketClose;
+            CAPTURE_OPEN = pc.TokenSettings.CaptureBracketOpen;
+            CAPTURE_CLOSE = pc.TokenSettings.CaptureBracketClose;
+            PARAM_OPEN = pc.TokenSettings.EscapeCharParamBracketOpen;
+            PARAM_CLOSE = pc.TokenSettings.EscapeCharParamBracketClose;
+            ALIAS = pc.TokenSettings.NicknameIndicator;
+
+            SPECIAL_TOKENS =
+            [
+                ESCAPE_CHAR,
+                GROUP_OPEN,
+                GROUP_CLOSE,
+                CAPTURE_OPEN,
+                CAPTURE_CLOSE,
+                INSERT_SELF,
+                RICH_SHORT,
+                ALIAS,
+            ];
+
+            GLOBAL_PARAM_AMOUNT = c => ParamParsers[c].MaxParams;
+
             RegisterParamParser(
                 's',
                 1,
@@ -73,14 +91,14 @@ namespace BLPPCounter.Utils.TokenParser
                 {
                     char key = p.Parameters[0].GetValue()[0];
                     return vals =>
-                        PC.UseGrad
-                            ? HelpfulFormatter.NumberToGradient(vals.GetValueAsNumber<float>(key))
+                        pc.UseGrad
+                            ? HelpfulFormatter.NumberToGradient(vals.GetValueAsNumber<float>(key), pc)
                             : HelpfulFormatter.NumberToColor(vals.GetValueAsNumber<float>(key));
                 }
             );
         }
 
-        public static Chunk? ToChunk(this char c, char symbol = '\0', IEnumerable<Chunk>? chunks = null)
+        public Chunk? ToChunk(char c, char symbol = '\0', IEnumerable<Chunk>? chunks = null)
         {
             string content = Chunk.Combine(chunks);
             return c switch
@@ -94,49 +112,53 @@ namespace BLPPCounter.Utils.TokenParser
             };
         }
 
-        public static bool UsesSymbol(this char c) => c == ESCAPE_CHAR || c == GROUP_OPEN || c == CAPTURE_OPEN;
+        public bool UsesSymbol(char c)
+        {
+            return c == ESCAPE_CHAR || c == GROUP_OPEN || c == CAPTURE_OPEN;
+        }
 
-        public static bool UsesContent(this char c) =>
-            c == GROUP_OPEN || c == CAPTURE_OPEN || c == RICH_SHORT || c == ALIAS;
+        public bool UsesContent(char c)
+        {
+            return c == GROUP_OPEN || c == CAPTURE_OPEN || c == RICH_SHORT || c == ALIAS;
+        }
 
-        public static bool Closer(this char c) => c == GROUP_CLOSE || c == CAPTURE_CLOSE || c == PARAM_CLOSE;
+        public bool Closer(char c)
+        {
+            return c == GROUP_CLOSE || c == CAPTURE_CLOSE || c == PARAM_CLOSE;
+        }
 
-        public static char GetCloser(this char c) =>
-            c switch
+        public char GetCloser(char c)
+        {
+            return c switch
             {
                 char v when v == GROUP_OPEN => GROUP_CLOSE,
                 char v when v == CAPTURE_OPEN => CAPTURE_CLOSE,
                 char v when v == PARAM_OPEN => PARAM_CLOSE,
                 _ => '\0',
             };
+        }
 
-        internal static string LookupRichKey(char c) =>
-            PC.TokenSettings.RichShorthands.TryGetValue(c.ToString(), out string? val) ? val : c + "";
-
-        /*internal static string? TryParseParameter(Parameter p, FormatWrapper vals)
+        internal string LookupRichKey(char c)
         {
-            if (ParamParsers.TryGetValue(p.GetValue()[0], out ParamInfo info))
-            {
-                if (info.Count != p.Parameters.Count)
-                    throw new FormatException($"Parameter '{info.Name}' expected {info.Count} arguments, but got {p.Parameters.Count}.");
-                return info.Parser(p, vals);
-            }
-            return null;
-        }*/
-        internal static void RegisterParamParser(
+            return pc.TokenSettings.RichShorthands.TryGetValue(c.ToString(), out string? val) ? val : c + "";
+        }
+
+        internal void RegisterParamParser(
             char name,
             int minParams,
             int maxParams,
             Func<Parameter, Func<FormatWrapper, string>> parser
-        ) => ParamParsers[name] = new ParamInfo(name, minParams, maxParams, parser);
+        )
+        {
+            ParamParsers[name] = new ParamInfo(name, minParams, maxParams, parser);
+        }
 
-        internal static void RegisterParamParser(
-            char name,
-            int count,
-            Func<Parameter, Func<FormatWrapper, string>> parser
-        ) => ParamParsers[name] = new ParamInfo(name, count, parser);
+        internal void RegisterParamParser(char name, int count, Func<Parameter, Func<FormatWrapper, string>> parser)
+        {
+            ParamParsers[name] = new ParamInfo(name, count, parser);
+        }
 
-        internal static Func<FormatWrapper, string> PreparseParameter(Parameter p)
+        internal Func<FormatWrapper, string> PreparseParameter(Parameter p)
         {
             if (ParamParsers.TryGetValue(p.GetValue()[0], out ParamInfo info))
             {
@@ -165,7 +187,10 @@ namespace BLPPCounter.Utils.TokenParser
             public ParamInfo(char name, int count, Func<Parameter, Func<FormatWrapper, string>> parser)
                 : this(name, count, count, parser) { }
 
-            public override int GetHashCode() => Name.GetHashCode();
+            public override int GetHashCode()
+            {
+                return Name.GetHashCode();
+            }
         }
     }
 }

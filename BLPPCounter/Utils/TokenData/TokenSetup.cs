@@ -34,6 +34,7 @@ namespace BLPPCounter.Utils.TokenData
         private readonly Func<string, FormatWrapper, Dictionary<string, char>, Formatter> formatCreator = formatCreator;
 
         public void RegisterToken<T>(char token, string alias, string description, T defaultValue)
+            where T : notnull
         {
             tokenTypes.Add((typeof(T), token));
             aliases[alias] = token;
@@ -41,8 +42,10 @@ namespace BLPPCounter.Utils.TokenData
             tokenValues[token] = defaultValue;
         }
 
-        public void RegisterTokenTestParameters(char token, IEnumerable<(string, object)> parameters) =>
+        public void RegisterTokenTestParameters(char token, IEnumerable<(string, object)> parameters)
+        {
             tokenTestParameters[token] = parameters;
+        }
 
         public void AddFormatting(Func<object, bool, object> formatter, params char[] tokens)
         {
@@ -52,20 +55,23 @@ namespace BLPPCounter.Utils.TokenData
             formatters.Add(formatter);
         }
 
-        public void SetCustomName(char token, string name) => customNames[token] = name;
+        public void SetCustomName(char token, string name)
+        {
+            customNames[token] = name;
+        }
 
-        public TokenHandler GetHandler()
+        public TokenHandler GetHandler(PluginConfig pc, Tokens token)
         {
             FormatRelation relation = new(
                 formatName,
                 counterName,
-                (string)format.GetValue(PluginConfig.Instance.FormatSettings),
-                str => format.SetValue(PluginConfig.Instance.FormatSettings, str),
+                (string)format.GetValue(pc.FormatSettings),
+                str => format.SetValue(pc.FormatSettings, str),
                 aliases,
                 descriptions,
                 FormatRelation.FormatDisplayer(formatCreator, aliases),
                 new(tokenValues),
-                Tokens.GLOBAL_PARAM_AMOUNT,
+                token.GLOBAL_PARAM_AMOUNT,
                 tokenFormatterId,
                 [.. formatters],
                 tokenTestParameters,

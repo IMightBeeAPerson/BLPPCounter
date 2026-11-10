@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BLPPCounter.Models;
+using BLPPCounter.Models.Base;
 using BLPPCounter.Utils.Enums;
-using Newtonsoft.Json.Linq;
 
 namespace BLPPCounter.CalculatorStuffs
 {
@@ -60,10 +61,15 @@ namespace BLPPCounter.CalculatorStuffs
             PointList.Reverse();
         }
 
-        public override float[] GetPp(float acc, params float[] ratings) =>
-            [SecretMultiplier * GetCurve(acc) * ratings[0]];
+        public override float[] GetPp(float acc, params float[] ratings)
+        {
+            return [SecretMultiplier * GetCurve(acc) * ratings[0]];
+        }
 
-        public override float[] SelectRatings(float[] ratings) => [.. ratings.Take(1)];
+        public override float[] SelectRatings(float[] ratings)
+        {
+            return [.. ratings.Take(1)];
+        }
 
         public override float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings)
         {
@@ -75,22 +81,28 @@ namespace BLPPCounter.CalculatorStuffs
 
         public override float GetAccDeflated(
             float deflatedPp,
-            JToken diffData,
+            ICacheModel diffData,
             GameplayModifiers.SongSpeed speed = GameplayModifiers.SongSpeed.Normal,
             float modMult = 1,
             int precision = -1
         )
         {
-            if (diffData is null)
+            if (diffData is not TaohCache taohCache)
                 throw new ArgumentNullException(nameof(diffData));
 
-            float starRating = (float?)diffData["stars"] ?? (float?)diffData["starScoreSaber"] ?? 0f;
+            float starRating = taohCache.StarScoreSaber ?? 0f;
 
             return GetAccDeflated(deflatedPp, precision, starRating * modMult);
         }
 
-        public override float Inflate(float deflatedPp) => deflatedPp; //There is no inflation in SS
+        public override float Inflate(float deflatedPp)
+        {
+            return deflatedPp; //There is no inflation in SS
+        }
 
-        public override float Deflate(float inflatedPp) => inflatedPp; //There is no deflation in SS
+        public override float Deflate(float inflatedPp)
+        {
+            return inflatedPp; //There is no deflation in SS
+        }
     }
 }

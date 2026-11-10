@@ -128,6 +128,9 @@ namespace BLPPCounter.Models
         [JsonIgnore]
         public Dictionary<string, float> Modifiers { get; private set; } = null!;
 
+        [JsonProperty("status")]
+        public int Status { get; set; }
+
         [JsonProperty("modifierRatings")]
         public BlCacheModifierRatings ModifierRatings { get; set; } = null!;
 
@@ -179,11 +182,38 @@ namespace BLPPCounter.Models
             };
         }
 
+        public float[] GetRatings(PPType type)
+        {
+            SongSpeed[] speed = [SongSpeed.Slower, SongSpeed.Normal, SongSpeed.Faster, SongSpeed.SuperFast];
+            float[] outp = new float[speed.Length];
+
+            for (int i = 0; i < speed.Length; ++i)
+                outp[i] = GetRating(type, speed[i]);
+
+            return outp;
+        }
+
+        public float[] GetRatings(SongSpeed speed)
+        {
+            PPType[] type = [PPType.Star, PPType.Acc, PPType.Pass, PPType.Tech];
+            float[] outp = new float[type.Length];
+
+            for (int i = 0; i < type.Length; ++i)
+                outp[i] = GetRating(type[i], speed);
+
+            return outp;
+        }
+
         public object Clone()
         {
             BlCacheDifficultyInfo clone = (BlCacheDifficultyInfo)MemberwiseClone();
-            clone.ModifierValues = (JObject)ModifierValues.DeepClone();
-            clone.ModifierRatings = (BlCacheModifierRatings)ModifierRatings.Clone();
+
+            if (ModifierValues is not null)
+                clone.ModifierValues = (JObject)ModifierValues.DeepClone();
+
+            if (ModifierRatings is not null)
+                clone.ModifierRatings = (BlCacheModifierRatings)ModifierRatings.Clone();
+
             clone.OnDeserialized(default);
 
             return clone;
@@ -243,6 +273,9 @@ namespace BLPPCounter.Models
         [JsonProperty("sfPassRating")]
         public float SFPassRating { get; set; }
 
-        public object Clone() => MemberwiseClone();
+        public object Clone()
+        {
+            return MemberwiseClone();
+        }
     }
 }

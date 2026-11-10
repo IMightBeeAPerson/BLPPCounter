@@ -24,7 +24,10 @@ namespace BLPPCounter.Utils.Misc_Classes
                 values[key] = value;
         }
 
-        public bool ContainsKey(char key) => !values[key].Equals(default(T));
+        public bool ContainsKey(char key)
+        {
+            return !(values[key]?.Equals(default(T)) ?? true);
+        }
 
         public IEnumerator<KeyValuePair<char, T>> GetEnumerator()
         {
@@ -35,10 +38,13 @@ namespace BLPPCounter.Utils.Misc_Classes
         public bool TryGetValue(char key, out T value)
         {
             value = values[key];
-            return !value.Equals(default(T));
+            return !(value?.Equals(default(T)) ?? true);
         }
 
-        public void SetValue(char key, T value) => values[key] = value;
+        public void SetValue(char key, T value)
+        {
+            values[key] = value;
+        }
 
         public T this[char key]
         {

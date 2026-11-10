@@ -26,6 +26,7 @@ namespace BLPPCounter.Counters
         private IBackgroundTaskRunner _taskRunner = null!;
         private PathUtils _pathUtils = null!;
         private BLCalc _beatLeaderCalculator = null!;
+        private HelpfulFormatter _formatter = null!;
 
         private Task _setupTask = Task.CompletedTask;
 
@@ -61,7 +62,8 @@ namespace BLPPCounter.Counters
             ITargeter targeter,
             IBackgroundTaskRunner taskRunner,
             PathUtils pathUtils,
-            BLCalc beatLeaderCalculator
+            BLCalc beatLeaderCalculator,
+            HelpfulFormatter formatter
         )
         {
             _clanService = clanService ?? throw new ArgumentNullException(nameof(clanService));
@@ -78,6 +80,8 @@ namespace BLPPCounter.Counters
 
             _beatLeaderCalculator =
                 beatLeaderCalculator ?? throw new ArgumentNullException(nameof(beatLeaderCalculator));
+
+            _formatter = formatter ?? throw new ArgumentNullException(nameof(formatter));
         }
 
         public override void SetupData(MapSelection map, CancellationToken cancellationToken)
@@ -287,9 +291,13 @@ namespace BLPPCounter.Counters
 
         private void CalculateNeededAccuracy()
         {
-            _neededAccuracy = calc.GetAcc(_neededPpValues.TotalPP, pc.DecimalPrecision, ratings.Ratings);
+            _neededAccuracy = calc.GetAcc(
+                _neededPpValues.TotalPP,
+                pc.DecimalPrecision,
+                ratings.GetRatings(CurrentLeaderboard)
+            );
 
-            float[] values = calc.GetPp(_neededAccuracy / 100f, _normalRatings.Ratings);
+            float[] values = calc.GetPp(_neededAccuracy / 100f, _normalRatings.GetRatings(CurrentLeaderboard));
 
             if (values.Length > 0)
                 _neededPpValues.AccPP = values[0];
@@ -351,7 +359,7 @@ namespace BLPPCounter.Counters
             float difference = ppHandler.GetPPGroup(0).TotalPP - _neededPpValues.TotalPP;
 
             string color = pc.UseGrad
-                ? HelpfulFormatter.NumberToGradient(difference)
+                ? _formatter.NumberToGradient(difference)
                 : HelpfulFormatter.NumberToColor(difference);
 
             if (pc.ShowClanMessage)
@@ -398,7 +406,7 @@ namespace BLPPCounter.Counters
 
             _weightedPpHandler.FinishPartialUpdate(accuracy, fullComboAccuracy, weight);
 
-            string rankColor = HelpfulFormatter.GetWeightedRankColor(rank);
+            string rankColor = _formatter.GetWeightedRankColor(rank);
 
             const string weightedLabel = " Weighted PP";
 

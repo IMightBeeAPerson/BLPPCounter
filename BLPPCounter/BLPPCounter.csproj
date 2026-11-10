@@ -47,6 +47,7 @@
     <Reference Include="BSML">
       <HintPath>$(BeatSaberDir)\Plugins\BSML.dll</HintPath>
       <Private>False</Private>
+      <Publicize>True</Publicize>
     </Reference>
     <Reference Include="Counters+">
       <HintPath>$(BeatSaberDir)\Plugins\Counters+.dll</HintPath>
@@ -182,6 +183,10 @@
       <Version>2.0.0-beta7</Version>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
 

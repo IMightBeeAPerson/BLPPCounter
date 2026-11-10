@@ -7,7 +7,6 @@ namespace BLPPCounter.Utils.TokenParser.Printers
 {
     internal class Printer
     {
-#nullable enable
         private readonly string[] outputChunks;
         private readonly int[][] dependencies;
         private readonly StringBuilder sb;
@@ -55,7 +54,7 @@ namespace BLPPCounter.Utils.TokenParser.Printers
                     continue;
                 }
                 values[i] = boolIndexes.Contains(i)
-                    ? (bool)InputValues[keys[i]]
+                    ? (bool)(InputValues[keys[i]] ?? false)
                         ? true
                         : null
                     : InputValues[keys[i]];
@@ -89,6 +88,9 @@ namespace BLPPCounter.Utils.TokenParser.Printers
             return sb.ToString();
         }
 
-        public override string ToString() => Print();
+        public override string ToString()
+        {
+            return Print();
+        }
     }
 }

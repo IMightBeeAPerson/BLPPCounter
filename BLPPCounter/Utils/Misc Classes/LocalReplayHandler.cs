@@ -9,7 +9,7 @@ namespace BLPPCounter.Utils.Misc_Classes
 {
     internal static class LocalReplayHandler
     {
-        private static Dictionary<string, string> cachedHeaders = null;
+        private static Dictionary<string, string>? cachedHeaders = null;
 
         public static void LoadReplays()
         {
@@ -19,39 +19,49 @@ namespace BLPPCounter.Utils.Misc_Classes
             try
             {
                 cachedHeaders = [];
+
                 if (!File.Exists(HelpfulPaths.BL_REPLAY_HEADERS))
                     throw new Exception("The BL Header file does not exist. No local replays will be loaded.");
+
                 JObject replayHeaders = JObject.Parse(File.ReadAllText(HelpfulPaths.BL_REPLAY_HEADERS));
                 Dictionary<string, int> cachedScores = [];
-                foreach (KeyValuePair<string, JToken> token in replayHeaders)
+
+                foreach (KeyValuePair<string, JToken?> token in replayHeaders)
                 {
                     string keyString = GetKey(
-                        token.Value["PlayerID"].ToString(),
-                        token.Value["SongHash"].ToString(),
-                        token.Value["SongMode"].ToString(),
-                        token.Value["SongDifficulty"].ToString()
+                        token.Value?["PlayerID"]?.ToString() ?? "",
+                        token.Value?["SongHash"]?.ToString() ?? "",
+                        token.Value?["SongMode"]?.ToString() ?? "Standard",
+                        token.Value?["SongDifficulty"]?.ToString() ?? "Easy"
                     );
                     if (!cachedHeaders.TryAdd(keyString, token.Key))
                     {
-                        string path = GetReplayPath(cachedHeaders[keyString]);
+                        string? path = GetReplayPath(cachedHeaders[keyString]);
+
                         if (path is null)
-                            goto skip;
-                        if (!cachedScores.ContainsKey(keyString))
+                            continue;
+
+                        if (
+                            !cachedScores.ContainsKey(keyString)
+                            && ReplayDecoder.TryDecodeReplayInfo(File.ReadAllBytes(path), out ReplayInfo? info)
+                        )
                         {
-                            ReplayDecoder.TryDecodeReplayInfo(File.ReadAllBytes(path), out ReplayInfo info);
-                            cachedScores.Add(keyString, info.score);
+                            cachedScores.Add(keyString, info!.score);
                         }
+
                         path = GetReplayPath(token.Key);
+
                         if (path is null)
-                            goto skip;
-                        ReplayDecoder.TryDecodeReplayInfo(File.ReadAllBytes(path), out ReplayInfo newInfo);
-                        if (newInfo.score > cachedScores[keyString])
+                            continue;
+
+                        if (
+                            ReplayDecoder.TryDecodeReplayInfo(File.ReadAllBytes(path), out ReplayInfo? newInfo)
+                            && newInfo!.score > cachedScores[keyString]
+                        )
                         {
                             cachedHeaders[keyString] = token.Key;
                             cachedScores[keyString] = newInfo.score;
                         }
-                    skip:
-                        ;
                     }
                 }
             }
@@ -60,23 +70,26 @@ namespace BLPPCounter.Utils.Misc_Classes
                 Plugin.Log.Warn($"Failed to load local replays: {e.Message}");
                 Plugin.Log.Debug(e);
             }
-            Plugin.Log.Info($"Loaded {cachedHeaders.Count} local replays.");
+            Plugin.Log.Info($"Loaded {cachedHeaders?.Count} local replays.");
         }
 
-        public static string GetReplayName(string userId, string hash, string mode, string diff) //, string mapName = null)
+        public static string? GetReplayName(string userId, string hash, string mode, string diff) //, string mapName = null)
         {
             //Plugin.Log.Info("Searching replay headers for matching replay...");
             if (cachedHeaders is null)
                 LoadReplays();
-            return cachedHeaders.TryGetValue(GetKey(userId, hash, mode, diff), out string replayName)
+
+            return cachedHeaders?.TryGetValue(GetKey(userId, hash, mode, diff), out string replayName) ?? false
                 ? replayName
                 : null;
         }
 
-        private static string GetKey(string userId, string hash, string mode, string diff) =>
-            $"{userId}-{hash}-{mode}-{diff}";
+        private static string GetKey(string userId, string hash, string mode, string diff)
+        {
+            return $"{userId}-{hash}-{mode}-{diff}";
+        }
 
-        public static string GetReplayPath(string replayName)
+        public static string? GetReplayPath(string replayName)
         {
             string path = Path.Combine(HelpfulPaths.BL_REPLAY_FOLDER, replayName);
             //Plugin.Log.Debug(path);

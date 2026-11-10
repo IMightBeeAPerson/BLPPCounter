@@ -73,7 +73,7 @@ namespace BLPPCounter.Counters
             calc = _calculatorProvider.Get(leaderboard);
 
             ratings = map.Ratings;
-            ratings.SetSelectedRatings();
+            ratings.SetRatings(CurrentLeaderboard);
             calc.Ratings = ratings;
 
             outpText = new StringBuilder();
@@ -115,7 +115,7 @@ namespace BLPPCounter.Counters
             calc = _calculatorProvider.Get(CurrentLeaderboard);
 
             ratings = ratingValues;
-            ratings.SetSelectedRatings();
+            ratings.SetRatings(CurrentLeaderboard);
             calc.Ratings = ratings;
 
             ppHandler.SetRatings(ratings);
@@ -133,7 +133,7 @@ namespace BLPPCounter.Counters
             calc = _calculatorProvider.Get(CurrentLeaderboard);
 
             ratings = map.Ratings;
-            ratings.SetSelectedRatings();
+            ratings.SetRatings(CurrentLeaderboard);
             calc.Ratings = ratings;
 
             ppHandler.SetRatings(ratings);

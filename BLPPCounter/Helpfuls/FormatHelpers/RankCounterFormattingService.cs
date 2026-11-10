@@ -13,15 +13,29 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
         private readonly object _sync = new();
         private readonly PluginConfig _config;
+        private readonly Tokens _token;
+        private readonly HelpfulFormatter _helpfulFormatter;
+        private readonly Formatter.Factory _formatterFactory;
+        private readonly TokenParser _tokenParser;
         private readonly FormatWrapper _wrapper;
         private readonly FormatRelation[] _relations;
 
         private Formatter? _formatter;
         private Printer? _printer;
 
-        public RankCounterFormattingService(PluginConfig config)
+        public RankCounterFormattingService(
+            PluginConfig config,
+            Tokens token,
+            HelpfulFormatter formatter,
+            Formatter.Factory formatterFactory,
+            TokenParser tokenParser
+        )
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
+            _token = token ?? throw new ArgumentNullException(nameof(token));
+            _helpfulFormatter = formatter ?? throw new ArgumentNullException(nameof(formatter));
+            _formatterFactory = formatterFactory ?? throw new ArgumentNullException(nameof(formatterFactory));
+            _tokenParser = tokenParser ?? throw new ArgumentNullException(nameof(tokenParser));
 
             Aliases = new Dictionary<string, char>
             {
@@ -137,7 +151,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
         private Formatter SetupFormatter(string format, FormatWrapper values, Dictionary<string, char> aliases)
         {
-            Formatter formatter = new(TokenParser.ParseTokens(format, aliases), values);
+            Formatter formatter = _formatterFactory.Create(_tokenParser.ParseTokens(format, aliases), values);
 
             if (!_config.ShowLbl)
             {
@@ -188,13 +202,13 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                         { 'c', 3 },
                     }
                 ),
-                Tokens.GLOBAL_PARAM_AMOUNT,
+                _token.GLOBAL_PARAM_AMOUNT,
                 new Dictionary<char, int> { { 'r', 0 }, { 'c', 1 } },
                 [
                     FormatRelation.CreateFunc("#{0}", "{0}"),
                     FormatRelation.CreateFunc<int>(
-                        rank => HelpfulFormatter.GetWeightedRankColor(rank) + '#' + rank,
-                        HelpfulFormatter.GetWeightedRankColor
+                        rank => _helpfulFormatter.GetWeightedRankColor(rank) + '#' + rank,
+                        _helpfulFormatter.GetWeightedRankColor
                     ),
                 ],
                 new Dictionary<char, IEnumerable<(string, object)>>

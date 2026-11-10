@@ -1,6 +1,7 @@
 using System;
 using BeatSaberMarkupLanguage.Attributes;
 using BLPPCounter.Helpfuls;
+using BLPPCounter.Utils.LangAddons;
 using BLPPCounter.Utils.Profile_Utils;
 using BLPPCounter.Utils.Safety;
 using Zenject;

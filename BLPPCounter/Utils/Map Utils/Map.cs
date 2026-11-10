@@ -221,7 +221,7 @@ namespace BLPPCounter.Utils.Map_Utils
                     accSaberData.Value<string>("scoreSaberLeaderboardId")
                     ?? accSaberData.Value<string>("leaderboardId"),
                 Hash = NormalizeHash(hash),
-                DiffNum = Helpfuls.HelpfulPaths.ReloadedDiffToDiffNum(difficulty),
+                DiffNum = PathUtils.ReloadedDiffToDiffNum(difficulty),
                 Characteristic = accSaberData.Value<string>("characteristic") ?? Profile_Utils.Profile.DEFAULT_MODE,
                 SongCategory = CategoryIdToMask(categoryId),
                 ComplexityAccSaber = accSaberData.Value<float?>("complexity"),
@@ -232,12 +232,12 @@ namespace BLPPCounter.Utils.Map_Utils
 
         public static BeatmapDifficulty FromValue(int value)
         {
-            return (BeatmapDifficulty)((value + 1) / 2 - 1);
+            return (BeatmapDifficulty)(((value + 1) / 2) - 1);
         }
 
         public static int FromDiff(BeatmapDifficulty value)
         {
-            return ((int)value + 1) * 2 - 1;
+            return (((int)value + 1) * 2) - 1;
         }
 
         public static string NormalizeHash(string hash)

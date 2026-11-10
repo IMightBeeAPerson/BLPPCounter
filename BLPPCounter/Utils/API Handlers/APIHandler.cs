@@ -7,33 +7,27 @@ using System.Threading.Tasks;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Models.Base;
 using BLPPCounter.Settings.Configs;
-using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.Map_Utils;
 using BLPPCounter.Utils.Profile_Utils;
 using ModestTree;
 using Newtonsoft.Json.Linq;
+using Zenject;
 using static GameplayModifiers;
 
 namespace BLPPCounter.Utils.API_Handlers
 {
     internal abstract class APIHandler
     {
-#pragma warning disable IDE0042
-        private static TimeSpan clientTimeout = TimeSpan.FromSeconds(PluginConfig.Instance.APITimeout);
-        internal static TimeSpan ClientTimeout
-        {
-            get => clientTimeout;
-            set
-            {
-                clientTimeout = value;
-                client.Timeout = value;
-            }
-        }
-        protected static readonly HttpClient client = new() { Timeout = ClientTimeout };
-        private static readonly Throttler BSThrottler = new(50, 10);
+        private readonly Throttler _bsThrottler = new(50, 10);
+
+        [Inject]
+        protected readonly HttpClient client = null!;
+
+        [Inject]
+        protected readonly PluginConfig pc = null!;
 
         public abstract string API_HASH { get; }
-        public abstract Task<(bool Success, HttpContent? Content)> CallAPI(
+        public abstract Task<HttpContent?> CallAPI(
             string path,
             bool quiet = false,
             bool forceNoHeader = false,
@@ -41,7 +35,7 @@ namespace BLPPCounter.Utils.API_Handlers
             CancellationToken ct = default
         );
 
-        public static async Task<(bool Success, HttpContent? Content)> CallAPI_Static(
+        public async Task<HttpContent?> CallAPI_Static(
             string path,
             Throttler? throttler = null,
             bool quiet = false,
@@ -54,13 +48,13 @@ namespace BLPPCounter.Utils.API_Handlers
             if (ct.IsCancellationRequested)
             {
                 Plugin.Log.Warn("API call skipped due to CancellationToken.");
-                return (false, null);
+                return null;
             }
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 try
                 {
-                    if (throttler != null)
+                    if (throttler is not null)
                         await throttler.Call(ct).ConfigureAwait(false);
 
                     Plugin.Log.Debug("API Call: " + path);
@@ -90,7 +84,7 @@ namespace BLPPCounter.Utils.API_Handlers
                     }
                     response.EnsureSuccessStatusCode();
 
-                    return (true, response.Content);
+                    return response.Content;
                 }
                 catch (Exception e)
                 {
@@ -136,12 +130,12 @@ namespace BLPPCounter.Utils.API_Handlers
                     {
                         if (!quiet)
                             Plugin.Log.Error($"API request failed after {maxRetries} attempts. Returning failure.");
-                        return (false, null);
+                        return null;
                     }
                 }
             }
 
-            return (false, null);
+            return null;
         }
 
         /// <summary>
@@ -150,7 +144,7 @@ namespace BLPPCounter.Utils.API_Handlers
         /// <param name="hashes">The hashes to ask BeatSaver for data on.</param>
         /// <param name="path">The Json path(s) to grab the data of.</param>
         /// <returns>The data in string form, in the order that it was recieved.</returns>
-        public static async Task<string[]> GetBSData(
+        public async Task<string?[]> GetBSData(
             string[] hashes,
             int maxConcurrency = 5,
             int maxRetries = 3,
@@ -160,7 +154,7 @@ namespace BLPPCounter.Utils.API_Handlers
             const int MaxCountForBSPage = 50;
             const int initialRetryDelayMs = 500;
 
-            string[] results = new string[hashes.Length];
+            string?[] results = new string[hashes.Length];
             SemaphoreSlim semaphore = new(maxConcurrency);
 
             // Initial batching
@@ -193,14 +187,15 @@ namespace BLPPCounter.Utils.API_Handlers
                     {
                         try
                         {
-                            if (BSThrottler != null)
-                                await BSThrottler.Call().ConfigureAwait(false);
+                            if (_bsThrottler != null)
+                                await _bsThrottler.Call().ConfigureAwait(false);
 
                             string hashString = string.Join(",", batch.Select(i => hashes[i]));
                             string apiPath = string.Format(HelpfulPaths.BSAPI_HASH, hashString);
 
-                            (bool succeeded, HttpContent content) = await CallAPI_Static(apiPath, BSThrottler);
-                            if (!succeeded)
+                            HttpContent? content = await CallAPI_Static(apiPath, _bsThrottler);
+
+                            if (content is null)
                                 return;
 
                             JToken rawHashData = JToken.Parse(await content.ReadAsStringAsync().ConfigureAwait(false));
@@ -209,11 +204,13 @@ namespace BLPPCounter.Utils.API_Handlers
 
                             for (int i = 0; i < hashData.Count; i++)
                             {
-                                JToken token = hashData[i].First;
+                                JToken? token = hashData[i].First;
+
                                 foreach (string p in path)
                                     token = token?[p];
 
                                 string hash = hashes[batch[i]];
+
                                 results[batch[i]] = token?.ToString();
                                 returnedHashes.Add(hash);
                             }
@@ -246,8 +243,8 @@ namespace BLPPCounter.Utils.API_Handlers
                     string hashString = string.Join(",", hashes.Skip(start).Take(count));
                     string apiPath = string.Format(HelpfulPaths.BSAPI_HASH, hashString);
 
-                    (bool succeeded, HttpContent content) = await CallAPI_Static(apiPath, BSThrottler);
-                    if (!succeeded)
+                    HttpContent? content = await CallAPI_Static(apiPath, _bsThrottler);
+                    if (content is null)
                     {
                         // leave these indices as null for retry
                         return;
@@ -259,9 +256,11 @@ namespace BLPPCounter.Utils.API_Handlers
                     ];
                     for (int i = 0; i < hashData.Count; i++)
                     {
-                        JToken token = hashData[i].First;
+                        JToken? token = hashData[i].First;
+
                         foreach (string p in path)
                             token = token?[p];
+
                         results[start + i] = token?.ToString();
                     }
                 }
@@ -280,10 +279,9 @@ namespace BLPPCounter.Utils.API_Handlers
             CancellationToken ct = default
         )
         {
-            (bool success, HttpContent? content) = await CallAPI(path, quiet, forceNoHeader, maxRetries, ct)
-                .ConfigureAwait(false);
+            HttpContent? content = await CallAPI(path, quiet, forceNoHeader, maxRetries, ct).ConfigureAwait(false);
 
-            if (!success || content is null)
+            if (content is null)
                 return null;
 
             return await content.ReadAsStringAsync().ConfigureAwait(false);
@@ -297,16 +295,15 @@ namespace BLPPCounter.Utils.API_Handlers
             CancellationToken ct = default
         )
         {
-            (bool success, HttpContent? content) = await CallAPI(path, quiet, forceNoHeader, maxRetries, ct)
-                .ConfigureAwait(false);
+            HttpContent? content = await CallAPI(path, quiet, forceNoHeader, maxRetries, ct).ConfigureAwait(false);
 
-            if (!success || content is null)
+            if (content is null)
                 return null;
 
             return await content.ReadAsByteArrayAsync().ConfigureAwait(false);
         }
 
-        public static async Task<IOrderedEnumerable<(int PageIndex, T Results)>> CalledPagedAPI_Internal<T>(
+        public async Task<IOrderedEnumerable<(int PageIndex, T? Results)>> CalledPagedAPI_Internal<T>(
             int totalCount,
             Func<int, int, string> pathParser,
             Throttler throttler,
@@ -320,7 +317,7 @@ namespace BLPPCounter.Utils.API_Handlers
             if (zeroIndexedPages)
                 totalPages--;
             SemaphoreSlim semaphore = new(maxConcurrency);
-            List<Task<(int PageIndex, T Results)>> pageTasks = [with(totalPages)];
+            List<Task<(int PageIndex, T? Results)>> pageTasks = [with(totalPages)];
 
             for (int pageNum = zeroIndexedPages ? 0 : 1; pageNum <= totalPages; pageNum++)
             {
@@ -329,17 +326,19 @@ namespace BLPPCounter.Utils.API_Handlers
                 int pageCount = Math.Min(maxCountPerPage, totalCount - startIndex);
 
                 pageTasks.Add(
-                    Task.Run(async () =>
+                    Task.Run<(int, T?)>(async () =>
                     {
                         await semaphore.WaitAsync();
                         try
                         {
                             string apiPath = pathParser.Invoke(localPageNum, pageCount);
-                            (bool Success, HttpContent? Content) = await CallAPI_Static(apiPath, throttler: throttler);
-                            if (!Success)
+                            HttpContent? content = await CallAPI_Static(apiPath, throttler: throttler);
+
+                            if (content is null)
                                 return (localPageNum, default);
 
-                            string dataTokensStr = await Content.ReadAsStringAsync().ConfigureAwait(false);
+                            string? dataTokensStr = await content.ReadAsStringAsync().ConfigureAwait(false);
+
                             if (dataTokensStr is null)
                                 return (localPageNum, default);
                             T outp = await tokenParser.Invoke(dataTokensStr);
@@ -357,7 +356,7 @@ namespace BLPPCounter.Utils.API_Handlers
             return (await Task.WhenAll(pageTasks).ConfigureAwait(false)).OrderBy(r => r.PageIndex);
         }
 
-        public static async Task<IEnumerable<T>> CalledPagedAPI<T>(
+        public async Task<IEnumerable<T?>> CalledPagedAPI<T>(
             int totalCount,
             Func<int, int, string> pathParser,
             Throttler throttler,
@@ -365,8 +364,9 @@ namespace BLPPCounter.Utils.API_Handlers
             bool zeroIndexedPages = false,
             int maxCountPerPage = 100,
             int maxConcurrency = 5
-        ) =>
-            (
+        )
+        {
+            return (
                 await CalledPagedAPI_Internal(
                     totalCount,
                     pathParser,
@@ -377,17 +377,19 @@ namespace BLPPCounter.Utils.API_Handlers
                     maxConcurrency
                 )
             ).Select(r => r.Results);
+        }
 
-        public static async Task<IEnumerable<T>> CalledPagedAPIFlat<T>(
+        public async Task<IEnumerable<T>> CalledPagedAPIFlat<T>(
             int totalCount,
             Func<int, int, string> pathParser,
             Throttler throttler,
-            Func<string, Task<IEnumerable<T>>> tokenParser,
+            Func<string, Task<IEnumerable<T>?>> tokenParser,
             bool zeroIndexedPages = false,
             int maxCountPerPage = 100,
             int maxConcurrency = 5
-        ) =>
-            (
+        )
+        {
+            return (
                 await CalledPagedAPI_Internal(
                     totalCount,
                     pathParser,
@@ -398,6 +400,7 @@ namespace BLPPCounter.Utils.API_Handlers
                     maxConcurrency
                 )
             ).SelectMany(r => r.Results);
+        }
 
         public abstract float GetStarRating(
             ICacheModel diffData,
@@ -405,14 +408,14 @@ namespace BLPPCounter.Utils.API_Handlers
             float modMult = 1
         );
         public abstract float[] GetRatings(ICacheModel diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1);
-        public abstract bool MapIsUsable(ICacheModel diffData);
+        public abstract bool MapIsUsable(ICacheModel diffData, bool useUnranked);
         public abstract bool AreRatingsNull(ICacheModel diffData);
         public abstract string GetSongName(ICacheModel diffData);
         public abstract string GetDiffName(ICacheModel diffData);
         public abstract string GetLeaderboardId(ICacheModel diffData);
         public abstract int GetMaxScore(ICacheModel diffData);
         public abstract Task<int> GetMaxScore(string hash, int diffNum, string modeName);
-        public abstract JToken SelectSpecificDiff(ICacheModel diffData, int diffNum, string modeName);
+        public abstract ICacheModel SelectSpecificDiff(ICacheModel diffData, int diffNum, string modeName);
         public abstract Task<string?> GetHashData(string hash, int diffNum);
         public abstract string GetHash(ICacheModel diffData);
         public abstract Task<JToken?> GetScoreData(
@@ -448,11 +451,14 @@ namespace BLPPCounter.Utils.API_Handlers
             {
                 if (tokenData is null)
                     return null;
-                IEnumerable<JToken> dataTokens = (
+
+                IEnumerable<JToken>? dataTokens = (
                     scoreArrayPath is null ? JToken.Parse(tokenData) : JToken.Parse(tokenData)[scoreArrayPath]
                 )?.Children();
-                if (dataTokens == null || dataTokens.IsEmpty())
+
+                if (dataTokens is null || dataTokens.IsEmpty())
                     return null;
+
                 if (!usesPages && dataTokens.Count() > count)
                     dataTokens = dataTokens.Take(count);
 
@@ -461,10 +467,10 @@ namespace BLPPCounter.Utils.API_Handlers
                 if (replaceSelector is not null)
                 {
                     string[] mapHashes = [.. current.Select(data => replaceSelector.Invoke(data, "").ExtraOutp)];
-                    string[] names = await GetBSData(mapHashes, path: jsonPath);
+                    string?[] names = await GetBSData(mapHashes, path: jsonPath);
 
                     for (int i = 0; i < current.Length; i++)
-                        current[i] = replaceSelector.Invoke(current[i], names[i]).Data;
+                        current[i] = replaceSelector.Invoke(current[i], names[i] ?? "").Data;
                 }
 
                 return current;
@@ -493,7 +499,7 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract Task<float> GetProfilePP(string userId);
         internal abstract Task AddMap(Dictionary<string, Map> Data, string hash, CancellationToken ct = default);
 
-        public static async Task<Leaderboards> GetRankedLeaderboards(
+        /*public static async Task<Leaderboards> GetRankedLeaderboards(
             string hash,
             BeatmapDifficulty diff,
             string trueMode
@@ -501,7 +507,7 @@ namespace BLPPCounter.Utils.API_Handlers
         {
             (bool success, HttpContent data) = await CallAPI_Static(
                     string.Format(HelpfulPaths.BSAPI_HASH, hash),
-                    BSThrottler
+                    _bsThrottler
                 )
                 .ConfigureAwait(false);
             if (!success)
@@ -525,7 +531,7 @@ namespace BLPPCounter.Utils.API_Handlers
         {
             (bool success, HttpContent data) = await CallAPI_Static(
                     string.Format(HelpfulPaths.BSAPI_HASH, hash),
-                    BSThrottler
+                    _bsThrottler
                 )
                 .ConfigureAwait(false);
             if (!success)
@@ -566,7 +572,7 @@ namespace BLPPCounter.Utils.API_Handlers
                 outp |= Leaderboards.Accsaber;
             //Plugin.Log.Info("Ranked Leaderboards: " + outp);
             return outp;
-        }
+        }*/
 
         #region Internal Classes
         public struct ScoregraphInfo(float acc, float pp, SongSpeed speed, float modMult, string playerName)

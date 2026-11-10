@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.Enums;
@@ -89,7 +90,7 @@ namespace BLPPCounter.Counters
             ];
         }
 
-        public bool TryGet(string displayName, out CounterDescriptor? descriptor)
+        public bool TryGet(string displayName, [NotNullWhen(true)] out CounterDescriptor? descriptor)
         {
             if (BetterString.IsNullOrWhiteSpace(displayName))
             {

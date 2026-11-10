@@ -14,15 +14,29 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
         private readonly object _sync = new();
         private readonly PluginConfig _config;
+        private readonly Formatter.Factory _formatterFactory;
+        private readonly Tokens _token;
+        private readonly TokenParser _tokenParser;
         private readonly FormatWrapper _wrapper;
         private readonly FormatRelation[] _relations;
 
         private Formatter? _formatter;
         private Printer? _printer;
 
-        public RelativeCounterFormattingService(PluginConfig config)
+        public RelativeCounterFormattingService(
+            PluginConfig config,
+            Formatter.Factory formatterFactory,
+            Tokens token,
+            TokenParser tokenParser
+        )
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
+
+            _formatterFactory = formatterFactory ?? throw new ArgumentNullException(nameof(formatterFactory));
+
+            _token = token ?? throw new ArgumentNullException(nameof(token));
+
+            _tokenParser = tokenParser ?? throw new ArgumentNullException(nameof(tokenParser));
 
             Aliases = new Dictionary<string, char>
             {
@@ -141,7 +155,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
         private Formatter SetupFormatter(string format, FormatWrapper values, Dictionary<string, char> aliases)
         {
-            Formatter formatter = new(TokenParser.ParseTokens(format, aliases), values);
+            Formatter formatter = _formatterFactory.Create(_tokenParser.ParseTokens(format, aliases), values);
 
             if (!_config.ShowLbl)
             {
@@ -201,7 +215,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                         { 'z', "yellow" },
                     }
                 ),
-                Tokens.GLOBAL_PARAM_AMOUNT,
+                _token.GLOBAL_PARAM_AMOUNT,
                 new Dictionary<char, int> { { 'a', 0 }, { 't', 1 } },
                 [
                     FormatRelation.CreateFunc("{0}%", "{0}"),

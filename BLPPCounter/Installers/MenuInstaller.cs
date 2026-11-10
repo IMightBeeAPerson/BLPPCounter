@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using BLPPCounter.Settings.SettingHandlers;
 using BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers;
 using BLPPCounter.Settings.SettingHandlers.MenuViews;
+using BLPPCounter.Utils;
 using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.List_Settings;
 using BLPPCounter.Utils.Profile_Utils;
@@ -30,8 +32,6 @@ namespace BLPPCounter.Installers
             Container.Bind<SimpleSettingsHandler>().AsSingle();
 
             Container.Bind<LeaderboardSettingsHandler>().AsSingle();
-
-            Container.Bind<CounterSettingsHandler>().AsSingle();
         }
 
         private void BindListFactories()
@@ -48,6 +48,8 @@ namespace BLPPCounter.Installers
                 ColorListInfo,
                 ColorListInfo.Factory
             >();
+
+            Container.BindFactory<List<object>, FormatListInfo, FormatListInfo.Factory>();
         }
 
         private void BindViewControllers()

@@ -8,6 +8,7 @@ using BLPPCounter.Models;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.LangAddons;
 using BLPPCounter.Utils.Safety;
 using Newtonsoft.Json;
 using Zenject;

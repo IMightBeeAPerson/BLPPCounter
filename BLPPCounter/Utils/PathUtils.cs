@@ -12,6 +12,7 @@ using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Containers;
 using BLPPCounter.Utils.Enums;
 using Newtonsoft.Json.Linq;
+using Zenject;
 using static BLPPCounter.Helpfuls.HelpfulPaths;
 using static GameplayModifiers;
 
@@ -19,22 +20,30 @@ namespace BLPPCounter.Utils
 {
     internal class PathUtils
     {
+        #region Injects
+
+        [Inject]
+        private readonly ILeaderboardApiProvider provider = null!;
+
+        [Inject]
+        private readonly RatingContainer.Factory ratingFactory = null!;
+
+        #endregion
         #region Directory Checks
-        public static bool EnsureTaohableDirectoryExists()
+        public bool EnsureTaohableDirectoryExists()
         {
             string path = THE_FOLDER;
             if (!Directory.Exists(path))
                 Directory.CreateDirectory(path);
             path = Path.Combine(path, "TaohableData.json");
-            (bool succeeded, HttpContent? content) = APIHandler.CallAPI_Static(TAOHABLE_META).GetAwaiter().GetResult();
-
-            if (!succeeded)
-                throw new Exception(
+            HttpContent? content =
+                provider.BeatLeader.CallAPI_Static(TAOHABLE_META).GetAwaiter().GetResult()
+                ?? throw new Exception(
                     "Taoh's meta file is not available. This means either internet is down or I need to go yell at someone."
                 );
-
-            JToken TaohHeaders = JToken.Parse(content!.ReadAsStringAsync().GetAwaiter().GetResult());
+            JToken TaohHeaders = JToken.Parse(content.ReadAsStringAsync().GetAwaiter().GetResult());
             bool headersGood = true;
+
             if (!File.Exists(HEADERS))
                 using (FileStream fs = File.Create(HEADERS))
                 {
@@ -57,7 +66,11 @@ namespace BLPPCounter.Utils
                 {
                     CurrentTaohHeaders = JToken.Parse(headerString);
                     static int SimpleComparer<T>(T i1, T i2)
-                        where T : IComparable => i1.CompareTo(i2);
+                        where T : IComparable
+                    {
+                        return i1.CompareTo(i2);
+                    }
+
                     headersGood =
                         HelpfulMisc.CompareStructValues<float>(
                             TaohHeaders,
@@ -100,8 +113,9 @@ namespace BLPPCounter.Utils
         #endregion
 
         #region Json Paths
-        public static string DiffNumToReloadedDiff(int diffNum) =>
-            diffNum switch
+        public static string DiffNumToReloadedDiff(int diffNum)
+        {
+            return diffNum switch
             {
                 1 => "EASY",
                 3 => "NORMAL",
@@ -112,9 +126,11 @@ namespace BLPPCounter.Utils
                     "Invalid difficulty number. Must be one of the following: 1, 3, 5, 7, 9."
                 ),
             };
+        }
 
-        public static int ReloadedDiffToDiffNum(string? diff) =>
-            diff switch
+        public static int ReloadedDiffToDiffNum(string? diff)
+        {
+            return diff switch
             {
                 "EASY" => 1,
                 "NORMAL" => 3,
@@ -125,24 +141,29 @@ namespace BLPPCounter.Utils
                     "Invalid difficulty string. Must be one of the following: EASY, NORMAL, HARD, EXPERT, EXPERT_PLUS."
                 ),
             };
+        }
 
-        public static string? ReloadedCategoryToCategoryId(string? category) =>
-            category switch
+        public static string? ReloadedCategoryToCategoryId(string? category)
+        {
+            return category switch
             {
                 "b0000000-0000-0000-0000-000000000001" => "True",
                 "b0000000-0000-0000-0000-000000000002" => "Standard",
                 "b0000000-0000-0000-0000-000000000003" => "Tech",
                 _ => null,
             };
+        }
 
-        public static string? CategoryIdToReloadedCategory(string? category) =>
-            category switch
+        public static string? CategoryIdToReloadedCategory(string? category)
+        {
+            return category switch
             {
                 "True" => "b0000000-0000-0000-0000-000000000001",
                 "Standard" => "b0000000-0000-0000-0000-000000000002",
                 "Tech" => "b0000000-0000-0000-0000-000000000003",
                 _ => null,
             };
+        }
 
         public float GetRating(
             ICacheModel? data,
@@ -212,7 +233,7 @@ namespace BLPPCounter.Utils
                     .Cast<PPType>()
                     .Select(type => GetRating(data, type, leaderboard, mod)),
             ];
-            return RatingContainer.GetContainer(leaderboard, outp);
+            return ratingFactory.GetContainer(leaderboard, outp);
         }
 
         public RatingContainer[] GetAllRatings(ICacheModel data, Calculator? calc)
@@ -230,7 +251,10 @@ namespace BLPPCounter.Utils
             return [.. outp];
         }
 
-        public RatingContainer[] GetAllRatings(ICacheModel data) => GetAllRatings(data, null);
+        public RatingContainer[] GetAllRatings(ICacheModel data)
+        {
+            return GetAllRatings(data, null);
+        }
 
         public float GetStarMultiplier(ICacheModel data, GameplayModifiers? mods)
         {

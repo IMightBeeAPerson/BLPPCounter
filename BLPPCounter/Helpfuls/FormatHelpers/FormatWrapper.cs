@@ -6,14 +6,14 @@ using System.Runtime.CompilerServices;
 
 namespace BLPPCounter.Helpfuls.FormatHelpers
 {
-    public class FormatWrapper : IEnumerable<KeyValuePair<char, object>>
+    public class FormatWrapper : IEnumerable<KeyValuePair<char, object?>>
     {
         // Tokens < SPLIT are treated as "low" (control chars/flags)
         // Tokens >= SPLIT are treated as "high" (letters, symbols, etc.)
-        public static readonly int SPLIT = 30;
+        public const int SPLIT = 30;
 
         private readonly Type[] givenTypes;
-        private readonly object[] values;
+        private readonly object?[] values;
         private readonly int[] lookupLow,
             lookupHigh;
         private readonly int minTokenLow,
@@ -21,7 +21,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
         private readonly char[] tokensChars;
 
         public IEnumerable<char> Keys => tokensChars;
-        public IEnumerable<object> Values => values;
+        public IEnumerable<object?> Values => values;
         public int Count => tokensChars.Length;
 
         public FormatWrapper(params (Type type, char token)[] tokens)
@@ -160,7 +160,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                 this.values[i] = values[i];
         }
 
-        public void SetValue<T>(char c, T value)
+        public void SetValue<T>(char c, T? value)
         {
             int index = GetIndex(c);
             if (index < 0)
@@ -172,25 +172,33 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             values[index] = value;
         }
 
-        public void SetValue(char c, object value, Type valType)
+        public void SetValue(char c, object? value, Type? valType)
         {
             if (valType is null)
                 throw new ArgumentNullException(nameof(valType), "Type given cannot be null.");
+
             int index = GetIndex(c);
+
             if (index < 0)
                 throw new ArgumentException($"Character '{c}' is not part of the token set.");
+
             if (!givenTypes[index].IsAssignableFrom(valType))
                 throw new ArgumentException($"Expected {givenTypes[index].Name}, got {valType.Name}.");
+
             values[index] = value;
         }
 
         public bool TrySetValue<T>(char c, T value)
+            where T : notnull
         {
             int index = GetIndex(c);
+
             if (index < 0)
                 return false;
+
             if (!givenTypes[index].IsAssignableFrom(typeof(T)))
                 return false;
+
             values[index] = value;
             return true;
         }
@@ -207,21 +215,24 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
         }
 
         public void SetValueAndType<T>(char c, T value)
+            where T : notnull
         {
             int index = GetIndex(c);
+
             if (index < 0)
                 throw new ArgumentException($"Character '{c}' is not part of the token set.");
+
             givenTypes[index] = typeof(T);
             values[index] = value;
         }
 
-        public void SetValues(params (char c, object value)[] vals)
+        public void SetValues(params (char c, object? value)[] vals)
         {
             foreach ((char c, object? value) in vals)
                 SetValue(c, value, value?.GetType());
         }
 
-        public T GetValue<T>(char c)
+        public T? GetValue<T>(char c)
         {
             int index = GetIndex(c);
             if (index < 0)
@@ -230,10 +241,10 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             if (!typeof(T).IsAssignableFrom(givenTypes[index]))
                 throw new ArgumentException($"Stored type is {givenTypes[index].Name}, not {typeof(T).Name}.");
 
-            return (T)values[index];
+            return (T?)values[index];
         }
 
-        public T GetValueAsNumber<T>(char c)
+        public T? GetValueAsNumber<T>(char c)
         {
             int index = GetIndex(c);
 
@@ -246,7 +257,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             if (!HelpfulMisc.IsNumber(typeof(T)))
                 throw new ArgumentException($"Requested type {typeof(T).Name} is not a numeric type.");
 
-            return (T)values[index];
+            return (T?)values[index];
         }
 
         public Type GetValueType(char c)
@@ -257,9 +268,12 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             return givenTypes[index];
         }
 
-        public bool ContainsKey(char c) => GetIndex(c) >= 0;
+        public bool ContainsKey(char c)
+        {
+            return GetIndex(c) >= 0;
+        }
 
-        public bool TryGetValue(char c, out object value)
+        public bool TryGetValue(char c, out object? value)
         {
             int idx = GetIndex(c);
             if (idx >= 0)
@@ -286,16 +300,16 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             }
         }
 
-        public object this[char c]
+        public object? this[char c]
         {
             get => GetValue<object>(c);
-            set => SetValue(c, value, value.GetType());
+            set => SetValue(c, value, value?.GetType());
         }
 
-        public IEnumerator<KeyValuePair<char, object>> GetEnumerator()
+        public IEnumerator<KeyValuePair<char, object?>> GetEnumerator()
         {
             for (int i = 0; i < tokensChars.Length; i++)
-                yield return new KeyValuePair<char, object>(tokensChars[i], this[tokensChars[i]]);
+                yield return new KeyValuePair<char, object?>(tokensChars[i], this[tokensChars[i]]);
         }
 
         IEnumerator IEnumerable.GetEnumerator()

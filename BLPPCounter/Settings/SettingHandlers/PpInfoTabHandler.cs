@@ -64,6 +64,9 @@ namespace BLPPCounter.Settings.SettingHandlers
         private readonly IMapRepository _mapRepository;
         private readonly IClanService _clanService;
         private readonly IMainCounterFormattingService _mainFormatting;
+        private readonly Formatter.Factory _formatterFactory;
+        private readonly TokenParser _tokenParser;
+        private readonly Table.Factory _tableFactory;
 
         private readonly CancellationTokenSource _lifetimeSource = new();
         private readonly AsyncLock _refreshLock = new();
@@ -137,7 +140,6 @@ namespace BLPPCounter.Settings.SettingHandlers
 
         public PpInfoTabHandler(
             StandardLevelDetailViewController levelDetailView,
-            GameplayModifiersPanelController modifiersPanel,
             IMainThreadDispatcher dispatcher,
             SettingsHandler settingsHandler,
             PluginConfig config,
@@ -151,12 +153,17 @@ namespace BLPPCounter.Settings.SettingHandlers
             ProfilePanelPresenter profilePanelPresenter,
             IMapRepository mapRepository,
             IClanService clanService,
-            IMainCounterFormattingService mainFormatting
+            IMainCounterFormattingService mainFormatting,
+            Formatter.Factory formatterFactory,
+            TokenParser tokenParser,
+            Table.Factory tableFactory
         )
         {
             _levelDetailView = levelDetailView ?? throw new ArgumentNullException(nameof(levelDetailView));
 
-            _modifiersPanel = modifiersPanel ?? throw new ArgumentNullException(nameof(modifiersPanel));
+            _modifiersPanel =
+                Resources.FindObjectsOfTypeAll<GameplayModifiersPanelController>().FirstOrDefault()
+                ?? throw new ArgumentNullException(nameof(_modifiersPanel));
 
             _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
 
@@ -187,6 +194,12 @@ namespace BLPPCounter.Settings.SettingHandlers
             _clanService = clanService ?? throw new ArgumentNullException(nameof(clanService));
 
             _mainFormatting = mainFormatting ?? throw new ArgumentNullException(nameof(mainFormatting));
+
+            _formatterFactory = formatterFactory ?? throw new ArgumentNullException(nameof(formatterFactory));
+
+            _tokenParser = tokenParser ?? throw new ArgumentNullException(nameof(tokenParser));
+
+            _tableFactory = tableFactory ?? throw new ArgumentNullException(nameof(tableFactory));
         }
 
         internal Leaderboards CurrentLeaderboard { get; private set; }
@@ -1375,7 +1388,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 
             ICacheModel difficultyData = mapDifficulty.Data;
 
-            if (!CurrentApi.MapIsUsable(difficultyData))
+            if (!CurrentApi.MapIsUsable(difficultyData, _config.UseUnranked))
             {
                 await UpdateDiffAsync(mapFailed: true, cancellationToken).ConfigureAwait(false);
 
@@ -1720,7 +1733,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 
             ICacheModel? difficultyData = _currentDiff.DiffData;
 
-            if (difficultyData is not null && CurrentApi.MapIsUsable(difficultyData))
+            if (difficultyData is not null && CurrentApi.MapIsUsable(difficultyData, _config.UseUnranked))
             {
                 const char star = (char)9733;
 
@@ -1788,7 +1801,11 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             MainThreadDispatcher.AssertOnMainThread();
 
-            if (!IsBeatLeader || _currentDiff.DiffData is null || !CurrentApi.MapIsUsable(_currentDiff.DiffData))
+            if (
+                !IsBeatLeader
+                || _currentDiff.DiffData is null
+                || !CurrentApi.MapIsUsable(_currentDiff.DiffData, _config.UseUnranked)
+            )
             {
                 return;
             }
@@ -2024,7 +2041,8 @@ namespace BLPPCounter.Settings.SettingHandlers
 
             if (table is null)
             {
-                table = new Table(text, values, speedLabel, accuracyLabel, modifierLabel) { HasEndColumn = true };
+                table = _tableFactory.Create(text, values, speedLabel, accuracyLabel, modifierLabel);
+                table.HasEndColumn = true;
             }
             else
             {
@@ -2287,8 +2305,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         {
             _noScoreTargetWrapper = new FormatWrapper((typeof(string), 't'));
 
-            Formatter formatter = new(
-                TokenParser.ParseTokens(
+            Formatter formatter = _formatterFactory.Create(
+                _tokenParser.ParseTokens(
                     _config.MessageSettings.TargetHasNoScoreMessage,
                     new Dictionary<string, char> { { "Target", 't' } }
                 ),

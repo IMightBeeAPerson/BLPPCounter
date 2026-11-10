@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Threading;
 using System.Threading.Tasks;
@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace BLPPCounter.Utils.Safety
 {
-    internal interface IMainThreadDispatcher
+    public interface IMainThreadDispatcher
     {
         bool IsMainThread { get; }
 

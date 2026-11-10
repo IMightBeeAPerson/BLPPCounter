@@ -28,6 +28,8 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private IFormatRegistry _formatRegistry = null!;
         private MenuSettingsHandler _menuSettingsHandler = null!;
         private LazyInject<FormatEditorHandler> _formatEditorHandler = null!;
+        private Tokens _token = null!;
+        private Table.Factory _tableFactory = null!;
 
         private readonly List<object> _formatNames = [];
         private readonly List<object> _aliasNames = [];
@@ -47,7 +49,9 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             PluginConfig config,
             IFormatRegistry formatRegistry,
             MenuSettingsHandler menuSettingsHandler,
-            LazyInject<FormatEditorHandler> formatEditorHandler
+            LazyInject<FormatEditorHandler> formatEditorHandler,
+            Tokens token,
+            Table.Factory tableFactory
         )
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
@@ -57,6 +61,10 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             _menuSettingsHandler = menuSettingsHandler ?? throw new ArgumentNullException(nameof(menuSettingsHandler));
 
             _formatEditorHandler = formatEditorHandler ?? throw new ArgumentNullException(nameof(formatEditorHandler));
+
+            _token = token ?? throw new ArgumentNullException(nameof(token));
+
+            _tableFactory = tableFactory ?? throw new ArgumentNullException(nameof(tableFactory));
         }
 
         private FormatRelation CurrentFormatInfo
@@ -357,9 +365,9 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 
             string newAlias = removing ? alias.OldAlias : alias.AliasName;
 
-            string oldToken = $"{Tokens.ESCAPE_CHAR}" + $"{Tokens.ALIAS}" + $"{oldAlias}" + $"{Tokens.ALIAS}";
+            string oldToken = $"{_token.ESCAPE_CHAR}" + $"{_token.ALIAS}" + $"{oldAlias}" + $"{_token.ALIAS}";
 
-            string newToken = $"{Tokens.ESCAPE_CHAR}" + $"{Tokens.ALIAS}" + $"{newAlias}" + $"{Tokens.ALIAS}";
+            string newToken = $"{_token.ESCAPE_CHAR}" + $"{_token.ALIAS}" + $"{newAlias}" + $"{_token.ALIAS}";
 
             if (relation.Format.Contains(oldToken))
             {
@@ -455,11 +463,9 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 
             if (_aliasTable is null)
             {
-                _aliasTable = new Table(InfoTable, rows, "Alias", "Token", "Description")
-                {
-                    MaxWidth = 200,
-                    CenterText = false,
-                };
+                _aliasTable = _tableFactory.Create(InfoTable, rows, "Alias", "Token", "Description");
+                _aliasTable.MaxWidth = 200;
+                _aliasTable.CenterText = false;
             }
             else
             {

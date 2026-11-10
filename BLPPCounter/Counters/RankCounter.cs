@@ -29,6 +29,8 @@ namespace BLPPCounter.Counters
 
         private IBackgroundTaskRunner _taskRunner = null!;
 
+        private HelpfulFormatter _formatter = null!;
+
         private Task _setupTask = Task.CompletedTask;
 
         private float[] _rankValues = [];
@@ -53,7 +55,8 @@ namespace BLPPCounter.Counters
             PathUtils pathUtils,
             BLCalc beatLeaderCalculator,
             IRankCounterFormattingService formatting,
-            IBackgroundTaskRunner taskRunner
+            IBackgroundTaskRunner taskRunner,
+            HelpfulFormatter formatter
         )
         {
             _apiProvider = apiProvider ?? throw new ArgumentNullException(nameof(apiProvider));
@@ -66,6 +69,8 @@ namespace BLPPCounter.Counters
             _formatting = formatting ?? throw new ArgumentNullException(nameof(formatting));
 
             _taskRunner = taskRunner ?? throw new ArgumentNullException(nameof(taskRunner));
+
+            _formatter = formatter ?? throw new ArgumentNullException(nameof(formatter));
         }
 
         public override void SetupData(MapSelection map, CancellationToken cancellationToken)
@@ -121,7 +126,7 @@ namespace BLPPCounter.Counters
             float accuracyDifference = (float)
                 Math.Abs(Math.Round((rankData.Acc - accuracy) * 100f, pc.DecimalPrecision));
 
-            string rankColor = HelpfulFormatter.GetWeightedRankColor(rank);
+            string rankColor = _formatter.GetWeightedRankColor(rank);
 
             if (pc.SplitPPVals && calc.RatingCount > 1)
             {
@@ -248,7 +253,7 @@ namespace BLPPCounter.Counters
                         _beatLeaderCalculator.GetAccDeflatedUnsafe(
                             deflatedPp,
                             pc.DecimalPrecision,
-                            ratings.SelectedRatings
+                            ratings.GetRatings(CurrentLeaderboard)
                         ) / 100f;
 
                     float adjustedPp = specificPp.Length > 3 ? specificPp[3] : calc.Inflate(deflatedPp);
@@ -261,7 +266,7 @@ namespace BLPPCounter.Counters
                         entry.Acc,
                         (float)
                             Math.Round(
-                                calc.Inflate(calc.GetSummedPp(entry.Acc, ratings.SelectedRatings)),
+                                calc.Inflate(calc.GetSummedPp(entry.Acc, ratings.GetRatings(CurrentLeaderboard))),
                                 pc.DecimalPrecision
                             )
                     );

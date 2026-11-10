@@ -8,6 +8,7 @@ using BLPPCounter.Utils.Safety;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Zenject;
 
 namespace BLPPCounter.Utils.Misc_Classes
 {
@@ -141,7 +142,7 @@ namespace BLPPCounter.Utils.Misc_Classes
         /// <param name="names">
         /// This is the headers for the table. It must be the same length as all the arrays inside <paramref name="values"/>.
         /// </param>
-        public Table(TextMeshProUGUI container, string[][] values, params string[] names)
+        internal Table(TextMeshProUGUI container, string[][] values, params string[] names)
         {
             //Set the vars to the vars :D
             Container = container;
@@ -172,14 +173,6 @@ namespace BLPPCounter.Utils.Misc_Classes
             if (Container.font.characterLookupTable[' '].glyph.metrics.width == 0)
                 Container.font.MakeSpacesHaveSpace();
         }
-
-        public Table(
-            TextMeshProUGUI container,
-            IEnumerable<KeyValuePair<string, string>> values,
-            string key,
-            string value
-        )
-            : this(container, values.Select(kvp => new string[2] { kvp.Key, kvp.Value }).ToArray(), key, value) { }
 
         public void SetValues(string[][] values)
         {
@@ -339,7 +332,7 @@ namespace BLPPCounter.Utils.Misc_Classes
             // --- Compute start of current column with spacer adjustments ---
             float aLength = GetLen("a");
             float columnStart = GetLen(Prefix + 'a') - aLength; // start after prefix
-            float spacer = GetLen('a' + Spacer + 'a') - 2 * aLength; // spacer width
+            float spacer = GetLen('a' + Spacer + 'a') - (2 * aLength); // spacer width
             for (int c = 0; c < column; c++)
                 columnStart += MaxLengths[c] + spacer;
             columnStart -= spacer;
@@ -347,7 +340,7 @@ namespace BLPPCounter.Utils.Misc_Classes
 
             // --- Column center X offset ---
             float xOffset =
-                -TableWidth / 2f + columnStart + (column >= Names.Length ? columnWidth : MaxLengths[column]) / 2f;
+                (-TableWidth / 2f) + columnStart + ((column >= Names.Length ? columnWidth : MaxLengths[column]) / 2f);
 
             // --- Add in the extra column ---
             if (columnName is not null)
@@ -370,7 +363,7 @@ namespace BLPPCounter.Utils.Misc_Classes
                 string text = labels != null && row - 2 < labels.Length ? labels[row - 2] : $"{row - 2}_{column}";
 
                 // Adjust X offset to center the button over the text
-                float buttonOffsetX = xOffset + (columnWidth - GetLen(text)) / 2f;
+                float buttonOffsetX = xOffset + ((columnWidth - GetLen(text)) / 2f);
 
                 // Instantiate button
                 Button btn = UnityEngine.Object.Instantiate(buttonPrefab, containerRT);
@@ -409,9 +402,15 @@ namespace BLPPCounter.Utils.Misc_Classes
                 CurrentButtonColumn = -1;
         }
 
-        private float GetLen(string str) => Container.GetPreferredValues(str).x;
+        private float GetLen(string str)
+        {
+            return Container.GetPreferredValues(str).x;
+        }
 
-        private float GetLenWithoutRich(string str) => GetLen(Regex.Replace(str, "<[^>]+>", "")); //Too simple to move to HelpfulRegex, will leave it here.
+        private float GetLenWithoutRich(string str)
+        {
+            return GetLen(Regex.Replace(str, "<[^>]+>", "")); //Too simple to move to HelpfulRegex, will leave it here.
+        }
 
         private float GetLenWithSpacers(string str)
         {
@@ -420,8 +419,9 @@ namespace BLPPCounter.Utils.Misc_Classes
             return GetLenWithoutRich(str) + addedSpace;
         }
 
-        private string GetRow(int rowIndex) =>
-            FormattingUpdated
+        private string GetRow(int rowIndex)
+        {
+            return FormattingUpdated
                 ? Prefix
                     + TableValues[rowIndex]
                         .Skip(1)
@@ -429,6 +429,7 @@ namespace BLPPCounter.Utils.Misc_Classes
                     + Suffix
                 : //If formatting is updated then a row is simply the Prefix + all table values combined (with a spacer between them) + Suffix.
                 FormatRow(rowIndex); //If formatting is not updated, then update the format :D.
+        }
 
         private string FormatRow(int rowIndex)
         {
@@ -556,8 +557,8 @@ namespace BLPPCounter.Utils.Misc_Classes
                         dashSize = realDashSize / dashCount; //The new size of dashSize, based on the size of the placed dashes.
                     }
                     dashCount = (int)Math.Ceiling(maxSpace / dashSize); //The amount of dashes.
-                } while (Math.Round(realDashSize - dashSize * dashCount, 2) != 0); //Checks if the calculated dash size equals the actual one within 2 decimals places.
-                float spaceLength = maxSpace - dashSize * dashCount; //The length in pixels that the spacer(s) need to be set to.
+                } while (Math.Round(realDashSize - (dashSize * dashCount), 2) != 0); //Checks if the calculated dash size equals the actual one within 2 decimals places.
+                float spaceLength = maxSpace - (dashSize * dashCount); //The length in pixels that the spacer(s) need to be set to.
 
                 if (HasEndColumn)
                     spaceLength /= 2; //If there is a suffix, divide by 2 since the spacing will be distributed between the front and back.
@@ -577,6 +578,29 @@ namespace BLPPCounter.Utils.Misc_Classes
             TableWidth = GetLenWithSpacers(rows[0]); //Sets the width of the table to the width of the top row. Because the shape of the table is a rectangle, this should be the width of all rows.
             TableHeight = Container.GetPreferredValues("|").y * rows.Length; //Sets the table height to the height of the tallest text multiplied by the number of rows.
             return rows.Aggregate((total, str) => total + str + '\n'); //Combine rows into one string and returns that string.
+        }
+
+        internal sealed class Factory : PlaceholderFactory<TextMeshProUGUI, string[][], IEnumerable<string>, Table>
+        {
+            public Table Create(TextMeshProUGUI mesh, string[][] values, params string[] names)
+            {
+                return base.Create(mesh, values, names);
+            }
+
+            public Table Create(
+                TextMeshProUGUI container,
+                IEnumerable<KeyValuePair<string, string>> values,
+                string key,
+                string value
+            )
+            {
+                return Create(
+                    container,
+                    values.Select(kvp => new string[2] { kvp.Key, kvp.Value }).ToArray(),
+                    key,
+                    value
+                );
+            }
         }
     }
 }

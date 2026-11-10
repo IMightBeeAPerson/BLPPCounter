@@ -9,9 +9,9 @@ namespace BLPPCounter.Utils.Misc_Classes
 #pragma warning disable CS4014 // Start calls inside of constructors do not need to be awaited
         private CancellationTokenSource cts = new();
         private Task loopTask = Task.CompletedTask;
-        private Action mainAction;
+        private Action? mainAction;
 
-        private TaskCompletionSource<bool> pauseTcs;
+        private TaskCompletionSource<bool>? pauseTcs;
 
         public bool IsPaused { get; set; }
         public int DelayMs { get; set; }

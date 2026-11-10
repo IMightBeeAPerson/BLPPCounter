@@ -12,6 +12,7 @@ using BLPPCounter.Utils.LangAddons;
 using BLPPCounter.Utils.Map_Utils;
 using BLPPCounter.Utils.Profile_Utils;
 using Newtonsoft.Json.Linq;
+using Zenject;
 using static GameplayModifiers;
 
 namespace BLPPCounter.Utils.API_Handlers
@@ -21,11 +22,12 @@ namespace BLPPCounter.Utils.API_Handlers
         internal static readonly Throttler Throttle = new(400, 60);
         private static readonly HashSet<string> UnrankedHashes = [];
 
-        private APAPI() { }
+        [Inject]
+        private readonly SSAPI ssApi = null!;
 
         public override string API_HASH => HelpfulPaths.SSAPI_DIFFS;
 
-        public override Task<(bool, HttpContent?)> CallAPI(
+        public override Task<HttpContent?> CallAPI(
             string path,
             bool quiet = false,
             bool forceNoHeader = false,
@@ -50,35 +52,62 @@ namespace BLPPCounter.Utils.API_Handlers
             return 0f;
         }
 
-        public override float[] GetRatings(
-            ICacheModel diffData,
-            SongSpeed speed = SongSpeed.Normal,
-            float modMult = 1
-        ) => [GetStarRating(diffData)];
+        public override float[] GetRatings(ICacheModel diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1)
+        {
+            return [GetStarRating(diffData)];
+        }
 
-        public override string GetSongName(ICacheModel diffData) =>
-            diffData is TaohCache taohCache ? taohCache.Name
-            : diffData is BlCacheEntry cacheEntry ? cacheEntry.SongInfo.SongName ?? ""
-            : "";
+        public override string GetSongName(ICacheModel diffData)
+        {
+            return diffData is TaohCache taohCache ? taohCache.Name
+                : diffData is BlCacheEntry cacheEntry ? cacheEntry.SongInfo.SongName ?? ""
+                : "";
+        }
 
-        public override string GetDiffName(ICacheModel diffData) => diffData.Difficulty.Name();
+        public override string GetDiffName(ICacheModel diffData)
+        {
+            return diffData.Difficulty.Name();
+        }
 
-        public override string GetLeaderboardId(ICacheModel diffData) => diffData.LeaderboardId;
+        public override string GetLeaderboardId(ICacheModel diffData)
+        {
+            return diffData.LeaderboardId;
+        }
 
-        public override string GetHash(ICacheModel diffData) => diffData.Hash;
+        public override string GetHash(ICacheModel diffData)
+        {
+            return diffData.Hash;
+        }
 
-        public override bool MapIsUsable(ICacheModel diffData) => diffData is not null && GetRatings(diffData)[0] > 0;
+        public override bool MapIsUsable(ICacheModel diffData, bool useUnranked)
+        {
+            return diffData is not null && GetRatings(diffData)[0] > 0;
+        }
 
-        public override bool AreRatingsNull(ICacheModel diffData) =>
-            diffData is not TaohCache taohCache || taohCache.ComplexityAccSaber is null;
+        public override bool AreRatingsNull(ICacheModel diffData)
+        {
+            return diffData is not TaohCache taohCache || taohCache.ComplexityAccSaber is null;
+        }
 
-        public override int GetMaxScore(ICacheModel diffData) => GetAPI(Leaderboards.Scoresaber).GetMaxScore(diffData);
+        public override int GetMaxScore(ICacheModel diffData)
+        {
+            return ssApi.GetMaxScore(diffData);
+        }
 
-        public override int GetRank(JToken scoreData) => (int)(scoreData["rank"] ?? -1);
+        public override int GetRank(JToken scoreData)
+        {
+            return (int)(scoreData["rank"] ?? -1);
+        }
 
-        public override string GetPlayerName(JToken scoreData) => scoreData["userName"]?.ToString() ?? "";
+        public override string GetPlayerName(JToken scoreData)
+        {
+            return scoreData["userName"]?.ToString() ?? "";
+        }
 
-        public override float GetAcc(JToken scoreData) => (float)(scoreData["accuracy"] ?? 0f);
+        public override float GetAcc(JToken scoreData)
+        {
+            return (float)(scoreData["accuracy"] ?? 0f);
+        }
 
         public override async Task<int> GetMaxScore(string hash, int diffNum, string modeName)
         {
@@ -97,16 +126,20 @@ namespace BLPPCounter.Utils.API_Handlers
             return (int)(outp.Children().First()["maxScore"] ?? -1);
         }
 
-        public override JToken SelectSpecificDiff(ICacheModel diffData, int diffNum, string modeName) =>
-            (JToken)diffData;
+        public override ICacheModel SelectSpecificDiff(ICacheModel diffData, int diffNum, string modeName)
+        {
+            return diffData;
+        }
 
-        public override async Task<string?> GetHashData(string hash, int diffNum) =>
-            await CallAPI_String(
+        public override async Task<string?> GetHashData(string hash, int diffNum)
+        {
+            return await CallAPI_String(
                     string.Format(HelpfulPaths.APAPI_HASH_DIFF, hash, PathUtils.DiffNumToReloadedDiff(diffNum)),
                     true,
                     maxRetries: 1
                 )
                 .ConfigureAwait(false);
+        }
 
         public override async Task<JToken?> GetScoreData(
             string userId,
@@ -132,9 +165,15 @@ namespace BLPPCounter.Utils.API_Handlers
             return JToken.Parse(dataStr);
         }
 
-        public override float GetPP(JToken scoreData) => (float)(scoreData["ap"] ?? 0);
+        public override float GetPP(JToken scoreData)
+        {
+            return (float)(scoreData["ap"] ?? 0);
+        }
 
-        public override int GetScore(JToken scoreData) => (int)(scoreData["baseScore"] ?? -1);
+        public override int GetScore(JToken scoreData)
+        {
+            return (int)(scoreData["baseScore"] ?? -1);
+        }
 
         private Task<Play[]> GetScores(string userId, int count, string path)
         {
@@ -177,11 +216,14 @@ namespace BLPPCounter.Utils.API_Handlers
             );
         }
 
-        public override Task<Play[]> GetScores(string userId, int count) =>
-            GetScores(userId, count, HelpfulPaths.APAPI_SCORES);
+        public override Task<Play[]> GetScores(string userId, int count)
+        {
+            return GetScores(userId, count, HelpfulPaths.APAPI_SCORES);
+        }
 
-        public Task<Play[]> GetScores(string userId, int count, APCategory accSaberType) =>
-            GetScores(
+        public Task<Play[]> GetScores(string userId, int count, APCategory accSaberType)
+        {
+            return GetScores(
                 userId,
                 count,
                 string.Format(
@@ -192,6 +234,7 @@ namespace BLPPCounter.Utils.API_Handlers
                     count
                 )
             );
+        }
 
         public override async Task<float> GetProfilePP(string userId)
         {
@@ -225,8 +268,10 @@ namespace BLPPCounter.Utils.API_Handlers
             return (float)(token["ap"] ?? 0f);
         }
 
-        public override Task<ScoregraphInfo[]> GetScoregraph(MapSelection ms, CancellationToken ct = default) =>
-            GetAPI(Leaderboards.Scoresaber).GetScoregraph(ms, ct);
+        public override Task<ScoregraphInfo[]> GetScoregraph(MapSelection ms, CancellationToken ct = default)
+        {
+            return ssApi.GetScoregraph(ms, ct);
+        }
 
         internal override async Task AddMap(Dictionary<string, Map> data, string hash, CancellationToken ct = default)
         {

@@ -39,7 +39,7 @@ namespace BLPPCounter.Counters
                 calc,
                 pc.DecimalPrecision,
                 2,
-                (rating, accuracy, in PPContainer main, ref PPContainer toChange, multiplier) =>
+                (rating, accuracy, in main, ref toChange, multiplier) =>
                     PPContainer.MultiplyFast(ref toChange, multiplier)
             )
             {

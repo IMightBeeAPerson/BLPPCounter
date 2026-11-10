@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.LangAddons;
 using Newtonsoft.Json;
 
 namespace BLPPCounter.Utils.Profile_Utils

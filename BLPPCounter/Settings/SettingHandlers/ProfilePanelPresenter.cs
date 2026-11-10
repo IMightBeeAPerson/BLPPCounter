@@ -21,6 +21,8 @@ namespace BLPPCounter.Settings.SettingHandlers
         private readonly PluginConfig _config;
         private readonly SessionListInfo.Factory _sessionListInfoFactory;
         private readonly IMainThreadDispatcher _dispatcher;
+        private readonly HelpfulFormatter _formatter;
+        private readonly Table.Factory _tableFactory;
         private readonly List<object> _sessionRows = [];
 
         private Profile? _profile;
@@ -45,7 +47,9 @@ namespace BLPPCounter.Settings.SettingHandlers
         public ProfilePanelPresenter(
             PluginConfig config,
             SessionListInfo.Factory sessionListInfoFactory,
-            IMainThreadDispatcher dispatcher
+            IMainThreadDispatcher dispatcher,
+            HelpfulFormatter formatter,
+            Table.Factory tableFactory
         )
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
@@ -54,6 +58,10 @@ namespace BLPPCounter.Settings.SettingHandlers
                 sessionListInfoFactory ?? throw new ArgumentNullException(nameof(sessionListInfoFactory));
 
             _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
+
+            _formatter = formatter ?? throw new ArgumentNullException(nameof(formatter));
+
+            _tableFactory = tableFactory ?? throw new ArgumentNullException(nameof(tableFactory));
         }
 
         public IReadOnlyList<object> SessionRows => _sessionRows;
@@ -394,7 +402,8 @@ namespace BLPPCounter.Settings.SettingHandlers
 
             if (_playTable is null)
             {
-                _playTable = new Table(_playTableText, values, headers) { HasEndColumn = true };
+                _playTable = _tableFactory.Create(_playTableText, values, headers);
+                _playTable.HasEndColumn = true;
             }
             else
             {
@@ -536,7 +545,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                     $"<color=#4AF>{play.MapKey}</color>",
                     play.Rank == 0
                         ? "<color=#777>Unknown</color>"
-                        : $"{HelpfulFormatter.GetWeightedRankColor(play.Rank)}" + $"#{play.Rank}</color>",
+                        : $"{_formatter.GetWeightedRankColor(play.Rank)}" + $"#{play.Rank}</color>",
                 ];
 
                 if (profile.IsAccSaberOverall)

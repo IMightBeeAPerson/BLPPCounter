@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,6 +11,7 @@ using BLPPCounter.Models.Base;
 using BLPPCounter.Models.MapModels;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils;
+using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Containers;
 using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.LangAddons;
@@ -19,8 +19,6 @@ using BLPPCounter.Utils.Map_Utils;
 using BLPPCounter.Utils.Misc_Classes;
 using BLPPCounter.Utils.Profile_Utils;
 using BLPPCounter.Utils.Safety;
-using BLPPCounter.Utils.TokenParser;
-using BLPPCounter.Utils.TokenParser.Printers;
 using CountersPlus.Counters.Custom;
 using TMPro;
 using Zenject;
@@ -55,9 +53,12 @@ namespace BLPPCounter
         private BLCalc beatLeaderCalculator = null!;
         private IBackgroundTaskRunner taskRunner = null!;
         private PluginConfig pc = null!;
+        private ILeaderboardApiProvider apiProvider = null!;
         private ICounterCatalog counterCatalog = null!;
         private ICounterFactory counterFactory = null!;
         private IFormatRegistry formatRegistry = null!;
+        private RatingContainer.Factory ratingFactory = null!;
+        private MapSelection.Factory mapFactory = null!;
 
 #if NEW_VERSION
         [Inject]
@@ -69,6 +70,7 @@ namespace BLPPCounter
             BeatmapObjectManager beatmapObjectManager,
             PlayerHeadAndObstacleInteraction obstacleInteraction,
             PluginConfig pluginConfig,
+            ILeaderboardApiProvider apiProvider,
             LeaderboardSelector leaderboardSelector,
             PathUtils pathUtils,
             IMapRepository mapRepository,
@@ -76,7 +78,9 @@ namespace BLPPCounter
             IBackgroundTaskRunner taskRunner,
             ICounterCatalog counterCatalog,
             ICounterFactory counterFactory,
-            IFormatRegistry formatRegistry
+            IFormatRegistry formatRegistry,
+            RatingContainer.Factory ratingFactory,
+            MapSelection.Factory mapFactory
         )
         {
             beatmap = beatmapLevel ?? throw new ArgumentNullException(nameof(beatmapLevel));
@@ -89,6 +93,7 @@ namespace BLPPCounter
                 beatmapObjectManager,
                 obstacleInteraction,
                 pluginConfig,
+                apiProvider,
                 leaderboardSelector,
                 pathUtils,
                 mapRepository,
@@ -96,7 +101,9 @@ namespace BLPPCounter
                 taskRunner,
                 counterCatalog,
                 counterFactory,
-                formatRegistry
+                formatRegistry,
+                ratingFactory,
+                mapFactory
             );
         }
 #else
@@ -108,6 +115,7 @@ namespace BLPPCounter
             BeatmapObjectManager beatmapObjectManager,
             PlayerHeadAndObstacleInteraction obstacleInteraction,
             PluginConfig pluginConfig,
+            ILeaderboardApiProvider apiProvider,
             LeaderboardSelector leaderboardSelector,
             PathUtils pathUtils,
             IMapRepository mapRepository,
@@ -115,7 +123,9 @@ namespace BLPPCounter
             IBackgroundTaskRunner taskRunner,
             ICounterCatalog counterCatalog,
             ICounterFactory counterFactory,
-            IFormatRegistry formatRegistry
+            IFormatRegistry formatRegistry,
+            RatingContainer.Factory ratingFactory,
+            MapSelection.Factory mapFactory
         )
         {
             beatmap = difficultyBeatmap ?? throw new ArgumentNullException(nameof(difficultyBeatmap));
@@ -126,6 +136,7 @@ namespace BLPPCounter
                 beatmapObjectManager,
                 obstacleInteraction,
                 pluginConfig,
+                apiProvider,
                 leaderboardSelector,
                 pathUtils,
                 mapRepository,
@@ -133,7 +144,9 @@ namespace BLPPCounter
                 taskRunner,
                 counterCatalog,
                 counterFactory,
-                formatRegistry
+                formatRegistry,
+                ratingFactory,
+                mapFactory
             );
         }
 #endif
@@ -144,6 +157,7 @@ namespace BLPPCounter
             BeatmapObjectManager beatmapObjectManager,
             PlayerHeadAndObstacleInteraction obstacleInteraction,
             PluginConfig pluginConfig,
+            ILeaderboardApiProvider apiProvider,
             LeaderboardSelector leaderboardSelector,
             PathUtils pathUtils,
             IMapRepository mapRepository,
@@ -151,7 +165,9 @@ namespace BLPPCounter
             IBackgroundTaskRunner taskRunner,
             ICounterCatalog counterCatalog,
             ICounterFactory counterFactory,
-            IFormatRegistry formatRegistry
+            IFormatRegistry formatRegistry,
+            RatingContainer.Factory ratingFactory,
+            MapSelection.Factory mapFactory
         )
         {
             mods = gameplayModifiers ?? throw new ArgumentNullException(nameof(gameplayModifiers));
@@ -163,6 +179,8 @@ namespace BLPPCounter
             wall = obstacleInteraction ?? throw new ArgumentNullException(nameof(obstacleInteraction));
 
             pc = pluginConfig ?? throw new ArgumentNullException(nameof(pluginConfig));
+
+            this.apiProvider = apiProvider ?? throw new ArgumentException(nameof(apiProvider));
 
             selector = leaderboardSelector ?? throw new ArgumentNullException(nameof(leaderboardSelector));
 
@@ -180,6 +198,10 @@ namespace BLPPCounter
             this.counterFactory = counterFactory ?? throw new ArgumentNullException(nameof(counterFactory));
 
             this.formatRegistry = formatRegistry ?? throw new ArgumentNullException(nameof(formatRegistry));
+
+            this.ratingFactory = ratingFactory ?? throw new ArgumentNullException(nameof(ratingFactory));
+
+            this.mapFactory = mapFactory ?? throw new ArgumentNullException(nameof(mapFactory));
         }
 
         #endregion
@@ -452,9 +474,15 @@ namespace BLPPCounter
                     cancellationToken.ThrowIfCancellationRequested();
 
 #if NEW_VERSION
-                    MapSelection selection = new(map, beatmapDiff.difficulty, mode, ratings, mods.songSpeed);
+                    MapSelection selection = mapFactory.Create(
+                        map,
+                        beatmapDiff.difficulty,
+                        mode,
+                        mods.songSpeed,
+                        ratings
+                    );
 #else
-                    MapSelection selection = new(map, beatmap.difficulty, mode, ratings, mods.songSpeed);
+                    MapSelection selection = mapFactory.Create(map, beatmap.difficulty, mode, mods.songSpeed, ratings);
 #endif
 
                     if (!selection.IsUsable)
@@ -479,7 +507,7 @@ namespace BLPPCounter
                     if (currentLeaderboard == Leaderboards.Beatleader)
                     {
                         await beatLeaderCalculator
-                            .SetCurve(LastMap.MapData.SongId, LastMap.MapSpeed)
+                            .SetCurve(LastMap.MapData.SongId, LastMap.MapSpeed, apiProvider)
                             .ConfigureAwait(false);
                     }
                 }
@@ -725,8 +753,10 @@ namespace BLPPCounter
             }
         }
 
-        public static int HandleWeirdNoteBehaviour(NoteData note, int maxCutscore) =>
-            ScoreModel.GetNoteScoreDefinition(HandleWeirdNoteBehaviour(note)).maxCutScore - maxCutscore;
+        public static int HandleWeirdNoteBehaviour(NoteData note, int maxCutscore)
+        {
+            return ScoreModel.GetNoteScoreDefinition(HandleWeirdNoteBehaviour(note)).maxCutScore - maxCutscore;
+        }
 
         public static NoteData.ScoringType HandleWeirdNoteBehaviour(NoteData note)
         {
@@ -805,9 +835,15 @@ namespace BLPPCounter
             theCounter = null;
         }
 
-        internal static void CancelCounter() => ForceOff?.Invoke();
+        internal static void CancelCounter()
+        {
+            ForceOff?.Invoke();
+        }
 
-        public static void ClearCounter() => LastMap = default;
+        public static void ClearCounter()
+        {
+            LastMap = default;
+        }
 
         public MapSelection GetDifficulty(
             Map map,
@@ -829,7 +865,7 @@ namespace BLPPCounter
                 return default;
             }
 
-            return new MapSelection(
+            return mapFactory.Create(
                 map,
                 difficulty,
                 mode,
@@ -849,47 +885,6 @@ namespace BLPPCounter
 
                 _ => BetterString.IsNullOrWhiteSpace(mainMode) ? Profile.DEFAULT_MODE : mainMode,
             };
-        }
-
-        internal static Formatter SetupDisplayFormatter(
-            string format,
-            FormatWrapper values,
-            Dictionary<string, char>? alias = null
-        )
-        {
-            Formatter outp = new(TokenParser.ParseTokens(format, alias), values);
-
-            outp.SurroundToken('z', "$", "</color>");
-            outp.PromiseValueForTokens();
-
-            return outp;
-        }
-
-        internal static Formatter SetupTargetFormatter(
-            string format,
-            FormatWrapper values,
-            Dictionary<string, char>? alias = null
-        )
-        {
-            Formatter outp = new(TokenParser.ParseTokens(format, alias), values);
-
-            outp.PromiseValueForTokens();
-
-            return outp;
-        }
-
-        internal static Formatter SetupPercentNeededFormatter(
-            string format,
-            FormatWrapper values,
-            Dictionary<string, char>? alias = null
-        )
-        {
-            Formatter outp = new(TokenParser.ParseTokens(format, alias), values);
-
-            outp.SurroundToken('c', "$", "</color>");
-            outp.PromiseValueForTokens();
-
-            return outp;
         }
 
         #endregion
@@ -942,9 +937,9 @@ namespace BLPPCounter
                 return false;
 
 #if NEW_VERSION
-            MapSelection currentMap = new(map, beatmapDiff.difficulty, mode, ratings, mods.songSpeed);
+            MapSelection currentMap = mapFactory.Create(map, beatmapDiff.difficulty, mode, mods.songSpeed, ratings);
 #else
-            MapSelection currentMap = new(map, beatmap.difficulty, mode, ratings, mods.songSpeed);
+            MapSelection currentMap = mapFactory.Create(map, beatmap.difficulty, mode, mods.songSpeed, ratings);
 #endif
 
             if (!currentMap.IsUsable)
@@ -954,7 +949,9 @@ namespace BLPPCounter
 
             if (Leaderboard == Leaderboards.Beatleader && (ratingDifference || difficultyDifference))
             {
-                await beatLeaderCalculator.SetCurve(LastMap.MapData.SongId, LastMap.MapSpeed).ConfigureAwait(false);
+                await beatLeaderCalculator
+                    .SetCurve(LastMap.MapData.SongId, LastMap.MapSpeed, apiProvider)
+                    .ConfigureAwait(false);
             }
 
             if (difficultyDifference)
@@ -1095,7 +1092,7 @@ namespace BLPPCounter
                 return false;
             }
 
-            ratings = RatingContainer.GetContainer(Leaderboard, loadedRatings);
+            ratings = ratingFactory.Create(Leaderboard, loadedRatings);
 
             return true;
         }

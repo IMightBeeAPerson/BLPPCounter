@@ -33,8 +33,8 @@ namespace BLPPCounter.Utils.Serializable_Classes
             string oldAliasName
         )
         {
-            if (!TheCounter.DisplayNameToCounter.ContainsKey(counterName))
-                throw new ArgumentException("The counter name given doesn't exist.");
+            //if (!TheCounter.DisplayNameToCounter.ContainsKey(counterName)) // TODO
+            //    throw new ArgumentException("The counter name given doesn't exist.");
 
             CounterName = counterName;
             FormatName = formatName;
@@ -73,12 +73,18 @@ namespace BLPPCounter.Utils.Serializable_Classes
             IEnumerable<CustomAlias> aliases,
             Dictionary<string, char> aliasConverter,
             string counterName
-        ) => ChangeAliases(aliases, aliasConverter, counterName, false);
+        )
+        {
+            ChangeAliases(aliases, aliasConverter, counterName, false);
+        }
 
         internal static void ApplyAliases(
             IEnumerable<CustomAlias> aliases,
             Dictionary<(string, string), FormatRelation> relations
-        ) => ApplyAliases(aliases, relations.Values);
+        )
+        {
+            ApplyAliases(aliases, relations.Values);
+        }
 
         internal static void ApplyAliases(IEnumerable<CustomAlias> aliases, IEnumerable<FormatRelation> relations)
         {
@@ -99,7 +105,10 @@ namespace BLPPCounter.Utils.Serializable_Classes
             IEnumerable<CustomAlias> aliases,
             Dictionary<string, char> aliasConverter,
             string counterName
-        ) => ChangeAliases(aliases, aliasConverter, counterName, true);
+        )
+        {
+            ChangeAliases(aliases, aliasConverter, counterName, true);
+        }
 
         internal static void RemoveAliases(
             IEnumerable<CustomAlias> aliases,
@@ -116,13 +125,19 @@ namespace BLPPCounter.Utils.Serializable_Classes
             }
         }
 
-        internal static void RemoveAliases(IEnumerable<CustomAlias> aliases, IEnumerable<FormatRelation> relations) =>
+        internal static void RemoveAliases(IEnumerable<CustomAlias> aliases, IEnumerable<FormatRelation> relations)
+        {
             RemoveAliases(aliases, relations.ToDictionary(fr => fr.GetKey));
+        }
 
-        internal static void RemoveAliases(IEnumerable<CustomAlias> aliases, FormatRelation relation) =>
+        internal static void RemoveAliases(IEnumerable<CustomAlias> aliases, FormatRelation relation)
+        {
             RemoveAliases(aliases, relation.Alias, relation.CounterName);
+        }
 
-        public override readonly string ToString() =>
-            $"For {CounterName} counter, replace the default alias for the variable '{AliasCharacter}' to be \"{AliasName}\"";
+        public override readonly string ToString()
+        {
+            return $"For {CounterName} counter, replace the default alias for the variable '{AliasCharacter}' to be \"{AliasName}\"";
+        }
     }
 }

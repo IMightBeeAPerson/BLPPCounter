@@ -361,7 +361,11 @@ namespace BLPPCounter.Counters
 
                 if (targetPp > 0f)
                 {
-                    _accuracyToBeat = calc.GetAcc(targetPp, ratings, pc.DecimalPrecision);
+                    _accuracyToBeat = calc.GetAcc(
+                        targetPp,
+                        ratings.GetRatings(CurrentLeaderboard),
+                        pc.DecimalPrecision
+                    );
                 }
                 else
                 {
@@ -385,7 +389,11 @@ namespace BLPPCounter.Counters
 
                     float sourcePp = calc.GetSummedPp(accuracy.Value, sourceRatings);
 
-                    _accuracyToBeat = calc.GetAccDeflated(sourcePp, ratings, pc.DecimalPrecision);
+                    _accuracyToBeat = calc.GetAccDeflated(
+                        sourcePp,
+                        ratings.GetRatings(CurrentLeaderboard),
+                        pc.DecimalPrecision
+                    );
                 }
 
                 _staticAccuracyToBeat = _accuracyToBeat;
@@ -699,7 +707,7 @@ namespace BLPPCounter.Counters
                 ? _beatLeaderCalculator.GetAccDeflatedUnsafe(
                     _replayPpValues.AccPP + _replayPpValues.PassPP + _replayPpValues.TechPP,
                     pc.DecimalPrecision,
-                    ratings.SelectedRatings,
+                    ratings.GetRatings(CurrentLeaderboard),
                     _accuracyToBeat / 100f
                 )
                 : (float)Math.Round(_replayScore / _maximumReplayScore * 100f, pc.DecimalPrecision);

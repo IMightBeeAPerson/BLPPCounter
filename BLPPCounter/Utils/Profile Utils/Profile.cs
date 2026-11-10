@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.LangAddons;
 
 namespace BLPPCounter.Utils.Profile_Utils
 {
@@ -117,7 +118,7 @@ namespace BLPPCounter.Utils.Profile_Utils
         {
             lock (_stateLock)
             {
-                return new ProfileSnapshot(Key, _totalPp, _plusOne, _pageNumber, _scores.ToArray());
+                return new ProfileSnapshot(Key, _totalPp, _plusOne, _pageNumber, [.. _scores]);
             }
         }
 
@@ -523,7 +524,7 @@ namespace BLPPCounter.Utils.Profile_Utils
 
             while (low < high)
             {
-                int middle = low + (high - low) / 2;
+                int middle = low + ((high - low) / 2);
 
                 if (_scores[middle].Pp >= rawPp)
                     low = middle + 1;
@@ -541,7 +542,7 @@ namespace BLPPCounter.Utils.Profile_Utils
 
             while (low < high)
             {
-                int middle = low + (high - low) / 2;
+                int middle = low + ((high - low) / 2);
 
                 if (_weightedScores[middle] >= weightedPp)
                 {
@@ -592,7 +593,7 @@ namespace BLPPCounter.Utils.Profile_Utils
                 {
                     if (currentIndex != ignoredScore)
                     {
-                        offset += _weightedScores[currentIndex] - _scores[currentIndex].Pp * currentWeight;
+                        offset += _weightedScores[currentIndex] - (_scores[currentIndex].Pp * currentWeight);
                     }
 
                     currentWeight = GetNextWeight(currentWeight);
@@ -609,7 +610,7 @@ namespace BLPPCounter.Utils.Profile_Utils
                     weightedSum -= _weightedScores[currentIndex];
                 }
 
-                result = Round(weightedPp - (1f - GetWeight(2)) * weightedSum);
+                result = Round(weightedPp - ((1f - GetWeight(2)) * weightedSum));
             }
 
             return result < 0f ? 0f : result;
@@ -630,7 +631,7 @@ namespace BLPPCounter.Utils.Profile_Utils
 
             float weightedSum = _totalPp;
 
-            while (index < _weightedScores.Length && _weightedScores[index] - shiftWeight * weightedSum >= 1f)
+            while (index < _weightedScores.Length && _weightedScores[index] - (shiftWeight * weightedSum) >= 1f)
             {
                 weightedSum -= _weightedScores[index];
 
@@ -642,7 +643,7 @@ namespace BLPPCounter.Utils.Profile_Utils
                 return 0f;
             }
 
-            return Round((1f + shiftWeight * weightedSum) / GetWeight(index + 1));
+            return Round((1f + (shiftWeight * weightedSum)) / GetWeight(index + 1));
         }
 
         private float CalculateAccSaberPlusOne()
@@ -661,11 +662,11 @@ namespace BLPPCounter.Utils.Profile_Utils
 
             for (; index > 0; index--)
             {
-                totalOffset += _weightedScores[index] - _scores[index].Pp * currentWeight;
+                totalOffset += _weightedScores[index] - (_scores[index].Pp * currentWeight);
 
                 currentWeight = GetPreviousWeight(currentWeight);
 
-                if (_scores[index - 1].Pp * currentWeight - totalOffset >= 1f)
+                if ((_scores[index - 1].Pp * currentWeight) - totalOffset >= 1f)
                 {
                     break;
                 }
@@ -695,7 +696,7 @@ namespace BLPPCounter.Utils.Profile_Utils
             {
                 Leaderboards.Beatleader or Leaderboards.Scoresaber => lastWeight * 0.965f,
 
-                Leaderboards.Accsaber => 1f / (1.49182469764f / lastWeight - AccSaberConstants[2]),
+                Leaderboards.Accsaber => 1f / ((1.49182469764f / lastWeight) - AccSaberConstants[2]),
 
                 _ => lastWeight,
             };
@@ -707,7 +708,7 @@ namespace BLPPCounter.Utils.Profile_Utils
             {
                 Leaderboards.Beatleader or Leaderboards.Scoresaber => lastWeight / 0.965f,
 
-                Leaderboards.Accsaber => 1f / (1f / (1.49182469764f * lastWeight) - AccSaberConstants[3]),
+                Leaderboards.Accsaber => 1f / ((1f / (1.49182469764f * lastWeight)) - AccSaberConstants[3]),
 
                 _ => lastWeight,
             };
@@ -761,7 +762,7 @@ namespace BLPPCounter.Utils.Profile_Utils
 
             float[] constants = new float[4];
 
-            constants[0] = (float)(-Math.Log((1d - y1) / (y1 * Math.Exp(k * x1) - 1d)) / k);
+            constants[0] = (float)(-Math.Log((1d - y1) / ((y1 * Math.Exp(k * x1)) - 1d)) / k);
 
             constants[1] = 1f + (float)Math.Exp(-k * constants[0]);
 

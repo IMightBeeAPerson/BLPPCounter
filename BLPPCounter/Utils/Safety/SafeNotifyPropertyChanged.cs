@@ -8,7 +8,7 @@ namespace BLPPCounter.Utils.Safety
     /// <summary>
     /// Raises property change notifications on Unity's main thread.
     /// </summary>
-    internal abstract class SafeNotifyPropertyChanged : INotifyPropertyChanged
+    public abstract class SafeNotifyPropertyChanged : INotifyPropertyChanged
     {
         protected IMainThreadDispatcher Dispatcher { get; private set; } = null!;
 

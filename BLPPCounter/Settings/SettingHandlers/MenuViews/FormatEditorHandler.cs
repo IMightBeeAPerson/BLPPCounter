@@ -4,6 +4,7 @@ using System.Linq;
 using BeatSaberMarkupLanguage.Attributes;
 using BeatSaberMarkupLanguage.Components;
 using BeatSaberMarkupLanguage.Components.Settings;
+using BeatSaberMarkupLanguage.ViewControllers;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Helpfuls.FormatHelpers;
 using BLPPCounter.Settings.Configs;
@@ -21,15 +22,17 @@ using Zenject;
 
 namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 {
-    [ViewDefinition("BLPPCounter.Settings.BSML.MenuComponents.MenuFormatSettings.bsml")]
-    [HotReload(RelativePathToLayout = @"..\..\BSML\MenuComponents\MenuFormatSettings.bsml")]
-    internal sealed class FormatEditorHandler : BSMLSafeAutomaticViewController
+    internal sealed class FormatEditorHandler : BSMLResourceViewController
     {
 #pragma warning disable IDE0044, CS0649, IDE0051
 
         private PluginConfig _config = null!;
         private IFormatRegistry _formatRegistry = null!;
         private MenuSettingsHandler _menuSettingsHandler = null!;
+        private Tokens _tokens = null!;
+        private FormatListInfo.Factory _formatFactory = null!;
+        private MainThreadDispatcher _dispatcher = null!;
+        private Table.Factory _tableFactory = null!;
 
         private bool _loaded;
         private bool _saveable;
@@ -48,7 +51,11 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         private void Construct(
             PluginConfig config,
             IFormatRegistry formatRegistry,
-            MenuSettingsHandler menuSettingsHandler
+            MenuSettingsHandler menuSettingsHandler,
+            Tokens tokens,
+            FormatListInfo.Factory formatFactory,
+            MainThreadDispatcher dispatcher,
+            Table.Factory tableFactory
         )
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
@@ -56,9 +63,19 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             _formatRegistry = formatRegistry ?? throw new ArgumentNullException(nameof(formatRegistry));
 
             _menuSettingsHandler = menuSettingsHandler ?? throw new ArgumentNullException(nameof(menuSettingsHandler));
+
+            _tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
+
+            _formatFactory = formatFactory ?? throw new ArgumentNullException(nameof(formatFactory));
+
+            _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
+
+            _tableFactory = tableFactory ?? throw new ArgumentNullException(nameof(tableFactory));
         }
 
         public bool IsLoaded => _loaded;
+
+        public override string ResourceName => "BLPPCounter.Settings.BSML.MenuComponents.MenuFormatSettings.bsml";
 
         private FormatRelation CurrentFormatInfo
         {
@@ -269,7 +286,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 
             Dictionary<string, char> aliases = [with(relation.Alias)];
 
-            foreach (KeyValuePair<string, char> alias in Tokens.GlobalAliases)
+            foreach (KeyValuePair<string, char> alias in _tokens.GlobalAliases)
             {
                 aliases[alias.Key] = alias.Value;
             }
@@ -278,7 +295,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 
             FormattedText.text = RemovePossibleErrorText(relation.GetQuickFormat());
 
-            RawFormatText.text = FormatListInfo.ColorFormat(relation.Format.Replace("\n", "\\n"));
+            RawFormatText.text = _formatFactory.ColorFormat(relation.Format.Replace("\n", "\\n"));
         }
 
         internal void LoadMenu()
@@ -287,8 +304,6 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                 return;
 
             _loaded = true;
-
-            FormatListInfo.InitStaticActions(_formatChunks, () => UpdateFormatTable(), () => UpdatePreviewDisplay());
 
             if (CounterNames.Count == 0)
             {
@@ -304,7 +319,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 
         #region Format Editor
 
-        private void UpdateFormatTable(bool forceUpdate = false)
+        internal void UpdateFormatTable(bool forceUpdate = false)
         {
             if (!forceUpdate && !_config.UpdatePreview)
             {
@@ -502,7 +517,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         [UIAction(nameof(AddBottomChunk))]
         private void AddBottomChunk()
         {
-            FormatListInfo newItem = FormatListInfo.DefaultVal;
+            FormatListInfo newItem = _formatFactory.Create(_formatChunks);
 
             if (_formatChunks.LastOrDefault() is FormatListInfo previous)
             {
@@ -516,7 +531,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
         [UIAction(nameof(AddTopChunk))]
         private void AddTopChunk()
         {
-            FormatListInfo newItem = FormatListInfo.DefaultVal;
+            FormatListInfo newItem = _formatFactory.Create(_formatChunks);
 
             _formatChunks.Insert(0, newItem);
 
@@ -539,7 +554,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             if (selectedIndex < 0)
                 return;
 
-            FormatListInfo newItem = FormatListInfo.DefaultVal;
+            FormatListInfo newItem = _formatFactory.Create(_formatChunks);
 
             if (selectedIndex > 0 && _formatChunks[selectedIndex - 1] is FormatListInfo previous)
             {
@@ -565,7 +580,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             if (selectedIndex < 0)
                 return;
 
-            FormatListInfo newItem = FormatListInfo.DefaultVal;
+            FormatListInfo newItem = _formatFactory.Create(_formatChunks);
 
             newItem.AboveInfo = _lastSelectedInfo;
 
@@ -622,7 +637,9 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
             _formatChunks.Clear();
 
             _formatChunks.AddRange(
-                FormatListInfo.InitAllFromChunks(FormatListInfo.ChunkItAll(currentFormat)).Cast<object>()
+                _formatFactory
+                    .InitAllFromChunks(_formatChunks, FormatListInfo.ChunkItAllSafe(currentFormat, _formatFactory))
+                    .Cast<object>()
             );
 
             _lastSelectedInfo = null;
@@ -635,7 +652,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 
             Dictionary<char, string> reversedAliases = CurrentFormatInfo.Alias.Swap();
 
-            _aliasTable = new Table(
+            _aliasTable = _tableFactory.Create(
                 AliasTable,
                 CurrentFormatInfo.Descriptions.Select(pair => new KeyValuePair<string, string>(
                     reversedAliases.TryGetValue(pair.Key, out string? alias) ? alias : pair.Key.ToString(),
@@ -645,7 +662,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
                 "Descriptions"
             );
 
-            Dispatcher.EnqueueAction(() => _aliasTable.UpdateTable());
+            _dispatcher.EnqueueAction(() => _aliasTable.UpdateTable());
         }
 
         [UIAction(nameof(SaveFormatToConfig))]
@@ -714,11 +731,11 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuViews
 
             foreach (char token in testValues.Keys)
             {
-                object rawValue = testValues[token];
+                object? rawValue = testValues[token];
 
-                bool isWrapper = rawValue.GetType().IsGenericType;
+                bool isWrapper = rawValue?.GetType().IsGenericType ?? false;
 
-                object value = isWrapper ? ((Func<object>)rawValue).Invoke() : rawValue;
+                object value = (isWrapper ? ((Func<object>)rawValue!).Invoke() : rawValue) ?? new();
 
                 values.Add(
                     new ValueListInfo(

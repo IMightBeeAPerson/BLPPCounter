@@ -15,6 +15,10 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
         private readonly object _sync = new();
         private readonly PluginConfig _config;
+        private readonly Tokens _token;
+        private readonly HelpfulFormatter _formatter;
+        private readonly Formatter.Factory _formatFactory;
+        private readonly TokenParser _tokenParser;
 
         private readonly FormatWrapper _displayWrapper;
         private readonly FormatWrapper _targetWrapper;
@@ -30,9 +34,23 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
         private readonly FormatRelation[] _relations;
 
-        public MainCounterFormattingService(PluginConfig config)
+        public MainCounterFormattingService(
+            PluginConfig config,
+            Tokens token,
+            HelpfulFormatter formatter,
+            Formatter.Factory formatFactory,
+            TokenParser tokenParser
+        )
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
+
+            _token = token ?? throw new ArgumentNullException(nameof(token));
+
+            _formatter = formatter ?? throw new ArgumentNullException(nameof(formatter));
+
+            _formatFactory = formatFactory ?? throw new ArgumentNullException(nameof(formatFactory));
+
+            _tokenParser = tokenParser ?? throw new ArgumentNullException(nameof(tokenParser));
 
             DisplayAlias = new Dictionary<string, char>
             {
@@ -347,7 +365,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
 
         private Formatter SetupDisplayFormatter(string format, FormatWrapper values, Dictionary<string, char> aliases)
         {
-            Formatter formatter = new(TokenParser.ParseTokens(format, aliases), values);
+            Formatter formatter = _formatFactory.Create(_tokenParser.ParseTokens(format, aliases), values);
 
             formatter.SurroundToken('z', "$", "</color>");
 
@@ -355,25 +373,21 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             return formatter;
         }
 
-        private static Formatter SetupTargetFormatter(
-            string format,
-            FormatWrapper values,
-            Dictionary<string, char> aliases
-        )
+        private Formatter SetupTargetFormatter(string format, FormatWrapper values, Dictionary<string, char> aliases)
         {
-            Formatter formatter = new(TokenParser.ParseTokens(format, aliases), values);
+            Formatter formatter = _formatFactory.Create(_tokenParser.ParseTokens(format, aliases), values);
 
             formatter.PromiseValueForTokens();
             return formatter;
         }
 
-        private static Formatter SetupPercentNeededFormatter(
+        private Formatter SetupPercentNeededFormatter(
             string format,
             FormatWrapper values,
             Dictionary<string, char> aliases
         )
         {
-            Formatter formatter = new(TokenParser.ParseTokens(format, aliases), values);
+            Formatter formatter = _formatFactory.Create(_tokenParser.ParseTokens(format, aliases), values);
 
             formatter.SurroundToken('c', "$", "</color>");
 
@@ -410,7 +424,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                         { 'l', " PP" },
                     }
                 ),
-                Tokens.GLOBAL_PARAM_AMOUNT,
+                _token.GLOBAL_PARAM_AMOUNT,
                 new Dictionary<char, int> { { 'z', 0 } },
                 [FormatRelation.CreateFunc("<color={0}>{0}", "<color={0}>")],
                 new Dictionary<char, IEnumerable<(string, object)>>
@@ -437,7 +451,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                 },
                 FormatRelation.FormatDisplayer(SetupTargetFormatter, TargetAlias),
                 new FormatWrapper(new Dictionary<char, object> { { 't', "Person" }, { 'm', "SF" } }),
-                Tokens.GLOBAL_PARAM_AMOUNT,
+                _token.GLOBAL_PARAM_AMOUNT,
                 null,
                 null,
                 null
@@ -473,7 +487,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                         { 'p', 543.21f },
                     }
                 ),
-                Tokens.GLOBAL_PARAM_AMOUNT,
+                _token.GLOBAL_PARAM_AMOUNT,
                 new Dictionary<char, int> { { 'c', 0 }, { 'a', 1 } },
                 [
                     FormatRelation.CreateFuncWithWrapper("<color={0}>{0}", "<color={0}>"),

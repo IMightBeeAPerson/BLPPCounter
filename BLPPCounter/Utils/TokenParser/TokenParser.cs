@@ -1,16 +1,25 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BLPPCounter.Helpfuls;
 using BLPPCounter.Utils.TokenParser.FormatTypes;
 
 namespace BLPPCounter.Utils.TokenParser
 {
-    internal static class TokenParser
+    internal class TokenParser
     {
-#nullable enable
-        private static Dictionary<string, char>? aliasConverter = null;
+        private readonly HelpfulFormatter formatter;
+        private readonly Tokens token;
 
-        internal static bool ParseTokens(
+        private Dictionary<string, char>? aliasConverter = null;
+
+        public TokenParser(HelpfulFormatter formatter, Tokens token)
+        {
+            this.formatter = formatter;
+            this.token = token;
+        }
+
+        internal bool ParseTokens(
             string toParse,
             out string errorMessage,
             out Chunk[] tokens,
@@ -31,10 +40,10 @@ namespace BLPPCounter.Utils.TokenParser
             }
         }
 
-        internal static Chunk[] ParseTokens(string toParse, Dictionary<string, char>? aliasConverter = null)
+        internal Chunk[] ParseTokens(string toParse, Dictionary<string, char>? aliasConverter = null)
         {
             //Plugin.Log.Info("Parsing format: " + toParse);
-            TokenParser.aliasConverter = aliasConverter;
+            this.aliasConverter = aliasConverter;
             List<Chunk> outp = [];
             char[] strChars = toParse.ToCharArray();
             int index = 0,
@@ -46,14 +55,14 @@ namespace BLPPCounter.Utils.TokenParser
                         "Formatter got stuck in loop, most likely due to trailing group brackets."
                     );
                 lastIndex = index;
-                if (toParse[0].Closer())
+                if (token.Closer(toParse[0]))
                     throw new FormatException("There are unbalanced brackets inside of this format.");
                 DoLoop(outp, strChars, ref index);
             }
             return [.. outp];
         }
 
-        private static string ReadUntil(char[] arr, ref int index, char stopAt)
+        private string ReadUntil(char[] arr, ref int index, char stopAt)
         {
             if (index >= arr.Length)
                 return "";
@@ -65,7 +74,7 @@ namespace BLPPCounter.Utils.TokenParser
             return outp;
         }
 
-        private static void DoLoop(
+        private void DoLoop(
             List<Chunk> outp,
             char[] arr,
             ref int index,
@@ -88,84 +97,79 @@ namespace BLPPCounter.Utils.TokenParser
                 throw new FormatException($"Parser failed to advance at index {index}.");
         }
 
-        private static string ReadChunk(char[] arr, ref int index)
+        private string ReadChunk(char[] arr, ref int index)
         {
-            if (index >= arr.Length || Tokens.SPECIAL_TOKENS.Contains(arr[index]))
+            if (index >= arr.Length || token.SPECIAL_TOKENS.Contains(arr[index]))
                 return "";
             int count = 0;
-            while (index + count < arr.Length && !Tokens.SPECIAL_TOKENS.Contains(arr[index + count]))
+            while (index + count < arr.Length && !token.SPECIAL_TOKENS.Contains(arr[index + count]))
                 count++;
             string outp = new(arr, index, count);
             index += count;
             return outp;
         }
 
-        private static Chunk? ReadSpecial(
-            char[] arr,
-            ref int index,
-            char groupSymbol,
-            bool parsingRich,
-            char expectedCloser
-        )
+        private Chunk? ReadSpecial(char[] arr, ref int index, char groupSymbol, bool parsingRich, char expectedCloser)
         {
             if (index >= arr.Length)
                 return null;
             char special = arr[index];
             if (special == expectedCloser)
                 return null;
-            if (special == Tokens.RICH_SHORT)
+            if (special == token.RICH_SHORT)
                 return ParseRichText(arr, ref index, groupSymbol, parsingRich);
             index++;
             char symbol = '\0';
             Parameter? parameter = null;
-            if (special.UsesSymbol())
+            if (token.UsesSymbol(special))
             {
                 symbol = arr[index];
-                if (symbol == Tokens.ALIAS)
+                if (symbol == token.ALIAS)
                     symbol = ReadAlias(arr, ref index);
                 else
                     index++;
-                if (index < arr.Length && arr[index] == Tokens.PARAM_OPEN)
+                if (index < arr.Length && arr[index] == token.PARAM_OPEN)
                     parameter = ParseParameters(symbol, arr, ref index);
             }
-            if (special.UsesContent())
+            if (token.UsesContent(special))
             {
                 List<Chunk> content = [];
-                char closer = special.GetCloser();
+                char closer = token.GetCloser(special);
                 while (index < arr.Length && arr[index] != closer)
                     DoLoop(content, arr, ref index, symbol, expectedCloser: closer);
                 if (index >= arr.Length || arr[index] != closer)
                     throw new FormatException("There are unbalanced brackets inside of this format.");
                 index++;
-                Chunk outp = special.ToChunk(symbol, content)!;
+                Chunk outp = token.ToChunk(special, symbol, content)!;
                 return parameter is null ? outp : new GroupParameter(symbol, parameter, (Group)outp);
             }
             if (parameter is not null)
                 return parameter;
-            if (special == Tokens.INSERT_SELF)
-                return groupSymbol == '\0' ? new Chunk($"{Tokens.INSERT_SELF}") : special.ToChunk(groupSymbol);
-            return special.ToChunk(symbol);
+            if (special == token.INSERT_SELF)
+                return groupSymbol == '\0' ? new Chunk($"{token.INSERT_SELF}") : token.ToChunk(special, groupSymbol);
+            return token.ToChunk(special, symbol);
         }
 
-        private static Parameter ParseParameters(char symbol, char[] arr, ref int index)
+        private Parameter ParseParameters(char symbol, char[] arr, ref int index)
         {
-            if (arr[index] != Tokens.PARAM_OPEN)
+            if (arr[index] != token.PARAM_OPEN)
                 throw new FormatException("Parameters must start with a parameter open token.");
             index++;
             int start = index;
-            string raw = ReadUntil(arr, ref index, Tokens.PARAM_CLOSE);
+            string raw = ReadUntil(arr, ref index, token.PARAM_CLOSE);
 
-            static Token ResolveAlias(string alias)
+            Token ResolveAlias(string alias)
             {
                 int index = 0;
                 return new Token(ReadAlias(alias.ToCharArray(), ref index));
             }
+
             Chunk[] outp =
             [
-                .. raw.Split(Tokens.DELIMITER)
+                .. raw.Split(token.DELIMITER)
                     .Select(str =>
                         str.Length > 1
-                            ? str[0] == Tokens.ALIAS
+                            ? str[0] == token.ALIAS
                                 ? ResolveAlias(str)
                                 : new Chunk(str)
                             : new Token(str[0])
@@ -178,40 +182,42 @@ namespace BLPPCounter.Utils.TokenParser
             return new Parameter(symbol, outp);
         }
 
-        private static char ReadAlias(char[] arr, ref int index)
+        private char ReadAlias(char[] arr, ref int index)
         {
-            if (arr[index] != Tokens.ALIAS)
+            if (arr[index] != token.ALIAS)
                 throw new FormatException("Alias must start with an alias token.");
             if (index >= arr.Length)
                 throw new FormatException($"Alias indicator at end of format (index {index}).");
             index++;
             string alias = ReadChunk(arr, ref index);
             index++;
+
             if (aliasConverter is null)
                 throw new ArgumentException("No alias dictionary was provided while aliases were used in the format.");
+
             if (!aliasConverter.TryGetValue(alias, out char outp))
-                if (!Tokens.GlobalAliases.TryGetValue(alias, out outp))
+                if (!token.GlobalAliases.TryGetValue(alias, out outp))
                     throw new KeyNotFoundException(
-                        $"The alias '{alias}' was not found in the provided alias dictionary nor the global alias dictionary."
+                        $"The alias '{alias}' was not found in the provided alias dictionary nor the global alias dictionary.\n{aliasConverter.Print()}"
                     );
             return outp;
         }
 
-        private static RichText? ParseRichText(char[] arr, ref int index, char groupSymbol, bool parsingRich)
+        private RichText? ParseRichText(char[] arr, ref int index, char groupSymbol, bool parsingRich)
         {
             if (parsingRich)
                 return null;
             string[] hold;
             List<Chunk> content = [];
             index++;
-            while (index < arr.Length && arr[index] != Tokens.RICH_SHORT)
+            while (index < arr.Length && arr[index] != token.RICH_SHORT)
                 DoLoop(content, arr, ref index, groupSymbol, true);
             index++;
-            hold = Chunk.Combine(content).Split(Tokens.DELIMITER);
+            hold = Chunk.Combine(content).Split(token.DELIMITER);
             content.Clear();
             if (hold[0].Length == 1)
-                hold[0] = Tokens.LookupRichKey(hold[0][0]);
-            while (index < arr.Length && arr[index] != Tokens.RICH_SHORT)
+                hold[0] = token.LookupRichKey(hold[0][0]);
+            while (index < arr.Length && arr[index] != token.RICH_SHORT)
                 DoLoop(content, arr, ref index, groupSymbol, true);
             index++;
             return new RichText(hold[0], hold[1], content);

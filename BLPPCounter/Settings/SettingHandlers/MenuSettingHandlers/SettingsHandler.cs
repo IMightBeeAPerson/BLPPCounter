@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using BeatSaberMarkupLanguage.Attributes;
@@ -39,6 +40,10 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         private readonly AsyncLock _customInputLock = new();
         private readonly ICounterCatalog _counterCatalog;
         private readonly IClanService _clanService;
+        private readonly HttpClient _client;
+        private readonly ILeaderboardApiProvider _apiProvider;
+
+        private readonly HelpfulFormatter _formatter;
         private readonly List<object> _clanTargetInfos = [];
         private readonly List<object> _followerTargetInfos = [];
         private readonly List<object> _customTargetInfos = [];
@@ -68,7 +73,10 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
             IBackgroundTaskRunner taskRunner,
             LazyInject<PpInfoTabHandler> ppInfoTabHandler,
             ICounterCatalog counterCatalog,
-            IClanService clanService
+            IClanService clanService,
+            HttpClient client,
+            HelpfulFormatter formatter,
+            ILeaderboardApiProvider apiProvider
         )
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
@@ -89,6 +97,12 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
             _counterCatalog = counterCatalog ?? throw new ArgumentNullException(nameof(counterCatalog));
 
             _clanService = clanService ?? throw new ArgumentNullException(nameof(clanService));
+
+            _client = client ?? throw new ArgumentNullException(nameof(client));
+
+            _formatter = formatter ?? throw new ArgumentNullException(nameof(formatter));
+
+            _apiProvider = apiProvider ?? throw new ArgumentNullException(nameof(apiProvider));
 
             OnTypesOfPPChanged += HandleTypesOfPpChanged;
 
@@ -227,7 +241,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
                     break;
 
                 case nameof(DecimalPrecision):
-                    HelpfulFormatter.NUMBER_TOSTRING_FORMAT = CreateNumberFormat();
+                    _formatter.NUMBER_TOSTRING_FORMAT = CreateNumberFormat();
                     break;
 
                 case nameof(Target):
@@ -235,7 +249,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
                     break;
 
                 case nameof(APITimeout):
-                    APIHandler.ClientTimeout = TimeSpan.FromSeconds(_config.APITimeout);
+                    _client.Timeout = TimeSpan.FromSeconds(_config.APITimeout);
                     break;
 
                 case nameof(LocalReplays):
@@ -1102,7 +1116,9 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
 
                 try
                 {
-                    CustomTarget converted = await CustomTarget.ConvertToId(input).ConfigureAwait(false);
+                    CustomTarget converted = await CustomTarget
+                        .ConvertToId(input, _apiProvider.BeatLeader)
+                        .ConfigureAwait(false);
 
                     await AddConvertedTargetAsync(converted, CustomTargetText, CustomTargetInput, cancellationToken)
                         .ConfigureAwait(false);
@@ -1147,7 +1163,9 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
 
                 try
                 {
-                    CustomTarget converted = await CustomTarget.ConvertFromRank(input).ConfigureAwait(false);
+                    CustomTarget converted = await CustomTarget
+                        .ConvertFromRank(input, _config, _apiProvider.BeatLeader)
+                        .ConfigureAwait(false);
 
                     await AddConvertedTargetAsync(converted, CustomRankText, CustomRankInput, cancellationToken)
                         .ConfigureAwait(false);

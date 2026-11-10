@@ -11,9 +11,9 @@ namespace BLPPCounter.Utils.Converters
         {
             if (value is List arr)
             {
-                int currentLen = (int)(arr.Last() as Integer).Value;
+                int currentLen = (int)((arr.Last() as Integer)?.Value ?? 0);
                 arr.RemoveAt(arr.Count - 1);
-                return new BoolStorage(currentLen, [.. arr.Select(token => (ulong)(token as Integer).Value)]);
+                return new BoolStorage(currentLen, [.. arr.Select(token => (ulong)((token as Integer)?.Value ?? 0))]);
             }
             return new BoolStorage();
         }

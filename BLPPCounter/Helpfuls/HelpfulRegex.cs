@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using BLPPCounter.Utils;
 
 namespace BLPPCounter.Helpfuls
 {
@@ -17,7 +16,6 @@ namespace BLPPCounter.Helpfuls
             @"(?<=\s)<\/?([A-z\-]+)[^>]*>(?=[^<]*?$)(?!\z)",
             RegexOptions.Multiline
         );
-        internal static readonly Regex CollectiveFormatRegex = FormatListInfo.GetRegexForAllChunks(); // \G(?:(?<Insert_Group_Value>\$)|(?<Group_Open>\[(?<Token>'[^']+'|[^'])(?:\((?<Params>[^\)]+)\))?)|(?<Regular_Text>[^$&*[\]<>]+)|(?<Escaped_Character>&[&*[\]<>])|(?<Escaped_Token>&(?<Token>[^']|'[^']+')(?:\((?<Params>[^\)]+)\))?)|(?<Capture_Open><\d+)|(?<Capture_Close>>)|(?<Group_Close>])|(?<Rich_Text_Open>\*(?<Key>[^,\*]+),(?<Value>[^\*]+)\*|<(?<Key>[^=]+)=(?<Value>[^>]+)>)|(?<Rich_Text_Close>\*|<[^>]+>))
         public static readonly Regex MarkTagFinder = new("</?mark[^>]*>"); //Simple regex that finds any <mark> tag.
     }
 }

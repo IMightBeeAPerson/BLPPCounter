@@ -39,8 +39,8 @@ namespace BLPPCounter.Utils.Containers
         public bool UpdatePPEnabled;
         public bool DisplayFC => !isFcing;
 
-        public event Action<int> UpdateMistakes;
-        public event Action<float, PPContainer[], ChooseActionDelegate, float> UpdateFC;
+        public event Action<int>? UpdateMistakes;
+        public event Action<float, PPContainer[], ChooseActionDelegate, float>? UpdateFC;
 
         public PPHandler(
             RatingContainer ratings,
@@ -92,8 +92,10 @@ namespace BLPPCounter.Utils.Containers
             FinishPartialUpdate(acc, fcAcc, extraArg);
         }
 
-        public void Update(float acc, int mistakes, Func<PPContainer, float> calcExtraArg, float fcAcc = 0f) =>
+        public void Update(float acc, int mistakes, Func<PPContainer, float> calcExtraArg, float fcAcc = 0f)
+        {
             FinishPartialUpdate(acc, fcAcc, calcExtraArg(PartialUpdate(acc, mistakes)));
+        }
 
         public PPContainer PartialUpdate(float acc, int mistakes)
         {
@@ -131,11 +133,20 @@ namespace BLPPCounter.Utils.Containers
             isFcing = true;
         }
 
-        public void SetRatings(RatingContainer ratings) => this.ratings = ratings;
+        public void SetRatings(RatingContainer ratings)
+        {
+            this.ratings = ratings;
+        }
 
-        public ref PPContainer GetPPGroup(int group) => ref ppVals[group];
+        public ref PPContainer GetPPGroup(int group)
+        {
+            return ref ppVals[group];
+        }
 
-        public IEnumerator<float> GetEnumerator() => ppVals.SelectMany(vals => vals.ToEnumerable()).GetEnumerator();
+        public IEnumerator<float> GetEnumerator()
+        {
+            return ppVals.SelectMany(vals => vals.ToEnumerable()).GetEnumerator();
+        }
 
         IEnumerator IEnumerable.GetEnumerator()
         {

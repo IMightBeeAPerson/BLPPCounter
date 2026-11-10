@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.Enums;
+using BLPPCounter.Utils.LangAddons;
 using Newtonsoft.Json.Linq;
 
 namespace BLPPCounter.Utils.API_Handlers
