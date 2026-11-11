@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using BeatSaberMarkupLanguage.TypeHandlers;
 using UnityEngine;
 
-namespace AccSaber.Utils.OldVersion
+namespace BLPPCounter.Utils.OldVersion
 {
     [ComponentHandler(typeof(RectTransform))]
     internal class RectTransformHandler : TypeHandler<RectTransform>

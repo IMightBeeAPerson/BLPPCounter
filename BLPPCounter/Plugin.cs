@@ -16,6 +16,7 @@ namespace BLPPCounter
         private PluginActivationState? _activationState;
 
         internal static IPALogger Log { get; private set; } = null!;
+        internal static Harmony Harmony { get; private set; } = null!;
 
         internal static string Name => "PPCounter";
 
@@ -38,8 +39,8 @@ namespace BLPPCounter
         {
             _activationState?.SetEnabled(true);
 
-            Harmony harmony = new("Person.BLPPCounter");
-            harmony.PatchAll(Assembly.GetExecutingAssembly());
+            Harmony = new("Person.BLPPCounter");
+            Harmony.PatchAll(Assembly.GetExecutingAssembly());
         }
 
         [OnDisable]

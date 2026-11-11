@@ -6,270 +6,404 @@ using HarmonyLib;
 using HMUI;
 using JetBrains.Annotations;
 
-namespace BLPPCounter.Patches
+namespace BLPPCounter.Patches;
+
+[HarmonyPatch(typeof(SegmentedControl), nameof(SegmentedControl.CreateCells))]
+public static class TabSelectionPatch
 {
-    [HarmonyPatch(typeof(SegmentedControl), "CreateCells")]
-    public static class TabSelectionPatch
+    private static readonly Dictionary<string, Action?> TabSelectedActions = [with(StringComparer.Ordinal)];
+
+    private static readonly HashSet<string> PendingTabNames = [with(StringComparer.Ordinal)];
+
+    // We retain selector references, not their hash codes.
+    private static readonly HashSet<SegmentedControl> KnownSelectors = [];
+
+    private static readonly Dictionary<SegmentedControl, Action<SegmentedControl, int>> ModsSelectorHandlers = [];
+
+    private static readonly Dictionary<SegmentedControl, Action<SegmentedControl, int>> ModTabSelectorHandlers = [];
+
+    private static SegmentedControl? _ignoredTabSelector;
+    private static bool _startPatchAdded;
+
+    public static event Action<string>? ModTabSelected;
+
+    /// <summary>
+    /// The selected mod sub-tab, whether or not the user is currently viewing Mods.
+    /// </summary>
+    public static string LastSelectedModTab { get; private set; } = "";
+
+    /// <summary>
+    /// True while the top-level Mods tab is selected.
+    /// </summary>
+    public static bool IsOnModsTab { get; private set; }
+
+    public static bool AllTabsFound => PendingTabNames.Count == 0;
+
+    [UsedImplicitly]
+    private static void Postfix(SegmentedControl __instance)
     {
-        private static readonly HashSet<int> LoadedObjects = [];
+        ObserveSelector(__instance);
+    }
 
-        private static readonly Dictionary<string, Action?> TabSelectedActions = [with(StringComparer.Ordinal)];
-
-        private static readonly HashSet<string> PendingTabNames = [with(StringComparer.Ordinal)];
-
-        private static SegmentedControl? _ignoredTabSelector;
-
-        private static string _lastLoadedTabSelector = "";
-
-        private static int _modTabHash = -1;
-        private static bool _startPatchAdded;
-
-        public static event Action<string>? ModTabSelected;
-
-        internal static Action? UpdateLastSegmentControl;
-
-        public static string LastSelectedModTab { get; private set; } = "";
-
-        public static bool AllTabsFound => PendingTabNames.Count == 0;
-
-        public static bool IsOnModsTab { get; private set; }
-
-        [UsedImplicitly]
-        private static void Postfix(SegmentedControl __instance)
+    public static void SetIgnoredSelector(SegmentedControl? segmentedControl)
+    {
+        if (ReferenceEquals(_ignoredTabSelector, segmentedControl))
         {
-            int objectHash = __instance.GetHashCode();
+            return;
+        }
 
-            if (LoadedObjects.Contains(objectHash))
+        if (_ignoredTabSelector is not null)
+        {
+            UnregisterSelector(_ignoredTabSelector);
+            KnownSelectors.Remove(_ignoredTabSelector);
+        }
+
+        _ignoredTabSelector = segmentedControl;
+    }
+
+    public static void AddTabName(string name, Action? tabSelected = null)
+    {
+        if (BetterString.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("A tab name is required.", nameof(name));
+        }
+
+        PendingTabNames.Add(name);
+
+        if (TabSelectedActions.TryGetValue(name, out Action? existingAction))
+        {
+            TabSelectedActions[name] = existingAction + tabSelected;
+        }
+        else
+        {
+            TabSelectedActions.Add(name, tabSelected);
+        }
+
+        RegisterExistingSelectors();
+    }
+
+    public static void AddToTabSelectedAction(string tab, Action toAdd)
+    {
+        if (toAdd is null)
+        {
+            throw new ArgumentNullException(nameof(toAdd));
+        }
+
+        if (TabSelectedActions.TryGetValue(tab, out Action? existingAction))
+        {
+            TabSelectedActions[tab] = existingAction + toAdd;
+        }
+        else
+        {
+            AddTabName(tab, toAdd);
+        }
+    }
+
+    public static void RemoveFromTabSelectedAction(string tab, Action toRemove)
+    {
+        if (TabSelectedActions.TryGetValue(tab, out Action? existingAction))
+        {
+            TabSelectedActions[tab] = existingAction - toRemove;
+        }
+    }
+
+    /// <summary>
+    /// Returns true only when the supplied mod sub-tab is selected and Mods is open.
+    /// </summary>
+    public static bool GetIfTabIsSelected(string tab)
+    {
+        return IsOnModsTab && string.Equals(tab, LastSelectedModTab, StringComparison.Ordinal);
+    }
+
+    internal static void AddStartPatch()
+    {
+        if (_startPatchAdded)
+        {
+            return;
+        }
+
+        SoloFlowPatch.EnteredMainMenu += HandleEnteredMainMenu;
+        _startPatchAdded = true;
+    }
+
+    internal static void ClearData()
+    {
+        PendingTabNames.Clear();
+
+        foreach (string tab in TabSelectedActions.Keys)
+        {
+            PendingTabNames.Add(tab);
+        }
+
+        RegisterExistingSelectors();
+    }
+
+    internal static void Reset()
+    {
+        if (_startPatchAdded)
+        {
+            SoloFlowPatch.EnteredMainMenu -= HandleEnteredMainMenu;
+            _startPatchAdded = false;
+        }
+
+        foreach (KeyValuePair<SegmentedControl, Action<SegmentedControl, int>> pair in ModsSelectorHandlers)
+        {
+            pair.Key.didSelectCellEvent -= pair.Value;
+        }
+
+        foreach (KeyValuePair<SegmentedControl, Action<SegmentedControl, int>> pair in ModTabSelectorHandlers)
+        {
+            pair.Key.didSelectCellEvent -= pair.Value;
+        }
+
+        KnownSelectors.Clear();
+        ModsSelectorHandlers.Clear();
+        ModTabSelectorHandlers.Clear();
+
+        PendingTabNames.Clear();
+        TabSelectedActions.Clear();
+
+        _ignoredTabSelector = null;
+        LastSelectedModTab = "";
+        IsOnModsTab = false;
+
+        ModTabSelected = null;
+    }
+
+    /// <summary>
+    /// Refreshes all tracked selectors from SegmentedControl.selectedCellNumber.
+    /// Pass true when the active tab's registered callback must be run again.
+    /// </summary>
+    internal static void RefreshAllSelectors(bool invokeSelectedTabAction)
+    {
+        // Do this first so sub-tab processing knows whether Mods is active.
+        foreach (SegmentedControl selector in ModsSelectorHandlers.Keys.ToArray())
+        {
+            RefreshSelector(selector, invokeSelectedTabAction: false);
+        }
+
+        foreach (SegmentedControl selector in ModTabSelectorHandlers.Keys.ToArray())
+        {
+            RefreshSelector(selector, invokeSelectedTabAction);
+        }
+    }
+
+    /// <summary>
+    /// Called by the SelectCellWithNumber Harmony postfix.
+    /// </summary>
+    internal static void RefreshSelector(SegmentedControl segmentedControl)
+    {
+        RefreshSelector(segmentedControl, invokeSelectedTabAction: true);
+    }
+
+    private static void ObserveSelector(SegmentedControl segmentedControl)
+    {
+        if (
+            !string.Equals(segmentedControl.name, "BSMLTabSelector", StringComparison.Ordinal)
+            || ReferenceEquals(segmentedControl, _ignoredTabSelector)
+        )
+        {
+            return;
+        }
+
+        KnownSelectors.Add(segmentedControl);
+
+        if (IsModsSelector(segmentedControl))
+        {
+            RegisterModsSelector(segmentedControl);
+            RefreshSelector(segmentedControl, invokeSelectedTabAction: false);
+            return;
+        }
+
+        RegisterModTabSelectorIfRelevant(segmentedControl);
+    }
+
+    private static void RegisterExistingSelectors()
+    {
+        foreach (SegmentedControl selector in KnownSelectors.ToArray())
+        {
+            if (ReferenceEquals(selector, _ignoredTabSelector))
             {
-                if (objectHash == _modTabHash)
-                    ModTabSelected?.Invoke("");
-
-                return;
+                continue;
             }
 
-            if (
-                !string.Equals(__instance.name, "BSMLTabSelector", StringComparison.Ordinal)
-                || ReferenceEquals(__instance, _ignoredTabSelector)
-            )
+            if (IsModsSelector(selector))
             {
-                LoadedObjects.Add(objectHash);
-                return;
+                RegisterModsSelector(selector);
             }
+            else
+            {
+                RegisterModTabSelectorIfRelevant(selector);
+            }
+        }
+    }
 
-            string tabSelectorCells = string.Join(
-                ", ",
-                __instance.cells.OfType<TextSegmentedControlCell>().Select(cell => cell.text)
+    private static bool IsModsSelector(SegmentedControl segmentedControl)
+    {
+        return segmentedControl.cells.Count == 2
+            && segmentedControl.cells.Any(cell =>
+                cell is TextSegmentedControlCell textCell
+                && string.Equals(textCell.text, "Mods", StringComparison.Ordinal)
             );
+    }
 
-            if (string.Equals(_lastLoadedTabSelector, tabSelectorCells, StringComparison.Ordinal))
-            {
-                HandleInitialSelection(__instance);
-
-                return;
-            }
-
-            if (IsModsSelector(__instance))
-            {
-                ConfigureModsSelector(__instance, objectHash);
-
-                return;
-            }
-
-            _lastLoadedTabSelector = tabSelectorCells;
-
-            RegisterPendingTabs(__instance);
+    private static void RegisterModsSelector(SegmentedControl segmentedControl)
+    {
+        if (ModsSelectorHandlers.ContainsKey(segmentedControl))
+        {
+            return;
         }
 
-        public static void SetIgnoredSelector(SegmentedControl? segmentedControl)
+        Action<SegmentedControl, int> handler = HandleModsSelection;
+
+        segmentedControl.didSelectCellEvent += handler;
+        ModsSelectorHandlers.Add(segmentedControl, handler);
+    }
+
+    private static void RegisterModTabSelectorIfRelevant(SegmentedControl segmentedControl)
+    {
+        foreach (TextSegmentedControlCell cell in segmentedControl.cells.OfType<TextSegmentedControlCell>())
         {
-            _ignoredTabSelector = segmentedControl;
-        }
-
-        public static void AddTabName(string name, Action? tabSelected = null)
-        {
-            if (BetterString.IsNullOrWhiteSpace(name))
+            if (TabSelectedActions.ContainsKey(cell.text))
             {
-                throw new ArgumentException("A tab name is required.", nameof(name));
-            }
-
-            PendingTabNames.Add(name);
-
-            if (!TabSelectedActions.ContainsKey(name))
-            {
-                TabSelectedActions.Add(name, tabSelected);
-            }
-            else if (tabSelected is not null)
-            {
-                TabSelectedActions[name] += tabSelected;
+                PendingTabNames.Remove(cell.text);
             }
         }
 
-        public static void AddToTabSelectedAction(string tab, Action toAdd)
-        {
-            if (toAdd is null)
-            {
-                throw new ArgumentNullException(nameof(toAdd));
-            }
+        bool containsRegisteredTab = segmentedControl
+            .cells.OfType<TextSegmentedControlCell>()
+            .Any(cell => TabSelectedActions.ContainsKey(cell.text));
 
-            if (TabSelectedActions.ContainsKey(tab))
-            {
-                TabSelectedActions[tab] += toAdd;
-            }
+        if (!containsRegisteredTab)
+        {
+            return;
         }
 
-        public static void RemoveFromTabSelectedAction(string tab, Action toRemove)
+        if (!ModTabSelectorHandlers.ContainsKey(segmentedControl))
         {
-            if (TabSelectedActions.ContainsKey(tab))
-            {
-                TabSelectedActions[tab] -= toRemove;
-            }
+            Action<SegmentedControl, int> handler = HandleModTabSelection;
+
+            segmentedControl.didSelectCellEvent += handler;
+            ModTabSelectorHandlers.Add(segmentedControl, handler);
         }
 
-        public static bool GetIfTabIsSelected(string tab)
+        RefreshSelector(segmentedControl, invokeSelectedTabAction: true);
+    }
+
+    private static void HandleModsSelection(SegmentedControl segmentedControl, int selectedIndex)
+    {
+        ApplyModsSelection(segmentedControl, selectedIndex);
+    }
+
+    private static void HandleModTabSelection(SegmentedControl segmentedControl, int selectedIndex)
+    {
+        ApplyModTabSelection(segmentedControl, selectedIndex, invokeSelectedTabAction: true);
+    }
+
+    private static void RefreshSelector(SegmentedControl segmentedControl, bool invokeSelectedTabAction)
+    {
+        int selectedIndex = segmentedControl.selectedCellNumber;
+
+        if (ModsSelectorHandlers.ContainsKey(segmentedControl))
         {
-            return string.Equals(tab, LastSelectedModTab, StringComparison.Ordinal);
+            ApplyModsSelection(segmentedControl, selectedIndex);
+            return;
         }
 
-        internal static void AddStartPatch()
+        if (ModTabSelectorHandlers.ContainsKey(segmentedControl))
         {
-            if (_startPatchAdded)
-                return;
+            ApplyModTabSelection(segmentedControl, selectedIndex, invokeSelectedTabAction);
+        }
+    }
 
-            SoloFlowPatch.EnteredMainMenu += HandleEnteredMainMenu;
-
-            _startPatchAdded = true;
+    private static void ApplyModsSelection(SegmentedControl segmentedControl, int selectedIndex)
+    {
+        if (!TryGetCellText(segmentedControl, selectedIndex, out string selectedTab))
+        {
+            return;
         }
 
-        internal static void ClearData()
-        {
-            PendingTabNames.Clear();
+        bool wasOnModsTab = IsOnModsTab;
+        IsOnModsTab = string.Equals(selectedTab, "Mods", StringComparison.Ordinal);
 
-            foreach (string tab in TabSelectedActions.Keys)
-            {
-                PendingTabNames.Add(tab);
-            }
+        if (wasOnModsTab != IsOnModsTab)
+        {
+            ModTabSelected?.Invoke(selectedTab);
         }
 
-        internal static void Reset()
+        if (IsOnModsTab && !BetterString.IsNullOrWhiteSpace(LastSelectedModTab))
         {
-            if (_startPatchAdded)
-            {
-                SoloFlowPatch.EnteredMainMenu -= HandleEnteredMainMenu;
+            InvokeTabSelected(LastSelectedModTab);
+        }
+    }
 
-                _startPatchAdded = false;
-            }
-
-            LoadedObjects.Clear();
-            PendingTabNames.Clear();
-
-            TabSelectedActions.Clear();
-
-            ModTabSelected = null;
-            UpdateLastSegmentControl = null;
-
-            _ignoredTabSelector = null;
-            _lastLoadedTabSelector = "";
-            _modTabHash = -1;
-
-            LastSelectedModTab = "";
-            IsOnModsTab = false;
+    private static void ApplyModTabSelection(
+        SegmentedControl segmentedControl,
+        int selectedIndex,
+        bool invokeSelectedTabAction
+    )
+    {
+        if (!TryGetCellText(segmentedControl, selectedIndex, out string selectedTab))
+        {
+            return;
         }
 
-        private static void HandleEnteredMainMenu()
+        LastSelectedModTab = selectedTab;
+
+        if (IsOnModsTab && invokeSelectedTabAction)
         {
-            ModTabSelected?.Invoke("");
+            InvokeTabSelected(selectedTab);
+        }
+    }
+
+    private static bool TryGetCellText(SegmentedControl segmentedControl, int selectedIndex, out string text)
+    {
+        text = "";
+
+        if (
+            selectedIndex < 0
+            || selectedIndex >= segmentedControl.cells.Count
+            || segmentedControl.cells[selectedIndex] is not TextSegmentedControlCell textCell
+        )
+        {
+            return false;
         }
 
-        private static bool IsModsSelector(SegmentedControl segmentedControl)
+        text = textCell.text;
+        return true;
+    }
+
+    private static void HandleEnteredMainMenu()
+    {
+        if (!IsOnModsTab)
         {
-            return segmentedControl.cells.Count == 2
-                && segmentedControl.cells.Any(cell =>
-                    cell is TextSegmentedControlCell textCell
-                    && string.Equals(textCell.text, "Mods", StringComparison.Ordinal)
-                );
+            return;
         }
 
-        private static void ConfigureModsSelector(SegmentedControl segmentedControl, int objectHash)
+        IsOnModsTab = false;
+        ModTabSelected?.Invoke("");
+    }
+
+    private static void UnregisterSelector(SegmentedControl segmentedControl)
+    {
+        if (ModsSelectorHandlers.TryGetValue(segmentedControl, out Action<SegmentedControl, int>? modsHandler))
         {
-            ModTabSelected = text =>
-            {
-                IsOnModsTab = string.Equals(text, "Mods", StringComparison.Ordinal);
-
-                if (IsOnModsTab && !BetterString.IsNullOrWhiteSpace(LastSelectedModTab))
-                {
-                    InvokeTabSelected(LastSelectedModTab);
-                }
-            };
-
-            segmentedControl.didSelectCellEvent += HandleModsTabSelected;
-
-            _modTabHash = objectHash;
-            LoadedObjects.Add(objectHash);
+            segmentedControl.didSelectCellEvent -= modsHandler;
+            ModsSelectorHandlers.Remove(segmentedControl);
         }
 
-        private static void HandleModsTabSelected(SegmentedControl segmentedControl, int index)
+        if (ModTabSelectorHandlers.TryGetValue(segmentedControl, out Action<SegmentedControl, int>? tabHandler))
         {
-            if (segmentedControl.cells[index] is TextSegmentedControlCell textCell)
-            {
-                ModTabSelected?.Invoke(textCell.text);
-            }
+            segmentedControl.didSelectCellEvent -= tabHandler;
+            ModTabSelectorHandlers.Remove(segmentedControl);
         }
+    }
 
-        private static void RegisterPendingTabs(SegmentedControl segmentedControl)
+    private static void InvokeTabSelected(string tabName)
+    {
+        if (TabSelectedActions.TryGetValue(tabName, out Action? action))
         {
-            foreach (
-                TextSegmentedControlCell cell in segmentedControl
-                    .cells.OfType<TextSegmentedControlCell>()
-                    .Where(cell => PendingTabNames.Contains(cell.text))
-                    .ToArray()
-            )
-            {
-                string tabName = cell.text;
-
-                PendingTabNames.Remove(tabName);
-
-                void HandleSelection(SegmentedControl control, int index)
-                {
-                    LastSelectedModTab = control.cells[index] is TextSegmentedControlCell selected ? selected.text : "";
-
-                    if (string.Equals(LastSelectedModTab, tabName, StringComparison.Ordinal))
-                    {
-                        InvokeTabSelected(tabName);
-                    }
-                }
-
-                segmentedControl.didSelectCellEvent += HandleSelection;
-
-                HandleSelection(segmentedControl, 0);
-
-                UpdateLastSegmentControl = () => HandleSelection(segmentedControl, 0);
-            }
-
-            LoadedObjects.Add(segmentedControl.GetHashCode());
-        }
-
-        private static void HandleInitialSelection(SegmentedControl segmentedControl)
-        {
-            if (
-                segmentedControl.cells.Count == 0
-                || segmentedControl.cells[0] is not TextSegmentedControlCell firstCell
-                || string.Equals(firstCell.text, LastSelectedModTab, StringComparison.Ordinal)
-            )
-            {
-                return;
-            }
-
-            LastSelectedModTab = firstCell.text;
-
-            InvokeTabSelected(firstCell.text);
-        }
-
-        private static void InvokeTabSelected(string tabName)
-        {
-            if (TabSelectedActions.TryGetValue(tabName, out Action? action))
-            {
-                action?.Invoke();
-            }
+            action?.Invoke();
         }
     }
 }

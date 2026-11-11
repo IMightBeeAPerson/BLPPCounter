@@ -668,9 +668,7 @@ namespace BLPPCounter
 
             if (Leaderboard == Leaderboards.Beatleader && (ratingDifference || difficultyDifference))
             {
-                await beatLeaderCalculator
-                    .SetCurve(LastMap.MapData.SongId, LastMap.MapSpeed, apiProvider)
-                    .ConfigureAwait(false);
+                await beatLeaderCalculator.SetCurve(LastMap.MapData.SongId, LastMap.MapSpeed, apiProvider);
 
                 if (!IsCurrentInitialization(generation, cancellationToken))
                 {

@@ -65,18 +65,32 @@ namespace BLPPCounter.Utils.API_Handlers
             ];
         }
 
-        public override string GetSongName(ICacheModel diffData) =>
-            diffData is BlCacheEntry entry ? entry.SongInfo.SongName ?? "" : "";
+        public override string GetSongName(ICacheModel diffData)
+        {
+            return diffData is BlCacheEntry entry ? entry.SongInfo.SongName ?? "" : "";
+        }
 
-        public override string GetDiffName(ICacheModel diffData) =>
-            diffData is BlCacheEntry entry ? entry.DifficultyInfo.DifficultyName : diffData.Difficulty.ToString();
+        public override string GetDiffName(ICacheModel diffData)
+        {
+            return diffData is BlCacheEntry entry
+                ? entry.DifficultyInfo.DifficultyName
+                : diffData.Difficulty.ToString();
+        }
 
-        public override string GetLeaderboardId(ICacheModel diffData) => diffData.LeaderboardId;
+        public override string GetLeaderboardId(ICacheModel diffData)
+        {
+            return diffData.LeaderboardId;
+        }
 
-        public override string GetHash(ICacheModel diffData) => diffData.Hash;
+        public override string GetHash(ICacheModel diffData)
+        {
+            return diffData.Hash;
+        }
 
-        public override int GetMaxScore(ICacheModel diffData) =>
-            diffData is BlCacheEntry entry ? entry.DifficultyInfo.MaxScore : 0;
+        public override int GetMaxScore(ICacheModel diffData)
+        {
+            return diffData is BlCacheEntry entry ? entry.DifficultyInfo.MaxScore : 0;
+        }
 
         public override async Task<int> GetMaxScore(string hash, int diffNum, string modeName)
         {
@@ -93,7 +107,10 @@ namespace BLPPCounter.Utils.API_Handlers
             return (int)(diff?["difficulty"]?["maxScore"] ?? diff?["maxScore"] ?? 0);
         }
 
-        public override int GetRank(JToken scoreData) => (int)(scoreData["rank"] ?? 0);
+        public override int GetRank(JToken scoreData)
+        {
+            return (int)(scoreData["rank"] ?? 0);
+        }
 
         public override string GetPlayerName(JToken scoreData)
         {
@@ -101,18 +118,31 @@ namespace BLPPCounter.Utils.API_Handlers
             return outp is JValue ? outp.ToString() : outp?["name"]?.ToString() ?? "";
         }
 
-        public override float GetAcc(JToken scoreData) => (float)(scoreData["accuracy"] ?? 0f);
+        public override float GetAcc(JToken scoreData)
+        {
+            return (float)(scoreData["accuracy"] ?? 0f);
+        }
 
-        public override ICacheModel SelectSpecificDiff(ICacheModel diffData, int diffNum, string modeName) => diffData;
+        public override ICacheModel SelectSpecificDiff(ICacheModel diffData, int diffNum, string modeName)
+        {
+            return diffData;
+        }
 
-        public override bool MapIsUsable(ICacheModel diffData, bool useUnranked) =>
-            diffData is BlCacheEntry entry && HelpfulMisc.StatusIsUsable(entry.DifficultyInfo.Status, useUnranked);
+        public override bool MapIsUsable(ICacheModel diffData, bool useUnranked)
+        {
+            return diffData is BlCacheEntry entry
+                && HelpfulMisc.StatusIsUsable(entry.DifficultyInfo.Status, useUnranked);
+        }
 
-        public override bool AreRatingsNull(ICacheModel diffData) =>
-            diffData is not BlCacheEntry entry || entry.DifficultyInfo.ModifierRatings is null;
+        public override bool AreRatingsNull(ICacheModel diffData)
+        {
+            return diffData is not BlCacheEntry entry || entry.DifficultyInfo.ModifierRatings is null;
+        }
 
-        public override async Task<string?> GetHashData(string hash, int diffNum) =>
-            await CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash)).ConfigureAwait(false);
+        public override async Task<string?> GetHashData(string hash, int diffNum)
+        {
+            return await CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash)).ConfigureAwait(false);
+        }
 
         public override async Task<JToken?> GetScoreData(
             string userId,
@@ -135,9 +165,15 @@ namespace BLPPCounter.Utils.API_Handlers
             return JToken.Parse(outp);
         }
 
-        public override float GetPP(JToken scoreData) => (float)(scoreData["pp"] ?? 0f);
+        public override float GetPP(JToken scoreData)
+        {
+            return (float)(scoreData["pp"] ?? 0f);
+        }
 
-        public override int GetScore(JToken scoreData) => (int)(scoreData["modifiedScore"] ?? 0);
+        public override int GetScore(JToken scoreData)
+        {
+            return (int)(scoreData["modifiedScore"] ?? 0);
+        }
 
         public override async Task<ScoregraphInfo[]> GetScoregraph(MapSelection ms, CancellationToken ct = default)
         {
@@ -271,7 +307,7 @@ namespace BLPPCounter.Utils.API_Handlers
                 if (BetterString.IsNullOrWhiteSpace(response))
                     return;
 
-                JObject root = JObject.Parse(response!);
+                JObject root = JObject.Parse(response);
 
                 JToken? song = root["song"];
 
@@ -294,8 +330,9 @@ namespace BLPPCounter.Utils.API_Handlers
                         continue;
 
                     string leaderboardId =
-                        difficultyToken.Value<string>("id")
-                        ?? songId + difficultyInfo.DifficultyValue + difficultyInfo.Characteristic;
+                        songId.Length == 0
+                            ? difficultyToken.Value<string>("id") ?? ""
+                            : (songId + difficultyInfo.DifficultyValue + difficultyInfo.Characteristic);
 
                     BlCacheEntry entry = new()
                     {
@@ -322,6 +359,9 @@ namespace BLPPCounter.Utils.API_Handlers
             }
         }
 
-        public static string CleanUpId(string mapID) => mapID.Contains('x') ? mapID[..mapID.IndexOf('x')] : mapID[..^2];
+        public static string CleanUpId(string mapID)
+        {
+            return mapID.Contains('x') ? mapID[..mapID.IndexOf('x')] : mapID[..^2];
+        }
     }
 }

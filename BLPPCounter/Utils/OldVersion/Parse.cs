@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using static BeatSaberMarkupLanguage.Parse;
 
-namespace AccSaber.Utils.OldVersion
+namespace BLPPCounter.Utils.OldVersion
 {
     internal static class Parse
     {
