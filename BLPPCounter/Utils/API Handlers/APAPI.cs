@@ -11,6 +11,7 @@ using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.LangAddons;
 using BLPPCounter.Utils.Map_Utils;
 using BLPPCounter.Utils.Profile_Utils;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Zenject;
 using static GameplayModifiers;
@@ -94,21 +95,6 @@ namespace BLPPCounter.Utils.API_Handlers
             return ssApi.GetMaxScore(diffData);
         }
 
-        public override int GetRank(JToken scoreData)
-        {
-            return (int)(scoreData["rank"] ?? -1);
-        }
-
-        public override string GetPlayerName(JToken scoreData)
-        {
-            return scoreData["userName"]?.ToString() ?? "";
-        }
-
-        public override float GetAcc(JToken scoreData)
-        {
-            return (float)(scoreData["accuracy"] ?? 0f);
-        }
-
         public override async Task<int> GetMaxScore(string hash, int diffNum, string modeName)
         {
             string? result = await CallAPI_String(
@@ -141,7 +127,7 @@ namespace BLPPCounter.Utils.API_Handlers
                 .ConfigureAwait(false);
         }
 
-        public override async Task<JToken?> GetScoreData(
+        public override async Task<IScoreModel?> GetScoreData(
             string userId,
             string hash,
             string diff,
@@ -162,17 +148,7 @@ namespace BLPPCounter.Utils.API_Handlers
             if (BetterString.IsNullOrEmpty(dataStr))
                 return null;
 
-            return JToken.Parse(dataStr);
-        }
-
-        public override float GetPP(JToken scoreData)
-        {
-            return (float)(scoreData["ap"] ?? 0);
-        }
-
-        public override int GetScore(JToken scoreData)
-        {
-            return (int)(scoreData["baseScore"] ?? -1);
+            return (IScoreModel?)JsonConvert.DeserializeObject<AccsaberScoreResponse>(dataStr);
         }
 
         private Task<Play[]> GetScores(string userId, int count, string path)

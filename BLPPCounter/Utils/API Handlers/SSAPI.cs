@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Models;
 using BLPPCounter.Models.Base;
+using BLPPCounter.Models.ScoreSaber;
 using BLPPCounter.Utils.LangAddons;
 using BLPPCounter.Utils.Map_Utils;
 using BLPPCounter.Utils.Profile_Utils;
@@ -41,31 +42,45 @@ namespace BLPPCounter.Utils.API_Handlers
             return await CallAPI_Static(path, t, quiet, maxRetries, ct).ConfigureAwait(false);
         }
 
-        public override float GetStarRating(
-            ICacheModel diffData,
-            SongSpeed speed = SongSpeed.Normal,
-            float modMult = 1
-        ) => diffData is TaohCache cache ? cache.StarScoreSaber ?? 0f : 0f;
+        public override float GetStarRating(ICacheModel diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1)
+        {
+            return diffData is TaohCache cache ? cache.StarScoreSaber ?? 0f : 0f;
+        }
 
-        public override float[] GetRatings(
-            ICacheModel diffData,
-            SongSpeed speed = SongSpeed.Normal,
-            float modMult = 1
-        ) => [GetStarRating(diffData)];
+        public override float[] GetRatings(ICacheModel diffData, SongSpeed speed = SongSpeed.Normal, float modMult = 1)
+        {
+            return [GetStarRating(diffData)];
+        }
 
-        public override string GetSongName(ICacheModel diffData) => diffData is TaohCache cache ? cache.Name : "";
+        public override string GetSongName(ICacheModel diffData)
+        {
+            return diffData is TaohCache cache ? cache.Name : "";
+        }
 
-        public override string GetDiffName(ICacheModel diffData) => diffData.Difficulty.ToString();
+        public override string GetDiffName(ICacheModel diffData)
+        {
+            return diffData.Difficulty.ToString();
+        }
 
-        public override string GetLeaderboardId(ICacheModel diffData) => diffData.LeaderboardId;
+        public override string GetLeaderboardId(ICacheModel diffData)
+        {
+            return diffData.LeaderboardId;
+        }
 
-        public override string GetHash(ICacheModel diffData) => diffData.Hash;
+        public override string GetHash(ICacheModel diffData)
+        {
+            return diffData.Hash;
+        }
 
-        public override bool MapIsUsable(ICacheModel diffData, bool useUnranked) =>
-            diffData is TaohCache cache && (cache.StarScoreSaber ?? 0f) > 0f;
+        public override bool MapIsUsable(ICacheModel diffData, bool useUnranked)
+        {
+            return diffData is TaohCache cache && (cache.StarScoreSaber ?? 0f) > 0f;
+        }
 
-        public override bool AreRatingsNull(ICacheModel diffData) =>
-            diffData is not TaohCache cache || cache.StarScoreSaber is null;
+        public override bool AreRatingsNull(ICacheModel diffData)
+        {
+            return diffData is not TaohCache cache || cache.StarScoreSaber is null;
+        }
 
         public override int GetMaxScore(ICacheModel diffData)
         {
@@ -73,38 +88,37 @@ namespace BLPPCounter.Utils.API_Handlers
             // Prefer the async GetMaxScore(hash, diffNum, modeName) overload where possible.
             if (diffData is not TaohCache cache || cache.ScoreSaberID is null)
                 return 0;
-            string? response = CallAPI_String(
-                    string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, cache.ScoreSaberID, "info")
+
+            ScoreSaberLeaderboard? response = CallAPI_Json<ScoreSaberLeaderboard>(
+                    string.Format(HelpfulPaths.SSAPI_LEADERBOARD_INFO, cache.ScoreSaberID)
                 )
                 .GetAwaiter()
                 .GetResult();
-            if (BetterString.IsNullOrEmpty(response))
-                return 0;
-            return (int)(JToken.Parse(response)["maxScore"] ?? 0);
+
+            return response?.MaxScore ?? 0;
         }
-
-        public override int GetRank(JToken scoreData) => (int)(scoreData["rank"] ?? 0);
-
-        public override string GetPlayerName(JToken scoreData) =>
-            scoreData["leaderboardPlayerInfo"]?["name"]?.ToString() ?? "Unknown";
-
-        public override float GetAcc(JToken scoreData) => (float)(scoreData["accuracy"] ?? 0);
 
         public override async Task<int> GetMaxScore(string hash, int diffNum, string modeName)
         {
-            string? response = await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum))
-                .ConfigureAwait(false);
-            if (BetterString.IsNullOrEmpty(response))
-                return 0;
-            return (int)(JToken.Parse(response)["maxScore"] ?? 0);
+            ScoreSaberLeaderboard? response = await CallAPI_Json<ScoreSaberLeaderboard>(
+                string.Format(HelpfulPaths.SSAPI_HASH_INFO, hash, "SoloStandard", diffNum)
+            );
+
+            return response?.MaxScore ?? 0;
         }
 
-        public override ICacheModel SelectSpecificDiff(ICacheModel diffData, int diffNum, string modeName) => diffData;
+        public override ICacheModel SelectSpecificDiff(ICacheModel diffData, int diffNum, string modeName)
+        {
+            return diffData;
+        }
 
-        public override async Task<string?> GetHashData(string hash, int diffNum) =>
-            await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum)).ConfigureAwait(false);
+        public override async Task<string?> GetHashData(string hash, int diffNum)
+        {
+            return await CallAPI_String(string.Format(HelpfulPaths.SSAPI_HASH_INFO, hash, "SoloStandard", diffNum))
+                .ConfigureAwait(false);
+        }
 
-        public override async Task<JToken?> GetScoreData(
+        public override async Task<IScoreModel?> GetScoreData(
             string userId,
             string hash,
             string diff,
@@ -114,88 +128,72 @@ namespace BLPPCounter.Utils.API_Handlers
         )
         {
             int diffNum = Map.FromDiff((BeatmapDifficulty)Enum.Parse(typeof(BeatmapDifficulty), diff));
-            string? nameResponse = await CallAPI_String(
-                    string.Format(HelpfulPaths.SSAPI_USERID, userId, "basic"),
-                    quiet,
-                    maxRetries: 1,
-                    ct: ct
-                )
-                .ConfigureAwait(false);
-            if (BetterString.IsNullOrEmpty(nameResponse))
-                return null;
-            JToken parsedNameResponse = JToken.Parse(nameResponse);
-            if (parsedNameResponse["name"] is null)
-                return null;
-            string name = parsedNameResponse["name"]!.ToString();
 
-            string? outp = await CallAPI_String(
-                    string.Format(HelpfulPaths.SSAPI_HASH, hash, "scores", diffNum) + "&search=" + name,
-                    quiet,
-                    maxRetries: 1,
-                    ct: ct
-                )
-                .ConfigureAwait(false);
+            ScoreSaberBasicPlayer? nameResponse = await CallAPI_Json<ScoreSaberBasicPlayer>(
+                string.Format(HelpfulPaths.SSAPI_PLAYER_PROFILE_BASIC, userId),
+                quiet,
+                maxRetries: 1,
+                ct: ct
+            );
 
-            if (BetterString.IsNullOrEmpty(outp))
+            if (nameResponse is null)
                 return null;
+
+            string name = nameResponse.Name;
+
+            ScoreSaberPagedScores? scores = await CallAPI_Json<ScoreSaberPagedScores>(
+                string.Format(HelpfulPaths.SSAPI_HASH_SCORES, hash, "SoloStandard", diffNum) + "&search=" + name,
+                quiet,
+                maxRetries: 1,
+                ct: ct
+            );
+
+            if (scores is null)
+                return null;
+
+            ScoreSaberScore score = scores.Data.FirstOrDefault(s => s.PlayerName.Equals(name));
+
+            ScoreSaberLeaderboard? mapInfo = await CallAPI_Json<ScoreSaberLeaderboard>(
+                string.Format(HelpfulPaths.SSAPI_HASH_INFO, hash, "SoloStandard", diffNum),
+                quiet,
+                maxRetries: 1,
+                ct: ct
+            );
 
             if (
-                JToken
-                    .Parse(outp)["scores"]
-                    ?.Children()
-                    .FirstOrDefault(token => token["leaderboardPlayerInfo"]?["name"]?.ToString().Equals(name) ?? false)
-                is not JObject tokenOutp
+                mapInfo is not null
+                && mapInfo.AdditionalData is not null
+                && mapInfo.AdditionalData.TryGetValue("bsid", out JToken bsid)
             )
-                return null;
+                score.MapId = bsid.ToString();
 
-            string? mapInfoResponse = await CallAPI_String(
-                    string.Format(HelpfulPaths.SSAPI_HASH, hash, "info", diffNum),
-                    quiet,
-                    maxRetries: 1,
-                    ct: ct
-                )
-                .ConfigureAwait(false);
-            if (BetterString.IsNullOrEmpty(mapInfoResponse))
-                return null;
-
-            JToken mapInfo = JToken.Parse(mapInfoResponse);
-            tokenOutp.Property("id")?.AddAfterSelf(new JProperty("maxScore", (int)(mapInfo["maxScore"] ?? 0)));
-            tokenOutp
-                .Property("maxScore")
-                ?.AddAfterSelf(
-                    new JProperty(
-                        "accuracy",
-                        (float)(tokenOutp["modifiedScore"] ?? 0)
-                            / (float)(tokenOutp["maxScore"] ?? float.PositiveInfinity)
-                    )
-                );
-
-            if (mapInfo is JObject mapInfoObj && mapInfoObj.ContainsKey("id"))
-                tokenOutp["id"] = (int)mapInfoObj["id"]!;
-
-            return tokenOutp;
+            return score;
         }
-
-        public override float GetPP(JToken scoreData) => (float)(scoreData["pp"] ?? 0);
-
-        public override int GetScore(JToken scoreData) => (int)(scoreData["modifiedScore"] ?? 0);
 
         public override async Task<Play[]> GetScores(string userId, int count)
         {
             return await GetScores(
                     userId,
                     count,
-                    HelpfulPaths.SSAPI_PLAYERSCORES,
-                    "playerScores",
+                    HelpfulPaths.SSAPI_PLAYER_SCORES,
+                    "Data",
                     false,
-                    token => new Play(
-                        token["leaderboard"]?["songName"]?.ToString() ?? "Unknown",
-                        token["leaderboard"]?["songHash"]?.ToString() ?? "",
-                        Map.FromValue((int)(token["leaderboard"]?["difficulty"]?["difficulty"] ?? -1)),
-                        token["leaderboard"]?["difficulty"]?["gameMode"]?.ToString().Replace("Solo", "") ?? "Standard",
-                        (float)(token["score"]?["pp"] ?? 0f),
-                        (uint)(token["score"]?["rank"] ?? 0)
-                    ),
+                    token =>
+                    {
+                        ScoreSaberPlayerScore? score = token.ToObject<ScoreSaberPlayerScore>();
+
+                        if (score is null)
+                            return default;
+
+                        return new(
+                            score.Leaderboard.Map.SongName,
+                            score.Leaderboard.Map.Hash,
+                            score.Leaderboard.Difficulty?.Difficulty ?? BeatmapDifficulty.Easy,
+                            score.Leaderboard.Difficulty?.GameMode.Replace("Solo", "") ?? "Standard",
+                            score.Score.Pp,
+                            (uint)score.Score.Rank
+                        );
+                    },
                     Throttle,
                     (data, repData) =>
                     {
@@ -211,46 +209,60 @@ namespace BLPPCounter.Utils.API_Handlers
 
         public override async Task<float> GetProfilePP(string userId)
         {
-            string? response = await CallAPI_String(string.Format(HelpfulPaths.SSAPI_USERID, userId, "basic"))
-                .ConfigureAwait(false);
-            if (BetterString.IsNullOrEmpty(response))
-                return 0f;
-            return (float)(JToken.Parse(response)["pp"] ?? 0);
+            ScoreSaberBasicPlayer? response = await CallAPI_Json<ScoreSaberBasicPlayer>(
+                string.Format(HelpfulPaths.SSAPI_PLAYER_PROFILE_BASIC, userId)
+            );
+
+            return response?.Stats.TotalPp ?? 0f;
         }
 
         public override async Task<ScoregraphInfo[]> GetScoregraph(MapSelection ms, CancellationToken ct = default)
         {
             List<ScoregraphInfo> pps = [];
-            const float SS_PAGELENGTH = 12f;
-            string path = string.Format(HelpfulPaths.SSAPI_HASH, ms.Hash, "scores", Map.FromDiff(ms.Difficulty));
-            int pages = (int)Math.Ceiling(pc.MinRank / SS_PAGELENGTH);
+            const int SS_MAX_PAGELENGTH = 100;
 
-            string? infoResponse = await CallAPI_String(
-                    string.Format(HelpfulPaths.SSAPI_HASH, ms.Hash, "info", Map.FromDiff(ms.Difficulty)),
-                    ct: ct
-                )
-                .ConfigureAwait(false);
-            if (BetterString.IsNullOrEmpty(infoResponse))
+            int pageLen = Math.Min(SS_MAX_PAGELENGTH, pc.MinRank);
+
+            string path = string.Format(
+                HelpfulPaths.SSAPI_HASH_SCORES_PAGED,
+                ms.Hash,
+                "SoloStandard",
+                Map.FromDiff(ms.Difficulty),
+                "{0}",
+                pageLen
+            );
+
+            int pages = (int)Math.Ceiling(pc.MinRank / (float)pageLen);
+
+            ScoreSaberLeaderboard? infoResponse = await CallAPI_Json<ScoreSaberLeaderboard>(
+                string.Format(HelpfulPaths.SSAPI_HASH_INFO, ms.Hash, "SoloStandard", Map.FromDiff(ms.Difficulty)),
+                ct: ct
+            );
+
+            if (infoResponse is null)
                 return [];
-            int maxScore = (int)(JToken.Parse(infoResponse)["maxScore"] ?? 0);
+
+            int maxScore = infoResponse.MaxScore;
 
             for (int i = 1; i < pages + 1; i++)
             {
-                string? pageResponse = await CallAPI_String(path + "&page=" + i, ct: ct).ConfigureAwait(false);
-                if (BetterString.IsNullOrEmpty(pageResponse))
-                    continue;
-                pps.AddRange(
-                    JToken
-                        .Parse(pageResponse)["scores"]
-                        ?.Children()
-                        .Select(token => new ScoregraphInfo(
-                            (float)(token["modifiedScore"] ?? 0f) / maxScore,
-                            (float)Math.Round((float)(token["pp"] ?? 0f), pc.DecimalPrecision),
-                            SongSpeed.Normal,
-                            1f,
-                            token["leaderboardPlayerInfo"]?["name"]?.ToString().ClampString(pc.MaxNameLength) ?? ""
-                        ))
+                ScoreSaberPagedScores? pageResponse = await CallAPI_Json<ScoreSaberPagedScores>(
+                    path + "&page=" + i,
+                    ct: ct
                 );
+
+                if (pageResponse is null)
+                    continue;
+
+                IEnumerable<ScoregraphInfo> scores = pageResponse.Data.Select(score => new ScoregraphInfo(
+                    score.Accuracy,
+                    score.Pp,
+                    SongSpeed.Normal,
+                    1f,
+                    score.PlayerName.ClampString(pc.MaxNameLength)
+                ));
+
+                pps.AddRange(scores);
             }
             return [.. pps];
         }
@@ -309,22 +321,19 @@ namespace BLPPCounter.Utils.API_Handlers
                         }
                     }
 
-                    string? mapResponse = await CallAPI_String(
-                            string.Format(HelpfulPaths.SSAPI_LEADERBOARDID, leaderboardId, "info"),
-                            quiet: true,
-                            maxRetries: 1,
-                            ct: ct
-                        )
-                        .ConfigureAwait(false);
+                    ScoreSaberLeaderboard? mapInfo = await CallAPI_Json<ScoreSaberLeaderboard>(
+                        string.Format(HelpfulPaths.SSAPI_LEADERBOARD_INFO, leaderboardId),
+                        quiet: true,
+                        maxRetries: 1,
+                        ct: ct
+                    );
 
-                    if (BetterString.IsNullOrWhiteSpace(mapResponse))
+                    if (mapInfo is null)
                     {
                         continue;
                     }
 
-                    JToken mapInfo = JToken.Parse(mapResponse);
-
-                    if (mapInfo.Value<bool?>("ranked") != true)
+                    if (mapInfo.Realm.RankedAt is null)
                     {
                         lock (UnrankedIds)
                         {
@@ -333,8 +342,16 @@ namespace BLPPCounter.Utils.API_Handlers
 
                         continue;
                     }
-
-                    result.Combine(Map.ConvertSSToTaoh(normalizedHash, leaderboardId.ToString(), mapInfo));
+                    //result.Combine(Map.ConvertSSToTaoh(normalizedHash, leaderboardId.ToString(), mapInfo));
+                    result.Combine(
+                        new Map(
+                            normalizedHash,
+                            "Standard",
+                            mapInfo.Difficulty?.Difficulty ?? BeatmapDifficulty.Easy,
+                            mapInfo.Map.BsId ?? mapInfo.Id.ToString(),
+                            mapInfo
+                        )
+                    );
 
                     anyRanked = true;
                 }

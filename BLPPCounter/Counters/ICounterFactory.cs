@@ -12,6 +12,7 @@ namespace BLPPCounter.Counters
             TMP_Text display,
             MapSelection map,
             Leaderboards leaderboard,
+            ICounterController controller,
             CancellationToken cancellationToken = default
         );
     }

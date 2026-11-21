@@ -10,7 +10,7 @@ namespace BLPPCounter.CalculatorStuffs
     public class SSCalc : Calculator
     {
         private static readonly float SecretMultiplier = 42.117208413f;
-        internal override List<(float, float)> PointList { get; } =
+        protected internal override List<(float, float)> PointList { get; protected set; } =
         [
             (0, 0),
             (0.6f, 0.182232335f),
@@ -50,11 +50,11 @@ namespace BLPPCounter.CalculatorStuffs
             (0.9995f, 5.01954365f),
             (1, 5.36739445f),
         ];
-        public override Leaderboards Leaderboard => Leaderboards.Scoresaber;
-        public override int RatingCount => 1;
-        public override string Label => "SS";
+        public override Leaderboards Leaderboard { get; } = Leaderboards.Scoresaber;
+        public override int RatingCount { get; } = 1;
+        public override string Label { get; } = "SS";
         public override string[] StarLabels { get; } = ["<color=yellow>Stars</color>"];
-        public override bool UsesModifiers => false;
+        public override bool UsesModifiers { get; } = false;
 
         internal SSCalc()
         {
@@ -69,14 +69,6 @@ namespace BLPPCounter.CalculatorStuffs
         public override float[] SelectRatings(float[] ratings)
         {
             return [.. ratings.Take(1)];
-        }
-
-        public override float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings)
-        {
-            if (deflatedPp > GetSummedPp(1.0f, ratings))
-                return precision < 0 ? 1.0f : 100.0f;
-            float outp = InvertCurve(deflatedPp / (SecretMultiplier * ratings[0]));
-            return precision < 0 ? outp : (float)Math.Round(outp * 100.0f, precision);
         }
 
         public override float GetAccDeflated(
@@ -95,14 +87,9 @@ namespace BLPPCounter.CalculatorStuffs
             return GetAccDeflated(deflatedPp, precision, starRating * modMult);
         }
 
-        public override float Inflate(float deflatedPp)
+        protected override float GetAccDeflatedInternal(float deflatedPp, float[] ratings)
         {
-            return deflatedPp; //There is no inflation in SS
-        }
-
-        public override float Deflate(float inflatedPp)
-        {
-            return inflatedPp; //There is no deflation in SS
+            return InvertCurve(deflatedPp / (SecretMultiplier * ratings[0]));
         }
     }
 }

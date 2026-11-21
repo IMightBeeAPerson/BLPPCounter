@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using BLPPCounter.Models;
 using BLPPCounter.Models.Base;
 using BLPPCounter.Utils.Enums;
@@ -9,7 +8,7 @@ namespace BLPPCounter.CalculatorStuffs
 {
     internal class APCalc : Calculator
     {
-        internal override List<(float, float)> PointList { get; } =
+        protected internal override List<(float, float)> PointList { get; protected set; } =
         [
             (0, 0),
             (0.9409324581850277f, 0.22864617746193472f),
@@ -64,10 +63,10 @@ namespace BLPPCounter.CalculatorStuffs
             (0.9997988680153226f, 1),
             (1, 1),
         ];
-        public override Leaderboards Leaderboard => Leaderboards.Accsaber;
-        public override int RatingCount => 1;
-        public override bool UsesModifiers => false;
-        public override string Label => "AP";
+        public override Leaderboards Leaderboard { get; } = Leaderboards.Accsaber;
+        public override int RatingCount { get; } = 1;
+        public override bool UsesModifiers { get; } = false;
+        public override string Label { get; } = "AP";
         public override string[] StarLabels { get; } = ["<color=#00FF00>Complexity</color>"];
 
         internal APCalc()
@@ -78,19 +77,6 @@ namespace BLPPCounter.CalculatorStuffs
         public override float[] GetPp(float acc, params float[] ratings)
         {
             return [GetCurve(acc) * (ratings[0] + 18) * 61];
-        }
-
-        public override float[] SelectRatings(float[] ratings)
-        {
-            return [.. ratings.Take(1)];
-        }
-
-        public override float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings)
-        {
-            if (deflatedPp > GetSummedPp(1.0f, ratings))
-                return precision < 0 ? 1.0f : 100.0f;
-            float outp = InvertCurve(deflatedPp / ((ratings[0] + 18) * 61));
-            return precision < 0 ? outp : (float)Math.Round(outp * 100.0f, precision);
         }
 
         public override float GetAccDeflated(
@@ -109,14 +95,9 @@ namespace BLPPCounter.CalculatorStuffs
             return GetAccDeflated(deflatedPp, precision, complexity * modMult);
         }
 
-        public override float Inflate(float deflatedPp)
+        protected override float GetAccDeflatedInternal(float deflatedPp, float[] ratings)
         {
-            return deflatedPp; //There is no inflation in accsaber
-        }
-
-        public override float Deflate(float inflatedPp)
-        {
-            return inflatedPp; //There is no deflation in accsaber
+            return InvertCurve(deflatedPp / ((ratings[0] + 18) * 61));
         }
     }
 }

@@ -62,7 +62,7 @@ namespace BLPPCounter.CalculatorStuffs
         /// <summary>
         /// The acc curve for a given leaderboard. Set to internal so that no outside programs modifies the curve.
         /// </summary>
-        internal abstract List<(float, float)> PointList { get; }
+        protected internal abstract List<(float accuracy, float points)> PointList { get; protected set; }
         #endregion
 
         /// <summary>
@@ -166,7 +166,10 @@ namespace BLPPCounter.CalculatorStuffs
         /// <summary>
         /// In the order of star, acc, pass, tech
         /// </summary>
-        public abstract float[] SelectRatings(params float[] ratings);
+        public virtual float[] SelectRatings(params float[] ratings)
+        {
+            return [.. ratings.Take(RatingCount)];
+        }
 
         public float[] SelectRatings(MapSelection mapDiff)
         {
@@ -261,7 +264,18 @@ namespace BLPPCounter.CalculatorStuffs
             return GetPpWithSummedPp(acc, precision, Ratings);
         }
 
-        public abstract float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings);
+        public virtual float GetAccDeflated(float deflatedPp, int precision = -1, params float[] ratings)
+        {
+            if (deflatedPp <= 0.0f)
+                return 0.0f;
+
+            if (deflatedPp > GetSummedPp(1.0f, ratings))
+                return precision < 0 ? 1.0f : 100.0f;
+
+            float outp = GetAccDeflatedInternal(deflatedPp, ratings);
+
+            return precision < 0 ? outp : (float)Math.Round(outp * 100.0f, precision);
+        }
 
         public float GetAccDeflated(float deflatedPp, float[] ratings, int precision = -1)
         {
@@ -280,6 +294,8 @@ namespace BLPPCounter.CalculatorStuffs
             float modMult = 1.0f,
             int precision = -1
         );
+
+        protected abstract float GetAccDeflatedInternal(float deflatedPp, float[] ratings);
 
         public float GetAcc(float inflatedPp, float[] ratings, int precision = -1)
         {
@@ -307,15 +323,22 @@ namespace BLPPCounter.CalculatorStuffs
             return GetAccDeflated(Deflate(inflatedPp), diffData, speed, modMult, precision);
         }
 
-        public abstract float Inflate(float deflatedPp);
-        public abstract float Deflate(float inflatedPp);
+        public virtual float Inflate(float deflatedPp)
+        {
+            return deflatedPp;
+        }
+
+        public virtual float Deflate(float inflatedPp)
+        {
+            return inflatedPp;
+        }
 
         public float GetCurve(float acc)
         {
             return GetCurve(acc, PointList);
         }
 
-        public float InvertCurve(double curveOutput)
+        public float InvertCurve(float curveOutput)
         {
             return GetInvertCurve(curveOutput, PointList);
         }
@@ -331,25 +354,30 @@ namespace BLPPCounter.CalculatorStuffs
             int i = 1;
             while (i < curve.Count && curve[i].Item1 > acc)
                 i++;
-            double middle_dis = (acc - curve[i - 1].Item1) / (curve[i].Item1 - curve[i - 1].Item1);
-            return (float)(curve[i - 1].Item2 + (middle_dis * (curve[i].Item2 - curve[i - 1].Item2)));
+
+            float middle_dis = (acc - curve[i - 1].Item1) / (curve[i].Item1 - curve[i - 1].Item1);
+
+            return curve[i - 1].Item2 + (middle_dis * (curve[i].Item2 - curve[i - 1].Item2));
         }
 
-        public static float GetInvertCurve(double curveOutput, List<(float, float)> curve)
+        public static float GetInvertCurve(float curveOutput, List<(float, float)> curve)
         {
             int i = 1;
             while (i < curve.Count && curve[i].Item2 > curveOutput)
                 i++;
-            double middle_dis = (curveOutput - curve[i - 1].Item2) / (curve[i].Item2 - curve[i - 1].Item2);
-            return (float)(curve[i - 1].Item1 + (middle_dis * (curve[i].Item1 - curve[i - 1].Item1)));
+
+            float middle_dis = (curveOutput - curve[i - 1].Item2) / (curve[i].Item2 - curve[i - 1].Item2);
+
+            return curve[i - 1].Item1 + (middle_dis * (curve[i].Item1 - curve[i - 1].Item1));
         }
 
-        public static float GetCurveDerivative(double acc, List<(float, float)> curve)
+        public static float GetCurveDerivative(float acc, List<(float, float)> curve)
         {
             int i = 1;
             while (i < curve.Count && curve[i].Item1 > acc)
                 i++;
-            return (float)((curve[i].Item2 - curve[i - 1].Item2) / (curve[i].Item1 - curve[i - 1].Item1));
+
+            return (curve[i].Item2 - curve[i - 1].Item2) / (curve[i].Item1 - curve[i - 1].Item1);
         }
         #endregion
         #region Replay Math

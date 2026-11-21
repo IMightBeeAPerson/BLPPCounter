@@ -891,6 +891,93 @@ namespace BLPPCounter.Helpfuls
         }
 
         /// <summary>
+        /// Extracts and normalizes the map hash from a level identifier.
+        /// </summary>
+        /// <param name="levelId">The underscore-delimited level identifier containing the map hash as its third segment.</param>
+        /// <returns>
+        /// The normalized map hash, or <see langword="null"/> if the level identifier does not contain at least three segments.
+        /// </returns>
+        public static string? ParseHashFromLevelId(string levelId)
+        {
+            string[] levelIdParts = levelId.Split('_');
+
+            if (levelIdParts.Length < 3)
+            {
+                Plugin.Log.Warn($"Could not extract a map hash from level ID \"{levelId}\".");
+                return null;
+            }
+
+            return Map.NormalizeHash(levelIdParts[2]);
+        }
+
+        /// <summary>
+        /// Combines the hash codes of two values into a single hash code.
+        /// </summary>
+        /// <typeparam name="T1">The type of the first value.</typeparam>
+        /// <typeparam name="T2">The type of the second value.</typeparam>
+        /// <param name="item1">The first value to include in the hash code.</param>
+        /// <param name="item2">The second value to include in the hash code.</param>
+        /// <returns>
+        /// A combined hash code calculated from <paramref name="item1"/> and
+        /// <paramref name="item2"/>. A <see langword="null"/> value contributes zero.
+        /// </returns>
+        public static int GetHashCode<T1, T2>(T1 item1, T2 item2)
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = ((hash * 23) + item1?.GetHashCode()) ?? 0;
+                hash = ((hash * 23) + item2?.GetHashCode()) ?? 0;
+                return hash;
+            }
+        }
+
+        /// <summary>
+        /// Combines the hash codes of the values in a sequence into a single hash code.
+        /// Values are processed in sequence order.
+        /// </summary>
+        /// <typeparam name="T">The type of the values.</typeparam>
+        /// <param name="items">The sequence of values to include in the hash code.</param>
+        /// <returns>
+        /// A combined hash code calculated from <paramref name="items"/>.
+        /// A <see langword="null"/> value contributes zero.
+        /// </returns>
+        public static int GetHashCode<T>(params IEnumerable<T> items)
+        {
+            unchecked
+            {
+                int hash = 17;
+
+                foreach (T? item in items)
+                    hash = ((hash * 23) + item?.GetHashCode()) ?? 0;
+
+                return hash;
+            }
+        }
+
+        /// <summary>
+        /// Combines the hash codes of objects in a sequence into a single hash code.
+        /// Objects are processed in sequence order.
+        /// </summary>
+        /// <param name="items">The sequence of objects to include in the hash code.</param>
+        /// <returns>
+        /// A combined hash code calculated from <paramref name="items"/>.
+        /// A <see langword="null"/> value contributes zero.
+        /// </returns>
+        public static int GetHashCode(params IEnumerable<object?> items)
+        {
+            unchecked
+            {
+                int hash = 17;
+
+                foreach (object? item in items)
+                    hash = ((hash * 23) + item?.GetHashCode()) ?? 0;
+
+                return hash;
+            }
+        }
+
+        /// <summary>
         /// Attempts to move into a <see cref="JToken">JToken</see>.
         /// </summary>
         /// <param name="data">Parent <see cref="JToken">JToken</see>.</param>

@@ -70,26 +70,76 @@ namespace BLPPCounter.Helpfuls
         //RANKED: https://scoresaber.com/api/leaderboard/by-hash/7c44cdc1e33e2f5f929867b29ceb3860c3716ddc/info?difficulty=5
         //Score: https://scoresaber.com/api/player/76561198306905129/scores?limit=1&sort=top&page=1
         /// <summary>Format in the order: hash value, "info" or "scores", diff number.</summary>
-        public const string SSAPI_HASH = "https://scoresaber.com/api/leaderboard/by-hash/{0}/{1}?difficulty={2}"; //hash, either "info" or "scores", diff_number
+        /*public const string SSAPI_HASH = "https://scoresaber.com/api/leaderboard/by-hash/{0}/{1}?difficulty={2}"; //hash, either "info" or "scores", diff_number
         public const string SSAPI_HASH_PAGED =
             "https://scoresaber.com/api/leaderboard/by-hash/{0}/{1}?difficulty={2}&page={3}"; //hash, either "info" or "scores", diff_number, page
         public const string SSAPI_USERID = "https://scoresaber.com/api/player/{0}/{1}"; //user_id, either "basic", "full", or "scores"
         public const string SSAPI_DIFFS = "https://scoresaber.com/api/leaderboard/get-difficulties/{0}"; //hash
         public const string SSAPI_LEADERBOARDID = "https://scoresaber.com/api/leaderboard/by-id/{0}/{1}"; //leaderboard_id, either "info" or "scores"
         public const string SSAPI_PLAYERSCORES =
-            "https://scoresaber.com/api/player/{0}/scores?limit={2}&sort=top&page={1}"; //user_id, page, count
-        public const string SSAPI_PLAYER_FILTER = "https://scoresaber.com/api/players?page={0}"; //page (count is always 50, sorted by rank)
+            "https://scoresaber.com/api/player/{0}/scores?limit={2}&sort=top&page={1}"; //user_id, page, count*/
 
-        /* accsaber.com API is currently very unstable and prone to 500 errors, so I'm not using it for now. If it becomes more stable in the future, I can add it back in. For now, the endpoints are here for reference if I want to add it back in later.
-        //No documentation here, doc at https://github.com/accsaber/accsaber-plugin/blob/main/EndpointResearch/ENDPOINTS.md
-        //Or find it yourself here: https://github.com/accsaber/accsaber-backend/blob/main/accsaber-api/src/main/kotlin/de/ixsen/accsaber/api/controllers/PlayerController.kt
-        public const string APAPI = "https://api.accsaber.com/";
-        public const string APAPI_LEADERBOARDID = "https://api.accsaber.com/ranked-maps/{0}"; //Scoresaber_id
-        public const string APAPI_PLAYERID = "https://api.accsaber.com/players/{0}"; //user_id
-        public const string APAPI_SCORES = "https://api.accsaber.com/players/{0}/scores?page={1}&pageSize={2}"; //user_id, page, count
-        public const string APAPI_CATEGORY_SCORES = "https://api.accsaber.com/players/{0}/{1}/scores"; //user_id, accsaber category (true, standard, tech)
-        public const string APAPI_RECENT_SCORE = "https://api.accsaber.com/players/{0}/recent-scores?pageSize=1"; //user_id
-        //*/
+        ///<summary>Get a page of players</summary>
+        public const string SSAPI_PLAYER_FILTER = "https://scoresaber.com/api/v2/players?page={0}"; //page (count is always 50, sorted by rank)
+
+        /// <summary>Hash leaderboard information.</summary>
+        /// <remarks>{0} = hash, {1} = game mode (e.g. SoloStandard), {2} = difficulty number</remarks>
+        public const string SSAPI_HASH_INFO = "https://scoresaber.com/api/v2/leaderboards/hash/{0}/{1}/{2}";
+
+        /// <summary>
+        /// Hash leaderboard scores.
+        /// </summary>
+        /// <remarks>{0} = hash, {1} = game mode (e.g. SoloStandard), {2} = difficulty number</remarks>
+        public const string SSAPI_HASH_SCORES = "https://scoresaber.com/api/v2/leaderboards/hash/{0}/{1}/{2}/scores";
+
+        /// <summary>
+        /// Paged hash leaderboard scores.
+        /// </summary>
+        /// <remarks>{0} = hash, {1} = game mode, {2} = difficulty number, {3} = page, {4} = limit</remarks>
+        public const string SSAPI_HASH_SCORES_PAGED =
+            "https://scoresaber.com/api/v2/leaderboards/hash/{0}/{1}/{2}/scores?page={3}&limit={4}";
+
+        /// <summary>
+        /// All ranked difficulties available for a map hash.
+        /// </summary>
+        /// <remarks>{0} = hash</remarks>
+        public const string SSAPI_DIFFS = "https://scoresaber.com/api/v2/leaderboards/hash/{0}";
+
+        /// <summary>
+        /// Leaderboard information by leaderboard ID.
+        /// </summary>
+        /// <remarks>{0} = leaderboard ID</remarks>
+        public const string SSAPI_LEADERBOARD_INFO = "https://scoresaber.com/api/v2/leaderboards/{0}";
+
+        /// <summary>
+        /// Leaderboard scores by leaderboard ID.
+        /// </summary>
+        /// <remarks>{0} = leaderboard ID, {1} = page, {2} = limit</remarks>
+        public const string SSAPI_LEADERBOARD_SCORES =
+            "https://scoresaber.com/api/v2/leaderboards/{0}/scores?page={1}&limit={2}";
+
+        /// <summary>
+        /// Player scores.
+        /// </summary>
+        /// <remarks>{0} = player ID, {1} = page, {2} = limit</remarks>
+        public const string SSAPI_PLAYER_SCORES =
+            "https://scoresaber.com/api/v2/players/{0}/scores?page={1}&limit={2}&sort=score&sortDirection=desc";
+
+        /// <summary>
+        /// Get a player's basic profile.
+        /// </summary>
+        /// <remarks>
+        /// {0} = player ID
+        /// </remarks>
+        public const string SSAPI_PLAYER_PROFILE_BASIC = "https://scoresaber.com/api/v2/players/{0}/basic";
+
+        /// <summary>
+        /// Get a player's full profile.
+        /// </summary>
+        /// <remarks>
+        /// {0} = player ID
+        /// </remarks>
+        public const string SSAPI_PLAYER_PROFILE = "https://scoresaber.com/api/v2/players/{0}/profile";
 
         //Docs: https://api.accsaberreloaded.com/v1/docs
         // Category ID: b0000000-0000-0000-0000-000000000003 for Tech, 2 = Standard, 1 = True, none for overall.

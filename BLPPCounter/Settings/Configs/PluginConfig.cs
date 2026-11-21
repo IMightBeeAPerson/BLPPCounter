@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
 using System.Reflection;
@@ -16,8 +18,32 @@ using IPA.Config.Stores.Converters;
 
 namespace BLPPCounter.Settings.Configs
 {
-    internal class PluginConfig
+    internal class PluginConfig : INotifyPropertyChanged
     {
+        #region Functions & Events
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        internal void RaisePropertyChanged(INotifyPropertyChanged caller, string memberName)
+        {
+            PropertyChanged?.Invoke(caller, new(memberName));
+        }
+
+        public void NotifyWhenChanged(Action? toNotify, params IEnumerable<string> varNames)
+        {
+            NotifyWhenChanged(toNotify, [.. varNames]);
+        }
+
+        public void NotifyWhenChanged(Action? toNotify, HashSet<string> varNames)
+        {
+            PropertyChanged += (_, propertyArgs) =>
+            {
+                if (varNames.Contains(propertyArgs.PropertyName))
+                    toNotify?.Invoke();
+            };
+        }
+
+        #endregion
         #region Non-Settings Variables
         public virtual TokenFormatSettings TokenSettings { get; set; } = new TokenFormatSettings();
         public virtual MessageSettings MessageSettings { get; set; } = new MessageSettings();
@@ -152,14 +178,20 @@ namespace BLPPCounter.Settings.Configs
         public virtual Color SecondHighlightColor { get; set; } = Color.FromArgb(119, 18, 252, 255); //#7712fcff
         #endregion
         [Ignore]
-        private readonly Dictionary<string, PropertyInfo> Colors = new Dictionary<string, PropertyInfo>(
-            typeof(PluginConfig)
-                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .Where(p => p.PropertyType.Equals(typeof(Color)) && p.Name.EndsWith("Color"))
-                .Select(p => new KeyValuePair<string, PropertyInfo>(p.Name[..^5], p))
-        );
+        private readonly Dictionary<string, PropertyInfo> Colors =
+        [
+            with(
+                typeof(PluginConfig)
+                    .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(p => p.PropertyType.Equals(typeof(Color)) && p.Name.EndsWith("Color"))
+                    .Select(p => new KeyValuePair<string, PropertyInfo>(p.Name[..^5], p))
+            ),
+        ];
 
-        public Color GetColorFromName(string name) => (Color)Colors[name].GetValue(this);
+        public Color GetColorFromName(string name)
+        {
+            return (Color)Colors[name].GetValue(this);
+        }
 
         [Ignore]
         public IEnumerable<PropertyInfo> ColorInfos => Colors.Values;

@@ -78,7 +78,8 @@ namespace BLPPCounter.Utils.Safety
                 return;
             }
 
-            _activationState.Changed -= HandleActivationChanged;
+            using (_transitionLock.LockAsync().GetAwaiter().GetResult())
+                _activationState.Changed -= HandleActivationChanged;
 
             CancellationTokenSource? activationSource;
 

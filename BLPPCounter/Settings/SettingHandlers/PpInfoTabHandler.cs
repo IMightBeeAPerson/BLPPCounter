@@ -31,7 +31,6 @@ using BLPPCounter.Utils.TokenParser;
 using BLPPCounter.Utils.TokenParser.Printers;
 using BS_Utils.Utilities;
 using HMUI;
-using Newtonsoft.Json.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -102,7 +101,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private IDifficultyBeatmap? _currentMap;
 #endif
 
-        private (ICacheModel? DiffData, JToken? ScoreData) _currentDiff;
+        private (ICacheModel? DiffData, IScoreModel? ScoreData) _currentDiff;
 
         private Table? _clanTable;
         private Table? _relativeTable;
@@ -1182,7 +1181,7 @@ namespace BLPPCounter.Settings.SettingHandlers
         private void SucceededMap(StandardLevelScenesTransitionSetupDataSO transition, LevelCompletionResults results)
         {
             ClearMapTabs();
-            TheCounter.ClearCounter();
+            TheCounter.ClearCounterStatic();
 
             float accuracy = HelpfulMisc.GetAcc(transition, results);
 
@@ -1226,8 +1225,6 @@ namespace BLPPCounter.Settings.SettingHandlers
                 "Map completion info: "
                     + HelpfulMisc.Print(new object[] { finalAccuracy, hash, mapName, difficulty, mode })
             );
-
-            TheCounter.LastMap = default;
 
             if (float.IsNaN(finalAccuracy) || float.IsInfinity(finalAccuracy) || finalAccuracy <= 0f)
             {
@@ -1355,16 +1352,14 @@ namespace BLPPCounter.Settings.SettingHandlers
 
             _currentDiff = default;
 
-            JToken? scoreData = await CurrentApi
-                .GetScoreData(
-                    _targeter.Target.TargetID,
-                    selectedMap.Hash,
-                    selectedMap.Difficulty.ToString().Replace("+", "Plus"),
-                    selectedMap.Mode,
-                    quiet: true,
-                    ct: cancellationToken
-                )
-                .ConfigureAwait(false);
+            IScoreModel? scoreData = await CurrentApi.GetScoreData(
+                _targeter.Target.TargetID,
+                selectedMap.Hash,
+                selectedMap.Difficulty.ToString().Replace("+", "Plus"),
+                selectedMap.Mode,
+                quiet: true,
+                ct: cancellationToken
+            );
 
             _targetHasScore = scoreData is not null;
 
@@ -1397,7 +1392,7 @@ namespace BLPPCounter.Settings.SettingHandlers
                 return 0f;
             }
 
-            float targetPp = CurrentApi.GetPP(scoreData);
+            float targetPp = scoreData.LeaderboardPoints;
 
             if (targetPp <= 0f && !CurrentApi.AreRatingsNull(difficultyData))
             {
@@ -1405,7 +1400,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 
                 if (maximumScore > 0)
                 {
-                    float accuracy = CurrentApi.GetScore(scoreData) / (float)maximumScore;
+                    float accuracy = scoreData.ModifiedScore / (float)maximumScore;
 
                     targetPp = CurrentCalculator.Inflate(
                         CurrentCalculator.GetSummedPp(accuracy, CurrentApi.GetRatings(difficultyData))
@@ -2348,7 +2343,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             }
 
             return CurrentCalculator.GetAcc(
-                CurrentApi.GetPP(_currentDiff.ScoreData),
+                _currentDiff.ScoreData.LeaderboardPoints,
                 _config.DecimalPrecision,
                 CurrentApi.GetRatings(_currentDiff.DiffData)
             );

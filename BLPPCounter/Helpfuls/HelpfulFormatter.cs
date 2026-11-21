@@ -36,9 +36,7 @@ namespace BLPPCounter.Helpfuls
 
         public void Initialize()
         {
-            string hold = "";
-            for (int i = 0; i < pc.DecimalPrecision; i++)
-                hold += "#";
+            string hold = new('#', pc.DecimalPrecision);
 
             NUMBER_TOSTRING_FORMAT =
                 pc.DecimalPrecision > 0

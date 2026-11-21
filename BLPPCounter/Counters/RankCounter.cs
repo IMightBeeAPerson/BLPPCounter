@@ -250,11 +250,7 @@ namespace BLPPCounter.Counters
                     float deflatedPp = specificPp.Take(3).Sum();
 
                     float adjustedAccuracy =
-                        _beatLeaderCalculator.GetAccDeflatedUnsafe(
-                            deflatedPp,
-                            pc.DecimalPrecision,
-                            ratings.GetRatings(CurrentLeaderboard)
-                        ) / 100f;
+                        _beatLeaderCalculator.GetAccDeflated(deflatedPp, pc.DecimalPrecision) / 100f;
 
                     float adjustedPp = specificPp.Length > 3 ? specificPp[3] : calc.Inflate(deflatedPp);
 

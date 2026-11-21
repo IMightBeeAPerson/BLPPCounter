@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using BLPPCounter.Models.Base;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.LangAddons;
-using Newtonsoft.Json.Linq;
 
 namespace BLPPCounter.Utils.Profile_Utils
 {
@@ -187,15 +187,14 @@ namespace BLPPCounter.Utils.Profile_Utils
             CancellationToken cancellationToken
         )
         {
-            JToken? scoreData = await _api.GetScoreData(
-                    UserId,
-                    hash,
-                    difficulty.ToString(),
-                    mode,
-                    quiet: true,
-                    ct: cancellationToken
-                )
-                .ConfigureAwait(false);
+            IScoreModel? scoreData = await _api.GetScoreData(
+                UserId,
+                hash,
+                difficulty.ToString(),
+                mode,
+                quiet: true,
+                ct: cancellationToken
+            );
 
             if (scoreData is null)
             {
@@ -208,7 +207,7 @@ namespace BLPPCounter.Utils.Profile_Utils
                 return 0;
             }
 
-            int rank = _api.GetRank(scoreData);
+            int rank = scoreData.Rank;
 
             return rank > 0 ? checked((uint)rank) : 0;
         }

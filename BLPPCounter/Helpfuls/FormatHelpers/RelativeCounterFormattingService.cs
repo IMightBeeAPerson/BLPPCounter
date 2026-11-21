@@ -125,7 +125,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
             )
             {
                 throw new ArgumentException(
-                    "The relation is not owned by the " + "relative-counter formatting service.",
+                    "The relation is not owned by the relative-counter formatting service.",
                     nameof(relation)
                 );
             }
@@ -186,8 +186,8 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                 Aliases,
                 new Dictionary<char, string>
                 {
-                    { 'd', "The accuracy difference between the " + "player and target" },
-                    { 'x', "The PP difference between the player " + "and target" },
+                    { 'd', "The accuracy difference between the player and target" },
+                    { 'x', "The PP difference between the player and target" },
                     { 'p', "The player's current PP" },
                     { 'l', "The PP label" },
                     { 'y', "The full-combo PP difference" },
@@ -195,7 +195,7 @@ namespace BLPPCounter.Helpfuls.FormatHelpers
                     { 'a', "The target accuracy" },
                     { 't', "The targeted player's formatted name" },
                     { 'e', "The player's mistake count" },
-                    { 'z', "The color representing the mistake " + "difference" },
+                    { 'z', "The color representing the mistake difference" },
                 },
                 FormatRelation.FormatDisplayer(SetupFormatter, Aliases),
                 new FormatWrapper(

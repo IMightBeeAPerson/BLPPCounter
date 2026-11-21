@@ -24,6 +24,7 @@ namespace BLPPCounter.Counters
             TMP_Text display,
             MapSelection map,
             Leaderboards leaderboard,
+            ICounterController controller,
             CancellationToken cancellationToken = default
         )
         {
@@ -36,7 +37,7 @@ namespace BLPPCounter.Counters
 
             if (!descriptor.Supports(leaderboard))
             {
-                Plugin.Log.Warn($"Counter \"{displayName}\" does not " + $"support {leaderboard}.");
+                Plugin.Log.Warn($"Counter \"{displayName}\" does not support {leaderboard}.");
 
                 return null;
             }
@@ -47,7 +48,7 @@ namespace BLPPCounter.Counters
             {
                 MyCounters counter = (MyCounters)_instantiator.Instantiate(descriptor.CounterType);
 
-                counter.Initialize(display, map, leaderboard, cancellationToken);
+                counter.Initialize(display, map, leaderboard, controller, cancellationToken);
 
                 counter.UpdateFormat();
 
@@ -55,7 +56,7 @@ namespace BLPPCounter.Counters
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                Plugin.Log.Warn($"Creation of counter \"{displayName}\" " + "was cancelled.");
+                Plugin.Log.Warn($"Creation of counter \"{displayName}\" was cancelled.");
 
                 return null;
             }

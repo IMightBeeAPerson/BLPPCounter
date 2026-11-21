@@ -1,15 +1,18 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.Enums;
 
 namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
 {
-    internal sealed class LeaderboardSettingsHandler
+    internal sealed class LeaderboardSettingsHandler : INotifyPropertyChanged
     {
         private readonly PluginConfig _config;
         private readonly List<Leaderboards> _usableLeaderboards;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         public LeaderboardSettingsHandler(PluginConfig config)
         {
@@ -24,8 +27,6 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
 
             NextLeaderboardToAdd = AvailableLeaderboards.FirstOrDefault();
         }
-
-        public event Action? LeaderboardUpdated;
 
         public IReadOnlyList<Leaderboards> UsableLeaderboards => _usableLeaderboards;
 
@@ -44,6 +45,9 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
             if (!_config.LeaderboardsInUse.Remove(leaderboard))
                 return;
 
+            _config.RaisePropertyChanged(this, nameof(PluginConfig.LeaderboardsInUse));
+            PropertyChanged?.Invoke(this, new(nameof(PluginConfig.LeaderboardsInUse)));
+
             RefreshSelection();
         }
 
@@ -55,6 +59,9 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
             }
 
             _config.LeaderboardsInUse.Add(NextLeaderboardToAdd);
+
+            _config.RaisePropertyChanged(this, nameof(PluginConfig.LeaderboardsInUse));
+            PropertyChanged?.Invoke(this, new(nameof(PluginConfig.LeaderboardsInUse)));
 
             RefreshSelection();
         }
@@ -71,7 +78,8 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
                 _config.LeaderboardsInUse[index - 1]
             );
 
-            NotifyUpdated();
+            _config.RaisePropertyChanged(this, nameof(PluginConfig.LeaderboardsInUse));
+            PropertyChanged?.Invoke(this, new(nameof(PluginConfig.LeaderboardsInUse)));
         }
 
         internal void SwapDown(Leaderboards leaderboard)
@@ -88,19 +96,15 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
                 _config.LeaderboardsInUse[index]
             );
 
-            NotifyUpdated();
+            _config.RaisePropertyChanged(this, nameof(PluginConfig.LeaderboardsInUse));
+            PropertyChanged?.Invoke(this, new(nameof(PluginConfig.LeaderboardsInUse)));
         }
 
         private void RefreshSelection()
         {
             NextLeaderboardToAdd = AvailableLeaderboards.FirstOrDefault();
 
-            NotifyUpdated();
-        }
-
-        private void NotifyUpdated()
-        {
-            LeaderboardUpdated?.Invoke();
+            PropertyChanged?.Invoke(this, new(nameof(NextLeaderboardToAdd)));
         }
     }
 }

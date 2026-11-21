@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +22,7 @@ using BLPPCounter.Utils.Profile_Utils;
 using BLPPCounter.Utils.Safety;
 using CountersPlus.Counters.Custom;
 using IPA.Utilities.Async;
+using ModestTree;
 using TMPro;
 using Zenject;
 using static GameplayModifiers;
@@ -32,7 +34,7 @@ using UnityEngine;
 
 namespace BLPPCounter
 {
-    public class TheCounter : BasicCustomCounter
+    public class TheCounter : BasicCustomCounter, ICounterController
     {
         #region Dependencies
 #if NEW_VERSION
@@ -193,14 +195,13 @@ namespace BLPPCounter
         private int leaderboardIndex;
         private int lastLeaderboardIndex;
 
-        internal static MapSelection LastMap;
-        internal static GameplayModifiers? LastMods;
-        public static MyCounters? theCounter { get; private set; }
-        public static bool SettingChanged { get; set; }
+        internal static MapSelection LastMap { get; private set; }
+        internal static GameplayModifiers? LastMods { get; private set; }
+        private static MyCounters? theCounter;
+        private static bool settingsChanged = false;
 
         private static readonly TimeLooper TimeLooper = new();
         private static string lastTarget = Targeter.NO_TARGET;
-        private static Action? ForceOff;
 
         private Task initTask = Task.CompletedTask;
         private CancellationTokenSource? initTaskCanceller;
@@ -241,6 +242,7 @@ namespace BLPPCounter
         #endregion
 
         #region Initialization Lifecycle
+
         private static async Task DisposeInitializationAsync(
             Task initializationTask,
             CancellationTokenSource cancellationSource
@@ -312,8 +314,6 @@ namespace BLPPCounter
             counterPaused = false;
             leaderboardIndex = lastLeaderboardIndex;
 
-            ForceOff = () => ForceTurnOff();
-
             SubscribeToFormatChanges();
             counterCatalog.ValidateConfiguration();
 
@@ -375,8 +375,6 @@ namespace BLPPCounter
                 }
 
                 enabled = false;
-                theCounter = null;
-                ForceOff = null;
 
                 CancelAndObserveInitialization();
             }
@@ -384,8 +382,6 @@ namespace BLPPCounter
             {
                 Plugin.Log.Error("There was an issue turning the counter off!");
                 Plugin.Log.Debug(exception);
-                theCounter = null;
-                ForceOff = null;
             }
         }
 
@@ -411,18 +407,22 @@ namespace BLPPCounter
             initTaskCanceller?.Cancel();
         }
 
-        internal static void CancelCounter()
+        public void CancelCounter()
         {
-            ForceOff?.Invoke();
+            ForceTurnOff();
         }
 
-        public static void ClearCounter()
+        public static void ClearCounterStatic()
         {
             LastMap = default;
             LastMods = null;
             theCounter = null;
             lastTarget = Targeter.NO_TARGET;
-            SettingChanged = false;
+        }
+
+        public void ClearCounter()
+        {
+            ClearCounterStatic();
         }
         #endregion
 
@@ -502,10 +502,10 @@ namespace BLPPCounter
                 return null;
             }
 
-            return counterFactory.Create(displayName, counterDisplay, LastMap, Leaderboard, cancellationToken);
+            return counterFactory.Create(displayName, counterDisplay, LastMap, Leaderboard, this, cancellationToken);
         }
 
-        internal void ReplaceCurrentCounter(string newCounter, TMP_Text counterDisplay)
+        public void ReplaceCurrentCounter(string newCounter, TMP_Text counterDisplay)
         {
             try
             {
@@ -560,15 +560,10 @@ namespace BLPPCounter
             }
 
             string selectedMode = SelectMode(characteristic, Leaderboard);
-            string[] levelIdParts = levelId.Split('_');
+            string? selectedHash = HelpfulMisc.ParseHashFromLevelId(levelId);
 
-            if (levelIdParts.Length < 3)
-            {
-                Plugin.Log.Warn($"Could not extract a map hash from level ID \"{levelId}\".");
+            if (selectedHash is null)
                 return false;
-            }
-
-            string selectedHash = Map.NormalizeHash(levelIdParts[2]);
 
             try
             {
@@ -668,7 +663,7 @@ namespace BLPPCounter
 
             if (Leaderboard == Leaderboards.Beatleader && (ratingDifference || difficultyDifference))
             {
-                await beatLeaderCalculator.SetCurve(LastMap.MapData.SongId, LastMap.MapSpeed, apiProvider);
+                await beatLeaderCalculator.SetCurve(currentMap.MapData.SongId, currentMap.MapSpeed, apiProvider);
 
                 if (!IsCurrentInitialization(generation, cancellationToken))
                 {
@@ -704,6 +699,11 @@ namespace BLPPCounter
         #endregion
 
         #region Async Initialization
+        internal static void RaiseSettingChangedFlag()
+        {
+            settingsChanged = true;
+        }
+
         private async Task AsyncCounterInit(
             CancellationToken cancellationToken,
             int generation,
@@ -780,7 +780,7 @@ namespace BLPPCounter
 
                 bool requiresNewCounter =
                     theCounter is null
-                    || SettingChanged
+                    || settingsChanged
                     || counterChanged
                     || LastMap.Equals(default)
                     || !hash.Equals(LastMap.Hash, StringComparison.OrdinalIgnoreCase)
@@ -788,6 +788,27 @@ namespace BLPPCounter
 
                 if (requiresNewCounter)
                 {
+#if DEBUG
+                    List<string> msgs = [];
+
+                    if (theCounter is null)
+                        msgs.Add("No counter is inited");
+                    if (settingsChanged)
+                        msgs.Add("Settings have been changed, invaldating the counter");
+                    if (theCounter is not null && counterChanged)
+                        msgs.Add(
+                            $"The loaded counter does not match the counter type in settings ({theCounter?.Name ?? "null"} vs {pc.PPType})"
+                        );
+                    if (LastMap.Equals(default))
+                        msgs.Add("There is no map loaded");
+                    else if (!hash.Equals(LastMap.Hash, StringComparison.OrdinalIgnoreCase))
+                        msgs.Add("The hash has changed");
+                    if (!lastTarget.Equals(pc.Target, StringComparison.Ordinal))
+                        msgs.Add("The target set by the player has changed");
+
+                    Plugin.Log.Info("Making a new counter for the following reasons: " + msgs.Join(", ") + ".");
+#endif
+
                     Map? map = await mapRepository
                         .GetAsync(
                             hash,
@@ -846,7 +867,7 @@ namespace BLPPCounter
                         goto Failed;
                     }
 
-                    SettingChanged = false;
+                    settingsChanged = false;
 
                     if (currentLeaderboard == Leaderboards.Beatleader)
                     {
@@ -1330,9 +1351,9 @@ namespace BLPPCounter
                     float stars = pathUtils.GetRating(data, PPType.Star, leaderboard, speed);
                     float accuracyRating = pathUtils.GetRating(data, PPType.Acc, leaderboard, speed) * multiplier;
                     float passRating = pathUtils.GetRating(data, PPType.Pass, leaderboard, speed) * multiplier;
-                    float technologyRating = pathUtils.GetRating(data, PPType.Tech, leaderboard, speed) * multiplier;
+                    float techRating = pathUtils.GetRating(data, PPType.Tech, leaderboard, speed) * multiplier;
 
-                    loadedRatings = [stars, accuracyRating, passRating, technologyRating];
+                    loadedRatings = [stars, accuracyRating, passRating, techRating];
 
                     if (!quiet)
                     {
@@ -1344,11 +1365,11 @@ namespace BLPPCounter
                             $"{prefix}Stars: {stars}\n"
                                 + $"{prefix}Acc Rating: {accuracyRating}\n"
                                 + $"{prefix}Pass Rating: {passRating}\n"
-                                + $"{prefix}Tech Rating: {technologyRating}"
+                                + $"{prefix}Tech Rating: {techRating}"
                         );
                     }
 
-                    return technologyRating > 0f;
+                    return techRating > 0f;
                 }
 
                 default:

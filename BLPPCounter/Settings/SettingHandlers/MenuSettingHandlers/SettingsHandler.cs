@@ -113,7 +113,17 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         {
             ThrowIfDisposed();
 
-            _leaderboardSettings.LeaderboardUpdated += HandleLeaderboardUpdated;
+            HashSet<string> counterSettingNames =
+            [
+                nameof(UseUnranked),
+                nameof(LocalReplaysOnly),
+                nameof(LocalReplays),
+                nameof(Leaderboard),
+                nameof(PluginConfig.LeaderboardsInUse),
+            ];
+            _config.NotifyWhenChanged(TheCounter.RaiseSettingChangedFlag, counterSettingNames);
+
+            _leaderboardSettings.PropertyChanged += HandleLeaderboardUpdated;
 
             _targeter.Initialized += HandleTargeterInitialized;
             _targeter.TargetListReloaded += HandleTargetListReloaded;
@@ -128,7 +138,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
 
             _disposed = true;
 
-            _leaderboardSettings.LeaderboardUpdated -= HandleLeaderboardUpdated;
+            _leaderboardSettings.PropertyChanged -= HandleLeaderboardUpdated;
 
             _targeter.Initialized -= HandleTargeterInitialized;
             _targeter.TargetListReloaded -= HandleTargetListReloaded;
@@ -178,7 +188,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
             });
         }
 
-        private void HandleLeaderboardUpdated()
+        private void HandleLeaderboardUpdated(object? sender, PropertyChangedEventArgs args)
         {
             Dispatcher.EnqueueAction(() =>
             {
@@ -187,8 +197,6 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
                 NotifyPropertyChanged(nameof(Leaderboard));
                 NotifyPropertyChanged(nameof(LeaderboardList));
                 NotifyPropertyChanged(nameof(LeaderboardOptions));
-
-                OnTypesOfPPChanged?.Invoke();
             });
         }
 
@@ -217,8 +225,6 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
             {
                 RelativeDefault = (string)RelativeDefaultList[0];
             }
-
-            TheCounter.SettingChanged = true;
         }
 
         private void HandlePropertyChanged(object? sender, PropertyChangedEventArgs args)
@@ -233,11 +239,6 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
                     _ppInfoTabHandler.Value.ChangeTabSettings = true;
                     _ppInfoTabHandler.Value.CalcSelector.ReceiveValue();
                     _ppInfoTabHandler.Value.ResetTabs();
-                    break;
-
-                case nameof(UseUnranked):
-                case nameof(LocalReplaysOnly):
-                    TheCounter.SettingChanged = true;
                     break;
 
                 case nameof(DecimalPrecision):
@@ -255,8 +256,6 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
                 case nameof(LocalReplays):
                     if (_config.LocalReplays)
                         LocalReplayHandler.LoadReplays();
-
-                    TheCounter.SettingChanged = true;
                     break;
             }
         }
@@ -555,7 +554,7 @@ namespace BLPPCounter.Settings.SettingHandlers.MenuSettingHandlers
         public void ClearCache()
         {
             _clanService.ClearCache();
-            TheCounter.ClearCounter();
+            TheCounter.ClearCounterStatic();
         }
 
         [UIValue(nameof(MaxNameLength))]

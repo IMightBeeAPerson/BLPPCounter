@@ -1,8 +1,6 @@
-using System.Reflection;
 using BLPPCounter.Installers;
 using BLPPCounter.Settings.Configs;
 using BLPPCounter.Utils.Safety;
-using HarmonyLib;
 using IPA;
 using IPA.Config.Stores;
 using SiraUtil.Zenject;
@@ -16,7 +14,6 @@ namespace BLPPCounter
         private PluginActivationState? _activationState;
 
         internal static IPALogger Log { get; private set; } = null!;
-        internal static Harmony Harmony { get; private set; } = null!;
 
         internal static string Name => "PPCounter";
 
@@ -38,9 +35,6 @@ namespace BLPPCounter
         public void OnEnable()
         {
             _activationState?.SetEnabled(true);
-
-            Harmony = new("Person.BLPPCounter");
-            Harmony.PatchAll(Assembly.GetExecutingAssembly());
         }
 
         [OnDisable]

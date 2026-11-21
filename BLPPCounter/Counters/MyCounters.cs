@@ -28,6 +28,7 @@ namespace BLPPCounter.Counters
         protected PPHandler ppHandler = null!;
         protected StringBuilder outpText = new();
         private protected IMainCounterFormattingService MainFormatting = null!;
+        private protected ICounterController Controller = null!;
 
         public abstract string Name { get; }
 
@@ -58,6 +59,7 @@ namespace BLPPCounter.Counters
             TMP_Text display,
             MapSelection map,
             Leaderboards leaderboard,
+            ICounterController controller,
             CancellationToken cancellationToken
         )
         {
@@ -67,6 +69,8 @@ namespace BLPPCounter.Counters
             }
 
             _display = display ?? throw new ArgumentNullException(nameof(display));
+
+            Controller = controller;
 
             CurrentLeaderboard = leaderboard;
 
@@ -115,7 +119,7 @@ namespace BLPPCounter.Counters
             calc = _calculatorProvider.Get(CurrentLeaderboard);
 
             ratings = ratingValues;
-            ratings.SetRatings(CurrentLeaderboard);
+            ratings.SetSelectedRatings(CurrentLeaderboard);
             calc.Ratings = ratings;
 
             ppHandler.SetRatings(ratings);
@@ -133,7 +137,7 @@ namespace BLPPCounter.Counters
             calc = _calculatorProvider.Get(CurrentLeaderboard);
 
             ratings = map.Ratings;
-            ratings.SetRatings(CurrentLeaderboard);
+            ratings.SetSelectedRatings(CurrentLeaderboard);
             calc.Ratings = ratings;
 
             ppHandler.SetRatings(ratings);

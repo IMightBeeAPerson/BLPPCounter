@@ -7,9 +7,11 @@ using System.Threading.Tasks;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Models.Base;
 using BLPPCounter.Settings.Configs;
+using BLPPCounter.Utils.LangAddons;
 using BLPPCounter.Utils.Map_Utils;
 using BLPPCounter.Utils.Profile_Utils;
 using ModestTree;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Zenject;
 using static GameplayModifiers;
@@ -303,6 +305,22 @@ namespace BLPPCounter.Utils.API_Handlers
             return await content.ReadAsByteArrayAsync().ConfigureAwait(false);
         }
 
+        public async Task<T?> CallAPI_Json<T>(
+            string path,
+            bool quiet = false,
+            bool forceNoHeader = false,
+            int maxRetries = 3,
+            CancellationToken ct = default
+        )
+        {
+            string? content = await CallAPI_String(path, quiet, forceNoHeader, maxRetries, ct).ConfigureAwait(false);
+
+            if (BetterString.IsNullOrEmpty(content))
+                return default;
+
+            return JsonConvert.DeserializeObject<T>(content);
+        }
+
         public async Task<IOrderedEnumerable<(int PageIndex, T? Results)>> CalledPagedAPI_Internal<T>(
             int totalCount,
             Func<int, int, string> pathParser,
@@ -418,7 +436,7 @@ namespace BLPPCounter.Utils.API_Handlers
         public abstract ICacheModel SelectSpecificDiff(ICacheModel diffData, int diffNum, string modeName);
         public abstract Task<string?> GetHashData(string hash, int diffNum);
         public abstract string GetHash(ICacheModel diffData);
-        public abstract Task<JToken?> GetScoreData(
+        public abstract Task<IScoreModel?> GetScoreData(
             string userId,
             string hash,
             string diff,
@@ -426,11 +444,6 @@ namespace BLPPCounter.Utils.API_Handlers
             bool quiet = false,
             CancellationToken ct = default
         );
-        public abstract float GetPP(JToken scoreData);
-        public abstract int GetScore(JToken scoreData);
-        public abstract int GetRank(JToken scoreData);
-        public abstract string GetPlayerName(JToken scoreData);
-        public abstract float GetAcc(JToken scoreData);
         public abstract Task<ScoregraphInfo[]> GetScoregraph(MapSelection ms, CancellationToken ct = default);
         public abstract Task<Play[]> GetScores(string userId, int count);
 
@@ -438,7 +451,7 @@ namespace BLPPCounter.Utils.API_Handlers
             string userId,
             int count,
             string apiPathFormat,
-            string scoreArrayPath,
+            string? scoreArrayPath,
             bool isZeroIndexed,
             Func<JToken, Play> tokenSelector,
             Throttler throttler,
@@ -498,81 +511,6 @@ namespace BLPPCounter.Utils.API_Handlers
 
         public abstract Task<float> GetProfilePP(string userId);
         internal abstract Task AddMap(Dictionary<string, Map> Data, string hash, CancellationToken ct = default);
-
-        /*public static async Task<Leaderboards> GetRankedLeaderboards(
-            string hash,
-            BeatmapDifficulty diff,
-            string trueMode
-        )
-        {
-            (bool success, HttpContent data) = await CallAPI_Static(
-                    string.Format(HelpfulPaths.BSAPI_HASH, hash),
-                    _bsThrottler
-                )
-                .ConfigureAwait(false);
-            if (!success)
-                return Leaderboards.None;
-            string strData = await data.ReadAsStringAsync().ConfigureAwait(false);
-            if (strData is null)
-                return Leaderboards.None;
-            return GetRankedLeaderboards(
-                JToken.Parse(strData)["versions"].Children().First()["diffs"].Children(),
-                hash,
-                diff,
-                trueMode
-            );
-        }
-
-        public static async Task<(Leaderboards, string)> GetRankedLeaderboardsAndMapKey(
-            string hash,
-            BeatmapDifficulty diff,
-            string trueMode
-        )
-        {
-            (bool success, HttpContent data) = await CallAPI_Static(
-                    string.Format(HelpfulPaths.BSAPI_HASH, hash),
-                    _bsThrottler
-                )
-                .ConfigureAwait(false);
-            if (!success)
-                return (Leaderboards.None, "");
-            string strData = await data.ReadAsStringAsync().ConfigureAwait(false);
-            if (strData is null)
-                return (Leaderboards.None, "");
-            JToken parsedData = JToken.Parse(strData);
-            return (
-                GetRankedLeaderboards(
-                    parsedData["versions"].Children().First()["diffs"].Children(),
-                    hash,
-                    diff,
-                    trueMode
-                ),
-                parsedData["id"].ToString()
-            );
-        }
-
-        private static Leaderboards GetRankedLeaderboards(
-            JEnumerable<JToken> BSDiffs,
-            string hash,
-            BeatmapDifficulty diff,
-            string trueMode
-        )
-        {
-            //Plugin.Log.Debug($"Diff: {diff} || trueMode: {trueMode}\nThe diffs\n{BSDiffs.Print()}");
-            Leaderboards outp = Leaderboards.None;
-            JToken BSData = BSDiffs.First(token =>
-                token["difficulty"].ToString().Equals(diff.ToString())
-                && token["characteristic"].ToString().Equals(trueMode)
-            );
-            if (BSData["stars"] != null)
-                outp |= Leaderboards.Scoresaber;
-            if (BSData["blStars"] != null)
-                outp |= Leaderboards.Beatleader;
-            if (TheCounter.Data[hash].GetModes().Contains(Map.AP_MODE_NAME))
-                outp |= Leaderboards.Accsaber;
-            //Plugin.Log.Info("Ranked Leaderboards: " + outp);
-            return outp;
-        }*/
 
         #region Internal Classes
         public struct ScoregraphInfo(float acc, float pp, SongSpeed speed, float modMult, string playerName)

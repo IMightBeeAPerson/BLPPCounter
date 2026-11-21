@@ -152,6 +152,7 @@ namespace BLPPCounter.Installers
             Container.BindInterfacesAndSelfTo<TokenParser>().AsSingle();
 
             Container.BindInterfacesAndSelfTo<HelpfulFormatter>().AsSingle();
+            Container.BindExecutionOrder<HelpfulFormatter>(-101);
         }
 
         private void BindMiscFactories()

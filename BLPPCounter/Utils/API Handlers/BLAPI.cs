@@ -107,22 +107,6 @@ namespace BLPPCounter.Utils.API_Handlers
             return (int)(diff?["difficulty"]?["maxScore"] ?? diff?["maxScore"] ?? 0);
         }
 
-        public override int GetRank(JToken scoreData)
-        {
-            return (int)(scoreData["rank"] ?? 0);
-        }
-
-        public override string GetPlayerName(JToken scoreData)
-        {
-            JToken? outp = scoreData["player"];
-            return outp is JValue ? outp.ToString() : outp?["name"]?.ToString() ?? "";
-        }
-
-        public override float GetAcc(JToken scoreData)
-        {
-            return (float)(scoreData["accuracy"] ?? 0f);
-        }
-
         public override ICacheModel SelectSpecificDiff(ICacheModel diffData, int diffNum, string modeName)
         {
             return diffData;
@@ -144,7 +128,7 @@ namespace BLPPCounter.Utils.API_Handlers
             return await CallAPI_String(string.Format(HelpfulPaths.BLAPI_HASH, hash)).ConfigureAwait(false);
         }
 
-        public override async Task<JToken?> GetScoreData(
+        public override async Task<IScoreModel?> GetScoreData(
             string userId,
             string hash,
             string diff,
@@ -153,26 +137,14 @@ namespace BLPPCounter.Utils.API_Handlers
             CancellationToken ct = default
         )
         {
-            string? outp = await CallAPI_String(
-                    string.Format(HelpfulPaths.BLAPI_SCORE, userId, hash, diff, mode),
-                    quiet,
-                    maxRetries: 1,
-                    ct: ct
-                )
-                .ConfigureAwait(false);
-            if (BetterString.IsNullOrEmpty(outp))
-                return null;
-            return JToken.Parse(outp);
-        }
+            BLScoreResponse? outp = await CallAPI_Json<BLScoreResponse>(
+                string.Format(HelpfulPaths.BLAPI_SCORE, userId, hash, diff, mode),
+                quiet,
+                maxRetries: 1,
+                ct: ct
+            );
 
-        public override float GetPP(JToken scoreData)
-        {
-            return (float)(scoreData["pp"] ?? 0f);
-        }
-
-        public override int GetScore(JToken scoreData)
-        {
-            return (int)(scoreData["modifiedScore"] ?? 0);
+            return outp;
         }
 
         public override async Task<ScoregraphInfo[]> GetScoregraph(MapSelection ms, CancellationToken ct = default)

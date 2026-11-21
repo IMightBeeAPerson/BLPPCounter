@@ -8,6 +8,8 @@ using BeatLeader.Models.Replay;
 using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Helpfuls.FormatHelpers;
+using BLPPCounter.Models;
+using BLPPCounter.Models.Base;
 using BLPPCounter.Utils;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Containers;
@@ -17,7 +19,6 @@ using BLPPCounter.Utils.Map_Utils;
 using BLPPCounter.Utils.Misc_Classes;
 using BLPPCounter.Utils.Profile_Utils;
 using BLPPCounter.Utils.Safety;
-using Newtonsoft.Json.Linq;
 using Zenject;
 using static GameplayModifiers;
 
@@ -43,6 +44,8 @@ namespace BLPPCounter.Counters
         private PathUtils _pathUtils = null!;
         private BLCalc _beatLeaderCalculator = null!;
         private ILocalReplayService _localReplayService = null!;
+
+        private BLCalc? _backupCalc = null;
 
         private Task<bool> _setupTask = Task.FromResult(false);
 
@@ -114,12 +117,12 @@ namespace BLPPCounter.Counters
             ResetReplayState();
         }
 
-        private async Task<JToken?> SetupReplayDataAsync(MapSelection map, CancellationToken cancellationToken)
+        private async Task<IScoreModel?> SetupReplayDataAsync(MapSelection map, CancellationToken cancellationToken)
         {
             string mode = CurrentLeaderboard == Leaderboards.Beatleader ? map.Mode : Profile.DEFAULT_MODE;
 
             byte[]? replayData = null;
-            JToken? scoreData = null;
+            IScoreModel? scoreData = null;
 
             if (pc.LocalReplays)
             {
@@ -192,11 +195,11 @@ namespace BLPPCounter.Counters
                                 {
                                     float accuracy = localReplay.info.score / (float)maximumScore;
 
-                                    scoreData = new JObject
+                                    scoreData = new BLScoreResponse()
                                     {
-                                        { "accuracy", accuracy },
-                                        { "pp", calc.Inflate(calc.GetSummedPp(accuracy)) },
-                                        { "modifiers", localReplay.info.modifiers },
+                                        Accuracy = accuracy,
+                                        Pp = calc.Inflate(calc.GetSummedPp(accuracy)),
+                                        Modifiers = localReplay.info.modifiers,
                                     };
                                 }
                             }
@@ -224,28 +227,24 @@ namespace BLPPCounter.Counters
                 return null;
             }
 
-            scoreData ??= await _beatLeaderApi
-                .GetScoreData(
-                    _targeter.Target.TargetID,
-                    map.Hash,
-                    map.Difficulty.ToString(),
-                    mode,
-                    quiet: true,
-                    ct: cancellationToken
-                )
-                .ConfigureAwait(false);
+            scoreData ??= await _beatLeaderApi.GetScoreData(
+                _targeter.Target.TargetID,
+                map.Hash,
+                map.Difficulty.ToString(),
+                mode,
+                quiet: true,
+                ct: cancellationToken
+            );
 
             if (replayData is null)
             {
-                if (scoreData is null)
+                if (scoreData is not BLScoreResponse blScoreData)
                 {
                     _useReplay = false;
                     return null;
                 }
 
-                string? replayUrl = scoreData.Value<string>("replay");
-
-                if (BetterString.IsNullOrWhiteSpace(replayUrl))
+                if (BetterString.IsNullOrWhiteSpace(blScoreData.Replay))
                 {
                     Plugin.Log.Warn("BeatLeader returned no replay URL.");
 
@@ -254,7 +253,7 @@ namespace BLPPCounter.Counters
                 }
 
                 replayData = await _beatLeaderApi
-                    .CallAPI_Bytes(replayUrl, quiet: true, ct: cancellationToken)
+                    .CallAPI_Bytes(blScoreData.Replay, quiet: true, ct: cancellationToken)
                     .ConfigureAwait(false);
 
                 if (replayData is null || !ReplayDecoder.TryDecodeReplay(replayData, out _bestReplay))
@@ -302,6 +301,12 @@ namespace BLPPCounter.Counters
                 _replayRatings.MultiplyRatings(modifierMultiplier);
 
                 _usingModifiedAccuracy = pc.ReplayMods && !ratings.Equals(_replayRatings);
+
+                if (_usingModifiedAccuracy)
+                {
+                    _backupCalc = new BLCalc { Ratings = _replayRatings };
+                    await _backupCalc.SetCurve(map.MapData.SongId, speed, _beatLeaderApi);
+                }
             }
             else
             {
@@ -332,32 +337,32 @@ namespace BLPPCounter.Counters
             {
                 await _targeter.WaitUntilInitializedAsync(cancellationToken).ConfigureAwait(false);
 
-                JToken? playerData = pc.UseReplay
-                    ? await SetupReplayDataAsync(map, cancellationToken).ConfigureAwait(false)
-                    : await _apiProvider
+                IScoreModel? playerData;
+
+                if (pc.UseReplay)
+                    playerData = await SetupReplayDataAsync(map, cancellationToken).ConfigureAwait(false);
+                else
+                    playerData = await _apiProvider
                         .Get(CurrentLeaderboard)
                         .GetScoreData(
                             _targeter.Target.TargetID,
                             map.Hash,
                             map.Difficulty.ToString(),
-                            CurrentLeaderboard == Leaderboards.Beatleader
-                                ? map.Mode
-                                : Utils.Profile_Utils.Profile.DEFAULT_MODE,
+                            CurrentLeaderboard == Leaderboards.Beatleader ? map.Mode : Profile.DEFAULT_MODE,
                             quiet: true,
                             ct: cancellationToken
-                        )
-                        .ConfigureAwait(false);
+                        );
 
                 if (playerData is null)
                 {
                     Plugin.Log.Warn(
-                        "Relative counter cannot load because the " + "target has no score or replay for this map."
+                        "Relative counter cannot load because the target has no score or replay for this map."
                     );
 
-                    return FailSetup();
+                    return FailSetup(map);
                 }
 
-                float targetPp = playerData.Value<float?>("pp") ?? playerData.Value<float?>("ap") ?? 0f;
+                float targetPp = playerData.LeaderboardPoints;
 
                 if (targetPp > 0f)
                 {
@@ -369,25 +374,16 @@ namespace BLPPCounter.Counters
                 }
                 else
                 {
-                    float? accuracy = playerData.Value<float?>("accuracy");
-
-                    if (accuracy is null)
-                    {
-                        Plugin.Log.Warn("Relative counter score data contains " + "neither PP nor accuracy.");
-
-                        return FailSetup();
-                    }
-
                     RatingContainer sourceRatings =
-                        CurrentLeaderboard == Leaderboards.Beatleader
+                        CurrentLeaderboard == Leaderboards.Beatleader && playerData is BLScoreResponse blScore
                             ? _pathUtils.GetAllRatingsOfSpeed(
                                 map.MapData.Data,
                                 Leaderboards.Beatleader,
-                                HelpfulMisc.GetSongSpeed(playerData.Value<string>("modifiers"))
+                                HelpfulMisc.GetSongSpeed(blScore.Modifiers)
                             )
                             : ratings;
 
-                    float sourcePp = calc.GetSummedPp(accuracy.Value, sourceRatings);
+                    float sourcePp = calc.GetSummedPp(playerData.Accuracy, sourceRatings);
 
                     _accuracyToBeat = calc.GetAccDeflated(
                         sourcePp,
@@ -409,7 +405,7 @@ namespace BLPPCounter.Counters
             {
                 Plugin.Log.Warn("There was an error loading the target's " + $"replay:\n{exception}");
 
-                return FailSetup();
+                return FailSetup(map);
             }
         }
         #endregion
@@ -539,14 +535,14 @@ namespace BLPPCounter.Counters
             _maximumReplayScore = 0f;
         }
 
-        private bool FailSetup()
+        private bool FailSetup(MapSelection? map)
         {
-            Plugin.Log.Warn($"Relative counter setup failed. Configured " + $"fallback counter: {pc.RelativeDefault}.");
+            Plugin.Log.Warn($"Relative counter setup failed. Configured fallback counter: {pc.RelativeDefault}.");
 
-            // Counter replacement will move behind an injected gameplay
-            // runtime service when TheCounter's remaining static control
-            // methods are removed.
-            TheCounter.CancelCounter();
+            if (map is not null)
+            {
+                Controller.ReplaceCurrentCounter(pc.RelativeDefault, Display);
+            }
 
             return false;
         }
@@ -701,16 +697,18 @@ namespace BLPPCounter.Counters
             if (_maximumReplayScore <= 0f)
                 return;
 
-            _replayPpValues.SetValues(calc.GetPpWithSummedPp(_replayScore / _maximumReplayScore, _replayRatings));
-
-            _accuracyToBeat = _usingModifiedAccuracy
-                ? _beatLeaderCalculator.GetAccDeflatedUnsafe(
-                    _replayPpValues.AccPP + _replayPpValues.PassPP + _replayPpValues.TechPP,
-                    pc.DecimalPrecision,
-                    ratings.GetRatings(CurrentLeaderboard),
-                    _accuracyToBeat / 100f
-                )
-                : (float)Math.Round(_replayScore / _maximumReplayScore * 100f, pc.DecimalPrecision);
+            if (_usingModifiedAccuracy)
+            {
+                _replayPpValues.SetValues(
+                    _backupCalc!.GetPpWithSummedPp(_replayScore / _maximumReplayScore, _replayRatings)
+                );
+                _accuracyToBeat = _beatLeaderCalculator.GetAccDeflated(_replayPpValues.TotalPP, pc.DecimalPrecision);
+            }
+            else
+            {
+                _replayPpValues.SetValues(calc.GetPpWithSummedPp(_replayScore / _maximumReplayScore, _replayRatings));
+                _accuracyToBeat = (float)Math.Round(_replayScore / _maximumReplayScore * 100f, pc.DecimalPrecision);
+            }
         }
 
         public override void UpdateCounterInternal(
@@ -812,7 +810,7 @@ namespace BLPPCounter.Counters
         public override void CounterComplete(float finalAcc, float finalFCAcc, int totalNotes, int totalMistakes)
         {
             if (totalNotes + _bombs == _noteArray?.Length)
-                TheCounter.ClearCounter();
+                Controller.ClearCounter();
         }
         #endregion
     }
