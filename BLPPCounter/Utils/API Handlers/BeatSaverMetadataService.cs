@@ -18,14 +18,17 @@ namespace BLPPCounter.Utils.API_Handlers
 
         private int _disposed;
 
-        public BeatSaverMetadataService(PluginConfig config)
+        public BeatSaverMetadataService(PluginConfig config, HttpClient client)
         {
             if (config is null)
             {
                 throw new ArgumentNullException(nameof(config));
             }
 
-            _client = new HttpClient { Timeout = TimeSpan.FromSeconds(config.APITimeout) };
+            if (client is null)
+                throw new ArgumentNullException(nameof(client));
+
+            _client = client;
         }
 
         public async Task<BeatSaverMapMetadata?> GetMapMetadataAsync(
@@ -51,13 +54,13 @@ namespace BLPPCounter.Utils.API_Handlers
 
             string path = string.Format(HelpfulPaths.BSAPI_HASH, hash);
 
+            Plugin.Log.Debug("API Call: " + path);
+
             using HttpResponseMessage response = await _client.GetAsync(path, cancellationToken).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
             {
-                Plugin.Log.Warn(
-                    $"BeatSaver metadata request failed with " + $"{(int)response.StatusCode} for hash {hash}."
-                );
+                Plugin.Log.Warn($"BeatSaver metadata request failed with {(int)response.StatusCode} for hash {hash}.");
 
                 return null;
             }
@@ -67,7 +70,10 @@ namespace BLPPCounter.Utils.API_Handlers
             cancellationToken.ThrowIfCancellationRequested();
 
             if (BetterString.IsNullOrWhiteSpace(json))
+            {
+                Plugin.Log.Warn("Content from api request could not be read.");
                 return null;
+            }
 
             JObject root = JObject.Parse(json);
 
@@ -75,7 +81,7 @@ namespace BLPPCounter.Utils.API_Handlers
 
             if (BetterString.IsNullOrWhiteSpace(mapKey))
             {
-                Plugin.Log.Warn($"BeatSaver returned no map key for hash " + $"{hash}.");
+                Plugin.Log.Warn($"BeatSaver returned no map key for hash {hash}.");
 
                 return null;
             }
@@ -102,7 +108,7 @@ namespace BLPPCounter.Utils.API_Handlers
                     $"BeatSaver returned no matching difficulty " + $"for {hash}, {difficulty}, " + $"{characteristic}."
                 );
 
-                return new BeatSaverMapMetadata(mapKey!, Leaderboards.None);
+                return new BeatSaverMapMetadata(mapKey, Leaderboards.None);
             }
 
             Leaderboards ranked = Leaderboards.None;
@@ -117,7 +123,7 @@ namespace BLPPCounter.Utils.API_Handlers
                 ranked |= Leaderboards.Scoresaber;
             }
 
-            return new BeatSaverMapMetadata(mapKey!, ranked);
+            return new BeatSaverMapMetadata(mapKey, ranked);
         }
 
         public void Dispose()

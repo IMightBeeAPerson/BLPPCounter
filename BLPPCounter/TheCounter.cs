@@ -663,7 +663,8 @@ namespace BLPPCounter
 
             if (Leaderboard == Leaderboards.Beatleader && (ratingDifference || difficultyDifference))
             {
-                await beatLeaderCalculator.SetCurve(currentMap.MapData.SongId, currentMap.MapSpeed, apiProvider);
+                if (!await beatLeaderCalculator.SetCurve(currentMap.MapData.SongId, currentMap.MapSpeed, apiProvider))
+                    return false;
 
                 if (!IsCurrentInitialization(generation, cancellationToken))
                 {
@@ -830,36 +831,57 @@ namespace BLPPCounter
                         goto Failed;
                     }
 
-                    bool counterInitialized = await RunOnMainThread(() =>
-                    {
+                    bool counterInitialized = await RunOnMainThread(async () =>
+                        {
 #if NEW_VERSION
-                        MapSelection selection = mapFactory.Create(
-                            map,
-                            beatmapDiff.difficulty,
-                            mode,
-                            mods.songSpeed,
-                            ratings
-                        );
+                            MapSelection selection = mapFactory.Create(
+                                map,
+                                beatmapDiff.difficulty,
+                                mode,
+                                mods.songSpeed,
+                                ratings
+                            );
 #else
-                        MapSelection selection = mapFactory.Create(
-                            map,
-                            beatmap.difficulty,
-                            mode,
-                            mods.songSpeed,
-                            ratings
-                        );
+                            MapSelection selection = mapFactory.Create(
+                                map,
+                                beatmap.difficulty,
+                                mode,
+                                mods.songSpeed,
+                                ratings
+                            );
 #endif
 
-                        if (!selection.IsUsable || !IsCurrentInitialization(generation, cancellationToken))
-                        {
-                            return false;
-                        }
+                            if (!selection.IsUsable || !IsCurrentInitialization(generation, cancellationToken))
+                            {
+                                return false;
+                            }
 
-                        LastMap = selection;
-                        LastMods = mods;
+                            LastMap = selection;
+                            LastMods = mods;
 
-                        return InitCounter(cancellationToken);
-                    });
+                            if (currentLeaderboard == Leaderboards.Beatleader)
+                            {
+                                if (
+                                    !await beatLeaderCalculator.SetCurve(
+                                        LastMap.MapData.SongId,
+                                        LastMap.MapSpeed,
+                                        apiProvider
+                                    )
+                                )
+                                {
+                                    Plugin.Log.Warn("Failed to set the curve for beatleader, cannot use it.");
+                                    return false;
+                                }
+
+                                if (!IsCurrentInitialization(generation, cancellationToken))
+                                {
+                                    return false;
+                                }
+                            }
+
+                            return InitCounter(cancellationToken);
+                        })
+                        .Unwrap();
 
                     if (!counterInitialized)
                     {
@@ -868,16 +890,6 @@ namespace BLPPCounter
                     }
 
                     settingsChanged = false;
-
-                    if (currentLeaderboard == Leaderboards.Beatleader)
-                    {
-                        await beatLeaderCalculator.SetCurve(LastMap.MapData.SongId, LastMap.MapSpeed, apiProvider);
-
-                        if (!IsCurrentInitialization(generation, cancellationToken))
-                        {
-                            return;
-                        }
-                    }
                 }
                 else if (
                     !await RunOnMainThread(async () => await APIAvoidanceModeAsync(cancellationToken, generation))
@@ -968,6 +980,7 @@ namespace BLPPCounter
                 return;
             }
 
+            Plugin.Log.Warn("No more leaderboards can be used, turning the counter off.");
             ForceTurnOff();
         }
         #endregion

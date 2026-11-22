@@ -832,8 +832,6 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction(nameof(UpdateProfilePP))]
         private void UpdateProfilePP()
         {
-            MainThreadDispatcher.AssertOnMainThread();
-
             _profilePanelPresenter.UpdateProfilePpPreview(
                 Mathf.Round(ProfilePPSlider.Value),
                 WeightedText,
@@ -846,8 +844,6 @@ namespace BLPPCounter.Settings.SettingHandlers
         [UIAction(nameof(DoTestThing))]
         private void DoTestThing()
         {
-            MainThreadDispatcher.AssertOnMainThread();
-
             UpdateProfilePP();
 
 #if NEW_VERSION
@@ -871,7 +867,16 @@ namespace BLPPCounter.Settings.SettingHandlers
 #endif
 
             _taskRunner.Run(
-                cancellationToken => CompletedMapAsync(0.999f, hash, mapName, difficulty, mode, cancellationToken),
+                cancellationToken =>
+                    CompletedMapAsync(
+                        0.999f,
+                        hash,
+                        mapName,
+                        difficulty,
+                        mode,
+                        TheCounter.LastMods?.CopyWith(),
+                        cancellationToken
+                    ),
                 "Add PP calculator test play",
                 _lifetimeSource.Token
             );
@@ -1186,7 +1191,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             float accuracy = HelpfulMisc.GetAcc(transition, results);
 
 #if NEW_VERSION
-            string hash = transition.beatmapLevel.levelID.Split('_')[2];
+            string? hash = HelpfulMisc.ParseHashFromLevelId(transition.beatmapLevel.levelID);
 
             string mapName = transition.beatmapLevel.songName;
 
@@ -1196,7 +1201,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 #else
             IDifficultyBeatmap beatmap = transition.difficultyBeatmap;
 
-            string hash = beatmap.level.levelID.Split('_')[2];
+            string? hash = HelpfulMisc.ParseHashFromLevelId(transition.beatmapLevel.levelID);
 
             string mapName = beatmap.level.songName;
 
@@ -1205,8 +1210,23 @@ namespace BLPPCounter.Settings.SettingHandlers
             string mode = beatmap.parentDifficultyBeatmapSet.beatmapCharacteristic.serializedName;
 #endif
 
+            if (hash is null)
+            {
+                Plugin.Log.Warn("Cannot record map locally, the hash is null!");
+                return;
+            }
+
             _taskRunner.Run(
-                cancellationToken => CompletedMapAsync(accuracy, hash, mapName, difficulty, mode, cancellationToken),
+                cancellationToken =>
+                    CompletedMapAsync(
+                        accuracy,
+                        hash,
+                        mapName,
+                        difficulty,
+                        mode,
+                        TheCounter.LastMods?.CopyWith(),
+                        cancellationToken
+                    ),
                 "Record completed map",
                 _lifetimeSource.Token
             );
@@ -1218,6 +1238,7 @@ namespace BLPPCounter.Settings.SettingHandlers
             string mapName,
             BeatmapDifficulty difficulty,
             string mode,
+            GameplayModifiers? lastMods,
             CancellationToken cancellationToken
         )
         {
@@ -1241,17 +1262,65 @@ namespace BLPPCounter.Settings.SettingHandlers
                     mapName,
                     difficulty,
                     mode,
-                    TheCounter.LastMods,
+                    lastMods,
                     cancellationToken
                 )
                 .ConfigureAwait(false);
 
             if (!added)
+            {
+                Plugin.Log.Debug("Play not added to any leaderboard (probably just not a pb).");
                 return;
+            }
+
+            LogLoadedSessionState();
 
             await LoadCurrentProfileAsync(cancellationToken).ConfigureAwait(false);
 
             await RefreshAsync(true, cancellationToken).ConfigureAwait(false);
+        }
+
+        private void LogLoadedSessionState()
+        {
+            if (!_targeter.IsInitialized)
+            {
+                return;
+            }
+
+            string userId = _targeter.Target.PlayerID;
+
+            foreach (
+                Leaderboards leaderboard in new[]
+                {
+                    Leaderboards.Beatleader,
+                    Leaderboards.Scoresaber,
+                    Leaderboards.Accsaber,
+                }
+            )
+            {
+                APCategory category = leaderboard == Leaderboards.Accsaber ? APCategory.All : APCategory.None;
+
+                if (!_profileRepository.TryGet(leaderboard, userId, category, out Profile? profile))
+                {
+                    Plugin.Log.Debug($"{leaderboard}: profile is not loaded.");
+                    continue;
+                }
+
+                if (profile is null)
+                {
+                    Plugin.Log.Debug($"Profile is null for leaderboard {leaderboard}!");
+                    continue;
+                }
+
+                SessionSnapshot session = profile.CurrentSession.GetSnapshot();
+
+                Plugin.Log.Debug(
+                    $"{leaderboard}: "
+                        + $"session plays={session.PlaysSet}, "
+                        + $"session gained={session.GainedProfilePp}, "
+                        + $"profile total={profile.TotalPp}."
+                );
+            }
         }
 
         #endregion
@@ -1394,7 +1463,7 @@ namespace BLPPCounter.Settings.SettingHandlers
 
             float targetPp = scoreData.LeaderboardPoints;
 
-            if (targetPp <= 0f && !CurrentApi.AreRatingsNull(difficultyData))
+            if (targetPp <= 0f && !CurrentApi.AreRatingsNull(difficultyData) && CurrentCalculator.PointList.Count > 0)
             {
                 int maximumScore = CurrentApi.GetMaxScore(difficultyData);
 

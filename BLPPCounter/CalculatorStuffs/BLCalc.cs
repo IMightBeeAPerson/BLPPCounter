@@ -7,6 +7,7 @@ using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Enums;
 using BLPPCounter.Utils.LangAddons;
 using BLPPCounter.Utils.Misc_Classes;
+using ModestTree;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 using static GameplayModifiers;
@@ -42,6 +43,9 @@ namespace BLPPCounter.CalculatorStuffs
 
         public override float[] GetPp(float acc, params float[] ratings)
         {
+            if (PointList.Count == 0)
+                return [-1f, 0f, 0f];
+
             if (float.IsNaN(acc))
                 acc = 0;
             else
@@ -71,18 +75,22 @@ namespace BLPPCounter.CalculatorStuffs
             return GetInvertCurve(deflatedPp, PointList);
         }
 
-        internal async Task SetCurve(string leaderboardId, SongSpeed songSpeed, ILeaderboardApiProvider apiProvider)
+        internal async Task<bool> SetCurve(
+            string leaderboardId,
+            SongSpeed songSpeed,
+            ILeaderboardApiProvider apiProvider
+        )
         {
-            await SetCurve(leaderboardId, songSpeed, apiProvider.BeatLeader);
+            return await SetCurve(leaderboardId, songSpeed, apiProvider.BeatLeader);
         }
 
-        internal async Task SetCurve(string leaderboardId, SongSpeed songSpeed, APIHandler apiHandler)
+        internal async Task<bool> SetCurve(string leaderboardId, SongSpeed songSpeed, APIHandler apiHandler)
         {
             bool sameLeaderboard = CurrentLeaderboardId.Equals(leaderboardId);
             bool sameSpeed = songSpeed.Equals(CurrentSongSpeed);
 
             if (sameLeaderboard && sameSpeed)
-                return;
+                return true;
 
             if (
                 PointListCache.TryGetCachedItem(
@@ -96,7 +104,7 @@ namespace BLPPCounter.CalculatorStuffs
                 CurrentLeaderboardId = leaderboardId;
                 CurrentSongSpeed = songSpeed;
 
-                return;
+                return true;
             }
 
             string mod = songSpeed switch
@@ -118,7 +126,7 @@ namespace BLPPCounter.CalculatorStuffs
                 .ConfigureAwait(false);
 
             if (content is null)
-                return;
+                return false;
 
             string contentStr = await content.ReadAsStringAsync();
 
@@ -127,8 +135,8 @@ namespace BLPPCounter.CalculatorStuffs
                 ?.Children()
                 .Select(arr => ((float)(arr[0] ?? 0f), (float)(arr[1] ?? 0f)));
 
-            if (newPoints is null)
-                return;
+            if (newPoints is null || newPoints.IsEmpty())
+                return false;
 
             CurrentLeaderboardId = leaderboardId;
             CurrentSongSpeed = songSpeed;
@@ -136,8 +144,12 @@ namespace BLPPCounter.CalculatorStuffs
             List<(float, float)> points = [with(newPoints)];
             points.Reverse();
 
+            Plugin.Log.Info($"points = {points.Count}");
+
             PointListCache.CacheItem((leaderboardId, songSpeed), points);
             PointList = points;
+
+            return true;
         }
         #endregion
         #region Clan Math

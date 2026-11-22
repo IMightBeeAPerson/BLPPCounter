@@ -108,16 +108,16 @@ namespace BLPPCounter.Models
         // nominatedTime, qualifiedTime, rankedTime
 
         [JsonProperty("stars")]
-        public float Stars { get; set; }
+        public float Stars { get; set; } = 0f;
 
         [JsonProperty("accRating")]
-        public float AccRating { get; set; }
+        public float AccRating { get; set; } = 0f;
 
         [JsonProperty("techRating")]
-        public float TechRating { get; set; }
+        public float TechRating { get; set; } = 0f;
 
         [JsonProperty("passRating")]
-        public float PassRating { get; set; }
+        public float PassRating { get; set; } = 0f;
 
         [JsonProperty("maxScore")]
         public int MaxScore { get; set; }

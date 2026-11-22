@@ -8,6 +8,7 @@ using BLPPCounter.CalculatorStuffs;
 using BLPPCounter.Helpfuls;
 using BLPPCounter.Models;
 using BLPPCounter.Models.Base;
+using BLPPCounter.Models.ScoreSaber;
 using BLPPCounter.Utils.API_Handlers;
 using BLPPCounter.Utils.Containers;
 using BLPPCounter.Utils.Enums;
@@ -181,6 +182,9 @@ namespace BLPPCounter.Utils
             if (data is BlCacheEntry blCache)
                 return GetRating(blCache, type, leaderboard, mod);
 
+            if (data is ScoreSaberLeaderboard ssCache)
+                return GetRating(ssCache, leaderboard);
+
             throw new ArgumentException(
                 "The given ICacheModel is not a known type, cannot get the rating.\nType = " + data.GetType()
             );
@@ -218,7 +222,16 @@ namespace BLPPCounter.Utils
         {
             if (leaderboard != Leaderboards.Beatleader)
                 return 0f;
+
             return cache.DifficultyInfo.GetRating(type, mod);
+        }
+
+        private float GetRating(ScoreSaberLeaderboard cache, Leaderboards leaderboard)
+        {
+            if (leaderboard != Leaderboards.Scoresaber)
+                return 0f;
+
+            return cache.Realm.Stars;
         }
 
         public RatingContainer GetAllRatingsOfSpeed(

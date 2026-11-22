@@ -8,7 +8,7 @@ namespace BLPPCounter.Models.ScoreSaber
     internal sealed class ScoreSaberRealm : IModel
     {
         [JsonProperty("realmId")]
-        public double RealmId { get; set; }
+        public float RealmId { get; set; }
 
         [JsonProperty("realmName")]
         public string RealmName { get; set; } = string.Empty;
@@ -21,7 +21,7 @@ namespace BLPPCounter.Models.ScoreSaber
         public bool PositiveModifiers { get; set; }
 
         [JsonProperty("stars")]
-        public double Stars { get; set; }
+        public float Stars { get; set; }
 
         [JsonProperty("rankedAt")]
         public DateTimeOffset? RankedAt { get; set; }

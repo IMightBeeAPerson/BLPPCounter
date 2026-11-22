@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using BLPPCounter.CalculatorStuffs;
+using BLPPCounter.Helpfuls;
 using BLPPCounter.Models;
 using BLPPCounter.Models.Base;
 using BLPPCounter.Models.MapModels;
@@ -83,7 +84,14 @@ namespace BLPPCounter.Utils.Profile_Utils
                 .ConfigureAwait(false);
 
             if (metadata is null)
+            {
+                Plugin.Log.Warn(
+                    $"Completed play rejected: BeatSaver metadata was not found for "
+                        + $"hash {hash}, difficulty {difficulty}, mode {characteristic}."
+                );
+
                 return false;
+            }
 
             bool addedAny = false;
 
@@ -91,17 +99,20 @@ namespace BLPPCounter.Utils.Profile_Utils
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (
-                    leaderboard != Leaderboards.Accsaber
-                    && (metadata.RankedLeaderboards & leaderboard) == Leaderboards.None
-                )
+                bool isRankedForLeaderboard = (metadata.RankedLeaderboards & leaderboard) != Leaderboards.None;
+
+                if (leaderboard != Leaderboards.Accsaber && !isRankedForLeaderboard && !_pc.UseUnranked)
                 {
+                    Plugin.Log.Debug(
+                        $"Completed play skipped for {leaderboard}: map is unranked and UseUnranked is disabled."
+                    );
+
                     continue;
                 }
 
                 try
                 {
-                    addedAny |= await AddToLeaderboardAsync(
+                    bool added = await AddToLeaderboardAsync(
                             leaderboard,
                             userId,
                             hash,
@@ -114,6 +125,16 @@ namespace BLPPCounter.Utils.Profile_Utils
                             cancellationToken
                         )
                         .ConfigureAwait(false);
+
+                    addedAny |= added;
+
+                    if (!added)
+                    {
+                        Plugin.Log.Debug(
+                            $"Completed play was not added to {leaderboard}: "
+                                + $"hash {hash}, difficulty {difficulty}, mode {characteristic}."
+                        );
+                    }
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -121,7 +142,7 @@ namespace BLPPCounter.Utils.Profile_Utils
                 }
                 catch (Exception exception)
                 {
-                    Plugin.Log.Error($"Failed to add a completed play " + $"to {leaderboard}:\n{exception}");
+                    Plugin.Log.Error($"Failed to add a completed play to {leaderboard}:\n{exception}");
                 }
             }
 
@@ -142,33 +163,81 @@ namespace BLPPCounter.Utils.Profile_Utils
         )
         {
             string cacheMode = SelectCacheMode(characteristic, leaderboard);
-
             APIHandler api = _apiProvider.Get(leaderboard);
+            Calculator calculator = _calculatorProvider.Get(leaderboard);
+
+            if (calculator.PointList.Count == 0)
+            {
+#if DEBUG
+                Plugin.Log.Warn($"The calculator is not set correctly for {leaderboard}.");
+#endif
+
+                return false;
+            }
 
             Map? map = await _mapRepository
                 .GetAsync(hash, cacheMode, leaderboard, forceRemoteLoad: true, cancellationToken)
                 .ConfigureAwait(false);
 
-            if (
-                map is null
-                || !map.TryGet(cacheMode, difficulty, out MapDiffModel? mapDifficulty)
-                || mapDifficulty is null
-            )
+            if (map is null)
             {
+#if DEBUG
+                Plugin.Log.Warn(
+                    $"Completed play rejected for {leaderboard}: map repository returned null "
+                        + $"for hash {hash}, cache mode {cacheMode}."
+                );
+#endif
+
+                return false;
+            }
+
+            if (!map.TryGet(cacheMode, difficulty, out MapDiffModel? mapDifficulty) || mapDifficulty is null)
+            {
+#if DEBUG
+                Plugin.Log.Warn(
+                    $"Completed play rejected for {leaderboard}: difficulty {difficulty} "
+                        + $"was not found for hash {hash}, cache mode {cacheMode}."
+                );
+#endif
+
                 return false;
             }
 
             ICacheModel cacheModel = mapDifficulty.Data;
 
             if (!api.MapIsUsable(cacheModel, _pc.UseUnranked))
-                return false;
-
-            Calculator calculator = _calculatorProvider.Get(leaderboard);
-
-            float[] ratings = GetSelectedRatings(leaderboard, calculator, cacheModel, modifiers);
-
-            if (ratings.Length != calculator.RatingCount || ratings.Length == 0 || ContainsInvalidRating(ratings))
             {
+#if DEBUG
+                Plugin.Log.Warn(
+                    $"Completed play rejected for {leaderboard}: map is not usable. "
+                        + $"UseUnranked={_pc.UseUnranked}, hash={hash}, "
+                        + $"difficulty={difficulty}, cacheMode={cacheMode}."
+                );
+#endif
+
+                return false;
+            }
+
+            float[] ratings = GetSelectedRatings(leaderboard, cacheModel, modifiers);
+
+            if (ratings.Length != calculator.RatingCount || ratings.Length == 0)
+            {
+#if DEBUG
+                Plugin.Log.Warn(
+                    $"Completed play rejected for {leaderboard}: received {ratings.Length} ratings, "
+                        + $"but calculator requires {calculator.RatingCount}."
+                );
+#endif
+
+                return false;
+            }
+
+            if (ContainsInvalidRating(ratings))
+            {
+#if DEBUG
+                Plugin.Log.Warn($"Completed play rejected for {leaderboard}: invalid ratings {ratings.Print()}");
+#endif
+
                 return false;
             }
 
@@ -176,6 +245,13 @@ namespace BLPPCounter.Utils.Profile_Utils
 
             if (float.IsNaN(pp) || float.IsInfinity(pp) || pp <= 0f)
             {
+#if DEBUG
+                Plugin.Log.Warn(
+                    $"Completed play rejected for {leaderboard}: calculated PP was invalid "
+                        + $"({pp}). Accuracy={accuracy}; ratings=[{string.Join(", ", ratings)}]."
+                );
+#endif
+
                 return false;
             }
 
@@ -272,7 +348,6 @@ namespace BLPPCounter.Utils.Profile_Utils
 
         private float[] GetSelectedRatings(
             Leaderboards leaderboard,
-            Calculator calculator,
             ICacheModel cacheModel,
             GameplayModifiers? modifiers
         )
@@ -280,9 +355,12 @@ namespace BLPPCounter.Utils.Profile_Utils
             SongSpeed speed =
                 leaderboard == Leaderboards.Beatleader ? modifiers?.songSpeed ?? SongSpeed.Normal : SongSpeed.Normal;
 
-            float[] allRatings = _pathUtils
-                .GetAllRatingsOfSpeed(cacheModel, leaderboard, speed)
-                .GetRatings(leaderboard);
+            float[] allRatings =
+            [
+                .. _pathUtils.GetAllRatingsOfSpeed(cacheModel, leaderboard, speed).GetRatings(leaderboard),
+            ];
+
+            //Plugin.Log.Info($"ratings: {allRatings.Print()}, cache type: {cacheModel.GetType()}");
 
             if (leaderboard == Leaderboards.Beatleader && allRatings.Length >= 4)
             {
@@ -293,7 +371,7 @@ namespace BLPPCounter.Utils.Profile_Utils
                 allRatings[3] *= multiplier;
             }
 
-            return calculator.SelectRatings(allRatings);
+            return allRatings;
         }
 
         private static APCategory ResolveAccSaberCategory(ICacheModel cacheModel)
@@ -367,7 +445,7 @@ namespace BLPPCounter.Utils.Profile_Utils
                 throw new ArgumentOutOfRangeException(
                     nameof(accuracy),
                     accuracy,
-                    "Accuracy must be between zero " + "and one."
+                    "Accuracy must be between zero and one."
                 );
             }
         }

@@ -148,7 +148,7 @@ namespace BLPPCounter.Utils.API_Handlers
             if (BetterString.IsNullOrEmpty(dataStr))
                 return null;
 
-            return (IScoreModel?)JsonConvert.DeserializeObject<AccsaberScoreResponse>(dataStr);
+            return JsonConvert.DeserializeObject<AccsaberScoreResponse>(dataStr);
         }
 
         private Task<Play[]> GetScores(string userId, int count, string path)

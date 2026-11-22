@@ -171,17 +171,20 @@ namespace BLPPCounter.Utils.Profile_Utils
         {
             lock (_stateLock)
             {
-                if (float.IsNaN(rawPp))
-                    return -1f;
-
-                if (_scores.Count > 0 && _scores[^1].Pp > rawPp)
+                if (float.IsNaN(rawPp) || float.IsInfinity(rawPp) || rawPp <= 0f)
                 {
                     return -1f;
                 }
 
-                int index = FindInsertionIndex(rawPp);
+                float normalizedPp = Round(rawPp);
 
-                return Round(GetWeight(index + 1) * rawPp);
+                if (_scores.Count >= GetPlusOneCount(Leaderboard) && _scores[^1].Pp >= normalizedPp)
+                {
+                    return -1f;
+                }
+
+                int index = FindInsertionIndex(normalizedPp);
+                return Round(GetWeight(index + 1) * normalizedPp);
             }
         }
 
@@ -189,9 +192,15 @@ namespace BLPPCounter.Utils.Profile_Utils
         {
             lock (_stateLock)
             {
-                int index = FindWeightedInsertionIndex(weightedPp);
+                if (float.IsNaN(weightedPp) || float.IsInfinity(weightedPp) || weightedPp <= 0f)
+                {
+                    return -1f;
+                }
 
-                return GetProfilePpInternal(weightedPp, index + 1);
+                int insertionIndex = FindWeightedInsertionIndex(weightedPp);
+                float rawPp = weightedPp / GetWeight(insertionIndex + 1);
+
+                return GetProfilePpRawInternal(rawPp);
             }
         }
 
@@ -199,18 +208,7 @@ namespace BLPPCounter.Utils.Profile_Utils
         {
             lock (_stateLock)
             {
-                if (float.IsNaN(rawPp))
-                    return -1f;
-
-                if (_scores.Count > 0 && _scores[^1].Pp > rawPp)
-                {
-                    return -1f;
-                }
-
-                int index = FindInsertionIndex(rawPp);
-                float weightedPp = GetWeight(index + 1) * rawPp;
-
-                return GetProfilePpInternal(weightedPp, index + 1);
+                return GetProfilePpRawInternal(rawPp);
             }
         }
 
@@ -228,8 +226,10 @@ namespace BLPPCounter.Utils.Profile_Utils
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (float.IsNaN(rawPp))
+            if (float.IsNaN(rawPp) || float.IsInfinity(rawPp) || rawPp <= 0f)
+            {
                 return false;
+            }
 
             if (BetterString.IsNullOrWhiteSpace(mapName))
             {
@@ -248,6 +248,7 @@ namespace BLPPCounter.Utils.Profile_Utils
 
             mode = BetterString.IsNullOrWhiteSpace(mode) ? DEFAULT_MODE : mode;
 
+            float normalizedPp = Round(rawPp);
             float profilePpGained;
             float oldPp;
             Play insertedPlay;
@@ -256,50 +257,32 @@ namespace BLPPCounter.Utils.Profile_Utils
             {
                 int duplicateIndex = FindPlayIndex(mapKey, difficulty, mode);
 
-                if (duplicateIndex >= 0 && _scores[duplicateIndex].Pp >= rawPp)
+                if (duplicateIndex >= 0 && _scores[duplicateIndex].Pp >= normalizedPp)
                 {
                     return false;
                 }
 
-                if (duplicateIndex < 0 && _scores.Count >= GetPlusOneCount(Leaderboard) && _scores[^1].Pp > rawPp)
+                if (
+                    duplicateIndex < 0
+                    && _scores.Count >= GetPlusOneCount(Leaderboard)
+                    && _scores[^1].Pp >= normalizedPp
+                )
                 {
                     return false;
                 }
+
+                float weightedTotalBefore = _weightedScores.Sum();
 
                 oldPp = duplicateIndex >= 0 ? _scores[duplicateIndex].Pp : 0f;
 
                 if (duplicateIndex >= 0)
                 {
-                    float weightedBefore = _weightedScores.Sum();
-
                     _scores.RemoveAt(duplicateIndex);
-
-                    _weightedScores = CreateWeightedScores(_scores);
-
-                    float weightedAfter = _weightedScores.Sum();
-
-                    _totalPp -= weightedBefore - weightedAfter;
                 }
 
-                int insertIndex = FindInsertionIndex(rawPp);
+                int insertIndex = FindInsertionIndex(normalizedPp);
 
-                float weightedPp = GetWeight(insertIndex + 1) * rawPp;
-
-                profilePpGained = GetProfilePpInternal(weightedPp, insertIndex + 1);
-
-                if (profilePpGained > 0f)
-                    _totalPp += profilePpGained;
-
-                insertedPlay = new Play(
-                    mapName,
-                    mapKey,
-                    difficulty,
-                    mode,
-                    Round(rawPp),
-                    0,
-                    Round(profilePpGained),
-                    Round(oldPp)
-                )
+                insertedPlay = new Play(mapName, mapKey, difficulty, mode, normalizedPp, 0, 0f, Round(oldPp))
                 {
                     AccSaberCategory = accSaberCategory,
                 };
@@ -315,15 +298,36 @@ namespace BLPPCounter.Utils.Profile_Utils
 
                 _weightedScores = CreateWeightedScores(_scores);
 
-                _plusOne = CalculatePlusOneInternal();
+                float weightedTotalAfter = _weightedScores.Sum();
 
+                // This is the complete net profile change, including:
+                // - the new play's contribution;
+                // - the changed weighting of lower plays;
+                // - removal of an old improved score;
+                // - removal of a play pushed out of the top 100.
+                profilePpGained = Round(weightedTotalAfter - weightedTotalBefore);
+
+                _totalPp = Round(_totalPp + profilePpGained);
+                _plusOne = CalculatePlusOneInternal();
                 ClampPageNumber();
+
+                int storedPlayIndex = FindPlayIndex(mapKey, difficulty, mode);
+
+                if (storedPlayIndex >= 0)
+                {
+                    Play storedPlay = _scores[storedPlayIndex];
+                    storedPlay.ProfilePpGained = profilePpGained;
+                    _scores[storedPlayIndex] = storedPlay;
+                    insertedPlay = storedPlay;
+                }
             }
 
             NotifyChanged();
 
             if (!addToSession)
+            {
                 return true;
+            }
 
             uint rank = await CurrentSession
                 .AddPlayAsync(
@@ -332,7 +336,7 @@ namespace BLPPCounter.Utils.Profile_Utils
                     mapKey,
                     difficulty,
                     mode,
-                    rawPp,
+                    normalizedPp,
                     0,
                     profilePpGained,
                     oldPp,
@@ -341,7 +345,9 @@ namespace BLPPCounter.Utils.Profile_Utils
                 .ConfigureAwait(false);
 
             if (rank == 0)
+            {
                 return true;
+            }
 
             bool rankUpdated;
 
@@ -354,17 +360,63 @@ namespace BLPPCounter.Utils.Profile_Utils
                 if (rankUpdated)
                 {
                     Play updatedPlay = _scores[playIndex];
-
                     updatedPlay.Rank = rank;
-
                     _scores[playIndex] = updatedPlay;
                 }
             }
 
             if (rankUpdated)
+            {
                 NotifyChanged();
+            }
 
             return true;
+        }
+
+        private float GetProfilePpRawInternal(float rawPp)
+        {
+            if (float.IsNaN(rawPp) || float.IsInfinity(rawPp) || rawPp <= 0f)
+            {
+                return -1f;
+            }
+
+            float normalizedPp = Round(rawPp);
+
+            if (_scores.Count >= GetPlusOneCount(Leaderboard) && _scores[^1].Pp >= normalizedPp)
+            {
+                return -1f;
+            }
+
+            int insertionIndex = FindInsertionIndex(normalizedPp);
+            int maximumScores = GetPlusOneCount(Leaderboard);
+
+            float weightedTotalBefore = _weightedScores.Sum();
+            float weightedTotalAfter = 0f;
+
+            for (int index = 0; index < maximumScores; index++)
+            {
+                float pp;
+
+                if (index == insertionIndex)
+                {
+                    pp = normalizedPp;
+                }
+                else
+                {
+                    int sourceIndex = index < insertionIndex ? index : index - 1;
+
+                    if (sourceIndex < 0 || sourceIndex >= _scores.Count)
+                    {
+                        break;
+                    }
+
+                    pp = _scores[sourceIndex].Pp;
+                }
+
+                weightedTotalAfter += GetWeight(index + 1) * pp;
+            }
+
+            return Round(weightedTotalAfter - weightedTotalBefore);
         }
 
         internal void ReplaceData(IEnumerable<Play> scores, float totalPp)
@@ -571,49 +623,6 @@ namespace BLPPCounter.Utils.Profile_Utils
             }
 
             return weightedScores;
-        }
-
-        private float GetProfilePpInternal(float weightedPp, int scoreNumber, int ignoredScore = -1)
-        {
-            int index = scoreNumber - 1;
-
-            if (index < 0 || index >= _weightedScores.Length)
-            {
-                return -1f;
-            }
-
-            float result;
-
-            if (Leaderboard == Leaderboards.Accsaber)
-            {
-                float offset = 0f;
-                float currentWeight = GetWeight(index + 2);
-
-                for (int currentIndex = index; currentIndex < _weightedScores.Length; currentIndex++)
-                {
-                    if (currentIndex != ignoredScore)
-                    {
-                        offset += _weightedScores[currentIndex] - (_scores[currentIndex].Pp * currentWeight);
-                    }
-
-                    currentWeight = GetNextWeight(currentWeight);
-                }
-
-                result = Round(weightedPp - offset);
-            }
-            else
-            {
-                float weightedSum = _totalPp;
-
-                for (int currentIndex = 0; currentIndex < index; currentIndex++)
-                {
-                    weightedSum -= _weightedScores[currentIndex];
-                }
-
-                result = Round(weightedPp - ((1f - GetWeight(2)) * weightedSum));
-            }
-
-            return result < 0f ? 0f : result;
         }
 
         private float CalculatePlusOneInternal()
