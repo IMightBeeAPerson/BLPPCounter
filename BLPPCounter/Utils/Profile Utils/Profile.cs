@@ -108,12 +108,30 @@ namespace BLPPCounter.Utils.Profile_Utils
 
         public string PpLabel => Leaderboard == Leaderboards.Accsaber ? "AP" : "PP";
 
+        /// <summary>
+        /// Returns a snapshot of every play currently stored in this profile.
+        /// </summary>
+        /// <remarks>
+        /// The returned array is a copy of the profile's internal score collection, so
+        /// callers may enumerate or modify the array without affecting profile state.
+        /// </remarks>
+        /// <returns>
+        /// An array containing the profile's stored plays, ordered from highest to lowest raw PP/AP.
+        /// </returns>
         public Play[] GetScoresSnapshot()
         {
             lock (_stateLock)
                 return [.. _scores];
         }
 
+        /// <summary>
+        /// Returns an atomic snapshot of the profile's current state.
+        /// </summary>
+        /// <remarks>
+        /// The snapshot includes the profile key, total PP/AP, <see cref="PlusOne"/>,
+        /// current page number, and a copy of the stored plays.
+        /// </remarks>
+        /// <returns>A snapshot representing the profile's current state.</returns>
         public ProfileSnapshot GetSnapshot()
         {
             lock (_stateLock)
@@ -122,6 +140,17 @@ namespace BLPPCounter.Utils.Profile_Utils
             }
         }
 
+        /// <summary>
+        /// Returns the plays displayed on the currently selected page.
+        /// </summary>
+        /// <remarks>
+        /// Each page contains at most <see cref="PLAYS_TO_SHOW"/> plays. The current
+        /// page number is clamped to the valid range before the plays are retrieved.
+        /// </remarks>
+        /// <returns>
+        /// A copied array of plays for the current page, or an empty array when no plays
+        /// are available for that page.
+        /// </returns>
         public Play[] GetCurrentPageSnapshot()
         {
             lock (_stateLock)
@@ -137,6 +166,13 @@ namespace BLPPCounter.Utils.Profile_Utils
             }
         }
 
+        /// <summary>
+        /// Moves the selected score page one page toward the beginning of the profile.
+        /// </summary>
+        /// <remarks>
+        /// The page number cannot move below the first page. Raises <see cref="Changed"/>
+        /// after updating the page selection.
+        /// </remarks>
         public void PageUp()
         {
             lock (_stateLock)
@@ -148,6 +184,13 @@ namespace BLPPCounter.Utils.Profile_Utils
             NotifyChanged();
         }
 
+        /// <summary>
+        /// Moves the selected score page one page toward the end of the profile.
+        /// </summary>
+        /// <remarks>
+        /// The page number cannot move past the final available page. Raises
+        /// <see cref="Changed"/> after updating the page selection.
+        /// </remarks>
         public void PageDown()
         {
             lock (_stateLock)
@@ -159,6 +202,12 @@ namespace BLPPCounter.Utils.Profile_Utils
             NotifyChanged();
         }
 
+        /// <summary>
+        /// Moves the selected score page to the first page.
+        /// </summary>
+        /// <remarks>
+        /// Raises <see cref="Changed"/> after updating the page selection.
+        /// </remarks>
         public void PageTop()
         {
             lock (_stateLock)
@@ -167,6 +216,21 @@ namespace BLPPCounter.Utils.Profile_Utils
             NotifyChanged();
         }
 
+        /// <summary>
+        /// Calculates the weighted PP/AP contribution of a prospective raw PP/AP score.
+        /// </summary>
+        /// <param name="rawPp">
+        /// The unweighted PP/AP value of the prospective play.
+        /// </param>
+        /// <returns>
+        /// The score's weighted PP/AP contribution at the position where it would be
+        /// inserted into this profile; otherwise, <c>-1f</c> when <paramref name="rawPp"/>
+        /// is invalid or cannot enter the leaderboard's stored top-play limit.
+        /// </returns>
+        /// <remarks>
+        /// The score is rounded according to the configured decimal precision before
+        /// its insertion position and weighting are calculated.
+        /// </remarks>
         public float GetWeightedPp(float rawPp)
         {
             lock (_stateLock)
@@ -188,6 +252,24 @@ namespace BLPPCounter.Utils.Profile_Utils
             }
         }
 
+        /// <summary>
+        /// Calculates the net increase to this profile's total PP/AP from a prospective
+        /// weighted PP/AP value.
+        /// </summary>
+        /// <param name="weightedPp">
+        /// The weighted PP/AP value to evaluate.
+        /// </param>
+        /// <returns>
+        /// The total profile PP/AP gained by setting the prospective play, including
+        /// reweighting of lower-ranked plays; otherwise, <c>-1f</c> when
+        /// <paramref name="weightedPp"/> is invalid or cannot produce a score that enters
+        /// the stored top plays.
+        /// </returns>
+        /// <remarks>
+        /// This method returns the change in the profile total, not the resulting total
+        /// profile PP/AP. The weighted value is converted to raw PP/AP based on its
+        /// calculated weighted insertion position.
+        /// </remarks>
         public float GetProfilePp(float weightedPp)
         {
             lock (_stateLock)
@@ -204,6 +286,23 @@ namespace BLPPCounter.Utils.Profile_Utils
             }
         }
 
+        /// <summary>
+        /// Calculates the net increase to this profile's total PP/AP from a prospective
+        /// raw PP/AP score.
+        /// </summary>
+        /// <param name="rawPp">
+        /// The unweighted PP/AP value of the prospective play.
+        /// </param>
+        /// <returns>
+        /// The total profile PP/AP gained by setting the prospective play, including
+        /// the new play's weighted value, reweighting of lower plays, and replacement
+        /// or displacement of existing top plays; otherwise, <c>-1f</c> when
+        /// <paramref name="rawPp"/> is invalid or cannot enter the stored top plays.
+        /// </returns>
+        /// <remarks>
+        /// This method returns the net change to <see cref="TotalPp"/>, rather than the
+        /// resulting total profile PP/AP.
+        /// </remarks>
         public float GetProfilePpRaw(float rawPp)
         {
             lock (_stateLock)
@@ -212,6 +311,61 @@ namespace BLPPCounter.Utils.Profile_Utils
             }
         }
 
+        /// <summary>
+        /// Adds a new play to the profile, or replaces an existing matching play when
+        /// the supplied score is an improvement.
+        /// </summary>
+        /// <param name="rawPp">
+        /// The unweighted PP/AP earned by the play.
+        /// </param>
+        /// <param name="mapName">
+        /// The display name of the beatmap.
+        /// </param>
+        /// <param name="hash">
+        /// The beatmap hash used when recording the play in the current session.
+        /// </param>
+        /// <param name="mapKey">
+        /// The leaderboard or BeatSaver key identifying the beatmap.
+        /// </param>
+        /// <param name="difficulty">
+        /// The beatmap difficulty on which the play was set.
+        /// </param>
+        /// <param name="mode">
+        /// The beatmap characteristic or mode. If null, empty, or whitespace, this is
+        /// stored as <see cref="DEFAULT_MODE"/>.
+        /// </param>
+        /// <param name="accSaberCategory">
+        /// The AccSaber category associated with the play, when applicable.
+        /// </param>
+        /// <param name="addToSession">
+        /// <see langword="true"/> to also add the accepted play to <see cref="CurrentSession"/>;
+        /// otherwise, <see langword="false"/> to update only this profile.
+        /// </param>
+        /// <param name="cancellationToken">
+        /// A token used to cancel the asynchronous session-update operation.
+        /// </param>
+        /// <returns>
+        /// <see langword="true"/> when the play was accepted and added or updated in the
+        /// profile; otherwise, <see langword="false"/> when the PP/AP is invalid, the
+        /// matching stored play is already equal or better, or the score cannot enter
+        /// the profile's stored top plays.
+        /// </returns>
+        /// <exception cref="ArgumentException">
+        /// Thrown when <paramref name="mapName"/>, <paramref name="hash"/>, or
+        /// <paramref name="mapKey"/> is null, empty, or whitespace.
+        /// </exception>
+        /// <exception cref="OperationCanceledException">
+        /// Thrown when <paramref name="cancellationToken"/> is cancelled before the
+        /// profile update begins or while the session play is being recorded.
+        /// </exception>
+        /// <remarks>
+        /// When a play is accepted, the profile total is updated by its net PP/AP gain.
+        /// That gain accounts for the play's weighted contribution, reweighting of lower
+        /// scores, replacement of an older matching score, and removal of a score pushed
+        /// past the leaderboard's top-play limit. The <see cref="Changed"/> event is
+        /// raised after the local profile update and again if an asynchronously retrieved
+        /// session rank is applied.
+        /// </remarks>
         public async Task<bool> AddPlayAsync(
             float rawPp,
             string mapName,
@@ -373,6 +527,22 @@ namespace BLPPCounter.Utils.Profile_Utils
             return true;
         }
 
+        /// <summary>
+        /// Calculates the net increase to the profile's total PP/AP produced by a
+        /// prospective raw PP/AP score.
+        /// </summary>
+        /// <param name="rawPp">The unweighted PP/AP value of the prospective play.</param>
+        /// <returns>
+        /// The rounded change in total profile PP/AP after inserting the score and
+        /// reweighting affected plays; or <c>-1f</c> if <paramref name="rawPp"/> is
+        /// invalid or cannot enter the retained top-play list.
+        /// </returns>
+        /// <remarks>
+        /// This method assumes the caller already holds <c>_stateLock</c>. The
+        /// calculated gain includes the new play's weighted contribution, reweighting
+        /// of lower-ranked plays, and displacement of a play when the profile is
+        /// already at its maximum stored score count.
+        /// </remarks>
         private float GetProfilePpRawInternal(float rawPp)
         {
             if (float.IsNaN(rawPp) || float.IsInfinity(rawPp) || rawPp <= 0f)
@@ -419,6 +589,25 @@ namespace BLPPCounter.Utils.Profile_Utils
             return Round(weightedTotalAfter - weightedTotalBefore);
         }
 
+        /// <summary>
+        /// Replaces the profile's stored plays and total PP/AP with newly loaded data.
+        /// </summary>
+        /// <param name="scores">
+        /// The plays from which to rebuild the profile. They are sorted by descending
+        /// raw PP/AP and trimmed to the leaderboard's supported top-play count.
+        /// </param>
+        /// <param name="totalPp">
+        /// The total profile PP/AP associated with the replacement data.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown when <paramref name="scores"/> is <see langword="null"/>.
+        /// </exception>
+        /// <remarks>
+        /// Replacing the data recalculates weighted scores and <see cref="PlusOne"/>,
+        /// resets the selected page to the first page, and creates a new
+        /// <see cref="CurrentSession"/> using the supplied total. The
+        /// <see cref="Changed"/> event is raised after the replacement completes.
+        /// </remarks>
         internal void ReplaceData(IEnumerable<Play> scores, float totalPp)
         {
             if (scores is null)
@@ -448,6 +637,19 @@ namespace BLPPCounter.Utils.Profile_Utils
             NotifyChanged();
         }
 
+        /// <summary>
+        /// Creates a serializable representation of the profile's current state.
+        /// </summary>
+        /// <returns>
+        /// Persistence data containing the profile identity, stored plays, total PP/AP,
+        /// PlusOne value, ranks, difficulties, non-default modes, and applicable
+        /// AccSaber categories.
+        /// </returns>
+        /// <remarks>
+        /// Difficulty and, when applicable, AccSaber category values are compressed for
+        /// storage. Only modes that differ from <see cref="DEFAULT_MODE"/> are stored
+        /// explicitly; standard modes are restored implicitly when the data is loaded.
+        /// </remarks>
         internal ProfilePersistenceData CreatePersistenceData()
         {
             lock (_stateLock)
@@ -488,6 +690,22 @@ namespace BLPPCounter.Utils.Profile_Utils
             }
         }
 
+        /// <summary>
+        /// Reconstructs profile plays from previously persisted profile data.
+        /// </summary>
+        /// <param name="data">The validated persistence data from which to create plays.</param>
+        /// <returns>
+        /// An array of reconstructed plays in the same order as the persisted score
+        /// arrays.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown when <paramref name="data"/> is <see langword="null"/>.
+        /// </exception>
+        /// <remarks>
+        /// This method validates the supplied persistence data before reading it,
+        /// decompresses stored difficulties and optional AccSaber categories, and uses
+        /// <see cref="DEFAULT_MODE"/> for plays with no explicitly persisted mode.
+        /// </remarks>
         internal static Play[] CreatePlaysFromPersistenceData(ProfilePersistenceData data)
         {
             if (data is null)
@@ -532,6 +750,16 @@ namespace BLPPCounter.Utils.Profile_Utils
             return plays;
         }
 
+        /// <summary>
+        /// Gets the maximum number of plays retained and weighted for a leaderboard.
+        /// </summary>
+        /// <param name="leaderboard">The leaderboard whose retained-play limit is requested.</param>
+        /// <returns>
+        /// <c>100</c> for BeatLeader, ScoreSaber, and AccSaber.
+        /// </returns>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown when <paramref name="leaderboard"/> is not a supported leaderboard.
+        /// </exception>
         internal static int GetPlusOneCount(Leaderboards leaderboard)
         {
             return leaderboard switch
@@ -546,6 +774,23 @@ namespace BLPPCounter.Utils.Profile_Utils
             };
         }
 
+        /// <summary>
+        /// Finds the stored play matching a map key, difficulty, and characteristic mode.
+        /// </summary>
+        /// <param name="mapKey">The map key to match, compared without case sensitivity.</param>
+        /// <param name="difficulty">The difficulty to match.</param>
+        /// <param name="mode">
+        /// The beatmap characteristic or mode to match, compared using ordinal,
+        /// case-sensitive comparison.
+        /// </param>
+        /// <returns>
+        /// The zero-based index of the matching play; otherwise, <c>-1</c> when no
+        /// stored play matches all supplied identifiers.
+        /// </returns>
+        /// <remarks>
+        /// A play is considered a duplicate only when its map key, difficulty, and mode
+        /// all match the supplied values.
+        /// </remarks>
         private int FindPlayIndex(string mapKey, BeatmapDifficulty difficulty, string mode)
         {
             for (int index = 0; index < _scores.Count; index++)
@@ -569,6 +814,18 @@ namespace BLPPCounter.Utils.Profile_Utils
             return -1;
         }
 
+        /// <summary>
+        /// Finds the index at which a raw PP/AP value should be inserted into the
+        /// descending stored-score collection.
+        /// </summary>
+        /// <param name="rawPp">The raw PP/AP value to insert.</param>
+        /// <returns>
+        /// The zero-based insertion index that preserves descending PP/AP order.
+        /// </returns>
+        /// <remarks>
+        /// Scores equal to <paramref name="rawPp"/> are inserted after existing scores
+        /// with the same PP/AP value.
+        /// </remarks>
         private int FindInsertionIndex(float rawPp)
         {
             int low = 0;
@@ -587,6 +844,18 @@ namespace BLPPCounter.Utils.Profile_Utils
             return low;
         }
 
+        /// <summary>
+        /// Finds the index at which a weighted PP/AP value should be inserted into the
+        /// descending weighted-score collection.
+        /// </summary>
+        /// <param name="weightedPp">The weighted PP/AP value to insert.</param>
+        /// <returns>
+        /// The zero-based insertion index that preserves descending weighted PP/AP order.
+        /// </returns>
+        /// <remarks>
+        /// Weighted values equal to <paramref name="weightedPp"/> are inserted after
+        /// existing equal values.
+        /// </remarks>
         private int FindWeightedInsertionIndex(float weightedPp)
         {
             int low = 0;
@@ -609,6 +878,20 @@ namespace BLPPCounter.Utils.Profile_Utils
             return low;
         }
 
+        /// <summary>
+        /// Creates the weighted PP/AP contribution for each supplied play.
+        /// </summary>
+        /// <param name="scores">
+        /// The plays to weight, ordered from highest to lowest raw PP/AP.
+        /// </param>
+        /// <returns>
+        /// An array whose values correspond by index to <paramref name="scores"/> and
+        /// contain each play's raw PP/AP multiplied by its rank weight.
+        /// </returns>
+        /// <remarks>
+        /// The first play uses the weight for score position one. Each subsequent play
+        /// uses the next leaderboard-specific weight.
+        /// </remarks>
         private float[] CreateWeightedScores(IReadOnlyList<Play> scores)
         {
             float[] weightedScores = new float[scores.Count];
@@ -625,6 +908,20 @@ namespace BLPPCounter.Utils.Profile_Utils
             return weightedScores;
         }
 
+        /// <summary>
+        /// Calculates the raw PP/AP required for a new eligible play to increase the
+        /// profile's total PP/AP by one point.
+        /// </summary>
+        /// <returns>
+        /// The rounded raw PP/AP threshold required to gain one profile PP/AP; <c>1f</c>
+        /// when the profile contains no plays; or <c>0f</c> when no insertion position
+        /// can produce a one-point gain within the stored weighted scores.
+        /// </returns>
+        /// <remarks>
+        /// BeatLeader and ScoreSaber use the normal geometric weighting calculation.
+        /// AccSaber uses <see cref="CalculateAccSaberPlusOne"/> because its weighting
+        /// curve differs from the other supported leaderboards.
+        /// </remarks>
         private float CalculatePlusOneInternal()
         {
             if (_scores.Count == 0)
@@ -655,6 +952,19 @@ namespace BLPPCounter.Utils.Profile_Utils
             return Round((1f + (shiftWeight * weightedSum)) / GetWeight(index + 1));
         }
 
+        /// <summary>
+        /// Calculates the raw AP required for an AccSaber play to increase the profile
+        /// total by one AP.
+        /// </summary>
+        /// <returns>
+        /// The rounded raw AP threshold required for a one-point profile increase, or
+        /// <c>1f</c> when the profile contains no plays.
+        /// </returns>
+        /// <remarks>
+        /// This calculation accounts for AccSaber's logistic weighting curve and for
+        /// any difference between the stored weighted-score sum and the profile's
+        /// current total AP.
+        /// </remarks>
         private float CalculateAccSaberPlusOne()
         {
             if (_scores.Count == 0)
@@ -684,6 +994,20 @@ namespace BLPPCounter.Utils.Profile_Utils
             return Round((1f + totalOffset) / currentWeight);
         }
 
+        /// <summary>
+        /// Gets the leaderboard-specific weighting multiplier for a one-based score rank.
+        /// </summary>
+        /// <param name="scoreNumber">
+        /// The one-based rank of the score in the descending profile play list.
+        /// </param>
+        /// <returns>
+        /// The multiplier applied to a score at <paramref name="scoreNumber"/>.
+        /// </returns>
+        /// <remarks>
+        /// BeatLeader and ScoreSaber use a geometric decay of <c>0.965</c> per rank.
+        /// AccSaber uses its logistic weighting curve. Unsupported leaderboard values
+        /// receive an unmodified weight of <c>1f</c>.
+        /// </remarks>
         private float GetWeight(int scoreNumber)
         {
             int index = scoreNumber - 1;
@@ -699,6 +1023,19 @@ namespace BLPPCounter.Utils.Profile_Utils
             };
         }
 
+        /// <summary>
+        /// Gets the weighting multiplier immediately following a known multiplier.
+        /// </summary>
+        /// <param name="lastWeight">
+        /// The weighting multiplier for the preceding score position.
+        /// </param>
+        /// <returns>
+        /// The weighting multiplier for the next lower-ranked score position.
+        /// </returns>
+        /// <remarks>
+        /// This avoids recalculating the full weight from a rank number while building
+        /// the weighted-score collection.
+        /// </remarks>
         private float GetNextWeight(float lastWeight)
         {
             return Leaderboard switch
@@ -711,6 +1048,19 @@ namespace BLPPCounter.Utils.Profile_Utils
             };
         }
 
+        /// <summary>
+        /// Gets the weighting multiplier immediately preceding a known multiplier.
+        /// </summary>
+        /// <param name="lastWeight">
+        /// The weighting multiplier for the current score position.
+        /// </param>
+        /// <returns>
+        /// The weighting multiplier for the next higher-ranked score position.
+        /// </returns>
+        /// <remarks>
+        /// This is used by the AccSaber PlusOne calculation while iterating from lower
+        /// ranked plays toward higher ranked plays.
+        /// </remarks>
         private float GetPreviousWeight(float lastWeight)
         {
             return Leaderboard switch
@@ -723,6 +1073,14 @@ namespace BLPPCounter.Utils.Profile_Utils
             };
         }
 
+        /// <summary>
+        /// Restricts the currently selected page number to the valid range for the
+        /// stored score count.
+        /// </summary>
+        /// <remarks>
+        /// The first page is always page one, including when the profile has no scores.
+        /// The final page is calculated from <see cref="PLAYS_TO_SHOW"/>.
+        /// </remarks>
         private void ClampPageNumber()
         {
             int maximumPage = Math.Max(1, (_scores.Count + PLAYS_TO_SHOW - 1) / PLAYS_TO_SHOW);
@@ -733,11 +1091,26 @@ namespace BLPPCounter.Utils.Profile_Utils
                 _pageNumber = maximumPage;
         }
 
+        /// <summary>
+        /// Rounds a PP/AP value using the decimal precision configured for the plugin.
+        /// </summary>
+        /// <param name="value">The value to round.</param>
+        /// <returns>
+        /// <paramref name="value"/> rounded to <c>_config.DecimalPrecision</c> decimal places.
+        /// </returns>
         private float Round(float value)
         {
             return (float)Math.Round(value, _config.DecimalPrecision);
         }
 
+        /// <summary>
+        /// Notifies all subscribers that the profile state has changed.
+        /// </summary>
+        /// <remarks>
+        /// Each subscriber is invoked independently. Exceptions thrown by one
+        /// subscriber are logged and do not prevent notification of subsequent
+        /// subscribers.
+        /// </remarks>
         private void NotifyChanged()
         {
             Action? handler = Changed;
@@ -758,11 +1131,35 @@ namespace BLPPCounter.Utils.Profile_Utils
             }
         }
 
+        /// <summary>
+        /// Determines whether two floating-point values are equal within a small
+        /// absolute tolerance.
+        /// </summary>
+        /// <param name="left">The first value to compare.</param>
+        /// <param name="right">The second value to compare.</param>
+        /// <returns>
+        /// <see langword="true"/> when the absolute difference between
+        /// <paramref name="left"/> and <paramref name="right"/> is at most
+        /// <see cref="UnityEngine.Mathf.Epsilon"/>; otherwise, <see langword="false"/>.
+        /// </returns>
         private static bool ApproximatelyEqual(float left, float right)
         {
-            return Math.Abs(left - right) <= 0.0001f;
+            return UnityEngine.Mathf.Approximately(left, right);
         }
 
+        /// <summary>
+        /// Creates constants used to calculate and step through AccSaber's logistic
+        /// score-weighting curve.
+        /// </summary>
+        /// <returns>
+        /// An array containing the logistic curve offset, normalization factor, and
+        /// forward and reverse weight-step constants, in that order.
+        /// </returns>
+        /// <remarks>
+        /// The returned array is used by <see cref="GetWeight(int)"/>,
+        /// <see cref="GetNextWeight(float)"/>, and
+        /// <see cref="GetPreviousWeight(float)"/> for AccSaber profiles.
+        /// </remarks>
         private static float[] CreateAccSaberConstants()
         {
             const double y1 = 0.1d;
